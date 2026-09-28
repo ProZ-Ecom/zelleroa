@@ -22,6 +22,7 @@ import { useCheckout } from "@/features/checkout/checkout-context";
 import { useCheckoutSummary, usePlaceOrder } from "@/features/orders/hooks";
 import { OrderItemsList } from "@/features/orders/components/OrderItemsList";
 import { OrderTotals } from "@/features/orders/components/OrderTotals";
+import { AppliedReferral } from "@/features/agents/components/AppliedReferral";
 import { PAYMENT_METHOD_OPTIONS } from "@/features/orders/constants";
 
 export default function CheckoutPaymentPage() {
@@ -208,6 +209,8 @@ export default function CheckoutPaymentPage() {
                   onRetry={refetchSummary}
                 />
               )}
+
+              <AppliedReferral />
 
               <Button
                 className="mt-5 w-full"

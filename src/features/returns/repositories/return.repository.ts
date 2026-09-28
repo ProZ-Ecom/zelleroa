@@ -1,4 +1,5 @@
 import crypto from "crypto";
+import { voidCommissions } from "@/features/agents/services/commission.service";
 import { db } from "@/lib/db/prisma";
 import { Prisma } from "@/generated/prisma";
 import type {
@@ -317,6 +318,21 @@ export const returnRepository = {
           updatedAt: now,
           updated_by: params.adminId,
         },
+      });
+
+      // Only the items actually in this return lose their commission; the rest of the
+      // order keeps earning. The order status snapshot still flips to "returned".
+      const returnedItems = await tx.return_items.findMany({
+        where: { return_request_id: params.returnRequestId },
+        select: { order_item_id: true },
+      });
+      await tx.commissions.updateMany({ where: { order_id: params.orderId }, data: { order_status: "returned" } });
+      await voidCommissions(tx, {
+        orderId: params.orderId,
+        orderItemIds: returnedItems.map((i) => i.order_item_id),
+        kind: "returned",
+        reason: "Item returned",
+        actor: { id: params.adminId, role: "ADMIN" },
       });
 
       await tx.order_status_history.create({

@@ -446,7 +446,7 @@ export function OrdersTab({
                       <div key={idx} className="flex items-center gap-3.5 py-2.5 first:pt-0 last:pb-0">
                         <div className="w-12 h-12 rounded-lg flex-shrink-0 overflow-hidden border border-theme-border-subtle">
                           <ProductImage
-                            src={(it as any).image || (it as any).productImage || null}
+                            src={it.primaryImage || (it as any).image || null}
                             alt={it.productName || "Fashion Item"}
                             fallbackText={it.productName || "Fashion Item"}
                             containerClassName="w-full h-full"
@@ -459,10 +459,17 @@ export function OrdersTab({
                           </div>
                           <div className="text-[11px] text-theme-text-muted mt-0.5 flex items-center gap-2">
                             {it.quantity && <span>Qty: {it.quantity}</span>}
-                            {it.variantName && (
+                            {(it.attributes?.length ? it.attributes.map((a) => `${a.name}: ${a.value}`).join(" | ") : it.variantName) && (
                               <>
                                 <span className="w-1 h-1 rounded-full bg-theme-border inline-block" />
-                                <span>{it.variantName}</span>
+                                <span className="truncate">
+                                  {it.attributes?.length
+                                    ? it.attributes
+                                        .filter((a, i, arr) => arr.findIndex((b) => b.value === a.value && b.name.toLowerCase().startsWith("colo") === a.name.toLowerCase().startsWith("colo")) === i)
+                                        .map((a) => `${a.name}: ${a.value}`)
+                                        .join(" | ")
+                                    : it.variantName}
+                                </span>
                               </>
                             )}
                           </div>
@@ -774,7 +781,7 @@ export function OrdersTab({
                   <div key={idx} className="flex items-center gap-3 py-2 border-b border-theme-border-subtle last:border-0">
                     <div className="w-9 h-9 rounded-lg overflow-hidden border border-theme-border-subtle flex-shrink-0">
                       <ProductImage
-                        src={(it as any).image || (it as any).productImage || null}
+                        src={it.primaryImage || (it as any).image || null}
                         alt={it.productName || "Fashion Item"}
                         fallbackText={it.productName}
                         containerClassName="w-full h-full"
@@ -782,7 +789,7 @@ export function OrdersTab({
                       />
                     </div>
                     <span className="text-xs text-theme-text-primary font-medium flex-1 truncate">
-                      {it.productName} {it.variantName ? `(${it.variantName})` : ""} × {it.quantity}
+                      {it.productName} {it.attributes?.length ? `(${it.attributes.map((a) => a.value).filter((v, i, r) => r.indexOf(v) === i).join(", ")})` : it.variantName ? `(${it.variantName})` : ""} × {it.quantity}
                     </span>
                     <span className="font-semibold text-xs text-theme-primary flex-shrink-0">
                       {formatPrice(it.totalPrice ?? it.unitPrice ?? 0)}

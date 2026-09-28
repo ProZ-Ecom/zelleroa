@@ -7,7 +7,6 @@ import { z } from "zod";
 import { Info } from "lucide-react";
 import { FormInput } from "@/components/forms/form-input";
 import { FormSelect } from "@/components/forms/form-select";
-import { FormImageUpload } from "@/components/forms/form-image-upload";
 import { FormSubmitButton } from "@/components/forms/form-submit-button";
 
 const productFormSchema = z.object({
@@ -33,7 +32,6 @@ const productFormSchema = z.object({
   gender: z.enum(["men", "women", "kids", "unisex"], {
     message: "Please select a gender / audience",
   }),
-  productImage: z.string().optional(),
 });
 
 export type ProductFormValues = z.infer<typeof productFormSchema>;
@@ -53,7 +51,6 @@ export interface ProductOption {
 
 interface ProductFormProps {
   initialData?: Partial<ProductFormValues>;
-  initialImageUrl?: string | null;
   isEditing?: boolean;
   categories: ProductOption[];
   brands?: ProductOption[];
@@ -65,7 +62,6 @@ interface ProductFormProps {
 
 function ProductForm({
   initialData,
-  initialImageUrl = null,
   isEditing = false,
   categories = [],
   brands = [],
@@ -129,7 +125,6 @@ function ProductForm({
       brandId: defaultBrandId,
       hsnCodeId: initialData?.hsnCodeId || "",
       gender: initialData?.gender || ("" as ProductFormValues["gender"]),
-      productImage: initialImageUrl || "",
     },
   });
 
@@ -342,13 +337,6 @@ function ProductForm({
             required
           />
         </div>
-
-        <FormImageUpload
-          name="productImage"
-          label="Product Image"
-          folder="products"
-          infoMessage="Upload a JPG, PNG, or WebP image up to 5MB. Recommended size: 500 × 500 px."
-        />
 
         <div className="flex justify-end pt-4">
           <FormSubmitButton

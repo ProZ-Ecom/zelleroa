@@ -40,6 +40,11 @@ export interface BannerTypeConfig {
   media: BannerMediaKind;
   /** Present for every image-based banner type. */
   image?: BannerImageSpec;
+  /**
+   * When true, the form also shows the floating-card fields (badge label,
+   * subtitle, price text) alongside the usual title/link/media inputs.
+   */
+  hasCard?: boolean;
 }
 
 export const BANNER_IMAGE_ACCEPT_LABEL = "JPG, JPEG, PNG, WEBP";
@@ -67,7 +72,19 @@ const PORTRAIT_4_5: BannerImageSpec = {
   enforce: true,
 };
 
+const LANDSCAPE_4_3: BannerImageSpec = {
+  width: 1200,
+  height: 900,
+  ratio: 4 / 3,
+  ratioLabel: "4:3",
+  orientation: "landscape",
+  previewClassName: "aspect-[4/3] w-full max-w-[420px] mx-auto",
+  thumbnailClassName: "aspect-[4/3] w-24",
+  enforce: true,
+};
+
 export const HOME_HERO_SLUG = "home-hero";
+export const HOME_HERO_INTRO_SLUG = "home-hero-intro";
 export const HOME_OFFER_SLUG = "home-offer";
 export const HOME_POPUP_OFFER_SLUG = "home-popup-offer";
 export const HOME_REELS_SLUG = "home-reels";
@@ -80,6 +97,15 @@ export const BANNER_TYPE_CONFIGS: Record<string, BannerTypeConfig> = {
       "Full-width slider banner shown at the top of the home page.",
     media: "image",
     image: LANDSCAPE_3_1,
+  },
+  [HOME_HERO_INTRO_SLUG]: {
+    slug: HOME_HERO_INTRO_SLUG,
+    label: "Home Intro Image",
+    description:
+      "Image and floating trending card shown beside the home page intro heading.",
+    media: "image",
+    image: LANDSCAPE_4_3,
+    hasCard: true,
   },
   [HOME_OFFER_SLUG]: {
     slug: HOME_OFFER_SLUG,
@@ -108,6 +134,7 @@ export const BANNER_TYPE_CONFIGS: Record<string, BannerTypeConfig> = {
 /** Order the known slots appear in the Banner Type dropdown. */
 export const BANNER_TYPE_ORDER = [
   HOME_HERO_SLUG,
+  HOME_HERO_INTRO_SLUG,
   HOME_OFFER_SLUG,
   HOME_POPUP_OFFER_SLUG,
   HOME_REELS_SLUG,

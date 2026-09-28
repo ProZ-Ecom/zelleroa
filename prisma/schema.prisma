@@ -90,11 +90,12 @@ model User {
   is_blocked                                                          BigInt?
   blocked_at                                                          DateTime?                  @default(now()) @db.Timestamp(0)
   referral_code                                                       String?                    @unique(map: "users_referral_code") @db.VarChar(30)
-  referred_by_agent_id                                                BigInt?                    @db.UnsignedBigInt
   referred_at                                                         DateTime?                  @db.Timestamp(0)
-  agent_referrer                                                      User?                      @relation("UserReferredByAgent", fields: [referred_by_agent_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_users_referred_by_agent")
-  referred_users                                                      User[]                     @relation("UserReferredByAgent")
   agent_orders                                                        Order[]                    @relation("OrderAgent")
+  agent_profile                                                       agent_profiles?
+  agent_commissions                                                   commissions[]              @relation("CommissionAgent")
+  customer_commissions                                                commissions[]              @relation("CommissionCustomer")
+  agent_payouts                                                       commission_payouts[]       @relation("PayoutAgent")
   attribute_values_attribute_values_created_byTousers                 AttributeValue[]           @relation("attribute_values_created_byTousers")
   attribute_values_attribute_values_updated_byTousers                 AttributeValue[]           @relation("attribute_values_updated_byTousers")
   audit_logs_audit_logs_created_byTousers                             AuditLog[]                 @relation("audit_logs_created_byTousers")
@@ -314,7 +315,6 @@ model User {
   @@index([created_by], map: "fk_users_created_by")
   @@index([roleId], map: "fk_users_role")
   @@index([updated_by], map: "fk_users_updated_by")
-  @@index([referred_by_agent_id], map: "fk_users_referred_by_agent")
   @@index([status], map: "idx_users_status")
   @@map("users")
 }
@@ -345,6 +345,8 @@ model ProductCategory {
   coupon_categories                          coupon_categories[]
   size_charts                                size_charts[]
   headerMenuLinks                            HeaderMenuItemCategory[]
+  commissions                    commissions[]
+  commission_rates               commission_rates[]
 
   @@index([parentId], map: "fk_cat_parent")
   @@index([created_by], map: "fk_categories_created_by")
@@ -436,6 +438,8 @@ model Product {
   offer_products                   offer_products[]
   coupon_products                  coupon_products[]
   orderItems                       OrderItem[]
+  commissions                    commissions[]
+  commission_rates               commission_rates[]
   product_attribute_values         product_attribute_values[]
   product_attribute_configs        product_attribute_configs[]
   images                           ProductImage[]
@@ -978,6 +982,11 @@ model Order {
   created_by                     BigInt?                  @db.UnsignedBigInt
   updated_by                     BigInt?                  @db.UnsignedBigInt
   agent_id                       BigInt?                  @db.UnsignedBigInt
+  /// Referral code active when THIS order was placed (order-specific, never customer-specific).
+  referral_code                  String?                  @db.VarChar(30)
+  /// Blended commission % and total commission frozen at order creation (per-item detail lives in `commissions`).
+  commission_percentage          Decimal?                 @db.Decimal(5, 2)
+  commission_amount              Decimal?                 @db.Decimal(12, 2)
   coupon_usage                   coupon_usage[]
   address                        OrderAddress[]
   items                          OrderItem[]
@@ -987,6 +996,7 @@ model Order {
   delivery_slots                 delivery_slots?          @relation(fields: [delivery_slot_id], references: [id], onUpdate: NoAction, map: "fk_order_slot")
   user                           User                     @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_order_user")
   agent                          User?                    @relation("OrderAgent", fields: [agent_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_orders_agent")
+  commissions                    commissions[]
   users_orders_created_byTousers User?                    @relation("orders_created_byTousers", fields: [created_by], references: [id], onUpdate: NoAction, map: "fk_orders_created_by")
   users_orders_updated_byTousers User?                    @relation("orders_updated_byTousers", fields: [updated_by], references: [id], onUpdate: NoAction, map: "fk_orders_updated_by")
   payments                       Payment[]
@@ -1001,6 +1011,7 @@ model Order {
   @@index([created_by], map: "fk_orders_created_by")
   @@index([updated_by], map: "fk_orders_updated_by")
   @@index([agent_id], map: "fk_orders_agent")
+  @@index([referral_code], map: "idx_orders_referral_code")
   @@index([createdAt], map: "idx_order_created")
   @@index([order_status], map: "idx_order_status")
   @@index([userId], map: "idx_order_user")
@@ -1041,6 +1052,7 @@ model OrderItem {
   variant                             ProductVariant    @relation(fields: [variantId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_orderitem_variant")
   variant_unit_price                  VariantUnitPrice? @relation(fields: [variantUnitPriceId], references: [id], onDelete: Restrict, onUpdate: NoAction, map: "fk_orderitem_variant_unit_price")
   return_items                        return_items[]
+  commission                     commissions?
   reviews                             Review[]
 
   @@index([created_by], map: "fk_order_items_created_by")
@@ -1374,6 +1386,9 @@ model Banner {
   title                           String?            @db.VarChar(150)
   image_url                       String             @db.VarChar(500)
   link_url                        String?            @db.VarChar(500)
+  badge_label                     String?            @db.VarChar(50)
+  subtitle                        String?            @db.VarChar(100)
+  price_text                      String?            @db.VarChar(50)
   media_type                      banners_media_type @default(image)
   video_url                       String?            @db.VarChar(500)
   thumbnail_url                   String?            @db.VarChar(500)
@@ -3045,4 +3060,186 @@ model WhatsAppTemplate {
   updated_at DateTime @default(now()) @updatedAt @db.Timestamp(0)
 
   @@map("whatsapp_templates")
+}
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Agent referral & commission system
+// An agent is a `users` row whose role is AGENT; everything below hangs off it.
+// ─────────────────────────────────────────────────────────────────────────────
+
+enum commission_rate_scope {
+  global
+  category
+  product
+}
+
+enum commission_status {
+  pending
+  approved
+  payout_requested
+  payout_approved
+  paid
+  cancelled
+  reversed
+}
+
+enum commission_payouts_status {
+  requested
+  approved
+  rejected
+  paid
+  cancelled
+}
+
+enum commission_payouts_method {
+  upi
+  bank_transfer
+}
+
+/// 1:1 extension of an AGENT user: public agent id + saved payout details.
+/// The bank account number is stored AES-256-GCM encrypted (see lib/security/field-crypto).
+model agent_profiles {
+  id                      BigInt                     @id @default(autoincrement()) @db.UnsignedBigInt
+  user_id                 BigInt                     @unique(map: "uq_agent_profiles_user") @db.UnsignedBigInt
+  agent_code              String                     @unique(map: "uq_agent_profiles_code") @db.VarChar(20)
+  notes                   String?                    @db.VarChar(500)
+  preferred_payout_method commission_payouts_method?
+  upi_id                  String?                    @db.VarChar(100)
+  bank_account_holder     String?                    @db.VarChar(150)
+  bank_name               String?                    @db.VarChar(150)
+  bank_account_number_enc String?                    @db.VarChar(500)
+  bank_account_last4      String?                    @db.VarChar(4)
+  bank_ifsc               String?                    @db.VarChar(15)
+  created_at              DateTime                   @default(now()) @db.Timestamp(0)
+  updated_at              DateTime                   @default(now()) @updatedAt @db.Timestamp(0)
+  created_by              BigInt?                    @db.UnsignedBigInt
+  updated_by              BigInt?                    @db.UnsignedBigInt
+  user                    User                       @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_agent_profiles_user")
+
+  @@map("agent_profiles")
+}
+
+
+/// Configurable percentages. `scope_key` (global, category:<id> or product:<id>) is unique
+/// so a target can only ever carry one rate.
+model commission_rates {
+  id          BigInt                @id @default(autoincrement()) @db.UnsignedBigInt
+  scope       commission_rate_scope
+  scope_key   String                @unique(map: "uq_commission_rates_scope_key") @db.VarChar(40)
+  category_id BigInt?               @db.UnsignedBigInt
+  product_id  BigInt?               @db.UnsignedBigInt
+  percentage  Decimal               @db.Decimal(5, 2)
+  is_active   Boolean               @default(true)
+  created_by  BigInt?               @db.UnsignedBigInt
+  updated_by  BigInt?               @db.UnsignedBigInt
+  created_at  DateTime              @default(now()) @db.Timestamp(0)
+  updated_at  DateTime              @default(now()) @updatedAt @db.Timestamp(0)
+  category    ProductCategory?      @relation(fields: [category_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_commission_rates_category")
+  product     Product?              @relation(fields: [product_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_commission_rates_product")
+
+  @@index([scope, is_active], map: "idx_commission_rates_scope")
+  @@index([category_id], map: "idx_commission_rates_category")
+  @@index([product_id], map: "idx_commission_rates_product")
+  @@map("commission_rates")
+}
+
+/// One row per order item. Percentage and amount are frozen at creation time.
+model commissions {
+  id                    BigInt              @id @default(autoincrement()) @db.UnsignedBigInt
+  uuid                  String              @unique(map: "uq_commissions_uuid") @db.VarChar(64)
+  agent_id              BigInt              @db.UnsignedBigInt
+  referral_code         String?             @db.VarChar(30)
+  customer_id           BigInt              @db.UnsignedBigInt
+  order_id              BigInt              @db.UnsignedBigInt
+  order_item_id         BigInt              @unique(map: "uq_commissions_order_item") @db.UnsignedBigInt
+  product_id            BigInt              @db.UnsignedBigInt
+  category_id           BigInt?             @db.UnsignedBigInt
+  product_amount        Decimal             @db.Decimal(12, 2)
+  commission_percentage Decimal             @db.Decimal(5, 2)
+  rate_source           String              @db.VarChar(20)
+  commission_amount     Decimal             @db.Decimal(12, 2)
+  status                commission_status   @default(pending)
+  order_status          String              @db.VarChar(30)
+  delivered_at          DateTime?           @db.Timestamp(0)
+  return_period_ends_at DateTime?           @db.Timestamp(0)
+  approved_at           DateTime?           @db.Timestamp(0)
+  payout_id             BigInt?             @db.UnsignedBigInt
+  paid_at               DateTime?           @db.Timestamp(0)
+  cancelled_at          DateTime?           @db.Timestamp(0)
+  reversed_at           DateTime?           @db.Timestamp(0)
+  reversal_reason       String?             @db.VarChar(255)
+  clawback_due          Boolean             @default(false)
+  created_at            DateTime            @default(now()) @db.Timestamp(0)
+  updated_at            DateTime            @default(now()) @updatedAt @db.Timestamp(0)
+  agent                 User                @relation("CommissionAgent", fields: [agent_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_commissions_agent")
+  customer              User                @relation("CommissionCustomer", fields: [customer_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_commissions_customer")
+  order                 Order               @relation(fields: [order_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_commissions_order")
+  order_item            OrderItem           @relation(fields: [order_item_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_commissions_order_item")
+  product               Product             @relation(fields: [product_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_commissions_product")
+  category              ProductCategory?    @relation(fields: [category_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_commissions_category")
+  payout                commission_payouts? @relation(fields: [payout_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_commissions_payout")
+
+  @@index([agent_id, status], map: "idx_commissions_agent_status")
+  @@index([referral_code], map: "idx_commissions_referral_code")
+  @@index([customer_id], map: "idx_commissions_customer")
+  @@index([order_id], map: "idx_commissions_order")
+  @@index([product_id], map: "idx_commissions_product")
+  @@index([category_id], map: "idx_commissions_category")
+  @@index([payout_id], map: "idx_commissions_payout")
+  @@index([status, return_period_ends_at], map: "idx_commissions_status_due")
+  @@map("commissions")
+}
+
+/// A payout request. Payment details are snapshotted so later profile edits never rewrite history.
+model commission_payouts {
+  id                    BigInt                    @id @default(autoincrement()) @db.UnsignedBigInt
+  uuid                  String                    @unique(map: "uq_commission_payouts_uuid") @db.VarChar(64)
+  agent_id              BigInt                    @db.UnsignedBigInt
+  amount                Decimal                   @db.Decimal(12, 2)
+  method                commission_payouts_method
+  upi_id                String?                   @db.VarChar(100)
+  account_holder_name   String?                   @db.VarChar(150)
+  bank_name             String?                   @db.VarChar(150)
+  account_number_enc    String?                   @db.VarChar(500)
+  account_last4         String?                   @db.VarChar(4)
+  ifsc                  String?                   @db.VarChar(15)
+  status                commission_payouts_status @default(requested)
+  requested_at          DateTime                  @default(now()) @db.Timestamp(0)
+  reviewed_at           DateTime?                 @db.Timestamp(0)
+  reviewed_by           BigInt?                   @db.UnsignedBigInt
+  rejection_reason      String?                   @db.VarChar(255)
+  paid_at               DateTime?                 @db.Timestamp(0)
+  paid_by               BigInt?                   @db.UnsignedBigInt
+  transaction_reference String?                   @db.VarChar(100)
+  admin_note            String?                   @db.VarChar(500)
+  created_at            DateTime                  @default(now()) @db.Timestamp(0)
+  updated_at            DateTime                  @default(now()) @updatedAt @db.Timestamp(0)
+  agent                 User                      @relation("PayoutAgent", fields: [agent_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_commission_payouts_agent")
+  commissions           commissions[]
+
+  @@index([agent_id, status], map: "idx_commission_payouts_agent_status")
+  @@index([status], map: "idx_commission_payouts_status")
+  @@map("commission_payouts")
+}
+
+/// Append-only trail for every commission / payout / assignment / rate action.
+model commission_audit_logs {
+  id          BigInt   @id @default(autoincrement()) @db.UnsignedBigInt
+  entity_type String   @db.VarChar(30)
+  entity_id   BigInt   @db.UnsignedBigInt
+  agent_id    BigInt?  @db.UnsignedBigInt
+  action      String   @db.VarChar(50)
+  from_status String?  @db.VarChar(30)
+  to_status   String?  @db.VarChar(30)
+  actor_id    BigInt?  @db.UnsignedBigInt
+  actor_role  String?  @db.VarChar(20)
+  note        String?  @db.VarChar(500)
+  metadata    Json?
+  created_at  DateTime @default(now()) @db.Timestamp(0)
+
+  @@index([entity_type, entity_id], map: "idx_cal_entity")
+  @@index([agent_id], map: "idx_cal_agent")
+  @@index([created_at], map: "idx_cal_created")
+  @@map("commission_audit_logs")
 }

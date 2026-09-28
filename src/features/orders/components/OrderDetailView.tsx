@@ -265,6 +265,34 @@ export function OrderDetailView({
               </div>
             )}
 
+            {/* Referral & commission (admin only - the API sends this for admin requests only) */}
+            {"referral" in order && order.referral && (
+              <div className="rounded-2xl border border-theme-border bg-theme-surface shadow-2xs overflow-hidden">
+                <div className="bg-theme-surface-alt border-b border-theme-border-subtle px-4 py-3">
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-theme-text-primary">
+                    Referral &amp; Commission
+                  </h3>
+                </div>
+                <dl className="p-4 text-xs grid grid-cols-2 gap-x-3 gap-y-2">
+                  <dt className="text-theme-text-muted">Referral code</dt>
+                  <dd className="font-mono font-semibold text-theme-text-primary text-right">{order.referral.referralCode ?? "—"}</dd>
+                  <dt className="text-theme-text-muted">Referred agent</dt>
+                  <dd className="font-semibold text-theme-text-primary text-right">
+                    {order.referral.agentName}
+                    {order.referral.agentCode ? ` (${order.referral.agentCode})` : ""}
+                  </dd>
+                  <dt className="text-theme-text-muted">Commission %</dt>
+                  <dd className="font-semibold text-theme-text-primary text-right">{order.referral.commissionPercentage}%</dd>
+                  <dt className="text-theme-text-muted">Commission amount</dt>
+                  <dd className="font-semibold text-theme-text-primary text-right">{formatPrice(order.referral.commissionAmount)}</dd>
+                  <dt className="text-theme-text-muted">Commission status</dt>
+                  <dd className="font-semibold capitalize text-theme-text-primary text-right">
+                    {order.referral.commissionStatus.replace(/_/g, " ")}
+                  </dd>
+                </dl>
+              </div>
+            )}
+
             {/* Assigned Delivery Staff */}
             <div className="rounded-2xl border border-theme-border bg-theme-surface shadow-2xs overflow-hidden">
               <div className="bg-theme-surface-alt border-b border-theme-border-subtle px-4 py-3 flex items-center gap-2">

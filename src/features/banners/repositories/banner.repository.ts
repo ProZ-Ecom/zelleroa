@@ -38,6 +38,9 @@ export function formatBanner(
     videoUrl: record.video_url,
     thumbnailUrl: record.thumbnail_url,
     linkUrl: record.link_url,
+    badgeLabel: record.badge_label,
+    subtitle: record.subtitle,
+    priceText: record.price_text,
     sortOrder: record.sortOrder,
     isActive: Boolean(record.isActive),
     startsAt: record.startsAt,
@@ -65,6 +68,9 @@ export function formatCustomerBanner(
     videoUrl: record.video_url,
     thumbnailUrl: record.thumbnail_url,
     linkUrl: record.link_url,
+    badgeLabel: record.badge_label,
+    subtitle: record.subtitle,
+    priceText: record.price_text,
     sortOrder: record.sortOrder,
     bannerPosition: {
       id: position.uuid || String(position.id),
@@ -104,6 +110,9 @@ export const bannerRepository = {
         video_url: data.videoUrl ? data.videoUrl.trim() : null,
         thumbnail_url: data.thumbnailUrl ? data.thumbnailUrl.trim() : null,
         link_url: data.linkUrl ? data.linkUrl.trim() : null,
+        badge_label: data.badgeLabel ? data.badgeLabel.trim() : null,
+        subtitle: data.subtitle ? data.subtitle.trim() : null,
+        price_text: data.priceText ? data.priceText.trim() : null,
         sortOrder: data.sortOrder ?? 0,
         isActive: data.isActive ?? true,
         startsAt: data.startsAt ?? null,
@@ -156,6 +165,18 @@ export const bannerRepository = {
 
     if (data.linkUrl !== undefined) {
       updateData.link_url = data.linkUrl ? data.linkUrl.trim() : null;
+    }
+
+    if (data.badgeLabel !== undefined) {
+      updateData.badge_label = data.badgeLabel ? data.badgeLabel.trim() : null;
+    }
+
+    if (data.subtitle !== undefined) {
+      updateData.subtitle = data.subtitle ? data.subtitle.trim() : null;
+    }
+
+    if (data.priceText !== undefined) {
+      updateData.price_text = data.priceText ? data.priceText.trim() : null;
     }
 
     if (data.sortOrder !== undefined) {

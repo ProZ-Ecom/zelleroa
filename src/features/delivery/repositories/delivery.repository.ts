@@ -1,4 +1,5 @@
 import crypto from "crypto";
+import { syncCommissionsWithOrderStatus } from "@/features/agents/services/commission.service";
 import { db } from "@/lib/db/prisma";
 import { Prisma } from "@/generated/prisma";
 import { INDIA_POST_PARTNER_CODE, INDIA_POST_PARTNER_NAME } from "@/lib/shipping/india-post";
@@ -560,6 +561,7 @@ export const deliveryRepository = {
           updated_by: params.adminId,
         },
       });
+      await syncCommissionsWithOrderStatus(tx, params.orderId, "shipped", { id: params.adminId ?? null, role: "USER" });
 
       await tx.order_status_history.create({
         data: {
@@ -629,6 +631,7 @@ export const deliveryRepository = {
           updated_by: staffInternalId,
         },
       });
+      await syncCommissionsWithOrderStatus(tx, orderId, "out_for_delivery", { id: staffInternalId, role: "USER" });
 
       await tx.order_status_history.create({
         data: {
@@ -683,6 +686,7 @@ export const deliveryRepository = {
           updated_by: staffInternalId,
         },
       });
+      await syncCommissionsWithOrderStatus(tx, orderId, "delivered", { id: staffInternalId, role: "USER" });
 
       await tx.order_status_history.create({
         data: {

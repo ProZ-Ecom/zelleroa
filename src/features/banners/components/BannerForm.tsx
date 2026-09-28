@@ -37,6 +37,30 @@ const bannerFormSchema = z
     mediaType: z.enum(["image", "video"]).default("image"),
     imageUrl: z.string().optional().nullable(),
     videoUrl: z.string().optional().nullable(),
+    linkUrl: z
+      .string()
+      .trim()
+      .max(500, "Link URL cannot exceed 500 characters")
+      .optional()
+      .nullable(),
+    badgeLabel: z
+      .string()
+      .trim()
+      .max(50, "Badge label cannot exceed 50 characters")
+      .optional()
+      .nullable(),
+    subtitle: z
+      .string()
+      .trim()
+      .max(100, "Subtitle cannot exceed 100 characters")
+      .optional()
+      .nullable(),
+    priceText: z
+      .string()
+      .trim()
+      .max(50, "Price text cannot exceed 50 characters")
+      .optional()
+      .nullable(),
     isActive: z.boolean().default(true),
     startsAt: z.string().optional().nullable(),
     endsAt: z.string().optional().nullable(),
@@ -92,6 +116,10 @@ export interface BannerFormPayload {
   mediaType: "image" | "video";
   imageUrl: string;
   videoUrl: string | null;
+  linkUrl: string | null;
+  badgeLabel: string | null;
+  subtitle: string | null;
+  priceText: string | null;
   isActive: boolean;
   startsAt: string | null;
   endsAt: string | null;
@@ -154,6 +182,10 @@ export function BannerForm({
       mediaType: initialData?.mediaType ?? "image",
       imageUrl: initialData?.imageUrl ?? "",
       videoUrl: initialData?.videoUrl ?? "",
+      linkUrl: initialData?.linkUrl ?? "",
+      badgeLabel: initialData?.badgeLabel ?? "",
+      subtitle: initialData?.subtitle ?? "",
+      priceText: initialData?.priceText ?? "",
       isActive: initialData?.isActive ?? true,
       startsAt: formatDateForInput(initialData?.startsAt),
       endsAt: formatDateForInput(initialData?.endsAt),
@@ -244,6 +276,10 @@ export function BannerForm({
       // banner is preserved rather than silently wiped on save.
       imageUrl: trimmedImageUrl,
       videoUrl: isVideo && trimmedVideoUrl ? trimmedVideoUrl : null,
+      linkUrl: values.linkUrl?.trim() || null,
+      badgeLabel: typeConfig.hasCard ? values.badgeLabel?.trim() || null : null,
+      subtitle: typeConfig.hasCard ? values.subtitle?.trim() || null : null,
+      priceText: typeConfig.hasCard ? values.priceText?.trim() || null : null,
       isActive: Boolean(values.isActive),
       startsAt: values.startsAt?.trim()
         ? new Date(values.startsAt).toISOString()
@@ -256,8 +292,15 @@ export function BannerForm({
 
   const hasType = Boolean(selectedPositionId);
   const imageSpec = typeConfig.image;
+  // `formState.errors` (not `isValid`) drives every field's highlighted
+  // state below, so it's the only source that can't disagree with what's
+  // actually on screen - `isValid` is a separately debounced flag that can
+  // lag behind rapid setValue() calls (e.g. the type-switch effect above)
+  // and falsely block a submission with nothing left to fix.
   const showSubmitBlockedNotice =
-    formState.isSubmitted && !formState.isValid && !formState.isSubmitting;
+    formState.isSubmitted &&
+    Object.keys(formState.errors).length > 0 &&
+    !formState.isSubmitting;
 
   return (
     <FormProvider {...methods}>
@@ -293,7 +336,46 @@ export function BannerForm({
               description="Shown in the admin list and as image alt text."
               maxLength={150}
             />
+
+            <FormInput
+              name="linkUrl"
+              label="Link URL"
+              placeholder="e.g. /products"
+              description="Where shoppers go when they click this banner. Optional."
+              maxLength={500}
+            />
           </div>
+
+          {typeConfig.hasCard && (
+            <div className="mt-4 rounded-xl border border-dashed border-theme-border-input bg-theme-surface-alt p-4">
+              <p className="text-xs font-semibold text-theme-text-primary">
+                Floating card
+              </p>
+              <p className="mt-0.5 text-xs text-theme-text-muted">
+                Shown overlaid on the image. Leave a field empty to hide it.
+              </p>
+              <div className="mt-3 grid grid-cols-1 gap-4 md:grid-cols-3">
+                <FormInput
+                  name="badgeLabel"
+                  label="Badge Label"
+                  placeholder="e.g. Trending"
+                  maxLength={50}
+                />
+                <FormInput
+                  name="subtitle"
+                  label="Subtitle"
+                  placeholder="e.g. Curated"
+                  maxLength={100}
+                />
+                <FormInput
+                  name="priceText"
+                  label="Price Text"
+                  placeholder="e.g. Starting ₹899"
+                  maxLength={50}
+                />
+              </div>
+            </div>
+          )}
         </section>
 
         {/* SECTION - Media, driven entirely by the selected banner type */}

@@ -1,4 +1,5 @@
 import crypto from "crypto";
+import { createCommissionsForOrder, syncCommissionsWithOrderStatus } from "@/features/agents/services/commission.service";
 import { db } from "@/lib/db/prisma";
 import { Prisma } from "@/generated/prisma";
 import { ApiError } from "@/lib/api/api-error";
@@ -7,6 +8,7 @@ import { reservationService } from "@/features/inventory/services/reservation.se
 import { getIndiaPostTrackingUrl, INDIA_POST_PARTNER_CODE } from "@/lib/shipping/india-post";
 import type {
   OrderDetailResponse,
+  OrderReferralDto,
   OrderListItemResponse,
   OrderItemResponse,
   OrderAddressResponse,
@@ -51,6 +53,8 @@ export const orderItemInclude = Prisma.validator<Prisma.OrderItemInclude>()({
   // only path to the color's images.
   variant: {
     select: {
+      color_name: true,
+      color_hex: true,
       product_variant_images: {
         where: { is_active: true },
         orderBy: [{ is_primary: "desc" }, { sort_order: "asc" }],
@@ -197,9 +201,18 @@ export function formatOrderItem(
           ...(variant?.color_name ? [{ name: "Color", value: variant.color_name }] : []),
           ...(unitPrice?.attribute_value?.value
             ? [{ name: "Size", value: unitPrice.attribute_value.value }]
-            : []),
+            : Number(unitPrice?.unit_value ?? 0) > 0 && unitPrice?.product_units
+              ? [
+                  {
+                    name: "Size",
+                    value: `${Number(unitPrice.unit_value)} ${unitPrice.product_units.code || unitPrice.product_units.name}`,
+                  },
+                ]
+              : []),
         ],
     primaryImage,
+    colorName: item.variant?.color_name ?? variant?.color_name ?? null,
+    colorHex: item.variant?.color_hex ?? null,
     quantity: item.quantity,
     unitPrice: Number(item.unit_price),
     discountAmount: Number(item.discount_amount ?? 0),
@@ -431,9 +444,42 @@ export async function generateUniqueOrderNumber(
 }
 
 export const orderRepository = {
+  /** Referral/commission summary of one order (admin view). Null when the order has no agent. */
+  async findOrderReferral(orderUuid: string): Promise<OrderReferralDto | null> {
+    const order = await db.order.findFirst({
+      where: { uuid: orderUuid },
+      select: {
+        referral_code: true,
+        commission_percentage: true,
+        commission_amount: true,
+        agent: { select: { name: true, agent_profile: { select: { agent_code: true } } } },
+        commissions: { select: { status: true, commission_amount: true, product_amount: true } },
+      },
+    });
+    if (!order?.agent) return null;
+
+    const statuses = new Set(order.commissions.map((c) => c.status));
+    const total = order.commissions.reduce((sum, c) => sum + Number(c.commission_amount), 0);
+    const base = order.commissions.reduce((sum, c) => sum + Number(c.product_amount), 0);
+    return {
+      referralCode: order.referral_code,
+      agentName: order.agent.name,
+      agentCode: order.agent.agent_profile?.agent_code ?? null,
+      commissionPercentage:
+        order.commission_percentage != null
+          ? Number(order.commission_percentage)
+          : base > 0
+            ? Math.round((total * 10000) / base) / 100
+            : 0,
+      commissionAmount: order.commission_amount != null ? Number(order.commission_amount) : Math.round(total * 100) / 100,
+      commissionStatus: statuses.size === 0 ? "none" : statuses.size === 1 ? [...statuses][0] : "mixed",
+    };
+  },
+
   async createCustomerOrderTransaction(params: {
     userId: bigint;
     agentId?: bigint | null;
+    referralCode?: string | null;
     cartId: bigint;
     subtotal: number;
     discountAmount?: number;
@@ -499,6 +545,7 @@ export const orderRepository = {
           orderNumber,
           userId: params.userId,
           agent_id: params.agentId ?? null,
+          referral_code: params.agentId ? (params.referralCode ?? null) : null,
           cart_id: params.cartId,
           couponId: params.coupon?.id ?? null,
           order_status: (params.orderStatus ?? "pending") as any,
@@ -600,6 +647,9 @@ export const orderRepository = {
           updated_by: params.userId,
         })),
       });
+
+      // 3.4. Agent commission rows (one per item) when the order is attributed to an agent.
+      await createCommissionsForOrder(tx, createdOrder.id);
 
       // 3.5. Decrement stock for the exact variant+unit purchased, and log it.
       // A conditional updateMany (quantity_available >= requested) makes this
@@ -1076,6 +1126,7 @@ export const orderRepository = {
           updated_by: params.changedBy,
         },
       });
+      await syncCommissionsWithOrderStatus(tx, params.orderId, "cancelled", { id: params.changedBy, role: "USER" });
 
       await tx.order_status_history.create({
         data: {
@@ -1140,6 +1191,7 @@ export const orderRepository = {
           updated_by: params.changedBy,
         },
       });
+      await syncCommissionsWithOrderStatus(tx, params.orderId, "returned", { id: params.changedBy, role: "USER" });
 
       await tx.order_status_history.create({
         data: {
@@ -1179,6 +1231,7 @@ export const orderRepository = {
           updated_by: params.changedBy,
         },
       });
+      await syncCommissionsWithOrderStatus(tx, params.orderId, params.status, { id: params.changedBy, role: "USER" });
 
       await tx.order_status_history.create({
         data: {

@@ -124,6 +124,7 @@ async function main() {
 
   const defaultBannerPositions = [
     { name: "Home Hero Banner", slug: "home-hero", page: "home" },
+    { name: "Home Intro Image", slug: "home-hero-intro", page: "home" },
     { name: "Home Offer Banner", slug: "home-offer", page: "home" },
     { name: "Home Popup Offer", slug: "home-popup-offer", page: "home" },
     { name: "Home Reels", slug: "home-reels", page: "home" },

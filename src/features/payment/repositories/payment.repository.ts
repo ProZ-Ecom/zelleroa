@@ -1,4 +1,5 @@
 import { db } from "@/lib/db/prisma";
+import { syncCommissionsWithOrderStatus } from "@/features/agents/services/commission.service";
 import type { Prisma } from "@/generated/prisma/client";
 
 /**
@@ -179,6 +180,7 @@ export const paymentRepository = {
           updated_by: params.userId,
         },
       });
+      await syncCommissionsWithOrderStatus(tx, params.orderId, "confirmed", { id: params.userId, role: "USER" });
 
       // 4. Create Order Status History
       await tx.order_status_history.create({
@@ -274,6 +276,8 @@ export const paymentRepository = {
     shippingAddressId: string;
     billingAddressId?: string;
     notes?: string;
+    /** Referral code active (if any) when the redirect-payment flow was initiated. */
+    referralCode?: string | null;
     amount: number;
     currency: string;
     orderNumber?: string;
@@ -284,12 +288,12 @@ export const paymentRepository = {
     await db.$executeRaw`
       INSERT INTO \`payment_redirect_tokens\`
         (\`token\`, \`razorpay_order_id\`, \`internal_order_ref\`, \`shipping_address_id\`,
-         \`billing_address_id\`, \`notes\`, \`amount\`, \`currency\`, \`order_number\`,
+         \`billing_address_id\`, \`notes\`, \`referral_code\`, \`amount\`, \`currency\`, \`order_number\`,
          \`key_id\`, \`user_id\`, \`is_used\`, \`expires_at\`)
       VALUES
         (${params.token}, ${params.razorpayOrderId}, ${params.internalOrderRef},
          ${params.shippingAddressId}, ${params.billingAddressId ?? null},
-         ${params.notes ?? null}, ${params.amount}, ${params.currency},
+         ${params.notes ?? null}, ${params.referralCode ?? null}, ${params.amount}, ${params.currency},
          ${params.orderNumber ?? null}, ${params.keyId}, ${params.userId},
          0, ${toUtcDatetimeString(params.expiresAt)})
     `;
@@ -306,6 +310,7 @@ export const paymentRepository = {
     shippingAddressId: string;
     billingAddressId: string | null;
     notes: string | null;
+    referralCode: string | null;
     amount: number;
     currency: string;
     orderNumber: string | null;
@@ -314,7 +319,7 @@ export const paymentRepository = {
   } | null> {
     const rows = await db.$queryRaw<any[]>`
       SELECT id, token, razorpay_order_id, internal_order_ref, shipping_address_id,
-             billing_address_id, notes, amount, currency, order_number, key_id, user_id
+             billing_address_id, notes, referral_code, amount, currency, order_number, key_id, user_id
       FROM \`payment_redirect_tokens\`
       WHERE token = ${token}
         AND is_used = 0
@@ -333,6 +338,7 @@ export const paymentRepository = {
       shippingAddressId: row.shipping_address_id,
       billingAddressId: row.billing_address_id ?? null,
       notes: row.notes ?? null,
+      referralCode: row.referral_code ?? null,
       amount: Number(row.amount),
       currency: row.currency,
       orderNumber: row.order_number ?? null,

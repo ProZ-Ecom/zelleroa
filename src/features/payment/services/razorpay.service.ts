@@ -1,3 +1,4 @@
+import type { NextRequest } from "next/server";
 import crypto from "crypto";
 import { ApiError } from "@/lib/api/api-error";
 import { db } from "@/lib/db/prisma";
@@ -6,6 +7,7 @@ import { cartService } from "@/features/cart/services/cart.service";
 import { orderService } from "@/features/orders/services/order.service";
 import { getRazorpayClient, getRazorpayPublicKey } from "../config/razorpay.config";
 import { paymentRepository } from "../repositories/payment.repository";
+import { referralService, findAgentByReferralCode } from "@/features/agents/services/referral.service";
 import { getShippingCharge } from "@/features/orders/shipping";
 import type {
   CreateRazorpayOrderInput,
@@ -200,7 +202,8 @@ export const razorpayService = {
    */
   async verifyPaymentSignature(
     sessionUserId: string,
-    input: VerifyRazorpayPaymentInput
+    input: VerifyRazorpayPaymentInput,
+    request?: NextRequest
   ) {
     const user = await userRepository.findById(sessionUserId);
     if (!user || !user.internalId) {
@@ -246,7 +249,7 @@ export const razorpayService = {
           razorpay_payment_id: input.razorpay_payment_id,
           razorpay_signature: input.razorpay_signature,
         },
-      });
+      }, request);
 
       // Find the created order to retrieve internal BigInt ID
       const dbOrder = await db.order.findFirst({
@@ -505,7 +508,8 @@ export const razorpayService = {
    */
   async initiateRedirectPayment(
     sessionUserId: string,
-    input: { shippingAddressId: string; billingAddressId?: string; notes?: string }
+    input: { shippingAddressId: string; billingAddressId?: string; notes?: string },
+    request?: NextRequest
   ): Promise<{ paymentUrl: string; token: string }> {
     const user = await userRepository.findById(sessionUserId);
     if (!user || !user.internalId) throw ApiError.unauthorized("User not found");
@@ -549,6 +553,11 @@ export const razorpayService = {
     const token = crypto.randomBytes(32).toString("hex");
     const expiresAt = new Date(Date.now() + 30 * 60 * 1000); // 30 minutes
 
+    // The payment app verifies the payment server-to-server with no access to
+    // this browser's cookies, so the referral active right now must be frozen
+    // onto the token and carried through to order creation at verify time.
+    const referral = await referralService.resolveForOrder(BigInt(userId), request);
+
     await paymentRepository.createPaymentToken({
       token,
       razorpayOrderId: rzpOrder.id,
@@ -556,6 +565,7 @@ export const razorpayService = {
       shippingAddressId: input.shippingAddressId,
       billingAddressId: input.billingAddressId,
       notes: input.notes,
+      referralCode: referral?.referralCode ?? null,
       amount: payableAmount,
       currency: "INR",
       orderNumber: undefined,
@@ -614,20 +624,32 @@ export const razorpayService = {
     }
     const sessionUserId = userRows[0].uuid as string;
 
+    // Re-validate the referral captured when this token was created (agent
+    // could since have been deactivated) - never trust it blindly at verify time.
+    const referral = tokenData.referralCode
+      ? await findAgentByReferralCode(tokenData.referralCode)
+      : null;
+    const validReferral = referral && referral.id !== tokenData.userId ? referral : null;
+
     // 5. Create internal order — only now, after verified payment
-    const createdOrder = await orderService.createCustomerOrder(sessionUserId, {
-      shippingAddressId: tokenData.shippingAddressId,
-      billingAddressId: tokenData.billingAddressId || tokenData.shippingAddressId,
-      notes: tokenData.notes || undefined,
-      paymentMethod: "CARD",
-      paymentDetails: {
-        gateway: "RAZORPAY",
-        isPaid: true,
-        razorpay_order_id: input.razorpay_order_id,
-        razorpay_payment_id: input.razorpay_payment_id,
-        razorpay_signature: input.razorpay_signature,
+    const createdOrder = await orderService.createCustomerOrder(
+      sessionUserId,
+      {
+        shippingAddressId: tokenData.shippingAddressId,
+        billingAddressId: tokenData.billingAddressId || tokenData.shippingAddressId,
+        notes: tokenData.notes || undefined,
+        paymentMethod: "CARD",
+        paymentDetails: {
+          gateway: "RAZORPAY",
+          isPaid: true,
+          razorpay_order_id: input.razorpay_order_id,
+          razorpay_payment_id: input.razorpay_payment_id,
+          razorpay_signature: input.razorpay_signature,
+        },
       },
-    });
+      undefined,
+      validReferral
+    );
 
     // 6. Record payment in DB
     const dbOrder = await db.order.findFirst({

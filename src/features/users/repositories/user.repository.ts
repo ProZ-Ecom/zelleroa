@@ -18,7 +18,6 @@ const userSelect = {
   createdAt: true,
   updatedAt: true,
   deleted_at: true,
-  referred_by_agent_id: true,
   role: {
     select: {
       name: true,

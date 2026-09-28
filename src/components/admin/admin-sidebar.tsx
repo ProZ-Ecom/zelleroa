@@ -34,6 +34,9 @@ import {
   PackagePlus,
   HelpCircle,
   Menu,
+  Wallet,
+  Percent,
+  Handshake,
 } from "lucide-react";
 import { cn, getInitials } from "@/lib/utils";
 import { APP_NAME } from "@/lib/constants";
@@ -105,6 +108,18 @@ const sidebarItems: SidebarItem[] = [
       { label: "Blogs", href: "/admin/dashboard/blogs", icon: BookOpen },
       { label: "FAQs", href: "/admin/dashboard/faqs", icon: HelpCircle },
       { label: "Contact List", href: "/admin/dashboard/contacts", icon: Mail },
+    ],
+  },
+  {
+    label: "Agents",
+    href: "/admin/dashboard/agents-menu",
+    icon: Handshake,
+    children: [
+      { label: "Agents", href: "/admin/dashboard/agents", icon: UserCheck },
+      { label: "Commission Rates", href: "/admin/dashboard/commission-rates", icon: Percent },
+      { label: "Commissions", href: "/admin/dashboard/commissions", icon: Receipt },
+      { label: "Payouts", href: "/admin/dashboard/agent-payouts", icon: Wallet },
+      { label: "Commission Reports", href: "/admin/dashboard/commission-reports", icon: BarChart3 },
     ],
   },
   {

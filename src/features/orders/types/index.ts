@@ -27,6 +27,9 @@ export interface OrderItemResponse {
   /** Options selected at purchase time (Color, Size, custom attributes). */
   attributes: Array<{ name: string; value: string }>;
   primaryImage: string | null;
+  /** Color of the ordered variant (live lookup; null if the variant has no color). */
+  colorName: string | null;
+  colorHex: string | null;
   quantity: number;
   /** Undiscounted price per unit at the time the order was placed. */
   unitPrice: number;
@@ -112,7 +115,20 @@ export interface OrderListItemResponse {
   updatedAt: Date;
 }
 
+/** Order-specific referral attribution. Admin-facing only - never sent to customers. */
+export interface OrderReferralDto {
+  referralCode: string | null;
+  agentName: string;
+  agentCode: string | null;
+  /** Blended commission % over the order's commissionable amount. */
+  commissionPercentage: number;
+  commissionAmount: number;
+  /** Single status when all item commissions agree, otherwise "mixed". */
+  commissionStatus: string;
+}
+
 export interface OrderDetailResponse extends OrderListItemResponse {
+  referral?: OrderReferralDto | null;
   items: OrderItemResponse[];
   shippingAddress: OrderAddressResponse | null;
   billingAddress: OrderAddressResponse | null;

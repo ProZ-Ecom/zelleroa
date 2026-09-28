@@ -8,7 +8,7 @@ import { couponValidationService } from "@/features/coupons/services/coupon-vali
 import { customerAddressService } from "@/features/customers/services/customer-address.service";
 import { cartRepository } from "@/features/cart/repositories/cart.repository";
 import { generateAccessToken, generateRefreshToken } from "@/lib/auth/jwt";
-import { getAttributingAgent } from "@/lib/referral/agent-attribution";
+import { referralService, type ReferralAgent } from "@/features/agents/services/referral.service";
 import { orderRepository } from "../repositories/order.repository";
 import { getShippingCharge } from "../shipping";
 import type {
@@ -36,7 +36,16 @@ export const orderService = {
   async createCustomerOrder(
     sessionUserId: string,
     input: CustomerCreateOrderInput,
-    request?: NextRequest
+    request?: NextRequest,
+    /**
+     * Explicit referral to attribute, bypassing cookie resolution. Used by
+     * flows (e.g. the Razorpay redirect checkout) where order creation
+     * happens server-to-server with no access to the customer's browser
+     * cookies - the referral must have been resolved earlier and threaded
+     * through instead. `undefined` (the default) means "resolve from the
+     * request cookie as normal"; `null` explicitly means "no referral".
+     */
+    referralOverride?: ReferralAgent | null
   ): Promise<OrderDetailResponse> {
     const user = await userRepository.findById(sessionUserId);
     if (!user || !user.internalId) {
@@ -319,16 +328,18 @@ export const orderService = {
     const shippingCharge = getShippingCharge(shippingAddress.state);
     const totalAmount = payableBeforeShipping + shippingCharge;
 
-    // Commission attribution: referral_agent cookie takes priority over the
-    // agent the customer was attributed to at signup.
-    const agentId = request
-      ? await getAttributingAgent(request, user.referred_by_agent_id)
-      : (user.referred_by_agent_id ?? null);
+    // Commission attribution is per ORDER: whichever valid agent referral code is active
+    // right now gets this order. The customer's earlier orders/agents are never consulted.
+    const referral =
+      referralOverride !== undefined
+        ? referralOverride
+        : await referralService.resolveForOrder(BigInt(userId), request);
 
     // 5. Execute creation transaction
     return orderRepository.createCustomerOrderTransaction({
       userId,
-      agentId,
+      agentId: referral?.id ?? null,
+      referralCode: referral?.referralCode ?? null,
       cartId: cart.id,
       subtotal,
       discountAmount: totalDiscount,
@@ -516,7 +527,7 @@ export const orderService = {
     if (!order) {
       throw ApiError.notFound("Order not found");
     }
-    return order;
+    return { ...order, referral: await orderRepository.findOrderReferral(uuid) };
   },
 
   async cancelCustomerOrder(

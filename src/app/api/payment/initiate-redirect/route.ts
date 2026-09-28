@@ -17,12 +17,12 @@ const schema = z.object({
  */
 export const POST = createApiHandler(
   {
-    POST: async (_request, context) => {
+    POST: async (request, context) => {
       const sessionUserId = context.session?.user?.id;
       if (!sessionUserId) throw ApiError.unauthorized("Authentication required");
 
       const body = context.body as z.infer<typeof schema>;
-      const result = await razorpayService.initiateRedirectPayment(sessionUserId, body);
+      const result = await razorpayService.initiateRedirectPayment(sessionUserId, body, request);
 
       return apiSuccess(result, "Payment redirect initiated");
     },

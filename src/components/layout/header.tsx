@@ -189,7 +189,7 @@ export function Header() {
           <span className="hidden sm:inline text-white/40">|</span>
           <span className="hidden sm:inline truncate">Delivered in 3–7 Days</span>
           <span className="hidden md:inline text-white/40">|</span>
-          <span className="hidden md:inline truncate">Easy 15-Day Hassle-Free Returns</span>
+          <span className="hidden md:inline truncate">Easy 3-Day Hassle-Free Returns</span>
         </div>
       </div>
 
@@ -246,29 +246,40 @@ export function Header() {
             Home
           </Link>
 
-          {headerMenu.map((item) =>
-            item.categories.length > 0 ? (
-              <MegaMenuTrigger
-                key={item.id}
-                root={buildNavNode(item)}
-                isActive={isNavItemActive(item, pathname)}
-                isOpen={openNavId === item.id}
-                onMouseEnter={() => openMegaMenu(item.id)}
-                onMouseLeave={scheduleMegaMenuClose}
-                onFocus={() => openMegaMenu(item.id)}
-              />
-            ) : (
-              <Link
-                key={item.id}
-                href={item.link ?? "#"}
-                className={`flex items-center gap-1.5 rounded-full px-3.5 py-2 text-sm font-medium transition-colors ${
-                  isNavItemActive(item, pathname)
-                    ? "bg-theme-primary text-theme-primary-fg font-semibold"
-                    : "text-red-600 hover:bg-red-50"
-                }`}
-              >
-                {item.label}
-              </Link>
+          {isCategoriesLoading ? (
+            <div className="flex items-center gap-2" aria-hidden="true">
+              {[1, 2, 3, 4].map((n) => (
+                <div
+                  key={`nav-skel-${n}`}
+                  className="h-8 w-20 rounded-full bg-theme-surface-alt animate-pulse"
+                />
+              ))}
+            </div>
+          ) : (
+            headerMenu.map((item) =>
+              item.categories.length > 0 ? (
+                <MegaMenuTrigger
+                  key={item.id}
+                  root={buildNavNode(item)}
+                  isActive={isNavItemActive(item, pathname)}
+                  isOpen={openNavId === item.id}
+                  onMouseEnter={() => openMegaMenu(item.id)}
+                  onMouseLeave={scheduleMegaMenuClose}
+                  onFocus={() => openMegaMenu(item.id)}
+                />
+              ) : (
+                <Link
+                  key={item.id}
+                  href={item.link ?? "#"}
+                  className={`flex items-center gap-1.5 rounded-full px-3.5 py-2 text-sm font-medium transition-colors ${
+                    isNavItemActive(item, pathname)
+                      ? "bg-theme-primary text-theme-primary-fg font-semibold"
+                      : "text-red-600 hover:bg-red-50"
+                  }`}
+                >
+                  {item.label}
+                </Link>
+              )
             )
           )}
         </nav>

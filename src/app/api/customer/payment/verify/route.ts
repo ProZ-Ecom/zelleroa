@@ -13,14 +13,14 @@ import {
  */
 export const POST = createApiHandler(
   {
-    POST: async (_request, context) => {
+    POST: async (request, context) => {
       const sessionUserId = context.session?.user?.id;
       if (!sessionUserId) {
         throw ApiError.unauthorized("Authentication required");
       }
 
       const body = context.body as VerifyRazorpayPaymentInput;
-      const result = await razorpayService.verifyPaymentSignature(sessionUserId, body);
+      const result = await razorpayService.verifyPaymentSignature(sessionUserId, body, request);
 
       return apiSuccess(result, "Payment verified and order confirmed successfully");
     },

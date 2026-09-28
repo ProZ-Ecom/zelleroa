@@ -2,8 +2,22 @@ import { NextRequest, NextResponse } from "next/server";
 
 export const REFERRAL_AGENT_COOKIE = "referral_agent";
 const REFERRAL_AGENT_COOKIE_MAX_AGE = 60 * 60 * 24 * 30; // 30 days
-
 const IS_PROD = process.env.NODE_ENV === "production";
+
+/** Public referral / agent codes are short and alphanumeric; anything else is junk and never stored. */
+export const REFERRAL_CODE_PATTERN = /^[A-Za-z0-9_-]{3,30}$/;
+
+export function setReferralCookie<T>(response: NextResponse<T>, code: string): NextResponse<T> {
+  response.cookies.set(REFERRAL_AGENT_COOKIE, code, {
+    httpOnly: true,
+    secure: IS_PROD,
+    sameSite: "lax",
+    path: "/",
+    maxAge: REFERRAL_AGENT_COOKIE_MAX_AGE,
+  });
+  return response;
+}
+
 
 /**
  * Captures `?ref=<referral_code>` off the request URL into the
@@ -18,15 +32,10 @@ export function captureReferralCookie<T>(
   request: NextRequest,
   response: NextResponse<T>
 ): NextResponse<T> {
-  const ref = request.nextUrl.searchParams.get("ref");
-  if (ref) {
-    response.cookies.set(REFERRAL_AGENT_COOKIE, ref, {
-      httpOnly: true,
-      secure: IS_PROD,
-      sameSite: "lax",
-      path: "/",
-      maxAge: REFERRAL_AGENT_COOKIE_MAX_AGE,
-    });
+  const params = request.nextUrl.searchParams;
+  const ref = params.get("ref") ?? params.get("agent");
+  if (ref && REFERRAL_CODE_PATTERN.test(ref)) {
+    setReferralCookie(response, ref);
   }
   return response;
 }

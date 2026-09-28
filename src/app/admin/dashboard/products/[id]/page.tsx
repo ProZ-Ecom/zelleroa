@@ -34,7 +34,7 @@ import {
   Star,
 } from "lucide-react";
 import { toast } from "@/components/ui/Toast";
-import { useAdminProduct, useProductImages, useCreateProductImages, useDeleteProductImage } from "@/features/products/hooks";
+import { useAdminProduct, useProductImages } from "@/features/products/hooks";
 import {
   useVariants,
   useVariantUnitPrices,
@@ -50,6 +50,7 @@ import { useUnits } from "@/features/units/hooks";
 import { ProductPriceEditModal } from "@/features/products/components/ProductPriceEditModal";
 import { ProductForm, type ProductFormValues } from "@/features/products/components/ProductForm";
 import { ProductAttributesPanel } from "@/features/products/components/ProductAttributesPanel";
+import { ProductImageUploader } from "@/features/products/components/ProductImageUploader";
 import {
   VariantForm,
   VariantImageUploader,
@@ -303,6 +304,7 @@ export default function AdminProductDetailsPage() {
   const [variantToDeactivate, setVariantToDeactivate] = React.useState<AdminVariantResponse | null>(null);
   const [variantToActivate, setVariantToActivate] = React.useState<AdminVariantResponse | null>(null);
   const [managingImagesVariant, setManagingImagesVariant] = React.useState<AdminVariantResponse | null>(null);
+  const [isManagingProductImages, setIsManagingProductImages] = React.useState(false);
   const [activeMenu, setActiveMenu] = React.useState<{
     variant: AdminVariantResponse;
     rect: DOMRect;
@@ -359,10 +361,8 @@ export default function AdminProductDetailsPage() {
   const createVariantMutation = useCreateVariant();
   const updateVariantMutation = useUpdateVariant();
   const deleteVariantMutation = useDeleteVariant();
-  const createProductImagesMutation = useCreateProductImages();
-  const deleteProductImageMutation = useDeleteProductImage();
 
-  // Product Images Query (product carries at most one image)
+  // Product Images Query
   const { data: productImages = [] } = useProductImages(productUuid || null);
 
   // Unit prices for newly created variant in modal
@@ -371,23 +371,6 @@ export default function AdminProductDetailsPage() {
     newlyCreatedVariant?.id || null
   );
   const hasNewlyCreatedPrices = newlyCreatedPrices.length > 0;
-
-  const saveProductPrimaryImage = async (productUuid: string, imageUrl: string) => {
-    try {
-      // Remove any previous image(s) first — a product carries only one image
-      await Promise.all(
-        productImages.map((img) =>
-          deleteProductImageMutation.mutateAsync({ productUuid, imageId: img.id })
-        )
-      );
-      await createProductImagesMutation.mutateAsync({
-        productUuid,
-        images: [{ imageUrl, isPrimary: true }],
-      });
-    } catch (err) {
-      console.error("Failed to upload product image", err);
-    }
-  };
 
   // Selection State
   const [selectedVariants, setSelectedVariants] = React.useState<Record<string, boolean>>({});
@@ -713,6 +696,14 @@ export default function AdminProductDetailsPage() {
 
           {/* Header Actions */}
           <div className="flex items-center gap-2.5 flex-none w-full md:w-auto justify-end">
+            <button
+              type="button"
+              onClick={() => setIsManagingProductImages(true)}
+              className="px-3.5 py-1.5 rounded-md border border-cream-border bg-white hover:bg-cream-100 text-neutral-800 text-xs sm:text-sm font-semibold transition-colors flex items-center gap-1.5 cursor-pointer"
+            >
+              <ImagesIcon className="w-3.5 h-3.5" />
+              <span>Manage Images</span>
+            </button>
             <button
               type="button"
               onClick={() => setIsEditProductOpen(true)}
@@ -1621,7 +1612,6 @@ export default function AdminProductDetailsPage() {
             hsnCodeId: product.hsnCodeId || "",
             gender: product.gender || "unisex",
           }}
-          initialImageUrl={primaryProductImage}
           isEditing
           categories={categoryOptions}
           brands={brandOptions}
@@ -1635,17 +1625,25 @@ export default function AdminProductDetailsPage() {
                 data: formData as any,
               });
               setIsEditProductOpen(false);
-
-              if (
-                formData.productImage &&
-                formData.productImage !== primaryProductImage
-              ) {
-                await saveProductPrimaryImage(canonicalProductId, formData.productImage);
-              }
             } catch (err: any) {
               console.error("Failed to update product", err);
             }
           }}
+        />
+      </FormModal>
+
+      {/* 4b. Manage Product Images Modal */}
+      <FormModal
+        open={isManagingProductImages}
+        onClose={() => setIsManagingProductImages(false)}
+        title={`Manage Images: ${product.name}`}
+        description="Upload, reorder, and manage images for this product."
+        size="lg"
+      >
+        <ProductImageUploader
+          productUuid={canonicalProductId}
+          productName={product.name}
+          onFinish={() => setIsManagingProductImages(false)}
         />
       </FormModal>
 
