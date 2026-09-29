@@ -285,7 +285,7 @@ export function OrderDetailView({
                 <dl className="p-4 text-xs grid grid-cols-2 gap-x-3 gap-y-2">
                   <dt className="text-theme-text-muted">Referral code</dt>
                   <dd className="font-mono font-semibold text-theme-text-primary text-right">{order.referral.referralCode ?? "—"}</dd>
-                  <dt className="text-theme-text-muted">Referred agent</dt>
+                  <dt className="text-theme-text-muted">Referred Sales Partner</dt>
                   <dd className="font-semibold text-theme-text-primary text-right">
                     {order.referral.agentName}
                     {order.referral.agentCode ? ` (${order.referral.agentCode})` : ""}

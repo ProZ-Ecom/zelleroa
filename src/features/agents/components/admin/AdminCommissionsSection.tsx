@@ -32,7 +32,7 @@ export function AdminCommissionsSection({ fixedAgent, allowApprove = true }: { f
   const { data, isLoading, error } = useAdminList<CommissionRow>("commissions", "/api/admin/commissions", params);
 
   const fields: FilterField[] = [
-    ...(fixedAgent ? [] : [{ name: "agent", label: "Agent", type: "agent" as const }]),
+    ...(fixedAgent ? [] : [{ name: "agent", label: "Sales Partner", type: "agent" as const }]),
     { name: "order", label: "Order", type: "text" },
     { name: "referralCode", label: "Referral code", type: "text" },
     { name: "customer", label: "Customer", type: "text" },
@@ -93,7 +93,7 @@ export function AdminCommissionsSection({ fixedAgent, allowApprove = true }: { f
             empty="No commissions match these filters."
             columns={[
               { header: "Commission", cell: (r) => <span className="font-mono text-xs">{r.code}</span> },
-              ...(fixedAgent ? [] : [{ header: "Agent", cell: (r: CommissionRow) => `${r.agentName}${r.agentCode ? ` (${r.agentCode})` : ""}` }]),
+              ...(fixedAgent ? [] : [{ header: "Sales Partner", cell: (r: CommissionRow) => `${r.agentName}${r.agentCode ? ` (${r.agentCode})` : ""}` }]),
               { header: "Order", cell: (r) => <span className="font-mono text-xs">{r.orderNumber}</span> },
               { header: "Referral code", cell: (r) => <span className="font-mono text-xs">{r.referralCode ?? "—"}</span> },
               { header: "Customer", cell: (r) => r.customerName },

@@ -17,7 +17,7 @@ import {
   pct,
 } from "@/features/agents/components/shared";
 
-export const metadata = { title: "Agent Dashboard" };
+export const metadata = { title: "Sales Partner Dashboard" };
 
 const viewAll = (href: string) => (
   <Link href={href} className="inline-flex items-center gap-1 text-xs font-semibold text-neutral-600 transition-colors hover:text-neutral-900">

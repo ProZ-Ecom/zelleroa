@@ -114,7 +114,7 @@ export const upsertRateSchema = z
   });
 
 export const changeAgentSchema = z.object({
-  referralCode: z.string().trim().min(3, "Enter an agent code").max(30),
+  referralCode: z.string().trim().min(3, "Enter a Sales Partner code").max(30),
 });
 
 export const reassignSchema = z.object({

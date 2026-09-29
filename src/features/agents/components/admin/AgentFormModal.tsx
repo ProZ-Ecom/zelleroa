@@ -76,7 +76,7 @@ function Form({ onClose, agent, onSaved }: Omit<Props, "open">) {
     try {
       if (editing) await apiClient.put(`/api/admin/agents/${agent!.id}`, parsed.data);
       else await apiClient.post("/api/admin/agents", parsed.data);
-      toast.success(editing ? "Agent updated" : "Agent created");
+      toast.success(editing ? "Sales Partner updated" : "Sales Partner created");
       await qc.invalidateQueries({ queryKey: ["agents-admin"] });
       onSaved?.();
       onClose();
@@ -90,7 +90,7 @@ function Form({ onClose, agent, onSaved }: Omit<Props, "open">) {
   const err = (k: string) => errors[k] && <span className="font-normal text-red-600">{errors[k]}</span>;
 
   return (
-    <Modal open onClose={onClose} title={editing ? "Edit agent" : "Create agent"} description={editing ? undefined : "The agent ID and referral code are generated automatically."}>
+    <Modal open onClose={onClose} title={editing ? "Edit Sales Partner" : "Create Sales Partner"} description={editing ? undefined : "The Sales Partner ID and referral code are generated automatically."}>
       <form onSubmit={submit} className="flex flex-col gap-3" noValidate>
         {banner && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{banner}</p>}
         <label className="flex flex-col gap-1 text-xs font-medium text-neutral-600">
@@ -126,7 +126,7 @@ function Form({ onClose, agent, onSaved }: Omit<Props, "open">) {
           </button>
           <button type="submit" disabled={busy} className="inline-flex h-10 items-center gap-2 rounded-xl bg-neutral-900 px-4 text-sm font-semibold text-white hover:bg-neutral-800 disabled:opacity-60">
             {busy && <Loader2 className="h-4 w-4 animate-spin" />}
-            {editing ? "Save changes" : "Create agent"}
+            {editing ? "Save changes" : "Create Sales Partner"}
           </button>
         </div>
       </form>

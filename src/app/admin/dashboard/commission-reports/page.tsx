@@ -13,7 +13,7 @@ interface Report {
 }
 
 const FIELDS: FilterField[] = [
-  { name: "agent", label: "Agent", type: "agent" },
+  { name: "agent", label: "Sales Partner", type: "agent" },
   { name: "dateFrom", label: "From", type: "date" },
   { name: "dateTo", label: "To", type: "date" },
 ];
@@ -52,13 +52,13 @@ export default function CommissionReportsPage() {
               <MetricCard label="Cancelled / reversed" value={money(data.totals.cancelledOrReversed)} />
               <MetricCard label="Clawback due" value={money(data.totals.clawbackDue)} tone={data.totals.clawbackDue > 0 ? "warn" : "default"} hint="Already paid, later reversed" />
             </div>
-            <Panel title="By agent">
+            <Panel title="By Sales Partner">
               <SimpleTable
                 rows={data.data}
                 rowKey={(r) => r.agentId}
-                empty="No agent activity in this range."
+                empty="No Sales Partner activity in this range."
                 columns={[
-                  { header: "Agent", cell: (r) => `${r.agentName}${r.agentCode ? ` (${r.agentCode})` : ""}` },
+                  { header: "Sales Partner", cell: (r) => `${r.agentName}${r.agentCode ? ` (${r.agentCode})` : ""}` },
                   { header: "Orders", cell: (r) => r.orders },
                   { header: "Sales", cell: (r) => money(r.sales) },
                   { header: "Pending", cell: (r) => money(r.pending) },

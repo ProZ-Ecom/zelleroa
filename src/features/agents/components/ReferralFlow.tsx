@@ -4,13 +4,13 @@ import { cn } from "@/lib/utils";
 import { Panel } from "./shared";
 
 const STEPS = [
-  { icon: UserCheck, title: "Agent", text: "You share your unique referral details." },
+  { icon: UserCheck, title: "Sales Partner", text: "You share your unique referral details." },
   { icon: Link2, title: "Referral link / code", text: "Identifies you on every visit." },
   { icon: Globe, title: "Customer visits", text: "Customer opens the website via your link." },
   { icon: ShoppingCart, title: "Purchases any product", text: "Any product from the catalogue counts." },
   { icon: ShoppingBag, title: "Order created", text: "That order - and only that order - is linked to you." },
   { icon: Calculator, title: "Commission calculated", text: "Product amount × commission rate." },
-  { icon: Wallet, title: "Credited to agent", text: "Payable once the return period ends." },
+  { icon: Wallet, title: "Credited to Sales Partner", text: "Payable once the return period ends." },
 ] as const;
 
 /** Read-only explainer of the referral-to-earnings journey. Vertical on mobile, wrapped grid on desktop. */

@@ -35,10 +35,10 @@ export default function AdminAgentDetailPage() {
     if (!agent) return;
     try {
       await apiClient.put(`/api/admin/agents/${agent.id}`, { isActive: !agent.isActive });
-      toast.success(agent.isActive ? "Agent deactivated" : "Agent activated");
+      toast.success(agent.isActive ? "Sales Partner deactivated" : "Sales Partner activated");
       await qc.invalidateQueries({ queryKey: ["agents-admin"] });
     } catch (err) {
-      toast.error("Could not update the agent", errorMessage(err));
+      toast.error("Could not update the Sales Partner", errorMessage(err));
     }
   };
 
@@ -55,9 +55,9 @@ export default function AdminAgentDetailPage() {
 
   return (
     <PageContainer
-      title={agent ? agent.name : "Agent"}
+      title={agent ? agent.name : "Sales Partner"}
       description={agent ? `${agent.agentCode ?? ""} · ${agent.email ?? ""}` : undefined}
-      breadcrumbs={[{ label: "Dashboard", href: "/admin/dashboard" }, { label: "Agents", href: "/admin/dashboard/agents" }, { label: agent?.name ?? "Agent" }]}
+      breadcrumbs={[{ label: "Dashboard", href: "/admin/dashboard" }, { label: "Sales Partners", href: "/admin/dashboard/agents" }, { label: agent?.name ?? "Sales Partner" }]}
       actions={
         agent && (
           <>
@@ -96,7 +96,7 @@ export default function AdminAgentDetailPage() {
             <div className="grid gap-4 p-4 sm:p-5 lg:grid-cols-2">
               <dl className="grid grid-cols-2 gap-3 text-sm">
                 {[
-                  ["Agent ID", agent.agentCode ?? "—"],
+                  ["Sales Partner ID", agent.agentCode ?? "—"],
                   ["Referral code", agent.referralCode ?? "—"],
                   ["Email", agent.email ?? "—"],
                   ["Phone", agent.phone ?? "—"],
