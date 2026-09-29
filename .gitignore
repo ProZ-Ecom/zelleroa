@@ -53,8 +53,9 @@ next-env.d.ts
 /scratch_backup
 
 # AI folder
-/.agents
-/.kilo
-/.kiro
-/.claude
 
+/.kilo
+.agents/
+.claude/
+.kiro/
+*.md
