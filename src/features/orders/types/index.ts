@@ -1,5 +1,12 @@
 import type { orders_order_status, orders_payment_status, order_addresses_type } from "@/generated/prisma";
 import type { VariantMeasurement } from "@/features/variants/utils/measurement.util";
+import type {
+  CancellationInfo,
+  OrderRefundInfo,
+  RequestSummary,
+  TimelineEvent,
+} from "@/features/returns/lib/summary";
+import type { ReturnWindow } from "@/features/returns/lib/policy";
 
 export type OrderStatus = orders_order_status;
 export type PaymentStatus = orders_payment_status;
@@ -111,6 +118,9 @@ export interface OrderListItemResponse {
   courierShipment?: OrderCourierShipmentDto | null;
   notes: string | null;
   placedAt: Date | null;
+  deliveredAt?: Date | null;
+  /** Present once the order has been cancelled. */
+  cancellation?: CancellationInfo | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -133,6 +143,12 @@ export interface OrderDetailResponse extends OrderListItemResponse {
   shippingAddress: OrderAddressResponse | null;
   billingAddress: OrderAddressResponse | null;
   statusHistory: OrderStatusHistoryResponse[];
+  /** 3-day return/replacement window, computed on the server from `deliveredAt`. */
+  returnWindow?: Omit<ReturnWindow, "deliveredAt"> & { deliveredAt: Date | null };
+  refunds?: OrderRefundInfo[];
+  returnRequests?: RequestSummary[];
+  replacementRequests?: RequestSummary[];
+  timeline?: TimelineEvent[];
 }
 
 export interface OrderStatusTransitionResponse {

@@ -23,6 +23,8 @@ const TABS: StatusTab[] = [
   { label: "Delivered", href: "/admin/dashboard/orders/delivered", countKey: "delivered" },
   { label: "Cancelled", href: "/admin/dashboard/orders/cancelled", countKey: "cancelled" },
   { label: "Returned", href: "/admin/dashboard/orders/returned", countKey: "returned" },
+  { label: "Return Requests", href: "/admin/dashboard/orders/returns" },
+  { label: "Replacement Requests", href: "/admin/dashboard/orders/replacements" },
 ];
 
 export function OrderStatusTabs() {
@@ -51,7 +53,7 @@ export function OrderStatusTabs() {
             )}
           >
             <span>{tab.label}</span>
-            <span
+            {tab.countKey && <span
               className={cn(
                 "inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full text-[10px] font-bold leading-none",
                 isActive
@@ -64,7 +66,7 @@ export function OrderStatusTabs() {
               )}
             >
               {isLoading ? "…" : count ?? 0}
-            </span>
+            </span>}
           </Link>
         );
       })}

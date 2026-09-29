@@ -683,6 +683,7 @@ export const deliveryRepository = {
         where: { id: orderId },
         data: {
           order_status: "delivered",
+          delivered_at: now,
           updated_by: staffInternalId,
         },
       });

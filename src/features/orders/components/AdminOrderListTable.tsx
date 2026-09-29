@@ -186,6 +186,28 @@ export function AdminOrderListTable({
       header: "Status",
       cell: ({ row }) => <OrderStatusBadge status={row.original.status} />,
     },
+    ...(status === "cancelled"
+      ? ([
+          {
+            id: "cancellation",
+            header: "Cancellation",
+            cell: ({ row }) => {
+              const c = row.original.cancellation;
+              if (!c) return <span className="text-xs text-neutral-400">—</span>;
+              return (
+                <div className="max-w-[240px] text-xs leading-tight">
+                  <div className="font-semibold text-neutral-900">{c.reason || "—"}</div>
+                  {c.comment && <div className="truncate text-neutral-600" title={c.comment}>{c.comment}</div>}
+                  <div className="text-[10.5px] text-neutral-500">
+                    {c.cancelledAt ? new Date(c.cancelledAt).toLocaleString("en-IN") : ""}
+                    {c.cancelledBy ? ` · by ${c.cancelledBy}` : ""}
+                  </div>
+                </div>
+              );
+            },
+          },
+        ] as ColumnDef<OrderListItemResponse, unknown>[])
+      : []),
     {
       accessorKey: "delivery.staff",
       header: "Assigned Staff",
@@ -614,7 +636,7 @@ export function AdminOrderListTable({
               )}
             </div>
 
-            <OrderDetailView order={orderDetail} />
+            <OrderDetailView order={orderDetail} readOnly />
           </div>
         )}
       </FormModal>

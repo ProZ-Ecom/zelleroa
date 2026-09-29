@@ -255,6 +255,7 @@ model User {
   return_requests_return_requests_created_byTousers                   return_requests[]          @relation("return_requests_created_byTousers")
   return_requests_return_requests_updated_byTousers                   return_requests[]          @relation("return_requests_updated_byTousers")
   return_requests_return_requests_user_idTousers                      return_requests[]          @relation("return_requests_user_idTousers")
+  replacement_requests                                                 replacement_requests[]     @relation("replacement_requests_user")
   review_images_review_images_created_byTousers                       ReviewImage[]              @relation("review_images_created_byTousers")
   review_images_review_images_updated_byTousers                       ReviewImage[]              @relation("review_images_updated_byTousers")
   reviews                                                             Review[]
@@ -602,6 +603,7 @@ model ProductVariant {
   cart_items                               CartItem[]
   wishlist_items                           WishlistItem[]
   order_items                              OrderItem[]
+  replacement_request_items                replacement_request_items[]
   variant_attribute_values                 variant_attribute_values[]
 
   @@index([created_by], map: "fk_product_variants_created_by")
@@ -638,6 +640,7 @@ model VariantUnitPrice {
   users_variant_unit_prices_updated_byTousers User?                    @relation("variant_unit_prices_updated_byTousers", fields: [updated_by], references: [id], onUpdate: NoAction, map: "fk_vup_updated_by")
   cartItems                                   CartItem[]
   orderItems                                  OrderItem[]
+  replacement_request_items                   replacement_request_items[]
   wishlist_items                              WishlistItem[]
   reviews                                     Review[]
   combo_product_items                         combo_product_items[]
@@ -987,6 +990,14 @@ model Order {
   /// Blended commission % and total commission frozen at order creation (per-item detail lives in `commissions`).
   commission_percentage          Decimal?                 @db.Decimal(5, 2)
   commission_amount              Decimal?                 @db.Decimal(12, 2)
+  /// Set when the delivery is confirmed; anchors the 3-day return/replacement window.
+  delivered_at                   DateTime?                @db.Timestamp(0)
+  cancelled_at                   DateTime?                @db.Timestamp(0)
+  cancellation_reason            String?                  @db.VarChar(100)
+  cancellation_comment           String?                  @db.VarChar(500)
+  /// USER | ADMIN | SYSTEM
+  cancelled_by                   String?                  @db.VarChar(20)
+  cancelled_by_user_id           BigInt?                  @db.UnsignedBigInt
   coupon_usage                   coupon_usage[]
   address                        OrderAddress[]
   items                          OrderItem[]
@@ -1002,9 +1013,12 @@ model Order {
   payments                       Payment[]
   refunds                        refunds[]
   return_requests                return_requests[]
+  replacement_requests           replacement_requests[]
   shipments                      shipments[]
   inventory_reservations         inventory_reservations[]
 
+  @@index([delivered_at], map: "idx_order_delivered_at")
+  @@index([cancelled_at], map: "idx_order_cancelled_at")
   @@index([cart_id], map: "fk_order_cart")
   @@index([couponId], map: "fk_order_coupon")
   @@index([delivery_slot_id], map: "fk_order_slot")
@@ -1052,6 +1066,7 @@ model OrderItem {
   variant                             ProductVariant    @relation(fields: [variantId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_orderitem_variant")
   variant_unit_price                  VariantUnitPrice? @relation(fields: [variantUnitPriceId], references: [id], onDelete: Restrict, onUpdate: NoAction, map: "fk_orderitem_variant_unit_price")
   return_items                        return_items[]
+  replacement_request_items           replacement_request_items[]
   commission                     commissions?
   reviews                             Review[]
 
@@ -2426,6 +2441,7 @@ model refunds {
   order_id                        BigInt         @db.UnsignedBigInt
   amount                          Decimal        @db.Decimal(10, 2)
   reason                          String?        @db.VarChar(255)
+  return_request_id               BigInt?        @db.UnsignedBigInt
   status                          refunds_status @default(initiated)
   processed_at                    DateTime?      @db.Timestamp(0)
   created_at                      DateTime       @default(now()) @db.Timestamp(0)
@@ -2435,9 +2451,11 @@ model refunds {
   updated_by                      BigInt?        @db.UnsignedBigInt
   orders                          Order          @relation(fields: [order_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_refund_order")
   payments                        Payment        @relation(fields: [payment_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_refund_payment")
+  return_request                  return_requests? @relation(fields: [return_request_id], references: [id], onDelete: SetNull, onUpdate: NoAction, map: "fk_refund_return_request")
   users_refunds_created_byTousers User?          @relation("refunds_created_byTousers", fields: [created_by], references: [id], onUpdate: NoAction, map: "fk_refunds_created_by")
   users_refunds_updated_byTousers User?          @relation("refunds_updated_byTousers", fields: [updated_by], references: [id], onUpdate: NoAction, map: "fk_refunds_updated_by")
 
+  @@index([return_request_id], map: "idx_refund_return_request")
   @@index([order_id], map: "fk_refund_order")
   @@index([payment_id], map: "fk_refund_payment")
   @@index([created_by], map: "fk_refunds_created_by")
@@ -2473,15 +2491,26 @@ model return_requests {
   order_id                                BigInt                 @db.UnsignedBigInt
   user_id                                 BigInt                 @db.UnsignedBigInt
   reason                                  String                 @db.VarChar(255)
-  status                                  return_requests_status @default(requested)
+  description                             String?                @db.Text
+  unboxing_video_url                      String?                @db.VarChar(500)
+  status                                  return_requests_status @default(return_requested)
   requested_at                            DateTime               @default(now()) @db.Timestamp(0)
   approved_at                             DateTime?              @db.Timestamp(0)
+  approved_by                             BigInt?                @db.UnsignedBigInt
+  rejected_at                             DateTime?              @db.Timestamp(0)
+  rejected_by                             BigInt?                @db.UnsignedBigInt
+  rejection_reason                        String?                @db.VarChar(500)
+  admin_comment                           String?                @db.VarChar(500)
+  pickup_scheduled_at                     DateTime?              @db.Timestamp(0)
+  completed_at                            DateTime?              @db.Timestamp(0)
   created_at                              DateTime               @default(now()) @db.Timestamp(0)
   updated_at                              DateTime               @default(now()) @db.Timestamp(0)
   is_active                               Boolean                @default(true)
   created_by                              BigInt?                @db.UnsignedBigInt
   updated_by                              BigInt?                @db.UnsignedBigInt
   return_items                            return_items[]
+  history                                 return_request_history[]
+  refunds                                 refunds[]
   orders                                  Order                  @relation(fields: [order_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_return_order")
   users_return_requests_created_byTousers User?                  @relation("return_requests_created_byTousers", fields: [created_by], references: [id], onUpdate: NoAction, map: "fk_return_requests_created_by")
   users_return_requests_updated_byTousers User?                  @relation("return_requests_updated_byTousers", fields: [updated_by], references: [id], onUpdate: NoAction, map: "fk_return_requests_updated_by")
@@ -2491,6 +2520,99 @@ model return_requests {
   @@index([created_by], map: "fk_return_requests_created_by")
   @@index([updated_by], map: "fk_return_requests_updated_by")
   @@index([user_id], map: "fk_return_user")
+  @@index([status], map: "idx_return_status")
+  @@index([requested_at], map: "idx_return_requested_at")
+}
+
+model return_request_history {
+  id                BigInt          @id @default(autoincrement()) @db.UnsignedBigInt
+  return_request_id BigInt          @db.UnsignedBigInt
+  from_status       String?         @db.VarChar(30)
+  to_status         String          @db.VarChar(30)
+  action            String          @db.VarChar(40)
+  note              String?         @db.VarChar(500)
+  actor_user_id     BigInt?         @db.UnsignedBigInt
+  /// USER | ADMIN | STAFF | SYSTEM
+  actor_type        String          @default("SYSTEM") @db.VarChar(20)
+  created_at        DateTime        @default(now()) @db.Timestamp(0)
+  return_request    return_requests @relation(fields: [return_request_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_return_hist_request")
+
+  @@index([return_request_id, created_at], map: "idx_return_hist_request")
+  @@index([actor_user_id], map: "idx_return_hist_actor")
+}
+
+model replacement_requests {
+  id                  BigInt                        @id @default(autoincrement()) @db.UnsignedBigInt
+  uuid                String?                       @unique(map: "idx_replacement_requests_uuid") @db.VarChar(255)
+  order_id            BigInt                        @db.UnsignedBigInt
+  user_id             BigInt                        @db.UnsignedBigInt
+  reason              String                        @db.VarChar(255)
+  description         String?                       @db.Text
+  unboxing_video_url  String                        @db.VarChar(500)
+  status              replacement_requests_status   @default(replacement_requested)
+  requested_at        DateTime                      @default(now()) @db.Timestamp(0)
+  approved_at         DateTime?                     @db.Timestamp(0)
+  approved_by         BigInt?                       @db.UnsignedBigInt
+  rejected_at         DateTime?                     @db.Timestamp(0)
+  rejected_by         BigInt?                       @db.UnsignedBigInt
+  rejection_reason    String?                       @db.VarChar(500)
+  admin_comment       String?                       @db.VarChar(500)
+  pickup_scheduled_at DateTime?                     @db.Timestamp(0)
+  shipped_at          DateTime?                     @db.Timestamp(0)
+  delivered_at        DateTime?                     @db.Timestamp(0)
+  completed_at        DateTime?                     @db.Timestamp(0)
+  created_at          DateTime                      @default(now()) @db.Timestamp(0)
+  updated_at          DateTime                      @default(now()) @db.Timestamp(0)
+  is_active           Boolean                       @default(true)
+  created_by          BigInt?                       @db.UnsignedBigInt
+  updated_by          BigInt?                       @db.UnsignedBigInt
+  items               replacement_request_items[]
+  history             replacement_request_history[]
+  orders              Order                         @relation(fields: [order_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_replacement_order")
+  user                User                          @relation("replacement_requests_user", fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_replacement_user")
+
+  @@index([order_id], map: "fk_replacement_order")
+  @@index([user_id], map: "fk_replacement_user")
+  @@index([status], map: "idx_replacement_status")
+  @@index([requested_at], map: "idx_replacement_requested_at")
+}
+
+model replacement_request_items {
+  id                              BigInt               @id @default(autoincrement()) @db.UnsignedBigInt
+  replacement_request_id          BigInt               @db.UnsignedBigInt
+  order_item_id                   BigInt               @db.UnsignedBigInt
+  quantity                        Int
+  requested_variant_id            BigInt?              @db.UnsignedBigInt
+  requested_variant_unit_price_id BigInt?              @db.UnsignedBigInt
+  created_at                      DateTime             @default(now()) @db.Timestamp(0)
+  updated_at                      DateTime             @default(now()) @db.Timestamp(0)
+  is_active                       Boolean              @default(true)
+  replacement_request             replacement_requests @relation(fields: [replacement_request_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_replitem_request")
+  order_items                     OrderItem            @relation(fields: [order_item_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_replitem_orderitem")
+  requested_variant               ProductVariant?      @relation(fields: [requested_variant_id], references: [id], onDelete: SetNull, onUpdate: NoAction, map: "fk_replitem_variant")
+  requested_variant_unit_price    VariantUnitPrice?    @relation(fields: [requested_variant_unit_price_id], references: [id], onDelete: SetNull, onUpdate: NoAction, map: "fk_replitem_vup")
+
+  @@index([replacement_request_id], map: "fk_replitem_request")
+  @@index([order_item_id], map: "fk_replitem_orderitem")
+  @@index([requested_variant_id], map: "fk_replitem_variant")
+  @@index([requested_variant_unit_price_id], map: "fk_replitem_vup")
+}
+
+model replacement_request_history {
+  id                     BigInt               @id @default(autoincrement()) @db.UnsignedBigInt
+  replacement_request_id BigInt               @db.UnsignedBigInt
+  from_status            String?              @db.VarChar(30)
+  to_status              String               @db.VarChar(30)
+  action                 String               @db.VarChar(40)
+  note                   String?              @db.VarChar(500)
+  actor_user_id          BigInt?              @db.UnsignedBigInt
+  /// USER | ADMIN | STAFF | SYSTEM
+  actor_type             String               @default("SYSTEM") @db.VarChar(20)
+  created_at             DateTime             @default(now()) @db.Timestamp(0)
+  replacement_request    replacement_requests @relation(fields: [replacement_request_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_replacement_hist_request")
+
+  @@index([replacement_request_id, created_at], map: "idx_replacement_hist_request")
+  @@index([actor_user_id], map: "idx_replacement_hist_actor")
 }
 
 model reward_points {
@@ -2886,11 +3008,29 @@ enum product_units_type {
 }
 
 enum return_requests_status {
-  requested
+  return_requested
+  under_review
   approved
   rejected
+  pickup_scheduled
   picked_up
+  received
+  refund_pending
   refunded
+  closed
+}
+
+enum replacement_requests_status {
+  replacement_requested
+  under_review
+  approved
+  rejected
+  pickup_scheduled
+  picked_up
+  replacement_processing
+  replacement_shipped
+  replaced
+  closed
 }
 
 enum shipments_status {
