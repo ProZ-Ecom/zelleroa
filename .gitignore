@@ -51,3 +51,10 @@ next-env.d.ts
 
 # local DB backups taken before running one-off migration scripts
 /scratch_backup
+
+# AI folder
+/.agents
+/.kilo
+/.kiro
+/.claude
+
