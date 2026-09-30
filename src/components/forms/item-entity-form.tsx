@@ -194,6 +194,7 @@ function ItemEntityForm({
             options={brandOptions ?? []}
             description={brandDescription}
             required
+            expandContainer
           />
         )}
 

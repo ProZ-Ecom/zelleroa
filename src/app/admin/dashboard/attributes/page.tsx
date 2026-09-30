@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { toast } from "@/components/ui/Toast";
 import { useAdminAttributes, useCreateAttribute, useUpdateAttribute, useDeleteAttribute } from "@/features/attributes/hooks";
 import { AttributeForm } from "@/features/attributes/components/AttributeForm";
 import { AttributeValuesManager } from "@/features/attributes/components/AttributeValuesManager";
@@ -184,14 +185,19 @@ export default function AttributesPage() {
           isLoading={createMutation.isPending}
           submitLabel="Create Attribute"
           onSubmit={async (data) => {
-            await createMutation.mutateAsync({
-              name: data.name,
-              slug: data.slug,
-              type: data.type,
-              multipleSelection: data.multipleSelection,
-              values: data.values ?? [],
-            });
-            setIsCreateOpen(false);
+            try {
+              await createMutation.mutateAsync({
+                name: data.name,
+                slug: data.slug,
+                type: data.type,
+                multipleSelection: data.multipleSelection,
+                values: data.values ?? [],
+              });
+              toast.success("Attribute created", `"${data.name}" was added successfully.`);
+              setIsCreateOpen(false);
+            } catch (err: any) {
+              toast.error("Failed to create attribute", err?.message || "Please try again.");
+            }
           }}
         />
       </FormModal>
@@ -215,16 +221,21 @@ export default function AttributesPage() {
             isLoading={updateMutation.isPending}
             submitLabel="Save Changes"
             onSubmit={async (data) => {
-              await updateMutation.mutateAsync({
-                uuid: editingAttribute.id,
-                data: {
-                  name: data.name,
-                  slug: data.slug,
-                  type: data.type,
-                  multipleSelection: data.multipleSelection,
-                },
-              });
-              setEditingAttribute(null);
+              try {
+                await updateMutation.mutateAsync({
+                  uuid: editingAttribute.id,
+                  data: {
+                    name: data.name,
+                    slug: data.slug,
+                    type: data.type,
+                    multipleSelection: data.multipleSelection,
+                  },
+                });
+                toast.success("Attribute updated", `"${data.name}" was saved successfully.`);
+                setEditingAttribute(null);
+              } catch (err: any) {
+                toast.error("Failed to update attribute", err?.message || "Please try again.");
+              }
             }}
           />
         )}
@@ -243,11 +254,15 @@ export default function AttributesPage() {
       <ConfirmDialog
         open={!!deleteId}
         onClose={() => setDeleteId(null)}
-        onConfirm={() => {
+        onConfirm={async () => {
           if (deleteId) {
-            deleteMutation.mutate(deleteId, {
-              onSuccess: () => setDeleteId(null),
-            });
+            try {
+              await deleteMutation.mutateAsync(deleteId);
+              toast.success("Attribute deleted", "The attribute was removed successfully.");
+              setDeleteId(null);
+            } catch (err: any) {
+              toast.error("Failed to delete attribute", err?.message || "Please try again.");
+            }
           }
         }}
         title="Delete Attribute"

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useAgentOptions } from "../../hooks/use-admin-agents";
 import { fieldCls } from "../shared";
+import { Select } from "@/components/ui/select";
 
 export interface FilterField {
   name: string;
@@ -33,24 +34,27 @@ export function AdminFilterBar({ fields, values, onApply }: Props) {
       }}
     >
       {fields.map((f) => (
-        <label key={f.name} className="flex min-w-[9rem] flex-1 flex-col gap-1 text-xs font-medium text-neutral-600 sm:flex-none">
-          {f.label}
+        <div key={f.name} className="flex min-w-[9rem] flex-1 flex-col gap-1 text-xs font-medium text-neutral-600 sm:flex-none">
+          <span>{f.label}</span>
           {f.type === "select" || f.type === "agent" ? (
-            <select className={fieldCls} value={draft[f.name] ?? ""} onChange={(e) => set(f.name, e.target.value)}>
-              <option value="">All</option>
-              {f.type === "agent"
-                ? agents?.map((a) => (
-                    <option key={a.id} value={a.id}>
-                      {a.name}
-                      {a.agentCode ? ` (${a.agentCode})` : ""}
-                    </option>
-                  ))
-                : f.options?.map((o) => (
-                    <option key={o.value} value={o.value}>
-                      {o.label}
-                    </option>
-                  ))}
-            </select>
+            <div className="w-40">
+              <Select
+                size="sm"
+                value={draft[f.name] ?? ""}
+                onValueChange={(val) => set(f.name, val)}
+                searchable={f.type === "agent"}
+                options={[
+                  { value: "", label: "All" },
+                  ...(f.type === "agent"
+                    ? (agents ?? []).map((a) => ({
+                        value: a.id,
+                        label: `${a.name}${a.agentCode ? ` (${a.agentCode})` : ""}`,
+                      }))
+                    : (f.options ?? [])),
+                ]}
+                aria-label={f.label}
+              />
+            </div>
           ) : (
             <input
               className={fieldCls}
@@ -59,7 +63,7 @@ export function AdminFilterBar({ fields, values, onApply }: Props) {
               onChange={(e) => set(f.name, e.target.value)}
             />
           )}
-        </label>
+        </div>
       ))}
       <div className="flex gap-2">
         <button type="submit" className="h-10 rounded-xl bg-neutral-900 px-4 text-sm font-semibold text-white hover:bg-neutral-800">

@@ -32,8 +32,9 @@ function useToast() {
 }
 
 const APP_TOAST_EVENT = "app-toast-event";
-const recentToasts = new Map<string, number>();
-const DEDUPE_TIME_MS = 2500;
+let lastToastTime = 0;
+let lastToastKey = "";
+const DEDUPE_TIME_MS = 1500;
 
 type ToastInput =
   | Omit<Toast, "id">
@@ -54,20 +55,16 @@ function showToast(toastData: ToastInput) {
       ? "success"
       : toastData.variant;
 
-  // Deduplicate based on message content to prevent dual toasts from MutationCache & components
-  const content = (toastData.description || toastData.title || "").trim().toLowerCase();
-  const dedupeKey = `${variant}:${content}`;
   const now = Date.now();
-  const lastShown = recentToasts.get(dedupeKey);
+  const rawKey = `${variant}:${(toastData.description || toastData.title || "").trim().toLowerCase()}`;
 
-  if (lastShown && now - lastShown < DEDUPE_TIME_MS) {
-    return; // Skip duplicate toast within dedupe window
+  // Deduplicate against rapid repeat triggers
+  if (rawKey === lastToastKey && now - lastToastTime < DEDUPE_TIME_MS) {
+    return;
   }
 
-  recentToasts.set(dedupeKey, now);
-  setTimeout(() => {
-    recentToasts.delete(dedupeKey);
-  }, DEDUPE_TIME_MS);
+  lastToastTime = now;
+  lastToastKey = rawKey;
 
   window.dispatchEvent(
     new CustomEvent(APP_TOAST_EVENT, {
@@ -99,30 +96,25 @@ export const toast = Object.assign(showToast, {
 
 function ToastProvider({ children }: { children: React.ReactNode }) {
   const [toasts, setToasts] = React.useState<Toast[]>([]);
-
-  const addToast = React.useCallback((newToast: Omit<Toast, "id">) => {
-    const newContent = (newToast.description || newToast.title || "").trim().toLowerCase();
-
-    setToasts((prev) => {
-      const alreadyActive = prev.some((t) => {
-        const existingContent = (t.description || t.title || "").trim().toLowerCase();
-        return t.variant === newToast.variant && existingContent === newContent;
-      });
-      if (alreadyActive) {
-        return prev;
-      }
-
-      const id = `toast-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
-      setTimeout(() => {
-        setToasts((current) => current.filter((t) => t.id !== id));
-      }, newToast.duration ?? 5000);
-
-      return [...prev, { ...newToast, id }];
-    });
-  }, []);
+  const timerRef = React.useRef<NodeJS.Timeout | null>(null);
 
   const removeToast = React.useCallback((id: string) => {
     setToasts((prev) => prev.filter((t) => t.id !== id));
+  }, []);
+
+  const addToast = React.useCallback((newToast: Omit<Toast, "id">) => {
+    const id = `toast-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+
+    if (timerRef.current) {
+      clearTimeout(timerRef.current);
+    }
+
+    timerRef.current = setTimeout(() => {
+      setToasts([]);
+    }, newToast.duration ?? 4000);
+
+    // Enforce SINGLE active toast at a time (replaces any previous toast immediately)
+    setToasts([{ ...newToast, id }]);
   }, []);
 
   React.useEffect(() => {
@@ -138,6 +130,9 @@ function ToastProvider({ children }: { children: React.ReactNode }) {
     window.addEventListener(APP_TOAST_EVENT, handleCustomToast);
     return () => {
       window.removeEventListener(APP_TOAST_EVENT, handleCustomToast);
+      if (timerRef.current) {
+        clearTimeout(timerRef.current);
+      }
     };
   }, [addToast]);
 

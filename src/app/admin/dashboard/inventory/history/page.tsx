@@ -11,6 +11,7 @@ import {
   AdminContent,
 } from "@/components/admin/AdminPageHeader";
 import { DataTable } from "@/components/admin/data-table/DataTable";
+import { Select } from "@/components/ui/select";
 import { ClearFiltersButton } from "@/components/common/clear-filters-button";
 import { useInventoryTransactions } from "@/features/inventory/hooks";
 import { formatDate } from "@/lib/utils";
@@ -112,25 +113,30 @@ export default function InventoryHistoryPage() {
           </div>
           <div className="flex items-center gap-2">
             <label className="text-xs font-semibold text-neutral-600 whitespace-nowrap">Filter by type:</label>
-            <select
-              className="h-10 rounded-xl border border-neutral-300 bg-white px-3 text-xs text-neutral-700 focus:border-secondary-600 focus:outline-none cursor-pointer"
-              value={params.type ?? ""}
-              onChange={(e) =>
-                setParams((prev) => ({
-                  ...prev,
-                  type: e.target.value || undefined,
-                  page: 1,
-                }))
-              }
-            >
-              <option value="">All Types</option>
-              <option value="PURCHASE">Purchase</option>
-              <option value="SALE">Sale</option>
-              <option value="RETURN">Return</option>
-              <option value="ADJUSTMENT">Adjustment</option>
-              <option value="DAMAGE">Damage</option>
-              <option value="TRANSFER">Transfer</option>
-            </select>
+            <div className="w-44">
+              <Select
+                size="sm"
+                value={params.type ?? ""}
+                onValueChange={(val) =>
+                  setParams((prev) => ({
+                    ...prev,
+                    type: val || undefined,
+                    page: 1,
+                  }))
+                }
+                searchable={false}
+                options={[
+                  { value: "", label: "All Types" },
+                  { value: "PURCHASE", label: "Purchase" },
+                  { value: "SALE", label: "Sale" },
+                  { value: "RETURN", label: "Return" },
+                  { value: "ADJUSTMENT", label: "Adjustment" },
+                  { value: "DAMAGE", label: "Damage" },
+                  { value: "TRANSFER", label: "Transfer" },
+                ]}
+                aria-label="Filter by type"
+              />
+            </div>
           </div>
 
           {hasActiveFilters && <ClearFiltersButton onClick={handleClearFilters} />}

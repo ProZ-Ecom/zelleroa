@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { toast } from "@/components/ui/Toast";
 import {
   useRoles,
   useCreateRole,
@@ -81,28 +82,29 @@ export default function AdminRolesPage() {
     );
   };
 
-  const onSubmit = (formData: CreateRoleSchemaInput) => {
+  const onSubmit = async (formData: CreateRoleSchemaInput) => {
     const payload = { ...formData, permissionIds: selectedPermissionIds };
 
     if (editingRole) {
-      updateMutation.mutate(
-        { id: editingRole.id, data: payload },
-        {
-          onSuccess: () => {
-            setModalOpen(false);
-            setEditingRole(null);
-            setSelectedPermissionIds([]);
-          },
-        }
-      );
+      try {
+        await updateMutation.mutateAsync({ id: editingRole.id, data: payload });
+        toast.success("Role updated", `"${formData.name}" was updated successfully.`);
+        setModalOpen(false);
+        setEditingRole(null);
+        setSelectedPermissionIds([]);
+      } catch (err: any) {
+        toast.error("Failed to update role", err?.message || "Please try again.");
+      }
     } else {
-      createMutation.mutate(payload, {
-        onSuccess: () => {
-          setModalOpen(false);
-          reset();
-          setSelectedPermissionIds([]);
-        },
-      });
+      try {
+        await createMutation.mutateAsync(payload);
+        toast.success("Role created", `"${formData.name}" was created successfully.`);
+        setModalOpen(false);
+        reset();
+        setSelectedPermissionIds([]);
+      } catch (err: any) {
+        toast.error("Failed to create role", err?.message || "Please try again.");
+      }
     }
   };
 
@@ -294,11 +296,15 @@ export default function AdminRolesPage() {
       <ConfirmDialog
         open={!!deleteId}
         onClose={() => setDeleteId(null)}
-        onConfirm={() => {
+        onConfirm={async () => {
           if (deleteId) {
-            deleteMutation.mutate(deleteId, {
-              onSuccess: () => setDeleteId(null),
-            });
+            try {
+              await deleteMutation.mutateAsync(deleteId);
+              toast.success("Role deleted", "The role was removed successfully.");
+              setDeleteId(null);
+            } catch (err: any) {
+              toast.error("Failed to delete role", err?.message || "Please try again.");
+            }
           }
         }}
         title="Delete Role"

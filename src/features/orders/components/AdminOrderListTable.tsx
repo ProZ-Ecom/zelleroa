@@ -22,6 +22,7 @@ import { Input } from "@/components/ui/input";
 import { FormModal } from "@/components/common/FormModal";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { SearchInput } from "@/components/ui/search-input";
+import { Select } from "@/components/ui/select";
 import { ClearFiltersButton } from "@/components/common/clear-filters-button";
 import { formatDateTime, formatPrice } from "@/lib/utils";
 import { AssignStaffModal } from "@/features/orders/components/AssignStaffModal";
@@ -386,23 +387,25 @@ export function AdminOrderListTable({
           />
         </div>
 
-        <div className="flex items-center gap-2">
-          <select
+        <div className="flex items-center gap-2 w-full sm:w-48">
+          <Select
+            size="sm"
             value={paymentFilter}
             onChange={(e) => {
               setPaymentFilter(e.target.value);
               setPage(1);
             }}
-            aria-label="Filter by payment status"
-            className="h-10 rounded-xl border border-cream-border-subtle bg-white px-3 text-xs font-semibold text-neutral-700 hover:border-cream-border-hover focus:border-secondary-600 focus:outline-hidden cursor-pointer"
-          >
-            <option value="">All Payments</option>
-            {PAYMENT_STATUSES.map((ps) => (
-              <option key={ps} value={ps}>
-                {PAYMENT_STATUS_LABELS[ps] || ps}
-              </option>
-            ))}
-          </select>
+            options={[
+              { value: "", label: "All Payments" },
+              ...PAYMENT_STATUSES.map((ps) => ({
+                value: ps,
+                label: PAYMENT_STATUS_LABELS[ps] || ps,
+              })),
+            ]}
+            placeholder="All Payments"
+            className="h-10 rounded-xl"
+            searchable={false}
+          />
 
           {hasActiveFilters && <ClearFiltersButton onClick={handleClearFilters} />}
         </div>

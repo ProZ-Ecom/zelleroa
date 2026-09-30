@@ -363,22 +363,16 @@ export default function InventoryStockPage() {
       >
         <div className="space-y-4">
           <div>
-            <label className="text-sm font-medium">Inventory Item <span className="text-red-500">*</span></label>
-            <select
-              className="w-full border rounded-md p-2"
-              {...adjustForm.register("inventoryId", { valueAsNumber: true })}
-            >
-              <option value={0} disabled>
-                Select item
-              </option>
-              {inventoryData?.map((item) => (
-                <option key={item.id} value={item.id}>
-                  {item.productName}
-                  {item.colorName ? ` - ${item.colorName}` : ""}
-                  {item.unitName ? ` (${item.unitName})` : ""}
-                </option>
-              ))}
-            </select>
+            <label className="text-sm font-medium mb-1 block">Inventory Item <span className="text-red-500">*</span></label>
+            <Select
+              value={adjustForm.watch("inventoryId") ? String(adjustForm.watch("inventoryId")) : ""}
+              placeholder="Select item"
+              onValueChange={(val) => adjustForm.setValue("inventoryId", Number(val), { shouldValidate: true })}
+              options={(inventoryData ?? []).map((item) => ({
+                value: String(item.id),
+                label: `${item.productName}${item.colorName ? ` - ${item.colorName}` : ""}${item.unitName ? ` (${item.unitName})` : ""}`,
+              }))}
+            />
           </div>
           <div>
             <label className="text-sm font-medium">Direction <span className="text-red-500">*</span></label>

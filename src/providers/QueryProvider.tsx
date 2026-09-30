@@ -35,23 +35,23 @@ function makeQueryClient() {
       },
     },
     mutationCache: new MutationCache({
-      onSuccess: (data: any, _variables, _context, mutation) => {
+      onSuccess: (_data: any, _variables, _context, mutation) => {
         const meta = mutation.meta as MetaOptions | undefined;
         if (meta?.skipToast) return;
 
-        const message = meta?.successMessage || data?.message;
-        if (message && typeof message === "string") {
-          toast.success("Success", message);
+        // Only fire global toast if explicitly configured on mutation meta
+        if (meta?.successMessage && typeof meta.successMessage === "string") {
+          toast.success("Success", meta.successMessage);
         }
       },
       onError: (error: any, _variables, _context, mutation) => {
         const meta = mutation.meta as MetaOptions | undefined;
         if (meta?.skipToast) return;
 
-        const backendMessage = error?.message || meta?.errorMessage || "An unexpected error occurred";
-
-        // Preserve exact backend message (e.g. "Invalid email or password")
-        toast.error("Error", backendMessage);
+        // Only fire global error toast if explicitly requested via meta
+        if (meta?.errorMessage) {
+          toast.error("Error", error?.message || meta.errorMessage);
+        }
       },
     }),
     queryCache: new QueryCache({

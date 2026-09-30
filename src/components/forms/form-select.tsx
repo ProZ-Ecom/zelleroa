@@ -11,6 +11,8 @@ interface FormSelectProps {
   placeholder?: string;
   description?: string;
   required?: boolean;
+  expandContainer?: boolean;
+  portal?: boolean;
 }
 
 function FormSelect({
@@ -20,6 +22,8 @@ function FormSelect({
   placeholder,
   description,
   required,
+  expandContainer,
+  portal,
 }: FormSelectProps) {
   const { control } = useFormContext();
 
@@ -40,6 +44,8 @@ function FormSelect({
             options={options}
             placeholder={placeholder}
             error={fieldState.error?.message}
+            expandContainer={expandContainer}
+            portal={portal}
           />
           {description && !fieldState.error && (
             <p className="text-xs text-muted-foreground">{description}</p>

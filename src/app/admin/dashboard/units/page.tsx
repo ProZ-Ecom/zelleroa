@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { toast } from "@/components/ui/Toast";
 import {
   useUnits,
   useCreateUnit,
@@ -227,9 +228,13 @@ export default function AdminUnitsPage() {
           isLoading={createMutation.isPending}
           submitLabel="Create Unit"
           onSubmit={async (formData) => {
-            await createMutation.mutateAsync(formData);
-
-            setIsCreateOpen(false);
+            try {
+              await createMutation.mutateAsync(formData);
+              toast.success("Unit created", `"${formData.name}" was added successfully.`);
+              setIsCreateOpen(false);
+            } catch (err: any) {
+              toast.error("Failed to create unit", err?.message || "Please try again.");
+            }
           }}
         />
       </FormModal>
@@ -259,14 +264,18 @@ export default function AdminUnitsPage() {
             isLoading={updateMutation.isPending}
             submitLabel="Update Unit"
             onSubmit={async (formData) => {
-              await updateMutation.mutateAsync({
-                uuid: selectedUnit.id,
-                data: formData,
-              });
-
-              setIsEditOpen(false);
-              setSelectedUnit(null);
-              refetch();
+              try {
+                await updateMutation.mutateAsync({
+                  uuid: selectedUnit.id,
+                  data: formData,
+                });
+                toast.success("Unit updated", `"${formData.name}" was saved successfully.`);
+                setIsEditOpen(false);
+                setSelectedUnit(null);
+                refetch();
+              } catch (err: any) {
+                toast.error("Failed to update unit", err?.message || "Please try again.");
+              }
             }}
           />
         )}
@@ -276,11 +285,15 @@ export default function AdminUnitsPage() {
       <ConfirmDialog
         open={!!deleteId}
         onClose={() => setDeleteId(null)}
-        onConfirm={() => {
+        onConfirm={async () => {
           if (deleteId) {
-            deleteMutation.mutate(deleteId, {
-              onSuccess: () => setDeleteId(null),
-            });
+            try {
+              await deleteMutation.mutateAsync(deleteId);
+              toast.success("Unit deleted", "The unit was removed successfully.");
+              setDeleteId(null);
+            } catch (err: any) {
+              toast.error("Failed to delete unit", err?.message || "Please try again.");
+            }
           }
         }}
         title="Delete Unit"

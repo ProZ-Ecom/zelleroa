@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { toast } from "@/components/ui/Toast";
 import { useCoupons, useCreateCoupon, useUpdateCoupon, useDeleteCoupon } from "@/features/coupons/hooks";
 import { DataTable } from "@/components/admin/data-table/DataTable";
 import { AdminPageHeader, AdminContent } from "@/components/admin/AdminPageHeader";
@@ -11,6 +12,7 @@ import { AdminTableSkeleton } from "@/components/admin/AdminTableSkeleton";
 import { ErrorState } from "@/components/ui/error-state";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Select } from "@/components/ui/select";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { FormModal } from "@/components/common/FormModal";
 import { Plus, Pencil, Trash2 } from "lucide-react";
@@ -43,6 +45,8 @@ export default function AdminCouponsPage() {
     register,
     handleSubmit,
     reset,
+    watch,
+    setValue,
     formState: { errors },
   } = useForm<CreateCouponSchemaInput>({
     resolver: zodResolver(createCouponSchema),
@@ -76,24 +80,25 @@ export default function AdminCouponsPage() {
     }
   }, [editingCoupon, reset]);
 
-  const onSubmit = (formData: CreateCouponSchemaInput) => {
+  const onSubmit = async (formData: CreateCouponSchemaInput) => {
     if (editingCoupon) {
-      updateMutation.mutate(
-        { id: editingCoupon.id, data: formData },
-        {
-          onSuccess: () => {
-            setModalOpen(false);
-            setEditingCoupon(null);
-          },
-        }
-      );
+      try {
+        await updateMutation.mutateAsync({ id: editingCoupon.id, data: formData });
+        toast.success("Coupon updated", `Coupon "${formData.code}" was updated successfully.`);
+        setModalOpen(false);
+        setEditingCoupon(null);
+      } catch (err: any) {
+        toast.error("Failed to update coupon", err?.message || "Please try again.");
+      }
     } else {
-      createMutation.mutate(formData, {
-        onSuccess: () => {
-          setModalOpen(false);
-          reset();
-        },
-      });
+      try {
+        await createMutation.mutateAsync(formData);
+        toast.success("Coupon created", `Coupon "${formData.code}" was created successfully.`);
+        setModalOpen(false);
+        reset();
+      } catch (err: any) {
+        toast.error("Failed to create coupon", err?.message || "Please try again.");
+      }
     }
   };
 
@@ -259,13 +264,15 @@ export default function AdminCouponsPage() {
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Type <span className="text-error-600">*</span>
               </label>
-              <select
-                {...register("type")}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
-              >
-                <option value="PERCENTAGE">Percentage</option>
-                <option value="FIXED">Fixed Amount</option>
-              </select>
+              <Select
+                value={watch("type")}
+                onValueChange={(val) => setValue("type", val as "PERCENTAGE" | "FIXED", { shouldValidate: true })}
+                searchable={false}
+                options={[
+                  { value: "PERCENTAGE", label: "Percentage" },
+                  { value: "FIXED", label: "Fixed Amount" },
+                ]}
+              />
             </div>
 
             <div>
@@ -366,11 +373,15 @@ export default function AdminCouponsPage() {
       <ConfirmDialog
         open={!!deleteId}
         onClose={() => setDeleteId(null)}
-        onConfirm={() => {
+        onConfirm={async () => {
           if (deleteId) {
-            deleteMutation.mutate(deleteId, {
-              onSuccess: () => setDeleteId(null),
-            });
+            try {
+              await deleteMutation.mutateAsync(deleteId);
+              toast.success("Coupon deleted", "The coupon was removed successfully.");
+              setDeleteId(null);
+            } catch (err: any) {
+              toast.error("Failed to delete coupon", err?.message || "Please try again.");
+            }
           }
         }}
         title="Delete Coupon"

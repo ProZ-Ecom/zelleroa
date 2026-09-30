@@ -3,6 +3,7 @@
 import React, { useMemo, useState } from "react";
 import { Plus, Pencil, Trash2, Star, Loader2, Tag, PackagePlus, PackageMinus, Boxes } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Select } from "@/components/ui/select";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useUnits } from "@/features/units/hooks";
 import { useConfiguredAttributesForProduct } from "@/features/attributes/hooks/use-attributes";
@@ -576,10 +577,9 @@ function VariantUnitPriceList({
                     <label className="block text-xs font-semibold text-neutral-800 mb-1.5">
                       Size <span className="text-red-500">*</span>
                     </label>
-                    <select
+                    <Select
                       value={form.sizeValueId}
-                      onChange={(e) => {
-                        const valId = e.target.value;
+                      onValueChange={(valId) => {
                         const sObj = availableSizeOptions.find((s) => s.id === valId);
                         const sizeCode = sObj ? sObj.value.toUpperCase().replace(/[^A-Z0-9]/g, "") : "";
                         const baseVariantSlug = (variant?.slug || "VAR").toUpperCase().replace(/[^A-Z0-9_]/g, "_");
@@ -591,15 +591,15 @@ function VariantUnitPriceList({
                         }));
                       }}
                       disabled={isBusy || Boolean(editingId)}
-                      className="w-full h-10 px-3 rounded-lg border border-neutral-200 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-secondary-600/20 focus:border-secondary-600 disabled:opacity-60 disabled:bg-neutral-100"
-                    >
-                      <option value="">Select size</option>
-                      {availableSizeOptions.map((s) => (
-                        <option key={s.id} value={s.id}>
-                          {s.value}
-                        </option>
-                      ))}
-                    </select>
+                      placeholder="Select size"
+                      options={[
+                        { value: "", label: "Select size" },
+                        ...availableSizeOptions.map((s) => ({
+                          value: s.id,
+                          label: s.value,
+                        })),
+                      ]}
+                    />
                     {editingId && (
                       <p className="text-[11px] text-neutral-400 mt-1">
                         Size can&apos;t be changed after creation — delete this row and add a new one instead.
@@ -613,10 +613,9 @@ function VariantUnitPriceList({
                     <label className="block text-xs font-semibold text-neutral-800 mb-1.5">
                       Unit <span className="text-red-500">*</span>
                     </label>
-                    <select
+                    <Select
                       value={form.unitId}
-                      onChange={(e) => {
-                        const nextUnitId = e.target.value;
+                      onValueChange={(nextUnitId) => {
                         const nextUnit = units.find((u: AdminUnitResponse) => u.id === nextUnitId);
                         setForm((f) => ({
                           ...f,
@@ -626,15 +625,15 @@ function VariantUnitPriceList({
                         }));
                       }}
                       disabled={isBusy}
-                      className="w-full h-10 px-3 rounded-lg border border-neutral-200 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-secondary-600/20 focus:border-secondary-600 disabled:opacity-60 disabled:bg-neutral-100"
-                    >
-                      <option value="">Select unit</option>
-                      {units.map((u: AdminUnitResponse) => (
-                        <option key={u.id} value={u.id}>
-                          {u.name} ({u.code})
-                        </option>
-                      ))}
-                    </select>
+                      placeholder="Select unit"
+                      options={[
+                        { value: "", label: "Select unit" },
+                        ...units.map((u: AdminUnitResponse) => ({
+                          value: u.id,
+                          label: `${u.name} (${u.code})`,
+                        })),
+                      ]}
+                    />
                     <p className="text-[11px] text-neutral-400 mt-1">
                       What is it measured in — Grams, Kilograms, Millilitres, or just a count.
                     </p>

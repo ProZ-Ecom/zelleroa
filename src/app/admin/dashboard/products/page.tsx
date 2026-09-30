@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
+import { toast } from "@/components/ui/Toast";
 import {
   useAdminProducts,
   useCreateProduct,
@@ -233,13 +234,12 @@ export default function AdminProductsPage() {
               <div className="w-full sm:w-64">
                 <Select
                   value={selectedCategoryFilter}
-                  onChange={(e) => {
-                    setSelectedCategoryFilter(e.target.value);
+                  onValueChange={(val) => {
+                    setSelectedCategoryFilter(val);
                     setPage(1);
                   }}
                   options={categoryFilterOptions}
                   placeholder="All Categories"
-                  className="h-11 rounded-xl"
                 />
               </div>
 
@@ -325,23 +325,28 @@ export default function AdminProductsPage() {
             isLoading={createMutation.isPending}
             submitLabel="Next: Attributes"
             onSubmit={async (formData) => {
-              const payload = {
-                name: formData.name,
-                slug: formData.slug,
-                categoryId: formData.categoryId,
-                brandId: formData.brandId,
-                hsnCodeId: formData.hsnCodeId,
-                gender: formData.gender,
-              };
+              try {
+                const payload = {
+                  name: formData.name,
+                  slug: formData.slug,
+                  categoryId: formData.categoryId,
+                  brandId: formData.brandId,
+                  hsnCodeId: formData.hsnCodeId,
+                  gender: formData.gender,
+                };
 
-              const created = await createMutation.mutateAsync(payload);
+                const created = await createMutation.mutateAsync(payload);
+                toast.success("Product created", `"${formData.name}" is ready for attributes.`);
 
-              if (created?.data?.id) {
-                setCreatedProductId(created.data.id);
-                setCreatedProductName(formData.name);
-              } else {
-                setIsCreateOpen(false);
-                refetch();
+                if (created?.data?.id) {
+                  setCreatedProductId(created.data.id);
+                  setCreatedProductName(formData.name);
+                } else {
+                  setIsCreateOpen(false);
+                  refetch();
+                }
+              } catch (err: any) {
+                toast.error("Failed to create product", err?.message || "Please try again.");
               }
             }}
           />
@@ -377,23 +382,28 @@ export default function AdminProductsPage() {
             isLoading={updateMutation.isPending}
             submitLabel="Update Product"
             onSubmit={async (formData) => {
-              const payload = {
-                name: formData.name,
-                slug: formData.slug,
-                categoryId: formData.categoryId,
-                brandId: formData.brandId,
-                hsnCodeId: formData.hsnCodeId,
-                gender: formData.gender,
-              };
+              try {
+                const payload = {
+                  name: formData.name,
+                  slug: formData.slug,
+                  categoryId: formData.categoryId,
+                  brandId: formData.brandId,
+                  hsnCodeId: formData.hsnCodeId,
+                  gender: formData.gender,
+                };
 
-              await updateMutation.mutateAsync({
-                uuid: selectedProduct.id,
-                data: payload,
-              });
+                await updateMutation.mutateAsync({
+                  uuid: selectedProduct.id,
+                  data: payload,
+                });
+                toast.success("Product updated", `"${formData.name}" was saved successfully.`);
 
-              setIsEditOpen(false);
-              setSelectedProduct(null);
-              refetch();
+                setIsEditOpen(false);
+                setSelectedProduct(null);
+                refetch();
+              } catch (err: any) {
+                toast.error("Failed to update product", err?.message || "Please try again.");
+              }
             }}
           />
         )}
@@ -420,14 +430,16 @@ export default function AdminProductsPage() {
       <ConfirmDialog
         open={!!deleteId}
         onClose={() => setDeleteId(null)}
-        onConfirm={() => {
+        onConfirm={async () => {
           if (deleteId) {
-            deleteMutation.mutate(deleteId, {
-              onSuccess: () => {
-                setDeleteId(null);
-                refetch();
-              },
-            });
+            try {
+              await deleteMutation.mutateAsync(deleteId);
+              toast.success("Product deleted", "The product was removed successfully.");
+              setDeleteId(null);
+              refetch();
+            } catch (err: any) {
+              toast.error("Failed to delete product", err?.message || "Please try again.");
+            }
           }
         }}
         title="Delete Product"
