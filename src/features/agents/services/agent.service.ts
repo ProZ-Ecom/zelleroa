@@ -151,16 +151,16 @@ export const agentService = {
       where: { OR: [{ uuid: sessionUserId }, ...(/^\d+$/.test(sessionUserId) ? [{ id: BigInt(sessionUserId) }] : [])] },
       select: { id: true, name: true, is_active: true, status: true, role: { select: { slug: true } } },
     });
-    if (!user || user.role.slug !== "agent") throw ApiError.forbidden("Agent access only");
+    if (!user || user.role.slug !== "agent") throw ApiError.forbidden("Sales Partner access only");
     if (!user.is_active || user.status !== "active") {
-      throw ApiError.forbidden("Your agent account is inactive. Please contact support.");
+      throw ApiError.forbidden("Your Sales Partner account is inactive. Please contact support.");
     }
     return { agentId: user.id, name: user.name };
   },
 
   async createAgent(input: CreateAgentInput, actor: AuditActor) {
     const role = await db.role.findFirst({ where: { slug: "agent" }, select: { id: true } });
-    if (!role) throw ApiError.internal("Agent role is not configured");
+    if (!role) throw ApiError.internal("Sales Partner role is not configured");
 
     if (await db.user.findFirst({ where: { email: input.email }, select: { id: true } })) {
       throw ApiError.conflict("An account with this email address already exists");
@@ -216,12 +216,12 @@ export const agentService = {
         throw err;
       }
     }
-    throw ApiError.internal("Could not generate an agent code");
+    throw ApiError.internal("Could not generate a Sales Partner code");
   },
 
   async updateAgent(agentRef: string, input: UpdateAgentInput, actor: AuditActor) {
     const agentId = await resolveAgentRef(agentRef);
-    if (!agentId) throw ApiError.notFound("Agent not found");
+    if (!agentId) throw ApiError.notFound("Sales Partner not found");
 
     if (input.phone) {
       const clash = await db.user.findFirst({ where: { phone: input.phone, id: { not: agentId } }, select: { id: true } });
@@ -265,9 +265,9 @@ export const agentService = {
 
   async getAgentDetail(agentRef: string) {
     const agentId = await resolveAgentRef(agentRef);
-    if (!agentId) throw ApiError.notFound("Agent not found");
+    if (!agentId) throw ApiError.notFound("Sales Partner not found");
     const user = await db.user.findUnique({ where: { id: agentId }, select: agentUserSelect });
-    if (!user) throw ApiError.notFound("Agent not found");
+    if (!user) throw ApiError.notFound("Sales Partner not found");
     const summaries = await summariesFor([agentId]);
     return formatAgent(user, summaries.get(String(agentId)));
   },
@@ -332,7 +332,7 @@ export const agentService = {
 
   async getProfile(agentId: bigint) {
     const user = await db.user.findUnique({ where: { id: agentId }, select: agentUserSelect });
-    if (!user) throw ApiError.notFound("Agent not found");
+    if (!user) throw ApiError.notFound("Sales Partner not found");
     const p = user.agent_profile;
     return {
       ...formatAgent(user),

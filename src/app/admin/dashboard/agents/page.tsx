@@ -27,25 +27,25 @@ export default function AdminAgentsPage() {
   const toggleActive = async (a: AgentDto) => {
     try {
       await apiClient.put(`/api/admin/agents/${a.id}`, { isActive: !a.isActive });
-      toast.success(a.isActive ? "Agent deactivated" : "Agent activated");
+      toast.success(a.isActive ? "Sales Partner deactivated" : "Sales Partner activated");
       await qc.invalidateQueries({ queryKey: ["agents-admin"] });
     } catch (err) {
-      toast.error("Could not update the agent", errorMessage(err));
+      toast.error("Could not update the Sales Partner", errorMessage(err));
     }
   };
 
   return (
     <PageContainer
-      title="Agents"
-      description="Create agents, share their referral links, and track their customers, sales and commission."
-      breadcrumbs={[{ label: "Dashboard", href: "/admin/dashboard" }, { label: "Agents" }]}
+      title="Sales Partners"
+      description="Create Sales Partners, share their referral links, and track their customers, sales and commission."
+      breadcrumbs={[{ label: "Dashboard", href: "/admin/dashboard" }, { label: "Sales Partners" }]}
       actions={
         <button
           type="button"
           onClick={() => setModal({ open: true, agent: null })}
           className="inline-flex h-10 items-center gap-2 whitespace-nowrap rounded-xl bg-secondary-600 px-4 text-sm font-semibold text-white hover:bg-secondary-700"
         >
-          <Plus className="h-4 w-4" /> Create agent
+          <Plus className="h-4 w-4" /> Create Sales Partner
         </button>
       }
     >
@@ -97,10 +97,10 @@ export default function AdminAgentsPage() {
               <SimpleTable
                 rows={data?.data ?? []}
                 rowKey={(r) => r.id}
-                empty="No agents yet. Click “Create agent” to add the first one."
+                empty="No Sales Partners yet. Click “Create Sales Partner” to add the first one."
                 columns={[
                   {
-                    header: "Agent",
+                    header: "Sales Partner",
                     cell: (r) => (
                       <Link href={`/admin/dashboard/agents/${r.id}`} className="group flex flex-col">
                         <span className="font-semibold text-neutral-900 group-hover:underline">{r.name}</span>
@@ -108,7 +108,7 @@ export default function AdminAgentsPage() {
                       </Link>
                     ),
                   },
-                  { header: "Agent ID", cell: (r) => <span className="font-mono text-xs">{r.agentCode ?? "—"}</span> },
+                  { header: "Sales Partner ID", cell: (r) => <span className="font-mono text-xs">{r.agentCode ?? "—"}</span> },
                   { header: "Referral code", cell: (r) => <span className="font-mono text-xs">{r.referralCode ?? "—"}</span> },
                   { header: "Customers", cell: (r) => r.summary.totalReferredCustomers },
                   { header: "Orders", cell: (r) => r.summary.totalOrders },

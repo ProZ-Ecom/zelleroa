@@ -71,7 +71,7 @@ export function useCancelCustomerOrder() {
       payload,
     }: {
       uuid: string;
-      payload?: CancelCustomerOrderPayload;
+      payload: CancelCustomerOrderPayload;
     }) => customerOrdersApi.cancelOrder(uuid, payload),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: CUSTOMER_ORDERS_QUERY_KEY });

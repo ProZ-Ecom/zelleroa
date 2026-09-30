@@ -12,6 +12,9 @@ import { loadRazorpayScript } from "../../utils/razorpay-loader";
 import { CustomDropdown, type DropdownOption } from "./CustomDropdown";
 import { SearchInput } from "@/components/common/search-input";
 import { ProductImage } from "@/components/common/ProductImage";
+import { toast } from "@/components/ui/Toast";
+import { CancelOrderDialog } from "@/features/orders/components/CancelOrderDialog";
+import { isOrderCancellable } from "@/features/returns/lib/policy";
 
 const STATUS_OPTIONS: DropdownOption[] = [
   { value: "all", label: "All Orders" },
@@ -47,6 +50,8 @@ export function OrdersTab({
   const [payingOrderId, setPayingOrderId] = useState<string | null>(null);
   const [paymentError, setPaymentError] = useState<string | null>(null);
 
+  const [cancelTarget, setCancelTarget] = useState<OrderDetailResponse | null>(null);
+  const [cancelError, setCancelError] = useState<string | null>(null);
   const cancelMutation = useCancelCustomerOrder();
   const addToCartMutation = useAddToCartMutation();
   const createRazorpayOrderMutation = useCreateRazorpayOrder();
@@ -560,21 +565,17 @@ export function OrdersTab({
                     </button>
                   </Link>
 
-                  {order.status === "pending" && (
+                  {isOrderCancellable(order.status) && (
                     <button
                       type="button"
                       disabled={cancelMutation.isPending}
                       onClick={() => {
-                        if (window.confirm("Are you sure you want to cancel this order?")) {
-                          cancelMutation.mutate({
-                            uuid: order.id,
-                            payload: { note: "Cancelled by customer" },
-                          });
-                        }
+                        setCancelError(null);
+                        setCancelTarget(order);
                       }}
                       className="border border-red-200 hover:bg-red-50 text-red-600 text-xs font-semibold uppercase tracking-wider py-2.5 px-4 rounded-lg transition-colors cursor-pointer min-h-[40px] disabled:opacity-50 ml-auto"
                     >
-                      {cancelMutation.isPending ? "Cancelling..." : "Cancel Order"}
+                      Cancel Order
                     </button>
                   )}
                 </div>
@@ -811,6 +812,33 @@ export function OrdersTab({
             </div>
           </div>
         </div>
+      )}
+
+      {cancelTarget && (
+        <CancelOrderDialog
+          open
+          orderNumber={cancelTarget.orderNumber}
+          isPaid={cancelTarget.paymentStatus === "paid"}
+          isSubmitting={cancelMutation.isPending}
+          serverError={cancelError}
+          onClose={() => setCancelTarget(null)}
+          onConfirm={(payload) =>
+            cancelMutation.mutate(
+              { uuid: cancelTarget.id, payload },
+              {
+                onSuccess: () => {
+                  toast.success("Order cancelled successfully.");
+                  setCancelTarget(null);
+                },
+                onError: (err) => {
+                  const msg = err instanceof Error ? err.message : "Could not cancel the order.";
+                  setCancelError(msg);
+                  toast.error("Could not cancel order", msg);
+                },
+              }
+            )
+          }
+        />
       )}
     </div>
   );

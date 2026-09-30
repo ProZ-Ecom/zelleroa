@@ -4,9 +4,6 @@ import * as React from "react";
 import Image from "next/image";
 import Link from "next/link";
 import {
-  Zap,
-  ShieldCheck,
-  RefreshCcw,
   ArrowRight,
   ShoppingBag,
   ChevronLeft,
@@ -14,12 +11,6 @@ import {
 } from "lucide-react";
 import { useCustomerBanners } from "@/features/banners/hooks";
 import { useSlider } from "@/hooks/useSlider";
-
-const STATS = [
-  { icon: Zap, label: "48-HR DISPATCH" },
-  { icon: ShieldCheck, label: "100% QUALITY VERIFIED" },
-  { icon: RefreshCcw, label: "15-DAY HASSLE-FREE" },
-];
 
 const FALLBACK_IMAGE =
   "https://images.unsplash.com/photo-1483985988355-763728e1935b?auto=format&fit=crop&w=1200&q=80";
@@ -106,17 +97,6 @@ export function HeroIntro() {
             </Link>
           </div>
 
-          <div className="mt-8 flex flex-wrap items-center gap-x-5 gap-y-2 text-xs font-medium text-theme-text-subtle">
-            {STATS.map(({ icon: Icon, label }, i) => (
-              <React.Fragment key={label}>
-                {i > 0 && <span className="h-1 w-1 rounded-full bg-theme-border" />}
-                <span className="flex items-center gap-1.5">
-                  <Icon className="h-4 w-4 text-theme-primary" strokeWidth={2} />
-                  {label}
-                </span>
-              </React.Fragment>
-            ))}
-          </div>
         </div>
 
         {/* Right: image + trending card */}

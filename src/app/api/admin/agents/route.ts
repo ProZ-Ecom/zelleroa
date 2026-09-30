@@ -18,7 +18,7 @@ const handler = createApiHandler(
     POST: async (_request, context) => {
       const actor = await resolveActor(context.session);
       const agent = await agentService.createAgent(context.body as CreateAgentInput, actor);
-      return apiCreated(agent, "Agent created successfully");
+      return apiCreated(agent, "Sales Partner created successfully");
     },
   },
   { requireAuth: true, requiredRole: ["ADMIN"], bodySchema: createAgentSchema }

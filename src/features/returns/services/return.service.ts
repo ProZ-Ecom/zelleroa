@@ -1,465 +1,170 @@
 import { ApiError } from "@/lib/api/api-error";
-import { returnRepository } from "../repositories/return.repository";
 import { userRepository } from "@/features/users/repositories/user.repository";
+import { resolveDeliveredAt } from "@/features/orders/repositories/order.repository";
+import { returnRepository, type Actor } from "../repositories/return.repository";
+import { getReturnWindow, RETURN_TRANSITIONS, type ReturnAction, type ReturnStatus } from "../lib/policy";
+import { summarizeReturnRequest } from "../lib/summary";
+import { videoService } from "./video.service";
+import {
+  assertOrderEligible,
+  loadOwnedOrder,
+  resolveCustomerId,
+} from "./eligibility.service";
 import type {
-  CreateReturnRequestInput,
-  CustomerReturnListInput,
   AdminReturnListInput,
-  RejectReturnInput,
+  CustomerReturnListInput,
+  RequestActionInput,
+  SubmitReturnInput,
 } from "../validations/return.schema";
-import type {
-  ReturnRequestListItem,
-  ReturnRequestDetailResponse,
-  CreateReturnRequestResult,
-  ApproveReturnResult,
-  RejectReturnResult,
-  PickupReturnResult,
-  RefundReturnResult,
-  ReturnItemInfo,
-} from "../types/return.types";
 
-function formatReturnItems(returnItems: any[]): ReturnItemInfo[] {
-  return (returnItems || []).map((item) => ({
-    orderItemId: item.order_items.uuid || String(item.order_items.id),
-    productName: item.order_items.product_name_snapshot,
-    variantName: item.order_items.variant_snapshot,
-    sku: item.order_items.sku_snapshot,
-    orderedQuantity: item.order_items.quantity,
-    returnQuantity: item.quantity,
-    unitPrice: Number(item.order_items.unit_price),
-    totalPrice: Number(item.order_items.total_price),
-    reason: item.reason,
-  }));
-}
-
-function formatReturnDetail(req: any): ReturnRequestDetailResponse {
+function formatRequest(req: any) {
+  const window = getReturnWindow("delivered", resolveDeliveredAt(req.orders));
   return {
-    id: req.uuid || String(req.id),
+    ...summarizeReturnRequest(req),
     orderId: req.orders.uuid || String(req.orders.id),
     orderNumber: req.orders.orderNumber,
     orderStatus: req.orders.order_status,
+    deliveredAt: resolveDeliveredAt(req.orders),
+    returnDeadline: window.deadline,
+    orderTotal: Number(req.orders.totalAmount),
     customer: {
       id: req.users_return_requests_user_idTousers.uuid || String(req.users_return_requests_user_idTousers.id),
       name: req.users_return_requests_user_idTousers.name,
       email: req.users_return_requests_user_idTousers.email,
       phone: req.users_return_requests_user_idTousers.phone,
     },
-    reason: req.reason,
-    status: req.status,
-    requestedAt: req.requested_at,
-    approvedAt: req.approved_at,
-    items: formatReturnItems(req.return_items),
-    createdAt: req.created_at,
-    updatedAt: req.updated_at,
   };
 }
 
-function formatReturnListItem(req: any): ReturnRequestListItem {
+function meta(result: { total: number; page: number; limit: number }) {
   return {
-    id: req.uuid || String(req.id),
-    orderId: req.orders.uuid || String(req.orders.id),
-    orderNumber: req.orders.orderNumber,
-    orderStatus: req.orders.order_status,
-    customer: req.users_return_requests_user_idTousers
-      ? {
-          id: req.users_return_requests_user_idTousers.uuid || String(req.users_return_requests_user_idTousers.id),
-          name: req.users_return_requests_user_idTousers.name,
-          email: req.users_return_requests_user_idTousers.email,
-          phone: req.users_return_requests_user_idTousers.phone,
-        }
-      : undefined,
-    reason: req.reason,
-    status: req.status,
-    totalItems: req.return_items?.length || 0,
-    requestedAt: req.requested_at,
-    approvedAt: req.approved_at,
-    createdAt: req.created_at,
-    updatedAt: req.updated_at,
+    page: result.page,
+    limit: result.limit,
+    pageSize: result.limit,
+    total: result.total,
+    totalPages: Math.ceil(result.total / result.limit) || 1,
   };
+}
+
+async function resolveActor(sessionUserId: string): Promise<Actor> {
+  const user = await userRepository.findById(sessionUserId);
+  if (!user || !user.internalId) {
+    throw ApiError.unauthorized("Session expired. Please log in again.");
+  }
+  const role = String(user.role?.name ?? "ADMIN").toUpperCase();
+  return { id: BigInt(user.internalId), type: role === "STAFF" ? "STAFF" : "ADMIN" };
 }
 
 export const returnService = {
   async createCustomerReturnRequest(
     sessionUserId: string,
-    input: CreateReturnRequestInput
-  ): Promise<CreateReturnRequestResult> {
-    // 1. Resolve Customer
-    const customer = await userRepository.findById(sessionUserId);
-    if (!customer) {
-      throw ApiError.unauthorized("Customer not found");
-    }
-    const customerId = BigInt(customer.internalId || customer.id);
+    orderUuid: string,
+    input: SubmitReturnInput
+  ) {
+    const customerId = await resolveCustomerId(sessionUserId);
+    const order = await loadOwnedOrder(customerId, orderUuid);
 
-    // 2. Resolve Order
-    const order = await returnRepository.findOrderWithItems(input.orderId);
-    if (!order) {
-      throw ApiError.notFound("Order not found");
-    }
+    // Deadline / status rules live here, not in the UI.
+    assertOrderEligible(order);
 
-    // 3. Customer Ownership Check
-    if (order.userId !== customerId) {
-      throw ApiError.forbidden("You do not have access to this order");
-    }
-
-    // 4. Order Status Check (Only delivered orders can be returned)
-    if (order.order_status !== "delivered") {
-      throw ApiError.badRequest(
-        `Cannot create return request for order with status '${order.order_status}'. Only 'delivered' orders can be returned.`
-      );
-    }
-
-    // 5. Validate Return Items Belong to Order & Quantities
-    const orderItemMap = new Map<string, any>();
-    order.items.forEach((item) => {
-      if (item.uuid) orderItemMap.set(item.uuid, item);
-      orderItemMap.set(String(item.id), item);
+    const byId = new Map(order.items.map((i) => [i.uuid || String(i.id), i]));
+    const lines = input.items.map((line) => {
+      const item = byId.get(line.orderItemId);
+      if (!item) {
+        throw ApiError.badRequest("One of the selected items does not belong to this order");
+      }
+      if (line.quantity > item.quantity) {
+        throw ApiError.badRequest(
+          `Return quantity (${line.quantity}) exceeds purchased quantity (${item.quantity}) for '${item.product_name_snapshot}'`
+        );
+      }
+      const perUnit = Number(item.total_price) / item.quantity;
+      return {
+        orderItemId: item.id,
+        quantity: line.quantity,
+        refundAmount: Math.round(perUnit * line.quantity * 100) / 100,
+        label: item.product_name_snapshot,
+      };
     });
 
-    const uniqueOrderItems = new Set<string>();
-    const validatedItems: {
-      orderItemId: bigint;
-      quantity: number;
-      reason?: string | null;
-      publicId: string;
-    }[] = [];
+    const videoUrl = await videoService.assertOwnedVideo(customerId, input.unboxingVideoUrl);
 
-    const orderItemInternalIds: bigint[] = [];
-
-    for (const itemInput of input.items) {
-      if (uniqueOrderItems.has(itemInput.orderItemId)) {
-        throw ApiError.badRequest(
-          `Duplicate order item '${itemInput.orderItemId}' in return request`
-        );
-      }
-      uniqueOrderItems.add(itemInput.orderItemId);
-
-      const orderItem = orderItemMap.get(itemInput.orderItemId);
-      if (!orderItem) {
-        throw ApiError.badRequest(
-          `Order item '${itemInput.orderItemId}' does not belong to this order`
-        );
-      }
-
-      if (itemInput.quantity > orderItem.quantity) {
-        throw ApiError.badRequest(
-          `Return quantity (${itemInput.quantity}) exceeds purchased quantity (${orderItem.quantity}) for item '${orderItem.product_name_snapshot}'`
-        );
-      }
-
-      orderItemInternalIds.push(orderItem.id);
-      validatedItems.push({
-        orderItemId: orderItem.id,
-        quantity: itemInput.quantity,
-        reason: itemInput.reason,
-        publicId: orderItem.uuid || String(orderItem.id),
-      });
-    }
-
-    // 6. Check Duplicate Active Return Requests for these order items
-    const activeReturns = await returnRepository.findActiveReturnsForOrderItems(
-      orderItemInternalIds
-    );
-    if (activeReturns.length > 0) {
-      const duplicate = activeReturns[0];
-      throw ApiError.conflict(
-        `An active return request (${duplicate.return_requests.status}) already exists for item '${duplicate.order_items.product_name_snapshot}'`
-      );
-    }
-
-    // 7. Atomically Create Return Request and Return Items
-    const created = await returnRepository.createReturnRequestTransaction({
+    const created = await returnRepository.create({
       orderId: order.id,
       userId: customerId,
       reason: input.reason,
-      items: validatedItems,
+      description: input.description,
+      unboxingVideoUrl: videoUrl,
+      items: lines,
     });
-
-    return {
-      id: created.uuid || String(created.id),
-      orderId: order.uuid || String(order.id),
-      orderNumber: order.orderNumber,
-      status: "requested",
-      reason: created.reason,
-      requestedAt: created.requested_at,
-      items: validatedItems.map((i) => ({
-        orderItemId: i.publicId,
-        quantity: i.quantity,
-        reason: i.reason || null,
-      })),
-      createdAt: created.created_at,
-      updatedAt: created.updated_at,
-    };
+    return formatRequest(created);
   },
 
-  async getCustomerReturnRequests(
-    sessionUserId: string,
-    params: CustomerReturnListInput
-  ) {
-    const customer = await userRepository.findById(sessionUserId);
-    if (!customer) {
-      throw ApiError.unauthorized("Customer not found");
-    }
-    const customerId = BigInt(customer.internalId || customer.id);
-
-    const result = await returnRepository.findCustomerReturnRequests(
-      customerId,
-      params
-    );
-
-    const data = result.requests.map(formatReturnListItem);
-
-    return {
-      data,
-      meta: {
-        page: result.page,
-        limit: result.limit,
-        pageSize: result.limit,
-        total: result.total,
-        totalPages: Math.ceil(result.total / result.limit) || 1,
-      },
-    };
+  async getCustomerReturnRequests(sessionUserId: string, params: CustomerReturnListInput) {
+    const customerId = await resolveCustomerId(sessionUserId);
+    const result = await returnRepository.listForCustomer(customerId, params);
+    return { data: result.requests.map(formatRequest), meta: meta(result) };
   },
 
-  async getCustomerReturnRequestByUuid(
-    sessionUserId: string,
-    uuid: string
-  ): Promise<ReturnRequestDetailResponse> {
-    const customer = await userRepository.findById(sessionUserId);
-    if (!customer) {
-      throw ApiError.unauthorized("Customer not found");
-    }
-    const customerId = BigInt(customer.internalId || customer.id);
-
-    const req = await returnRepository.findCustomerReturnRequestByUuid(
-      uuid,
-      customerId
-    );
-
-    if (!req) {
-      const anyReq = await returnRepository.findReturnRequestByUuidOnly(uuid);
-      if (anyReq) {
-        throw ApiError.forbidden("You do not have access to this return request");
-      }
-      throw ApiError.notFound("Return request not found");
-    }
-
-    return formatReturnDetail(req);
+  async getCustomerReturnRequestByUuid(sessionUserId: string, uuid: string) {
+    const customerId = await resolveCustomerId(sessionUserId);
+    const req = await returnRepository.findByUuid(uuid, customerId);
+    if (!req) throw ApiError.notFound("Return request not found");
+    return formatRequest(req);
   },
 
   async getAdminReturnRequests(params: AdminReturnListInput) {
-    const result = await returnRepository.findAdminReturnRequests(params);
-    const data = result.requests.map(formatReturnListItem);
-
-    return {
-      data,
-      meta: {
-        page: result.page,
-        limit: result.limit,
-        pageSize: result.limit,
-        total: result.total,
-        totalPages: Math.ceil(result.total / result.limit) || 1,
-      },
-    };
+    const result = await returnRepository.listForAdmin(params);
+    return { data: result.requests.map(formatRequest), meta: meta(result) };
   },
 
-  async getAdminReturnRequestByUuid(
-    uuid: string
-  ): Promise<ReturnRequestDetailResponse> {
-    const req = await returnRepository.findReturnRequestByUuidOnly(uuid);
-    if (!req) {
-      throw ApiError.notFound("Return request not found");
-    }
-
-    return formatReturnDetail(req);
+  async getAdminReturnRequestByUuid(uuid: string) {
+    const req = await returnRepository.findByUuid(uuid);
+    if (!req) throw ApiError.notFound("Return request not found");
+    return formatRequest(req);
   },
 
-  async approveReturnRequest(
-    adminSessionUserId: string,
-    uuid: string
-  ): Promise<ApproveReturnResult> {
-    const admin = await userRepository.findById(adminSessionUserId);
-    if (!admin) {
-      throw ApiError.unauthorized("Session expired. Please log in again.");
-    }
-    const adminId = BigInt(admin.internalId || admin.id);
-
-    const req = await returnRepository.findReturnRequestByUuidOnly(uuid);
-    if (!req) {
-      throw ApiError.notFound("Return request not found");
-    }
-
-    if (req.status === "approved") {
-      throw ApiError.badRequest("Return request is already approved");
-    }
-
-    if (req.status !== "requested") {
-      throw ApiError.badRequest(
-        `Cannot approve return request in '${req.status}' status. Only 'requested' return requests can be approved.`
-      );
-    }
-
-    const updated = await returnRepository.approveReturnRequest(
-      req.id,
-      adminId
-    );
-
-    return {
-      id: updated.uuid || String(updated.id),
-      orderId: updated.orders.uuid || String(updated.orders.id),
-      status: "approved",
-      approvedAt: updated.approved_at || new Date(),
-    };
-  },
-
-  async rejectReturnRequest(
+  async performAction(
     adminSessionUserId: string,
     uuid: string,
-    _input?: RejectReturnInput
-  ): Promise<RejectReturnResult> {
-    const admin = await userRepository.findById(adminSessionUserId);
-    if (!admin) {
-      throw ApiError.unauthorized("Session expired. Please log in again.");
-    }
-    const adminId = BigInt(admin.internalId || admin.id);
+    action: ReturnAction,
+    input: RequestActionInput = {}
+  ) {
+    const rule = RETURN_TRANSITIONS[action];
+    if (!rule) throw ApiError.notFound("Unknown action");
 
-    const req = await returnRepository.findReturnRequestByUuidOnly(uuid);
-    if (!req) {
-      throw ApiError.notFound("Return request not found");
-    }
+    const actor = await resolveActor(adminSessionUserId);
+    const req = await returnRepository.findByUuid(uuid);
+    if (!req) throw ApiError.notFound("Return request not found");
 
-    if (req.status === "rejected") {
-      throw ApiError.badRequest("Return request is already rejected");
-    }
-
-    if (req.status !== "requested") {
+    const current = req.status as ReturnStatus;
+    if (!rule.from.includes(current)) {
       throw ApiError.badRequest(
-        `Cannot reject return request in '${req.status}' status. Only 'requested' return requests can be rejected.`
+        `Cannot ${rule.label.toLowerCase()} a request that is '${current.replace(/_/g, " ")}'.`
       );
     }
 
-    const updated = await returnRepository.rejectReturnRequest(
-      req.id,
-      adminId
-    );
-
-    return {
-      id: updated.uuid || String(updated.id),
-      orderId: updated.orders.uuid || String(updated.orders.id),
-      status: "rejected",
-    };
-  },
-
-  async completePickup(
-    adminSessionUserId: string,
-    uuid: string
-  ): Promise<PickupReturnResult> {
-    const admin = await userRepository.findById(adminSessionUserId);
-    if (!admin) {
-      throw ApiError.unauthorized("Session expired. Please log in again.");
-    }
-    const adminId = BigInt(admin.internalId || admin.id);
-
-    const req = await returnRepository.findReturnRequestByUuidOnly(uuid);
-    if (!req) {
-      throw ApiError.notFound("Return request not found");
+    const rejectionReason = (input.rejectionReason ?? input.comment ?? "").trim();
+    if (action === "reject" && rejectionReason.length < 3) {
+      throw ApiError.badRequest("A rejection reason is required");
     }
 
-    if (req.status === "picked_up") {
-      throw ApiError.badRequest("Return pickup has already been completed");
+    let pickupAt: Date | undefined;
+    if (action === "pickup" && input.pickupDate) {
+      pickupAt = new Date(input.pickupDate);
+      if (Number.isNaN(pickupAt.getTime())) throw ApiError.badRequest("Invalid pickup date");
     }
 
-    if (req.status !== "approved") {
-      throw ApiError.badRequest(
-        `Cannot complete pickup for return request in '${req.status}' status. Return request must be in 'approved' status.`
-      );
-    }
-
-    if (req.orders.order_status === "returned") {
-      throw ApiError.badRequest("Order is already marked as returned");
-    }
-
-    const result = await returnRepository.completePickupTransaction({
-      returnRequestId: req.id,
-      orderId: req.orders.id,
-      adminId,
+    const updated = await returnRepository.transition({
+      request: { id: req.id, status: current, orderId: req.order_id },
+      action,
+      to: rule.to,
+      actor,
+      comment: input.comment,
+      rejectionReason: action === "reject" ? rejectionReason : undefined,
+      pickupAt,
+      note: input.note,
     });
-
-    return {
-      id: result.returnRequest.uuid || String(result.returnRequest.id),
-      orderId: result.order.uuid || String(result.order.id),
-      orderNumber: result.order.orderNumber,
-      returnStatus: "picked_up",
-      orderStatus: "returned",
-    };
-  },
-
-  /**
-   * Refunds a picked-up return. Online payments (Razorpay etc.) get a refund
-   * record marked 'initiated' - the actual money movement still has to be
-   * completed through the gateway, this just tracks that it's owed. COD
-   * orders never had a Payment row (nothing goes through the gateway), so one
-   * is created here representing the cash collected on delivery, and the
-   * refund is marked 'completed' immediately since settling it is already a
-   * manual, outside-the-app step for COD either way.
-   */
-  async initiateRefund(
-    adminSessionUserId: string,
-    uuid: string
-  ): Promise<RefundReturnResult> {
-    const admin = await userRepository.findById(adminSessionUserId);
-    if (!admin) {
-      throw ApiError.unauthorized("Session expired. Please log in again.");
-    }
-    const adminId = BigInt(admin.internalId || admin.id);
-
-    const req = await returnRepository.findReturnRequestByUuidOnly(uuid);
-    if (!req) {
-      throw ApiError.notFound("Return request not found");
-    }
-
-    if (req.status === "refunded") {
-      throw ApiError.badRequest("This return has already been refunded");
-    }
-
-    if (req.status !== "picked_up") {
-      throw ApiError.badRequest(
-        `Cannot refund a return request in '${req.status}' status. It must be 'picked_up' first.`
-      );
-    }
-
-    const orderId = req.orders.id;
-    const amount = Number(req.orders.totalAmount);
-
-    let payment = await returnRepository.findPaymentByOrderId(orderId);
-    const isOnlinePayment = Boolean(payment?.gateway);
-
-    if (!payment) {
-      payment = await returnRepository.findOrCreateCodPayment({
-        orderId,
-        amount,
-        adminId,
-      });
-    }
-
-    const refundStatus = isOnlinePayment ? "initiated" : "completed";
-
-    const result = await returnRepository.refundReturnTransaction({
-      returnRequestId: req.id,
-      orderId,
-      paymentId: payment.id,
-      amount,
-      refundStatus,
-      adminId,
-    });
-
-    return {
-      id: result.returnRequest.uuid || String(result.returnRequest.id),
-      orderId: result.order.uuid || String(result.order.id),
-      orderNumber: result.order.orderNumber,
-      returnStatus: "refunded",
-      refundId: String(result.refund.id),
-      refundAmount: Number(result.refund.amount),
-      refundStatus,
-    };
+    return formatRequest(updated);
   },
 };

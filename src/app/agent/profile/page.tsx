@@ -21,7 +21,7 @@ export default async function AgentProfilePage() {
         <dl className="grid grid-cols-1 gap-x-6 gap-y-3 p-4 text-sm sm:grid-cols-2 sm:p-5">
           {[
             ["Name", profile.name],
-            ["Agent ID", profile.agentCode ?? "—"],
+            ["Sales Partner ID", profile.agentCode ?? "—"],
             ["Email", profile.email ?? "—"],
             ["Phone", profile.phone ?? "—"],
             ["Member since", dateOnly(profile.createdAt)],

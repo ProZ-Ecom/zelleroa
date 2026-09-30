@@ -87,7 +87,7 @@ export function AgentShell({ name, children }: { name: string; children: ReactNo
           {!compact && (
             <span className="min-w-0">
               <span className="block truncate text-sm font-semibold text-white">{APP_NAME}</span>
-              <span className="block text-[11px] text-neutral-400">Agent Portal</span>
+              <span className="block text-[11px] text-neutral-400">Sales Partner Portal</span>
             </span>
           )}
         </Link>
@@ -103,7 +103,7 @@ export function AgentShell({ name, children }: { name: string; children: ReactNo
         )}
       </div>
 
-      <nav className="flex-1 overflow-y-auto px-3 py-4" aria-label="Agent navigation">
+      <nav className="flex-1 overflow-y-auto px-3 py-4" aria-label="Sales Partner navigation">
         {!compact && <p className="mb-2 px-3 text-[11px] font-semibold uppercase tracking-wider text-neutral-500">Menu</p>}
         <ul className="flex flex-col gap-1">
           {LINKS.map((l) => {
@@ -139,7 +139,7 @@ export function AgentShell({ name, children }: { name: string; children: ReactNo
           {!compact && (
             <div className="min-w-0 flex-1">
               <p className="truncate text-sm font-medium text-white">{name}</p>
-              <p className="text-[11px] text-neutral-400">Agent</p>
+              <p className="text-[11px] text-neutral-400">Sales Partner</p>
             </div>
           )}
         </div>
@@ -205,7 +205,7 @@ export function AgentShell({ name, children }: { name: string; children: ReactNo
           >
             {collapsed ? <PanelLeftOpen className="h-5 w-5" /> : <PanelLeftClose className="h-5 w-5" />}
           </button>
-          <h1 className="min-w-0 flex-1 truncate text-base font-semibold text-neutral-900">{current?.label ?? "Agent Portal"}</h1>
+          <h1 className="min-w-0 flex-1 truncate text-base font-semibold text-neutral-900">{current?.label ?? "Sales Partner Portal"}</h1>
           <div className="flex items-center gap-2">
             <span className="hidden text-sm text-neutral-600 sm:inline">{name}</span>
             <span className="flex h-9 w-9 items-center justify-center rounded-full bg-neutral-900 text-sm font-bold text-white">{initial}</span>

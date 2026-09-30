@@ -23,7 +23,7 @@ export function AdminOrdersSection({ fixedAgent }: { fixedAgent?: string }) {
   const { data, isLoading, error } = useAdminList<AgentOrderLine>("orders", "/api/admin/agent-orders", params);
 
   const fields: FilterField[] = [
-    ...(fixedAgent ? [] : [{ name: "agent", label: "Agent", type: "agent" as const }]),
+    ...(fixedAgent ? [] : [{ name: "agent", label: "Sales Partner", type: "agent" as const }]),
     { name: "order", label: "Order", type: "text" },
     { name: "referralCode", label: "Referral code", type: "text" },
     { name: "customer", label: "Customer", type: "text" },
@@ -34,7 +34,7 @@ export function AdminOrdersSection({ fixedAgent }: { fixedAgent?: string }) {
   ];
 
   return (
-    <Panel title="Agent orders & sales">
+    <Panel title="Sales Partner orders & sales">
       <AdminFilterBar
         fields={fields}
         values={filters}
@@ -52,10 +52,10 @@ export function AdminOrdersSection({ fixedAgent }: { fixedAgent?: string }) {
           <SimpleTable
             rows={data?.data ?? []}
             rowKey={(r) => r.id}
-            empty="No agent orders match these filters."
+            empty="No Sales Partner orders match these filters."
             columns={[
               { header: "Order", cell: (r) => <span className="font-mono text-xs">{r.orderNumber}</span> },
-              ...(fixedAgent ? [] : [{ header: "Agent", cell: (r: AgentOrderLine) => `${r.agentName}${r.agentCode ? ` (${r.agentCode})` : ""}` }]),
+              ...(fixedAgent ? [] : [{ header: "Sales Partner", cell: (r: AgentOrderLine) => `${r.agentName}${r.agentCode ? ` (${r.agentCode})` : ""}` }]),
               { header: "Referral code", cell: (r) => <span className="font-mono text-xs">{r.referralCode ?? "—"}</span> },
               { header: "Customer", cell: (r) => r.customerName },
               { header: "Date", cell: (r) => dateOnly(r.orderDate) },

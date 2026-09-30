@@ -101,7 +101,7 @@ export const payoutService = {
     await commissionService.approveEligible({ agentId });
 
     const profile = await db.agent_profiles.findUnique({ where: { user_id: agentId } });
-    if (!profile) throw ApiError.badRequest("Your agent profile is incomplete. Please contact support.");
+    if (!profile) throw ApiError.badRequest("Your Sales Partner profile is incomplete. Please contact support.");
 
     if (input.method === "upi" && !profile.upi_id) {
       throw ApiError.badRequest("Add your UPI ID in Profile & Payment Details first");

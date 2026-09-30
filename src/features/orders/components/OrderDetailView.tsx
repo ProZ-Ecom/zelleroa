@@ -13,12 +13,15 @@ import {
   Phone,
   Mail,
   ShieldCheck,
+  XCircle,
 } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { formatDateTime, formatPrice } from "@/lib/utils";
 import { OrderItemsList } from "./OrderItemsList";
 import { OrderTotals } from "./OrderTotals";
+import { OrderRequestsPanel } from "@/features/returns/components/OrderRequestsPanel";
+import { OrderTimeline } from "@/features/returns/components/OrderTimeline";
 import type { OrderDetailResponse, OrderDetail } from "../types";
 
 interface OrderDetailViewProps {
@@ -26,6 +29,10 @@ interface OrderDetailViewProps {
   onCancel?: () => void;
   isCancelling?: boolean;
   canCancel?: boolean;
+  /** Opens the return / replacement wizard (customer view). */
+  onRequest?: (mode: "return" | "replacement") => void;
+  /** Admin view: no customer actions. */
+  readOnly?: boolean;
 }
 
 function getStatusBadgeMeta(status?: string) {
@@ -76,6 +83,8 @@ export function OrderDetailView({
   onCancel,
   isCancelling = false,
   canCancel = false,
+  onRequest,
+  readOnly = false,
 }: OrderDetailViewProps) {
   const shippingAddress =
     ("shippingAddress" in order ? order.shippingAddress : (order as any).address) ||
@@ -276,7 +285,7 @@ export function OrderDetailView({
                 <dl className="p-4 text-xs grid grid-cols-2 gap-x-3 gap-y-2">
                   <dt className="text-theme-text-muted">Referral code</dt>
                   <dd className="font-mono font-semibold text-theme-text-primary text-right">{order.referral.referralCode ?? "—"}</dd>
-                  <dt className="text-theme-text-muted">Referred agent</dt>
+                  <dt className="text-theme-text-muted">Referred Sales Partner</dt>
                   <dd className="font-semibold text-theme-text-primary text-right">
                     {order.referral.agentName}
                     {order.referral.agentCode ? ` (${order.referral.agentCode})` : ""}
@@ -418,8 +427,53 @@ export function OrderDetailView({
             </div>
           )}
 
-          {/* Status History Timeline */}
-          {statusHistory.length > 0 && (
+          {/* Cancellation details + refund status */}
+          {"cancellation" in order && order.cancellation && (
+            <div className="rounded-2xl border border-red-200 bg-red-50 p-5 text-sm text-red-900 space-y-1">
+              <h3 className="text-sm font-bold flex items-center gap-2">
+                <XCircle className="h-4 w-4" /> Order cancelled
+              </h3>
+              <p>
+                <span className="font-semibold">Reason:</span> {order.cancellation.reason || "—"}
+              </p>
+              {order.cancellation.comment && (
+                <p>
+                  <span className="font-semibold">Comment:</span> {order.cancellation.comment}
+                </p>
+              )}
+              <p className="text-xs">
+                Cancelled {order.cancellation.cancelledAt ? formatDateTime(order.cancellation.cancelledAt) : ""}
+                {order.cancellation.cancelledBy ? ` by ${order.cancellation.cancelledBy}` : ""}
+              </p>
+              {(order.refunds ?? []).length > 0 &&
+                order.refunds!.map((r) => (
+                  <p key={r.id} className="text-xs font-semibold">
+                    Refund of {formatPrice(r.amount)}: {r.status}
+                  </p>
+                ))}
+            </div>
+          )}
+
+          {/* Returns & replacements */}
+          {"returnRequests" in order && (
+            <OrderRequestsPanel order={order as OrderDetailResponse} onRequest={onRequest} readOnly={readOnly} />
+          )}
+
+          {/* Full order + return/replacement timeline */}
+          {"timeline" in order && order.timeline && order.timeline.length > 0 && (
+            <div className="rounded-2xl border border-theme-border bg-theme-surface shadow-2xs overflow-hidden">
+              <div className="bg-theme-surface-alt border-b border-theme-border-subtle px-5 py-3.5 flex items-center gap-2">
+                <Clock className="h-4 w-4 text-theme-secondary" />
+                <h3 className="text-sm font-bold text-theme-text-primary">Order Status Timeline</h3>
+              </div>
+              <div className="p-5">
+                <OrderTimeline events={order.timeline} />
+              </div>
+            </div>
+          )}
+
+          {/* Status History Timeline (fallback when no computed timeline) */}
+          {!("timeline" in order && order.timeline?.length) && statusHistory.length > 0 && (
             <div className="rounded-2xl border border-theme-border bg-theme-surface shadow-2xs overflow-hidden">
               <div className="bg-theme-surface-alt border-b border-theme-border-subtle px-5 py-3.5 flex items-center gap-2">
                 <Clock className="h-4 w-4 text-theme-secondary" />

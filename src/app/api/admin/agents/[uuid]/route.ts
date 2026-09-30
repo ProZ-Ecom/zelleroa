@@ -7,7 +7,7 @@ import { resolveActor } from "@/features/agents/lib/api-helpers";
 const update: Parameters<typeof createApiHandler>[0]["PUT"] = async (_request, context) => {
   const actor = await resolveActor(context.session);
   const agent = await agentService.updateAgent(context.params?.uuid ?? "", context.body as UpdateAgentInput, actor);
-  return apiSuccess(agent, "Agent updated");
+  return apiSuccess(agent, "Sales Partner updated");
 };
 
 const handler = createApiHandler(

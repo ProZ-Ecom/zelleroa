@@ -57,7 +57,7 @@ export function AdminPayoutsSection({ fixedAgent }: { fixedAgent?: string }) {
   };
 
   const fields: FilterField[] = [
-    ...(fixedAgent ? [] : [{ name: "agent", label: "Agent", type: "agent" as const }]),
+    ...(fixedAgent ? [] : [{ name: "agent", label: "Sales Partner", type: "agent" as const }]),
     { name: "status", label: "Payout status", type: "select", options: PAYOUT_STATUS_OPTIONS },
     { name: "dateFrom", label: "Requested from", type: "date" },
     { name: "dateTo", label: "Requested to", type: "date" },
@@ -85,7 +85,7 @@ export function AdminPayoutsSection({ fixedAgent }: { fixedAgent?: string }) {
             empty="No payout requests match these filters."
             columns={[
               { header: "Payout", cell: (r) => <span className="font-mono text-xs">{r.code}</span> },
-              ...(fixedAgent ? [] : [{ header: "Agent", cell: (r: PayoutRow) => `${r.agentName}${r.agentCode ? ` (${r.agentCode})` : ""}` }]),
+              ...(fixedAgent ? [] : [{ header: "Sales Partner", cell: (r: PayoutRow) => `${r.agentName}${r.agentCode ? ` (${r.agentCode})` : ""}` }]),
               { header: "Amount", cell: (r) => <strong>{money(r.amount)}</strong> },
               { header: "Commissions", cell: (r) => r.commissionCount },
               { header: "Method", cell: (r) => (r.method === "upi" ? "UPI" : "Bank transfer") },
@@ -170,7 +170,7 @@ function RejectDialog({ dialog, onClose, onDone }: { dialog: Dialog; onClose: ()
   };
 
   return (
-    <Modal open onClose={onClose} title={`Reject ${dialog.payout.code}`} description="The commissions return to the agent's available balance so they can request again.">
+    <Modal open onClose={onClose} title={`Reject ${dialog.payout.code}`} description="The commissions return to the Sales Partner's available balance so they can request again.">
       <div className="flex flex-col gap-3">
         {err && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{err}</p>}
         <label className="flex flex-col gap-1 text-xs font-medium text-neutral-600">

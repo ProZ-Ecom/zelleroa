@@ -5,6 +5,16 @@ import { Prisma } from "@/generated/prisma";
 import { ApiError } from "@/lib/api/api-error";
 import { formatVariantMeasurement } from "@/features/variants/utils/measurement.util";
 import { reservationService } from "@/features/inventory/services/reservation.service";
+import { getReturnWindow } from "@/features/returns/lib/policy";
+import {
+  buildOrderTimeline,
+  summarizeReplacementRequest,
+  summarizeReturnRequest,
+} from "@/features/returns/lib/summary";
+import {
+  replacementRequestInclude,
+  returnRequestInclude,
+} from "@/features/returns/lib/includes";
 import { getIndiaPostTrackingUrl, INDIA_POST_PARTNER_CODE } from "@/lib/shipping/india-post";
 import type {
   OrderDetailResponse,
@@ -118,6 +128,26 @@ export const orderDetailInclude = Prisma.validator<Prisma.OrderInclude>()({
   order_status_history: {
     where: { is_active: true },
     orderBy: [{ created_at: "desc" }, { id: "desc" }],
+  },
+  return_requests: {
+    where: { is_active: true },
+    orderBy: { requested_at: "desc" },
+    include: returnRequestInclude,
+  },
+  replacement_requests: {
+    where: { is_active: true },
+    orderBy: { requested_at: "desc" },
+    include: replacementRequestInclude,
+  },
+  refunds: {
+    where: { is_active: true },
+    orderBy: { id: "asc" },
+  },
+  payments: {
+    where: { status: "success" },
+    orderBy: { id: "asc" },
+    take: 1,
+    select: { updatedAt: true },
   },
   shipments: {
     where: { is_active: true },
@@ -340,6 +370,16 @@ export function formatOrderDetail(
     formatOrderStatusHistory
   );
 
+  const returnRequests = (order.return_requests || []).map(summarizeReturnRequest);
+  const replacementRequests = (order.replacement_requests || []).map(
+    summarizeReplacementRequest
+  );
+  const deliveredAt = resolveDeliveredAt(order);
+  const { deliveredAt: windowDelivered, ...windowRest } = getReturnWindow(
+    order.order_status,
+    deliveredAt
+  );
+
   return {
     id: order.uuid || String(order.id),
     orderNumber: order.orderNumber,
@@ -356,12 +396,63 @@ export function formatOrderDetail(
     courierShipment: formatCourierShipment((order as any).shipments),
     notes: order.notes ?? null,
     placedAt: order.placed_at ?? null,
+    deliveredAt,
+    cancellation: formatCancellation(order),
     createdAt: order.createdAt,
     updatedAt: order.updatedAt,
     items,
     shippingAddress,
     billingAddress,
     statusHistory,
+    returnWindow: { ...windowRest, deliveredAt: windowDelivered },
+    refunds: (order.refunds || []).map((r) => ({
+      id: String(r.id),
+      amount: Number(r.amount),
+      status: r.status,
+      processedAt: r.processed_at ?? null,
+      createdAt: r.created_at,
+    })),
+    returnRequests,
+    replacementRequests,
+    timeline: buildOrderTimeline({
+      orderStatus: order.order_status,
+      placedAt: order.placed_at ?? order.createdAt,
+      paymentStatus: order.payment_status,
+      paymentConfirmedAt: order.payments?.[0]?.updatedAt ?? null,
+      statusHistory: order.order_status_history || [],
+      requests: [...returnRequests, ...replacementRequests],
+    }),
+  };
+}
+
+/** `delivered_at` is authoritative; older rows fall back to the delivery history entry. */
+export function resolveDeliveredAt(order: {
+  order_status: string;
+  delivered_at?: Date | null;
+  updatedAt: Date;
+  order_status_history?: Array<{ status: string; created_at: Date }>;
+}): Date | null {
+  if (order.delivered_at) return order.delivered_at;
+  if (order.order_status !== "delivered" && order.order_status !== "returned") return null;
+  const row = (order.order_status_history || [])
+    .filter((h) => h.status === "delivered")
+    .sort((a, b) => b.created_at.getTime() - a.created_at.getTime())[0];
+  return row?.created_at ?? order.updatedAt;
+}
+
+function formatCancellation(order: {
+  order_status: string;
+  cancelled_at?: Date | null;
+  cancellation_reason?: string | null;
+  cancellation_comment?: string | null;
+  cancelled_by?: string | null;
+}) {
+  if (order.order_status !== "cancelled") return null;
+  return {
+    cancelledAt: order.cancelled_at ?? null,
+    reason: order.cancellation_reason ?? null,
+    comment: order.cancellation_comment ?? null,
+    cancelledBy: order.cancelled_by ?? null,
   };
 }
 
@@ -414,6 +505,8 @@ export function formatOrderListItem(
     courierShipment: formatCourierShipment((order as any).shipments),
     notes: order.notes ?? null,
     placedAt: order.placed_at ?? null,
+    deliveredAt: order.delivered_at ?? null,
+    cancellation: formatCancellation(order),
     createdAt: order.createdAt,
     updatedAt: order.updatedAt,
   };
@@ -1087,10 +1180,37 @@ export const orderRepository = {
   async cancelOrderTransaction(params: {
     orderId: bigint;
     note?: string;
+    reason: string;
+    comment?: string | null;
+    cancelledBy: "USER" | "ADMIN" | "SYSTEM";
     changedBy: bigint;
+    /** Statuses the order may still be in; guards against concurrent transitions. */
+    allowedStatuses: string[];
   }): Promise<OrderDetailResponse> {
     return db.$transaction(async (tx) => {
       const now = new Date();
+
+      // Conditional update = atomic claim: a second concurrent cancel (or a
+      // ship/deliver that raced us) updates 0 rows and aborts before restocking.
+      const claimed = await tx.order.updateMany({
+        where: {
+          id: params.orderId,
+          order_status: { in: params.allowedStatuses as any[] },
+        },
+        data: {
+          order_status: "cancelled",
+          cancelled_at: now,
+          cancellation_reason: params.reason.slice(0, 100),
+          cancellation_comment: params.comment?.trim() ? params.comment.trim().slice(0, 500) : null,
+          cancelled_by: params.cancelledBy,
+          cancelled_by_user_id: params.changedBy,
+          updatedAt: now,
+          updated_by: params.changedBy,
+        },
+      });
+      if (claimed.count !== 1) {
+        throw ApiError.conflict("This order can no longer be cancelled.");
+      }
 
       const items = await tx.orderItem.findMany({
         where: { orderId: params.orderId, is_active: true, variantUnitPriceId: { not: null } },
@@ -1118,21 +1238,46 @@ export const orderRepository = {
         });
       }
 
-      await tx.order.update({
-        where: { id: params.orderId },
-        data: {
-          order_status: "cancelled",
-          updatedAt: now,
-          updated_by: params.changedBy,
-        },
-      });
       await syncCommissionsWithOrderStatus(tx, params.orderId, "cancelled", { id: params.changedBy, role: "USER" });
+
+      // Money already collected online is owed back: track it as a refund
+      // (settled through the gateway by the admin, like return refunds).
+      const order = await tx.order.findUniqueOrThrow({
+        where: { id: params.orderId },
+        select: { payment_status: true, totalAmount: true },
+      });
+      if (order.payment_status === "paid") {
+        const payment = await tx.payment.findFirst({
+          where: { orderId: params.orderId, status: "success", gateway: { not: null } },
+          orderBy: { id: "asc" },
+        });
+        const existingRefund = payment
+          ? await tx.refunds.findFirst({ where: { order_id: params.orderId, payment_id: payment.id } })
+          : null;
+        if (payment && !existingRefund) {
+          await tx.refunds.create({
+            data: {
+              payment_id: payment.id,
+              order_id: params.orderId,
+              amount: payment.amount,
+              reason: "Order cancelled",
+              status: "initiated",
+              created_by: params.changedBy,
+              updated_by: params.changedBy,
+            },
+          });
+        }
+      }
 
       await tx.order_status_history.create({
         data: {
           order_id: params.orderId,
           status: "cancelled",
-          note: params.note || "Order cancelled",
+          note: (
+            params.note ||
+            [params.reason, params.comment?.trim()].filter(Boolean).join(" - ") ||
+            "Order cancelled"
+          ).slice(0, 255),
           changed_by: params.changedBy,
           is_active: true,
           created_by: params.changedBy,
@@ -1227,6 +1372,7 @@ export const orderRepository = {
         where: { id: params.orderId },
         data: {
           order_status: params.status as any,
+          ...(params.status === "delivered" ? { delivered_at: now } : {}),
           updatedAt: now,
           updated_by: params.changedBy,
         },

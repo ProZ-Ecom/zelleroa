@@ -24,7 +24,9 @@ export interface CreateCustomerOrderPayload {
 }
 
 export interface CancelCustomerOrderPayload {
-  note?: string;
+  /** Mandatory cancellation reason. */
+  reason: string;
+  comment?: string;
 }
 
 export interface CreateGuestOrderPayload {
@@ -149,7 +151,7 @@ export const customerOrdersApi = {
    */
   async cancelOrder(
     uuid: string,
-    payload: CancelCustomerOrderPayload = {}
+    payload: CancelCustomerOrderPayload
   ): Promise<OrderDetailResponse> {
     const response = await apiClient.post<OrderDetailResponse>(
       `/api/customer/orders/${uuid}/cancel`,

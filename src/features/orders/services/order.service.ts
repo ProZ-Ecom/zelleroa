@@ -25,10 +25,15 @@ import type {
   CustomerOrdersListInput,
   AdminOrdersListInput,
   CancelOrderInput,
+  AdminCancelOrderInput,
   ReturnOrderInput,
   OrderStatusTransitionInput,
 } from "../validations/order.schema";
 import type { orders_order_status } from "@/generated/prisma";
+import {
+  CUSTOMER_CANCELLABLE_STATUSES,
+  isOrderCancellable,
+} from "@/features/returns/lib/policy";
 
 const CUSTOMER_ROLE_ID = BigInt(3);
 
@@ -540,6 +545,11 @@ export const orderService = {
       throw ApiError.unauthorized("User not found");
     }
 
+    const reason = input?.reason?.trim();
+    if (!reason) {
+      throw ApiError.badRequest("Cancellation reason is required");
+    }
+
     const order = await db.order.findFirst({
       where: {
         uuid,
@@ -552,9 +562,12 @@ export const orderService = {
       throw ApiError.notFound("Order not found");
     }
 
+    if (order.order_status === "cancelled") {
+      throw ApiError.conflict("This order has already been cancelled");
+    }
+
     // Cancellation window: pending, confirmed, processing
-    const cancellableStatuses = ["pending", "confirmed", "processing"];
-    if (!cancellableStatuses.includes(order.order_status)) {
+    if (!isOrderCancellable(order.order_status)) {
       throw ApiError.badRequest(
         `Order cannot be cancelled in '${order.order_status}' status`
       );
@@ -562,15 +575,18 @@ export const orderService = {
 
     return orderRepository.cancelOrderTransaction({
       orderId: order.id,
-      note: input?.note || "Cancelled by customer",
+      reason,
+      comment: input?.comment,
+      cancelledBy: "USER",
       changedBy: user.internalId,
+      allowedStatuses: [...CUSTOMER_CANCELLABLE_STATUSES],
     });
   },
 
   async cancelAdminOrder(
     adminSessionUserId: string,
     uuid: string,
-    input?: CancelOrderInput
+    input?: AdminCancelOrderInput
   ): Promise<OrderDetailResponse> {
     const adminUser = await userRepository.findById(adminSessionUserId);
     if (!adminUser || !adminUser.internalId) {
@@ -600,8 +616,19 @@ export const orderService = {
 
     return orderRepository.cancelOrderTransaction({
       orderId: order.id,
-      note: input?.note || "Cancelled by admin",
+      note: input?.note,
+      reason: input?.reason?.trim() || "Cancelled by admin",
+      comment: input?.comment,
+      cancelledBy: "ADMIN",
       changedBy: adminUser.internalId,
+      allowedStatuses: [
+        "pending",
+        "confirmed",
+        "processing",
+        "packed",
+        "shipped",
+        "out_for_delivery",
+      ],
     });
   },
 
