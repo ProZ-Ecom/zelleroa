@@ -94,32 +94,32 @@ export function ItemAttributeFacts({
   const tiles = sku ? [...facts, { name: "SKU", value: sku, icon: Tag }] : facts;
 
   return (
-    <div className="space-y-4 rounded-2xl border border-theme-border bg-gradient-to-br from-theme-surface to-theme-surface-alt p-4 shadow-sm sm:p-5">
+    <div className="space-y-3 rounded-2xl border border-theme-border bg-theme-surface-alt p-3 sm:p-4">
       <div className="flex items-center justify-between gap-2.5">
         <div className="flex items-center gap-2.5">
-          <span className="flex h-8 w-8 items-center justify-center rounded-full bg-theme-primary text-theme-primary-fg shadow-sm">
-            <Info className="h-4 w-4" />
+          <span className="flex h-6 w-6 items-center justify-center rounded-full bg-theme-primary text-theme-primary-fg">
+            <Info className="h-3.5 w-3.5" />
           </span>
-          <h3 className="text-base font-bold tracking-wide text-theme-text-primary">
+          <h3 className="text-sm font-bold tracking-wide text-theme-text-primary">
             Product Details
           </h3>
         </div>
         <span className="hidden h-px flex-1 bg-gradient-to-r from-theme-border to-transparent sm:block" />
       </div>
 
-      <dl className="grid grid-cols-2 gap-3 lg:grid-cols-3">
+      <dl className="grid grid-cols-2 gap-2 lg:grid-cols-3">
         {tiles.map((fact) => (
           <div
             key={fact.name}
-            className="group flex min-w-0 flex-col gap-2 rounded-xl border border-theme-border-subtle bg-theme-surface p-3 transition-all duration-200 hover:-translate-y-0.5 hover:border-theme-primary/40 hover:shadow-md"
+            className="group flex min-w-0 flex-col gap-1 rounded-lg border border-theme-border-subtle bg-theme-surface p-2.5 transition-all duration-200 hover:-translate-y-0.5 hover:border-theme-primary/40 hover:shadow-md"
           >
-            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-theme-primary-light text-theme-primary transition-colors group-hover:bg-theme-primary group-hover:text-theme-primary-fg">
-              <fact.icon className="h-4 w-4" />
+            <span className="flex h-6 w-6 items-center justify-center rounded-md bg-theme-primary-light text-theme-primary transition-colors group-hover:bg-theme-primary group-hover:text-theme-primary-fg">
+              <fact.icon className="h-3.5 w-3.5" />
             </span>
-            <dt className="text-[11px] font-bold uppercase tracking-wide text-theme-text-subtle">
+            <dt className="text-[10px] font-bold uppercase tracking-wide text-theme-text-subtle">
               {fact.name}
             </dt>
-            <dd className="min-w-0 break-words text-sm font-semibold leading-snug text-theme-text-primary [overflow-wrap:anywhere]">
+            <dd className="min-w-0 break-words text-xs font-semibold leading-snug text-theme-text-primary [overflow-wrap:anywhere]">
               {fact.value}
             </dd>
           </div>

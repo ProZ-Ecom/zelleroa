@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
@@ -10,6 +11,8 @@ import {
   PackageCheck,
   Plus,
   RotateCcw,
+  ShieldCheck,
+  Share2,
   ShoppingBag,
   Video,
 } from "lucide-react";
@@ -40,6 +43,8 @@ interface ItemViewProps {
   returnUrl: string;
   /** Rendered above the title, e.g. the Style or Product name. */
   eyebrow?: string | null;
+  /** The Item's brand; omitted when it has none. */
+  brandName?: string | null;
   className?: string;
 }
 
@@ -57,7 +62,7 @@ interface ItemViewProps {
  * Everything shown belongs to this one Item - there is no way to switch to a
  * sibling Item from here; the shopper goes back to the listing for that.
  */
-export function ItemView({ item, returnUrl, eyebrow, className }: ItemViewProps) {
+export function ItemView({ item, returnUrl, eyebrow, brandName, className }: ItemViewProps) {
   const router = useRouter();
   const { data: session } = useSession();
 
@@ -154,6 +159,25 @@ export function ItemView({ item, returnUrl, eyebrow, className }: ItemViewProps)
     }
   };
 
+  // What the shopper is mid-typing in the quantity box; null when not editing.
+  const [quantityDraft, setQuantityDraft] = useState<string | null>(null);
+
+  const handleShare = async () => {
+    const url = `${window.location.origin}${returnUrl}`;
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: item.name, url });
+        return;
+      }
+      await navigator.clipboard.writeText(url);
+      toast.success("Link copied to clipboard");
+    } catch (error) {
+      // Dismissing the native share sheet rejects with AbortError - not a failure.
+      if (error instanceof DOMException && error.name === "AbortError") return;
+      toast.error("Could not share this item");
+    }
+  };
+
   const description = item.description?.trim();
   const wishlistPending = addToWishlist.isPending || removeFromWishlist.isPending;
   const maxQuantity = purchasable?.stock ?? 0;
@@ -163,8 +187,8 @@ export function ItemView({ item, returnUrl, eyebrow, className }: ItemViewProps)
       <div className="grid grid-cols-1 items-start gap-8 lg:grid-cols-12 lg:gap-12">
         {/* 1. Gallery - keyed on the Colour so it resets to the first image of
             whichever Colour is selected. */}
-        <div className="lg:col-span-6">
-          <div className="overflow-hidden rounded-2xl border border-theme-border bg-theme-surface shadow-sm">
+        <div className="lg:sticky lg:top-24 lg:col-span-6">
+          <div className="overflow-hidden rounded-3xl border border-theme-border bg-theme-surface shadow-md">
             <ProductGallery
               key={selectedColor?.id ?? item.id}
               images={galleryImages}
@@ -176,15 +200,22 @@ export function ItemView({ item, returnUrl, eyebrow, className }: ItemViewProps)
           </div>
         </div>
 
-        <div className="space-y-6 lg:col-span-6">
+        <div className="space-y-5 rounded-3xl border border-theme-border bg-theme-surface p-4 shadow-sm sm:p-6 lg:col-span-6">
           {/* 2. Name, with the 10. rating summary beside it */}
-          <div className="space-y-2">
-            {eyebrow && (
-              <span className="inline-flex rounded-full bg-theme-primary-light px-2.5 py-1 text-xs font-bold uppercase tracking-wide text-theme-primary">
-                {eyebrow}
-              </span>
-            )}
-            <h1 className="text-2xl font-bold leading-tight tracking-tight text-theme-text-primary sm:text-3xl">
+          <div className="space-y-2.5">
+            <div className="flex flex-wrap items-center gap-2">
+              {eyebrow && (
+                <span className="inline-flex rounded-full bg-theme-primary-light px-2.5 py-1 text-xs font-bold uppercase tracking-wide text-theme-primary">
+                  {eyebrow}
+                </span>
+              )}
+              {brandName && (
+                <span className="text-xs font-semibold uppercase tracking-wide text-theme-text-subtle">
+                  {brandName}
+                </span>
+              )}
+            </div>
+            <h1 className="text-xl font-bold leading-tight tracking-tight text-theme-text-primary sm:text-2xl">
               {item.name}
             </h1>
 
@@ -213,7 +244,7 @@ export function ItemView({ item, returnUrl, eyebrow, className }: ItemViewProps)
             size={selectedSize}
             minPrice={item.minPrice}
             maxPrice={item.maxPrice}
-            className="py-4"
+            className="py-3"
           />
 
           {/* 4. Colour */}
@@ -242,52 +273,71 @@ export function ItemView({ item, returnUrl, eyebrow, className }: ItemViewProps)
           />
 
           {/* 9. Quantity and add to cart */}
-          <div className="space-y-3 pt-2">
+          <div className="space-y-3">
             {purchasable && purchasable.stock <= 5 && (
               <p className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-3 py-1 text-sm font-semibold text-amber-700">
                 Only {purchasable.stock} left in stock
               </p>
             )}
 
-            <div className="flex items-center gap-3">
-              <div className="flex h-12 items-center rounded-xl border border-theme-border bg-theme-surface shadow-sm">
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-xs font-bold uppercase tracking-wide text-theme-text-primary">
+                Quantity
+              </span>
+              <div className="flex items-center gap-1 rounded-full border border-theme-border bg-theme-surface-alt p-1">
                 <button
                   type="button"
                   onClick={() => setQuantity(quantity - 1)}
                   disabled={quantity <= 1}
                   aria-label="Decrease quantity"
-                  className="flex h-full w-10 cursor-pointer items-center justify-center text-theme-text-primary transition-colors hover:text-theme-primary disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:text-theme-text-primary"
+                  className="flex h-10 w-10 cursor-pointer items-center justify-center rounded-full bg-theme-surface text-theme-text-primary shadow-sm transition-colors hover:bg-theme-primary hover:text-theme-primary-fg active:scale-95 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-theme-surface disabled:hover:text-theme-text-primary"
                 >
                   <Minus className="h-4 w-4" />
                 </button>
-                <span className="w-8 text-center text-sm font-bold tabular-nums">
-                  {quantity}
-                </span>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  aria-label="Quantity"
+                  value={quantityDraft ?? String(quantity)}
+                  onFocus={(event) => event.target.select()}
+                  onChange={(event) => {
+                    const digits = event.target.value.replace(/\D/g, "").slice(0, 3);
+                    setQuantityDraft(digits);
+                    if (digits && maxQuantity > 0) {
+                      setQuantity(Math.min(Number(digits) || 1, maxQuantity));
+                    }
+                  }}
+                  onBlur={() => setQuantityDraft(null)}
+                  className="h-10 w-14 rounded-full bg-transparent text-center text-base font-bold tabular-nums text-theme-text-primary outline-none focus:bg-theme-surface focus:ring-2 focus:ring-theme-primary/40"
+                />
                 <button
                   type="button"
                   onClick={() => setQuantity(quantity + 1)}
                   disabled={!purchasable || quantity >= maxQuantity}
                   aria-label="Increase quantity"
-                  className="flex h-full w-10 cursor-pointer items-center justify-center text-theme-text-primary transition-colors hover:text-theme-primary disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:text-theme-text-primary"
+                  className="flex h-10 w-10 cursor-pointer items-center justify-center rounded-full bg-theme-surface text-theme-text-primary shadow-sm transition-colors hover:bg-theme-primary hover:text-theme-primary-fg active:scale-95 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-theme-surface disabled:hover:text-theme-text-primary"
                 >
                   <Plus className="h-4 w-4" />
                 </button>
               </div>
+            </div>
 
+            <div className="flex items-center gap-2.5">
               <Button
                 type="button"
                 onClick={handleAddToCart}
                 disabled={addToCart.isPending || !inStock}
-                className="h-12 flex-1 rounded-xl text-base font-semibold shadow-md shadow-theme-primary/20 transition-all hover:shadow-lg hover:shadow-theme-primary/30"
+                className="h-12 flex-1 rounded-xl text-sm font-semibold shadow-md shadow-theme-primary/20 transition-all hover:shadow-lg hover:shadow-theme-primary/30"
               >
                 {addToCart.isPending ? (
                   <>
-                    <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                     Adding to cart...
                   </>
                 ) : (
                   <>
-                    <ShoppingBag className="mr-2 h-5 w-5" />
+                    <ShoppingBag className="mr-2 h-4 w-4" />
                     {inStock ? "Add to cart" : "Out of stock"}
                   </>
                 )}
@@ -307,14 +357,41 @@ export function ItemView({ item, returnUrl, eyebrow, className }: ItemViewProps)
                 )}
               >
                 {wishlistPending ? (
-                  <Loader2 className="h-5 w-5 animate-spin" />
+                  <Loader2 className="h-6 w-6 animate-spin" />
                 ) : (
                   <Heart
-                    className={cn("h-5 w-5", isInWishlist && "fill-rose-500 text-rose-500")}
+                    className={cn("h-6 w-6", isInWishlist && "fill-rose-500 text-rose-500")}
                   />
                 )}
               </Button>
+
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleShare}
+                aria-label="Share this item"
+                className="h-12 w-12 shrink-0 rounded-xl shadow-sm"
+              >
+                <Share2 className="h-6 w-6" />
+              </Button>
             </div>
+
+            {/* Reassurance under the buy button */}
+            <ul className="grid grid-cols-1 gap-2 border-t border-theme-border pt-4 sm:grid-cols-3">
+              {[
+                { icon: ShieldCheck, label: "Secure checkout" },
+                { icon: RotateCcw, label: "3-day easy returns" },
+                { icon: PackageCheck, label: "Quality checked" },
+              ].map(({ icon: Icon, label }) => (
+                <li
+                  key={label}
+                  className="flex items-center gap-2 rounded-xl bg-theme-surface-alt px-3 py-2 text-xs font-semibold text-theme-text-secondary"
+                >
+                  <Icon className="h-4 w-4 shrink-0 text-theme-primary" />
+                  {label}
+                </li>
+              ))}
+            </ul>
           </div>
         </div>
       </div>
@@ -339,19 +416,22 @@ export function ItemView({ item, returnUrl, eyebrow, className }: ItemViewProps)
           <span className="h-5 w-1 rounded-full bg-theme-primary" />
           Returns &amp; Refunds
         </h2>
-        <ul className="space-y-2 text-sm text-theme-text-secondary">
-          <li className="flex items-start gap-2.5">
-            <RotateCcw className="mt-0.5 h-4 w-4 shrink-0 text-theme-primary" />
-            Raise a return request within 3 days of delivery.
-          </li>
-          <li className="flex items-start gap-2.5">
-            <Video className="mt-0.5 h-4 w-4 shrink-0 text-theme-primary" />
-            A complete unboxing video is required with your request.
-          </li>
-          <li className="flex items-start gap-2.5">
-            <PackageCheck className="mt-0.5 h-4 w-4 shrink-0 text-theme-primary" />
-            Eligible for wrong, damaged, size or quality issues.
-          </li>
+        <ul className="grid grid-cols-1 gap-3 text-sm text-theme-text-secondary md:grid-cols-3">
+          {[
+            { icon: RotateCcw, text: "Raise a return request within 3 days of delivery." },
+            { icon: Video, text: "A complete unboxing video is required with your request." },
+            { icon: PackageCheck, text: "Eligible for wrong, damaged, size or quality issues." },
+          ].map(({ icon: Icon, text }) => (
+            <li
+              key={text}
+              className="flex flex-col gap-3 rounded-xl border border-theme-border-subtle bg-theme-surface-alt p-4"
+            >
+              <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-theme-primary-light text-theme-primary">
+                <Icon className="h-4 w-4" />
+              </span>
+              {text}
+            </li>
+          ))}
         </ul>
         <Link
           href="/return-refund-policy"

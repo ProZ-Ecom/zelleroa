@@ -2,6 +2,7 @@ import crypto from "crypto";
 import { voidCommissions } from "@/features/agents/services/commission.service";
 import { db } from "@/lib/db/prisma";
 import { ApiError } from "@/lib/api/api-error";
+import { recordStockMovement } from "@/features/inventory/services/stock-ledger.service";
 import { Prisma } from "@/generated/prisma";
 import { adminReturnInclude } from "../lib/includes";
 import { findItemConflicts, lockOrder } from "../lib/guards";
@@ -212,12 +213,36 @@ export const returnRepository = {
 
       const items = await tx.return_items.findMany({
         where: { return_request_id: p.request.id, is_active: true },
-        include: { order_items: { select: { id: true, quantity: true, total_price: true } } },
+        include: {
+          order_items: {
+            select: { id: true, quantity: true, total_price: true, variantUnitPriceId: true },
+          },
+        },
       });
       const orderId = p.request.orderId;
       let historyNote = p.rejectionReason ?? p.note ?? p.comment ?? null;
 
       if (p.action === "received") {
+        // Goods are physically back: put them on the shelf, one ledger row per line.
+        const orderRow = await tx.order.findUnique({
+          where: { id: orderId },
+          select: { orderNumber: true },
+        });
+        for (const item of items) {
+          if (!item.order_items.variantUnitPriceId) continue;
+          await recordStockMovement(tx, {
+            variantUnitPriceId: item.order_items.variantUnitPriceId,
+            movementType: "RETURN",
+            direction: "in",
+            quantity: item.quantity,
+            referenceType: "return_request",
+            referenceId: p.request.id,
+            referenceNumber: orderRow?.orderNumber,
+            reason: "Returned item received",
+            actorId: p.actor.id,
+          });
+        }
+
         await voidCommissions(tx, {
           orderId,
           orderItemIds: items.map((i) => i.order_item_id),

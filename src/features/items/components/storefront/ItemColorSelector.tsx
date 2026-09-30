@@ -30,15 +30,15 @@ export function ItemColorSelector({
   const selected = colors.find((color) => color.id === selectedColorId) ?? null;
 
   return (
-    <div className="space-y-2.5">
+    <div className="space-y-2">
       <div className="flex items-baseline gap-2">
-        <h3 className="text-sm font-bold tracking-wide text-theme-text-primary">Colour</h3>
+        <h3 className="text-xs font-bold uppercase tracking-wide text-theme-text-primary">Colour</h3>
         {selected?.colorName && (
           <span className="text-sm font-medium text-theme-primary">{selected.colorName}</span>
         )}
       </div>
 
-      <div className="flex flex-wrap gap-3.5" role="radiogroup" aria-label="Colour">
+      <div className="flex flex-wrap gap-2.5" role="radiogroup" aria-label="Colour">
         {colors.map((color) => {
           const isSelected = color.id === selectedColorId;
           const sellable = isSellable(color);
@@ -55,7 +55,7 @@ export function ItemColorSelector({
               title={label}
               onClick={() => onSelect(color.id)}
               className={cn(
-                "relative h-16 w-16 shrink-0 overflow-hidden rounded-2xl border-2 transition-all duration-200 cursor-pointer",
+                "relative h-12 w-12 shrink-0 overflow-hidden rounded-xl border-2 transition-all duration-200 cursor-pointer",
                 isSelected
                   ? "border-theme-primary shadow-lg shadow-theme-primary/25 scale-[1.03]"
                   : "border-theme-border hover:border-theme-primary/50 hover:shadow-md hover:-translate-y-0.5",
@@ -79,8 +79,8 @@ export function ItemColorSelector({
 
               {isSelected && (
                 <span className="absolute inset-0 flex items-center justify-center bg-black/25">
-                  <span className="flex h-6 w-6 items-center justify-center rounded-full bg-white shadow-sm">
-                    <Check className="h-3.5 w-3.5 text-theme-primary" strokeWidth={3} />
+                  <span className="flex h-5 w-5 items-center justify-center rounded-full bg-white shadow-sm">
+                    <Check className="h-3 w-3 text-theme-primary" strokeWidth={3} />
                   </span>
                 </span>
               )}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect, useRef } from "react";
+import { Suspense, useState, useMemo, useEffect, useRef } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Sparkles, ChevronRight, SlidersHorizontal, Loader2 } from "lucide-react";
@@ -65,6 +65,14 @@ const VALID_GENDERS = ["men", "women", "kids", "unisex"] as const;
 type GenderFilter = (typeof VALID_GENDERS)[number];
 
 export default function ShopAllPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-white" />}>
+      <ShopAllContent />
+    </Suspense>
+  );
+}
+
+function ShopAllContent() {
   const searchParams = useSearchParams();
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState(() => searchParams.get("search") ?? "");

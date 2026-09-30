@@ -64,9 +64,14 @@ export default function PurchaseOrdersPage() {
       ),
     },
     {
-      accessorKey: "expectedDate",
-      header: "Expected",
-      cell: ({ row }) => <span className="text-sm">{row.original.expectedDate ?? "—"}</span>,
+      accessorKey: "invoiceNumber",
+      header: "Invoice",
+      cell: ({ row }) => <span className="text-sm">{row.original.invoiceNumber ?? "—"}</span>,
+    },
+    {
+      accessorKey: "purchaseDate",
+      header: "Purchase date",
+      cell: ({ row }) => <span className="text-sm">{row.original.purchaseDate ?? "—"}</span>,
     },
     {
       accessorKey: "status",

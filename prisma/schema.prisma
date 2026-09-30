@@ -1317,6 +1317,14 @@ model InventoryTransaction {
   referenceType                                  String?                     @map("reference_type") @db.VarChar(50)
   referenceId                                    BigInt?                     @map("reference_id") @db.UnsignedBigInt
   note                                           String?                     @db.VarChar(255)
+  /// Business meaning of the movement (type above is only its direction).
+  /// Null on rows written before the ledger existed.
+  movement_type                                  stock_movement_type?
+  /// Stock level immediately before/after this movement; null on legacy rows.
+  previous_stock                                 Int?
+  new_stock                                      Int?
+  /// Human-readable source reference, e.g. PO-000012 or the order number.
+  reference_number                               String?                     @db.VarChar(60)
   created_by                                     BigInt?                     @db.UnsignedBigInt
   createdAt                                      DateTime                    @default(now()) @map("created_at") @db.Timestamp(0)
   updated_at                                     DateTime                    @default(now()) @db.Timestamp(0)
@@ -1329,6 +1337,8 @@ model InventoryTransaction {
   @@index([updated_by], map: "fk_inventory_transactions_updated_by")
   @@index([created_by], map: "fk_invtx_user")
   @@index([variant_unit_price_id], map: "idx_invtx_variant_unit_price")
+  @@index([movement_type, createdAt], map: "idx_invtx_movement_type")
+  @@index([createdAt], map: "idx_invtx_created")
   @@map("inventory_transactions")
 }
 
@@ -2903,6 +2913,14 @@ enum banners_media_type {
   video
 }
 
+enum stock_movement_type {
+  PURCHASE
+  SALE
+  RETURN
+  REPLACEMENT
+  ADJUSTMENT
+}
+
 enum inventory_transactions_type {
   in
   out
@@ -3409,32 +3427,39 @@ model vendors {
 }
 
 model purchase_orders {
-  id            BigInt                   @id @default(autoincrement()) @db.UnsignedBigInt
-  uuid          String                   @unique(map: "uq_po_uuid") @db.VarChar(64)
-  po_number     String                   @unique(map: "uq_po_number") @db.VarChar(30)
-  vendor_id     BigInt                   @db.UnsignedBigInt
-  status        purchase_orders_status   @default(DRAFT)
-  expected_date DateTime?                @db.Date
-  notes         String?                  @db.VarChar(500)
-  reject_reason String?                  @db.VarChar(255)
-  total_amount  Decimal                  @default(0.00) @db.Decimal(12, 2)
-  submitted_at  DateTime?                @db.Timestamp(0)
-  approved_by   BigInt?                  @db.UnsignedBigInt
-  approved_at   DateTime?                @db.Timestamp(0)
-  ordered_at    DateTime?                @db.Timestamp(0)
-  received_at   DateTime?                @db.Timestamp(0)
-  cancelled_at  DateTime?                @db.Timestamp(0)
-  created_at    DateTime                 @default(now()) @db.Timestamp(0)
-  updated_at    DateTime                 @default(now()) @updatedAt @db.Timestamp(0)
-  created_by    BigInt?                  @db.UnsignedBigInt
-  updated_by    BigInt?                  @db.UnsignedBigInt
-  vendor        vendors                  @relation(fields: [vendor_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_po_vendor")
-  items         purchase_order_items[]
-  receipts      purchase_receipts[]
-  history       purchase_order_history[]
+  id                 BigInt                   @id @default(autoincrement()) @db.UnsignedBigInt
+  uuid               String                   @unique(map: "uq_po_uuid") @db.VarChar(64)
+  po_number          String                   @unique(map: "uq_po_number") @db.VarChar(30)
+  vendor_id          BigInt                   @db.UnsignedBigInt
+  status             purchase_orders_status   @default(DRAFT)
+  expected_date      DateTime?                @db.Date
+  /// Date the goods were bought (vendor invoice date), not when the record was keyed in.
+  purchase_date      DateTime?                @db.Date
+  invoice_number     String?                  @db.VarChar(60)
+  notes              String?                  @db.VarChar(500)
+  reject_reason      String?                  @db.VarChar(255)
+  subtotal           Decimal                  @default(0.00) @db.Decimal(12, 2)
+  /// Freight, packing, etc. total_amount = subtotal + additional_charges.
+  additional_charges Decimal                  @default(0.00) @db.Decimal(12, 2)
+  total_amount       Decimal                  @default(0.00) @db.Decimal(12, 2)
+  submitted_at       DateTime?                @db.Timestamp(0)
+  approved_by        BigInt?                  @db.UnsignedBigInt
+  approved_at        DateTime?                @db.Timestamp(0)
+  ordered_at         DateTime?                @db.Timestamp(0)
+  received_at        DateTime?                @db.Timestamp(0)
+  cancelled_at       DateTime?                @db.Timestamp(0)
+  created_at         DateTime                 @default(now()) @db.Timestamp(0)
+  updated_at         DateTime                 @default(now()) @updatedAt @db.Timestamp(0)
+  created_by         BigInt?                  @db.UnsignedBigInt
+  updated_by         BigInt?                  @db.UnsignedBigInt
+  vendor             vendors                  @relation(fields: [vendor_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_po_vendor")
+  items              purchase_order_items[]
+  receipts           purchase_receipts[]
+  history            purchase_order_history[]
 
   @@index([vendor_id], map: "idx_po_vendor")
   @@index([status], map: "idx_po_status")
+  @@index([purchase_date], map: "idx_po_purchase_date")
 }
 
 model purchase_order_items {

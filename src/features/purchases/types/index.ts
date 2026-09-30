@@ -22,6 +22,14 @@ export interface VendorResponse {
   createdAt: string;
 }
 
+export interface VendorDetailResponse extends VendorResponse {
+  stats: {
+    totalPurchases: number;
+    totalPurchaseAmount: number;
+    lastPurchaseDate: string | null;
+  };
+}
+
 export interface GetVendorsParams {
   page?: number;
   pageSize?: number;
@@ -34,11 +42,13 @@ export interface PurchaseItemResponse {
   productName: string;
   variantName: string | null;
   colorName: string | null;
+  sizeName: string | null;
   unitName: string | null;
   sku: string;
   quantityOrdered: number;
   quantityReceived: number;
   unitCost: number;
+  lineTotal: number;
 }
 
 export interface PurchaseHistoryEntry {
@@ -62,8 +72,12 @@ export interface PurchaseOrderResponse {
   status: PurchaseStatus;
   vendor: { id: string; name: string; code: string };
   expectedDate: string | null;
+  purchaseDate: string | null;
+  invoiceNumber: string | null;
   notes: string | null;
   rejectReason: string | null;
+  subtotal: number;
+  additionalCharges: number;
   totalAmount: number;
   itemCount: number;
   createdAt: string;

@@ -36,7 +36,7 @@ export function ItemPriceBlock({
           className
         )}
       >
-        <span className="text-2xl font-bold text-theme-text-primary">{range}</span>
+        <span className="text-xl font-bold text-theme-text-primary">{range}</span>
       </div>
     );
   }
@@ -53,13 +53,13 @@ export function ItemPriceBlock({
   return (
     <div className={cn("space-y-1.5 rounded-2xl bg-theme-surface-alt px-4", className)}>
       <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-        <span className="text-3xl font-bold tracking-tight text-theme-text-primary">
+        <span className="text-2xl font-bold tracking-tight text-theme-text-primary">
           {formatPrice(size.sellingPrice)}
         </span>
 
         {hasOffer && (
           <>
-            <span className="text-base font-medium text-theme-text-subtle line-through">
+            <span className="text-sm font-medium text-theme-text-subtle line-through">
               {formatPrice(size.basePrice)}
             </span>
             {discountPercent > 0 && (
@@ -71,6 +71,11 @@ export function ItemPriceBlock({
         )}
       </div>
 
+      {hasOffer && (
+        <p className="text-xs font-semibold text-emerald-700">
+          You save {formatPrice(size.basePrice - size.sellingPrice)}
+        </p>
+      )}
       {hasOffer && size.offer?.name && (
         <p className="text-xs font-semibold text-emerald-700">{size.offer.name}</p>
       )}

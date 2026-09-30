@@ -18,7 +18,8 @@ const FALLBACK_IMAGE =
 const AUTOPLAY_INTERVAL_MS = 5000;
 
 export function HeroIntro() {
-  const { data: banners } = useCustomerBanners({ position: "home-hero-intro" });
+  const { data: banners, isPending } = useCustomerBanners({ position: "home-hero-intro" });
+  const [paused, setPaused] = React.useState(false);
 
   const slides = banners && banners.length > 0
     ? banners
@@ -37,16 +38,17 @@ export function HeroIntro() {
   const isSlider = slides.length > 1;
   const { currentIndex, next, previous, goTo } = useSlider(slides.length);
 
+  // Restarting on currentIndex gives each slide a full interval after manual nav.
   React.useEffect(() => {
-    if (!isSlider) return;
-    const timer = setInterval(next, AUTOPLAY_INTERVAL_MS);
-    return () => clearInterval(timer);
-  }, [isSlider, next]);
+    if (!isSlider || paused) return;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const timer = setTimeout(next, AUTOPLAY_INTERVAL_MS);
+    return () => clearTimeout(timer);
+  }, [isSlider, paused, next, currentIndex]);
 
   const banner = slides[currentIndex];
   const isFallback = !banners || banners.length === 0;
 
-  const imageUrl = banner?.imageUrl || FALLBACK_IMAGE;
   const imageAlt = banner?.title || "Shopper carrying bags from the new season collection";
   const linkUrl = banner?.linkUrl || "/products";
   const badgeLabel = banner?.badgeLabel ?? (isFallback ? "Trending" : null);
@@ -100,17 +102,32 @@ export function HeroIntro() {
         </div>
 
         {/* Right: image + trending card */}
-        <div className="relative group">
+        <div
+          className="relative group"
+          onMouseEnter={() => setPaused(true)}
+          onMouseLeave={() => setPaused(false)}
+          onFocus={() => setPaused(true)}
+          onBlur={() => setPaused(false)}
+        >
           <div className="relative aspect-[4/3] w-full overflow-hidden rounded-2xl bg-gradient-to-br from-slate-800 via-slate-700 to-slate-900">
-            <Image
-              key={banner?.id ?? imageUrl}
-              src={imageUrl}
-              alt={imageAlt}
-              fill
-              priority
-              sizes="(min-width: 1024px) 50vw, 100vw"
-              className="object-cover transition-opacity duration-500"
-            />
+            {isPending ? (
+              <div className="absolute inset-0 animate-pulse bg-slate-200" />
+            ) : (
+              slides.map((slide, index) => (
+                <Image
+                  key={slide.id}
+                  src={slide.imageUrl || FALLBACK_IMAGE}
+                  alt={index === currentIndex ? imageAlt : ""}
+                  aria-hidden={index !== currentIndex}
+                  fill
+                  priority={index === 0}
+                  sizes="(min-width: 1024px) 50vw, 100vw"
+                  className={`object-cover transition-opacity duration-700 ease-in-out ${
+                    index === currentIndex ? "opacity-100" : "opacity-0"
+                  }`}
+                />
+              ))
+            )}
 
             {isSlider && (
               <>
@@ -148,6 +165,7 @@ export function HeroIntro() {
             )}
           </div>
 
+          {!isPending && (
           <div className="absolute -bottom-6 left-4 right-4 sm:left-8 sm:right-auto sm:w-[340px] flex items-center gap-3 rounded-xl border border-theme-border bg-white p-4 shadow-lg">
             <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-theme-primary-light">
               <ShoppingBag className="h-5 w-5 text-theme-primary" />
@@ -178,6 +196,7 @@ export function HeroIntro() {
               <ArrowRight className="h-4 w-4" />
             </Link>
           </div>
+          )}
         </div>
       </div>
     </section>

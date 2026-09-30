@@ -3,11 +3,10 @@
 import * as React from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { Mail, ShieldCheck, Loader2 } from "lucide-react";
+import { ShieldCheck } from "lucide-react";
 import { LOGOS, footerSocialIcons } from "@/constants/storefront";
 import { ContactFormModal } from "@/features/contact/components/ContactFormModal";
 import { useCustomerCompany } from "@/features/customers/hooks/use-customer-company";
-import { useNewsletterSubscribe } from "@/features/newsletter/hooks/use-newsletter-subscribe";
 import { getImageUrl } from "@/lib/utils";
 
 const SHOP_LINKS = [
@@ -29,8 +28,6 @@ const PAYMENT_METHODS = ["UPI", "Visa", "Mastercard", "RuPay", "NetBanking"];
 
 export function Footer() {
   const [isContactModalOpen, setIsContactModalOpen] = React.useState(false);
-  const [vipEmail, setVipEmail] = React.useState("");
-  const subscribe = useNewsletterSubscribe();
 
   const { data: company } = useCustomerCompany();
 
@@ -44,53 +41,8 @@ export function Footer() {
     return `https://wa.me/${clean}`;
   }, [company]);
 
-  const handleVipSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    const trimmed = vipEmail.trim();
-    if (!trimmed) return;
-    subscribe.mutate({ email: trimmed }, { onSuccess: () => setVipEmail("") });
-  };
-
   return (
     <footer className="w-full bg-white border-t border-theme-border">
-      {/* VIP signup bar */}
-      <div className="w-full bg-theme-primary-light/50">
-        <div className="w-full max-w-[1400px] 2xl:max-w-[1600px] 3xl:max-w-[1800px] mx-auto px-4 sm:px-6 md:px-8 py-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-amber-100 text-amber-700">
-              <Mail className="h-5 w-5" />
-            </div>
-            <div>
-              <h3 className="font-bold text-theme-text-primary">
-                Stay updated with {companyName} drops
-              </h3>
-              <p className="text-sm text-theme-text-subtle">
-                Subscribe for early access, curated lookbooks, and member offers.
-              </p>
-            </div>
-          </div>
-
-          <form onSubmit={handleVipSubmit} className="flex w-full md:w-auto gap-2">
-            <input
-              type="email"
-              required
-              value={vipEmail}
-              onChange={(e) => setVipEmail(e.target.value)}
-              placeholder="Enter your mobile or email..."
-              className="flex-1 md:w-72 h-11 px-4 rounded-md border border-theme-border bg-white text-sm text-theme-text-primary placeholder:text-theme-text-subtle outline-none focus:border-theme-primary transition-colors"
-            />
-            <button
-              type="submit"
-              disabled={subscribe.isPending}
-              className="h-11 shrink-0 px-6 rounded-md bg-theme-primary hover:bg-theme-primary-hover text-white text-sm font-bold transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
-            >
-              {subscribe.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
-              {subscribe.isSuccess ? "Joined" : "Join"}
-            </button>
-          </form>
-        </div>
-      </div>
-
       {/* Main footer columns */}
       <div className="w-full max-w-[1400px] 2xl:max-w-[1600px] 3xl:max-w-[1800px] mx-auto px-4 sm:px-6 md:px-8 py-12">
         <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-5">

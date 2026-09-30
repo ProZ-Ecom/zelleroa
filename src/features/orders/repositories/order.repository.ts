@@ -5,6 +5,7 @@ import { Prisma } from "@/generated/prisma";
 import { ApiError } from "@/lib/api/api-error";
 import { formatVariantMeasurement } from "@/features/variants/utils/measurement.util";
 import { reservationService } from "@/features/inventory/services/reservation.service";
+import { recordStockMovement } from "@/features/inventory/services/stock-ledger.service";
 import { getReturnWindow } from "@/features/returns/lib/policy";
 import {
   buildOrderTimeline,
@@ -749,31 +750,17 @@ export const orderRepository = {
       // race-safe: if another order beat us to the last units, count is 0 and
       // we throw, rolling back the whole order transaction.
       for (const item of params.items) {
-        const decremented = await tx.inventory.updateMany({
-          where: {
-            variantUnitPriceId: item.variantUnitPriceId,
-            quantity_available: { gte: item.quantity },
-          },
-          data: { quantity_available: { decrement: item.quantity } },
-        });
-
-        if (decremented.count === 0) {
-          throw ApiError.badRequest(
-            `Insufficient stock for "${item.variantName}" (SKU: ${item.sku})`
-          );
-        }
-
-        await tx.inventoryTransaction.create({
-          data: {
-            variant_unit_price_id: item.variantUnitPriceId,
-            type: "out",
-            quantity: item.quantity,
-            referenceType: "order",
-            referenceId: createdOrder.id,
-            note: `Order ${orderNumber}`,
-            created_by: params.userId,
-            updated_by: params.userId,
-          },
+        await recordStockMovement(tx, {
+          variantUnitPriceId: item.variantUnitPriceId,
+          movementType: "SALE",
+          direction: "out",
+          quantity: item.quantity,
+          referenceType: "order",
+          referenceId: createdOrder.id,
+          referenceNumber: orderNumber,
+          reason: `Order ${orderNumber}`,
+          actorId: params.userId,
+          itemLabel: `${item.variantName} (SKU: ${item.sku})`,
         });
       }
 
@@ -1217,24 +1204,21 @@ export const orderRepository = {
         select: { variantUnitPriceId: true, quantity: true },
       });
 
+      const cancelledOrder = await tx.order.findUnique({
+        where: { id: params.orderId },
+        select: { orderNumber: true },
+      });
       for (const item of items) {
-        const variantUnitPriceId = item.variantUnitPriceId!;
-        await tx.inventory.update({
-          where: { variantUnitPriceId },
-          data: { quantity_available: { increment: item.quantity } },
-        });
-
-        await tx.inventoryTransaction.create({
-          data: {
-            variant_unit_price_id: variantUnitPriceId,
-            type: "in",
-            quantity: item.quantity,
-            referenceType: "order_cancel",
-            referenceId: params.orderId,
-            note: params.note || "Order cancelled",
-            created_by: params.changedBy,
-            updated_by: params.changedBy,
-          },
+        await recordStockMovement(tx, {
+          variantUnitPriceId: item.variantUnitPriceId!,
+          movementType: "RETURN",
+          direction: "in",
+          quantity: item.quantity,
+          referenceType: "order_cancel",
+          referenceId: params.orderId,
+          referenceNumber: cancelledOrder?.orderNumber,
+          reason: params.note || "Order cancelled",
+          actorId: params.changedBy,
         });
       }
 
@@ -1302,29 +1286,48 @@ export const orderRepository = {
     return db.$transaction(async (tx) => {
       const now = new Date();
 
-      const items = await tx.orderItem.findMany({
+      const orderItems = await tx.orderItem.findMany({
         where: { orderId: params.orderId, is_active: true, variantUnitPriceId: { not: null } },
-        select: { variantUnitPriceId: true, quantity: true },
+        select: { id: true, variantUnitPriceId: true, quantity: true },
       });
-
-      for (const item of items) {
-        const variantUnitPriceId = item.variantUnitPriceId!;
-        await tx.inventory.update({
-          where: { variantUnitPriceId },
-          data: { quantity_available: { increment: item.quantity } },
-        });
-
-        await tx.inventoryTransaction.create({
-          data: {
-            variant_unit_price_id: variantUnitPriceId,
-            type: "in",
-            quantity: item.quantity,
-            referenceType: "order_return",
-            referenceId: params.orderId,
-            note: params.note || "Order returned",
-            created_by: params.changedBy,
-            updated_by: params.changedBy,
+      // Units already put back on the shelf through an item-level return request
+      // must not be restocked a second time.
+      const alreadyBack = await tx.return_items.groupBy({
+        by: ["order_item_id"],
+        where: {
+          is_active: true,
+          order_item_id: { in: orderItems.map((i) => i.id) },
+          return_requests: {
+            is_active: true,
+            rejected_at: null,
+            status: { in: ["received", "refund_pending", "refunded", "closed"] },
           },
+        },
+        _sum: { quantity: true },
+      });
+      const backByItem = new Map(alreadyBack.map((r) => [String(r.order_item_id), r._sum.quantity ?? 0]));
+      const items = orderItems
+        .map((i) => ({
+          variantUnitPriceId: i.variantUnitPriceId,
+          quantity: i.quantity - (backByItem.get(String(i.id)) ?? 0),
+        }))
+        .filter((i) => i.quantity > 0);
+
+      const returnedOrder = await tx.order.findUnique({
+        where: { id: params.orderId },
+        select: { orderNumber: true },
+      });
+      for (const item of items) {
+        await recordStockMovement(tx, {
+          variantUnitPriceId: item.variantUnitPriceId!,
+          movementType: "RETURN",
+          direction: "in",
+          quantity: item.quantity,
+          referenceType: "order_return",
+          referenceId: params.orderId,
+          referenceNumber: returnedOrder?.orderNumber,
+          reason: params.note || "Order returned",
+          actorId: params.changedBy,
         });
       }
 

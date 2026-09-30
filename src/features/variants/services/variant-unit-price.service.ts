@@ -1,4 +1,5 @@
 import crypto from "crypto";
+import { setStockLevel } from "@/features/inventory/services/stock-ledger.service";
 import { ApiError } from "@/lib/api/api-error";
 import { db } from "@/lib/db/prisma";
 import { variantRepository } from "../repositories/variant.repository";
@@ -227,34 +228,14 @@ export const variantUnitPriceService = {
     const stock = data.stock ?? (archived ? 0 : undefined);
 
     if (stock !== undefined) {
-      await db.inventory.upsert({
-        where: { variantUnitPriceId: created.id },
-        create: {
+      await db.$transaction((tx) =>
+        setStockLevel(tx, {
           variantUnitPriceId: created.id,
-          quantity_available: stock,
-          quantity_reserved: 0,
-          is_active: true,
-          created_by: adminId,
-          updated_by: adminId,
-        },
-        update: {
-          quantity_available: stock,
-          updated_by: adminId,
-        },
-      });
-
-      if (stock !== 0) {
-        await db.inventoryTransaction.create({
-          data: {
-            variant_unit_price_id: created.id,
-            type: "in",
-            quantity: stock,
-            note: "Initial stock on create",
-            created_by: adminId,
-            updated_by: adminId,
-          },
-        });
-      }
+          target: stock,
+          reason: "Opening stock",
+          actorId: adminId,
+        })
+      );
     }
 
     const withDetails = await variantUnitPriceRepository.findByUuid(created.uuid);

@@ -1,6 +1,7 @@
 import { apiClient } from "@/lib/api/api-client";
 import type {
   VendorResponse,
+  VendorDetailResponse,
   PurchaseOrderResponse,
   PurchaseProductOption,
 } from "../types";
@@ -10,6 +11,11 @@ type Params = Record<string, string | number | boolean | undefined | null>;
 export async function getVendors(params?: Params) {
   const res = await apiClient.get<VendorResponse[]>("/api/admin/vendors", { params });
   return { data: res.data ?? [], meta: res.meta };
+}
+
+export async function getVendor(uuid: string) {
+  const res = await apiClient.get<VendorDetailResponse>(`/api/admin/vendors/${uuid}`);
+  return res.data as VendorDetailResponse;
 }
 
 export const createVendor = (data: Record<string, unknown>) =>

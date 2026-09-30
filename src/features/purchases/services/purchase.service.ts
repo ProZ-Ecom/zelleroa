@@ -14,9 +14,11 @@ import type {
   PurchaseActionInput,
   ReceiveInput,
 } from "../validations/purchase.schema";
+import { recordStockMovement } from "@/features/inventory/services/stock-ledger.service";
 import { getAdminInternalId } from "./vendor.service";
 
 const productSelect = {
+  attribute_value: { select: { value: true } },
   variant: {
     select: {
       variant_name: true,
@@ -79,11 +81,13 @@ function formatItem(i: ItemRow): PurchaseItemResponse {
     productName: productName(i.variant_unit_price),
     variantName: i.variant_unit_price.variant?.variant_name || null,
     colorName: i.variant_unit_price.variant?.color_name ?? null,
+    sizeName: i.variant_unit_price.attribute_value?.value ?? null,
     unitName: i.variant_unit_price.product_units?.name ?? null,
     sku: i.variant_unit_price.sku,
     quantityOrdered: i.quantity_ordered,
     quantityReceived: i.quantity_received,
     unitCost: Number(i.unit_cost),
+    lineTotal: Number(i.unit_cost) * i.quantity_ordered,
   };
 }
 
@@ -94,8 +98,12 @@ function format(po: any): PurchaseOrderResponse {
     status: po.status,
     vendor: { id: po.vendor.uuid, name: po.vendor.name, code: po.vendor.code },
     expectedDate: po.expected_date ? po.expected_date.toISOString().slice(0, 10) : null,
+    purchaseDate: po.purchase_date ? po.purchase_date.toISOString().slice(0, 10) : null,
+    invoiceNumber: po.invoice_number,
     notes: po.notes,
     rejectReason: po.reject_reason,
+    subtotal: Number(po.subtotal),
+    additionalCharges: Number(po.additional_charges),
     totalAmount: Number(po.total_amount),
     itemCount: po._count?.items ?? po.items?.length ?? 0,
     createdAt: po.created_at.toISOString(),
@@ -154,6 +162,21 @@ function totalOf(items: { quantity_ordered: number; unit_cost: number }[]) {
   return items.reduce((sum, i) => sum + i.quantity_ordered * i.unit_cost, 0);
 }
 
+/** Header money + purchase details shared by create and update. */
+function headerData(input: PurchaseOrderInput, items: { quantity_ordered: number; unit_cost: number }[]) {
+  const subtotal = Math.round(totalOf(items) * 100) / 100;
+  const additional = Math.round(input.additionalCharges * 100) / 100;
+  return {
+    expected_date: input.expectedDate ? new Date(input.expectedDate) : null,
+    purchase_date: input.purchaseDate ? new Date(input.purchaseDate) : new Date(),
+    invoice_number: input.invoiceNumber,
+    notes: input.notes,
+    subtotal,
+    additional_charges: additional,
+    total_amount: subtotal + additional,
+  };
+}
+
 async function resolveVendor(vendorUuid: string) {
   const vendor = await db.vendors.findFirst({ where: { uuid: vendorUuid, deleted_at: null } });
   if (!vendor) throw ApiError.notFound("Vendor not found");
@@ -186,6 +209,7 @@ export const purchaseService = {
         ? {
             OR: [
               { po_number: { contains: params.search } },
+              { invoice_number: { contains: params.search } },
               { vendor: { name: { contains: params.search } } },
             ],
           }
@@ -221,9 +245,7 @@ export const purchaseService = {
           uuid,
           po_number: `TMP-${uuid.slice(0, 8)}`,
           vendor_id: vendor.id,
-          expected_date: input.expectedDate ? new Date(input.expectedDate) : null,
-          notes: input.notes,
-          total_amount: totalOf(items),
+          ...headerData(input, items),
           created_by: adminId,
           updated_by: adminId,
           items: { create: items },
@@ -255,9 +277,7 @@ export const purchaseService = {
         where: { id: po.id },
         data: {
           vendor_id: vendor.id,
-          expected_date: input.expectedDate ? new Date(input.expectedDate) : null,
-          notes: input.notes,
-          total_amount: totalOf(items),
+          ...headerData(input, items),
           updated_by: adminId,
           items: { create: items },
         },
@@ -364,25 +384,16 @@ export const purchaseService = {
           where: { id: item.id },
           data: { quantity_received: { increment: line.quantity } },
         });
-        await tx.inventory.upsert({
-          where: { variantUnitPriceId: item.variant_unit_price_id },
-          update: { quantity_available: { increment: line.quantity }, updated_by: adminId },
-          create: {
-            variantUnitPriceId: item.variant_unit_price_id,
-            quantity_available: line.quantity,
-            created_by: adminId,
-          },
-        });
-        await tx.inventoryTransaction.create({
-          data: {
-            variant_unit_price_id: item.variant_unit_price_id,
-            type: "in",
-            quantity: line.quantity,
-            referenceType: "purchase_receipt",
-            referenceId: receipt.id,
-            note: `Purchase ${po.po_number}`,
-            created_by: adminId,
-          },
+        await recordStockMovement(tx, {
+          variantUnitPriceId: item.variant_unit_price_id,
+          movementType: "PURCHASE",
+          direction: "in",
+          quantity: line.quantity,
+          referenceType: "purchase_receipt",
+          referenceId: receipt.id,
+          referenceNumber: po.po_number,
+          reason: `Purchase ${po.po_number}${po.invoice_number ? ` (Invoice ${po.invoice_number})` : ""}`,
+          actorId: adminId,
         });
       }
 
@@ -436,7 +447,7 @@ export const purchaseService = {
         productName(r),
         r.variant?.variant_name,
         r.variant?.color_name,
-        r.product_units?.name,
+        r.attribute_value?.value ?? r.product_units?.name,
       ]
         .filter(Boolean)
         .join(" · "),

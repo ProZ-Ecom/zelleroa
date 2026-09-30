@@ -1,6 +1,7 @@
 import crypto from "crypto";
 import { db } from "@/lib/db/prisma";
 import { ApiError } from "@/lib/api/api-error";
+import { recordStockMovement } from "@/features/inventory/services/stock-ledger.service";
 import { Prisma } from "@/generated/prisma";
 import { adminReplacementInclude } from "@/features/returns/lib/includes";
 import { findItemConflicts, lockOrder } from "@/features/returns/lib/guards";
@@ -166,33 +167,46 @@ export const replacementRepository = {
 
       // The replacement unit leaves the warehouse when processing starts.
       if (p.action === "process") {
+        const orderNumber =
+          (await tx.order.findUnique({ where: { id: p.request.orderId }, select: { orderNumber: true } }))
+            ?.orderNumber ?? null;
         const items = await tx.replacement_request_items.findMany({
           where: { replacement_request_id: p.request.id, is_active: true },
           include: { order_items: { select: { variantUnitPriceId: true } } },
         });
         for (const item of items) {
-          const vupId = item.requested_variant_unit_price_id ?? item.order_items.variantUnitPriceId;
-          if (!vupId) continue;
-          // Conditional decrement: never oversell if stock moved since the request.
-          const dec = await tx.inventory.updateMany({
-            where: { variantUnitPriceId: vupId, quantity_available: { gte: item.quantity } },
-            data: { quantity_available: { decrement: item.quantity } },
-          });
-          if (dec.count !== 1) {
-            throw ApiError.badRequest("Not enough stock to fulfil this replacement.");
-          }
-          await tx.inventoryTransaction.create({
-            data: {
-              variant_unit_price_id: vupId,
-              type: "out",
+          const returnedVupId = item.order_items.variantUnitPriceId;
+          const vupId = item.requested_variant_unit_price_id ?? returnedVupId;
+          const ref = {
+            referenceType: "replacement_request",
+            referenceId: p.request.id,
+            referenceNumber: orderNumber,
+            actorId: p.actor.id,
+          };
+          // 1) The original unit comes back from the customer (it was picked up
+          //    before processing starts) and re-enters stock.
+          if (returnedVupId) {
+            await recordStockMovement(tx, {
+              ...ref,
+              variantUnitPriceId: returnedVupId,
+              movementType: "REPLACEMENT",
+              direction: "in",
               quantity: item.quantity,
-              referenceType: "order_replacement",
-              referenceId: p.request.orderId,
-              note: "Replacement dispatched",
-              created_by: p.actor.id,
-              updated_by: p.actor.id,
-            },
-          });
+              reason: "Replacement: original item received back",
+            });
+          }
+          // 2) The replacement unit leaves stock. Never oversells: throws if short.
+          if (vupId) {
+            await recordStockMovement(tx, {
+              ...ref,
+              variantUnitPriceId: vupId,
+              movementType: "REPLACEMENT",
+              direction: "out",
+              quantity: item.quantity,
+              reason: "Replacement dispatched",
+              itemLabel: "replacement item",
+            });
+          }
         }
         historyNote = historyNote ?? "Replacement being prepared";
       }

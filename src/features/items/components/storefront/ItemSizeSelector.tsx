@@ -33,13 +33,13 @@ export function ItemSizeSelector({
   const showPricePerSize = prices.size > 1;
 
   return (
-    <div className="space-y-2.5">
+    <div className="space-y-2">
       <div className="flex items-center justify-between gap-3">
-        <h3 className="text-sm font-bold tracking-wide text-theme-text-primary">Size</h3>
+        <h3 className="text-xs font-bold uppercase tracking-wide text-theme-text-primary">Size</h3>
         {action}
       </div>
 
-      <div className="flex flex-wrap gap-2.5" role="radiogroup" aria-label="Size">
+      <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Size">
         {sizes.map((size) => {
           const isSelected = size.id === selectedSizeId;
 
@@ -53,7 +53,7 @@ export function ItemSizeSelector({
               disabled={!size.inStock}
               onClick={() => onSelect(size.id)}
               className={cn(
-                "min-w-14 rounded-full border px-4 py-2 text-sm font-semibold transition-all duration-200",
+                "min-w-12 rounded-full border px-3.5 py-1.5 text-xs font-semibold transition-all duration-200",
                 isSelected
                   ? "border-theme-primary bg-theme-primary text-theme-primary-fg shadow-md shadow-theme-primary/25 scale-[1.03]"
                   : "border-theme-border bg-theme-surface text-theme-text-primary hover:border-theme-primary/50 hover:shadow-sm",

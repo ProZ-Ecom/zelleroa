@@ -118,7 +118,7 @@ function buildCandidates(
         ? row.items
         : row.items.filter((item) => item.name.toLowerCase().includes(needle));
 
-      const brand = row.product.brand;
+      const brand = row.brand ?? row.product.brand;
       const brandRef =
         brand && brand.isActive && !brand.deleted_at
           ? { id: brand.uuid || String(brand.id), key: brand.slug.toLowerCase(), name: brand.name }

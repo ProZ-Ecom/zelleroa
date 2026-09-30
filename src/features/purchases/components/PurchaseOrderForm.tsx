@@ -20,6 +20,9 @@ interface Line {
 export interface PurchaseOrderFormData {
   vendorId: string;
   expectedDate: string | null;
+  purchaseDate: string | null;
+  invoiceNumber: string;
+  additionalCharges: number;
   notes: string;
   items: { variantUnitPriceId: number; quantity: number; unitCost: number }[];
 }
@@ -45,11 +48,16 @@ function useDebounced(value: string, ms = 300) {
 export function PurchaseOrderForm({ initial, isLoading, submitLabel, onSubmit }: Props) {
   const [vendorId, setVendorId] = useState(initial?.vendor.id ?? "");
   const [expectedDate, setExpectedDate] = useState(initial?.expectedDate ?? "");
+  const [purchaseDate, setPurchaseDate] = useState(
+    initial?.purchaseDate ?? new Date().toISOString().slice(0, 10)
+  );
+  const [invoiceNumber, setInvoiceNumber] = useState(initial?.invoiceNumber ?? "");
+  const [additionalCharges, setAdditionalCharges] = useState(initial?.additionalCharges ?? 0);
   const [notes, setNotes] = useState(initial?.notes ?? "");
   const [lines, setLines] = useState<Line[]>(
     initial?.items?.map((i) => ({
       variantUnitPriceId: i.variantUnitPriceId,
-      label: [i.productName, i.variantName, i.colorName, i.unitName].filter(Boolean).join(" · "),
+      label: [i.productName, i.variantName, i.colorName, i.sizeName ?? i.unitName].filter(Boolean).join(" · "),
       sku: i.sku,
       stock: 0,
       quantity: i.quantityOrdered,
@@ -65,7 +73,8 @@ export function PurchaseOrderForm({ initial, isLoading, submitLabel, onSubmit }:
   const { data: options = [], isFetching } = usePurchaseProducts(debounced);
 
   const vendors = (vendorData?.data ?? []).filter((v) => v.isActive || v.id === initial?.vendor.id);
-  const total = lines.reduce((s, l) => s + l.quantity * l.unitCost, 0);
+  const subtotal = lines.reduce((s, l) => s + l.quantity * l.unitCost, 0);
+  const total = subtotal + (Number.isFinite(additionalCharges) ? additionalCharges : 0);
 
   const addLine = (o: PurchaseProductOption) => {
     setShowResults(false);
@@ -99,10 +108,16 @@ export function PurchaseOrderForm({ initial, isLoading, submitLabel, onSubmit }:
         if (lines.length === 0) return setError("Add at least one item");
         if (lines.some((l) => !Number.isInteger(l.quantity) || l.quantity < 1))
           return setError("Every quantity must be a whole number of at least 1");
+        if (lines.some((l) => !(l.unitCost >= 0)))
+          return setError("Purchase price cannot be negative");
+        if (!(additionalCharges >= 0)) return setError("Additional charges cannot be negative");
         setError(null);
         await onSubmit({
           vendorId,
           expectedDate: expectedDate || null,
+          purchaseDate: purchaseDate || null,
+          invoiceNumber: invoiceNumber.trim(),
+          additionalCharges,
           notes,
           items: lines.map((l) => ({
             variantUnitPriceId: l.variantUnitPriceId,
@@ -127,6 +142,19 @@ export function PurchaseOrderForm({ initial, isLoading, submitLabel, onSubmit }:
               </option>
             ))}
           </select>
+        </div>
+        <div>
+          <label className={labelCls}>Invoice number</label>
+          <Input
+            value={invoiceNumber}
+            maxLength={60}
+            placeholder="Vendor invoice no."
+            onChange={(e) => setInvoiceNumber(e.target.value)}
+          />
+        </div>
+        <div>
+          <label className={labelCls}>Purchase date</label>
+          <Input type="date" value={purchaseDate} onChange={(e) => setPurchaseDate(e.target.value)} />
         </div>
         <div>
           <label className={labelCls}>Expected delivery</label>
@@ -189,7 +217,7 @@ export function PurchaseOrderForm({ initial, isLoading, submitLabel, onSubmit }:
             <tr>
               <th className="px-4 py-2.5">Product</th>
               <th className="px-4 py-2.5 w-28">Qty</th>
-              <th className="px-4 py-2.5 w-36">Unit cost (₹)</th>
+              <th className="px-4 py-2.5 w-36">Purchase price (₹)</th>
               <th className="px-4 py-2.5 w-32 text-right">Line total</th>
               <th className="w-12" />
             </tr>
@@ -246,6 +274,28 @@ export function PurchaseOrderForm({ initial, isLoading, submitLabel, onSubmit }:
             <tfoot>
               <tr className="border-t border-neutral-200 bg-neutral-50">
                 <td colSpan={3} className="px-4 py-2.5 text-right font-medium">
+                  Subtotal
+                </td>
+                <td className="px-4 py-2.5 text-right font-medium">₹{subtotal.toFixed(2)}</td>
+                <td />
+              </tr>
+              <tr className="bg-neutral-50">
+                <td colSpan={3} className="px-4 py-2.5 text-right font-medium">
+                  Additional charges (freight, packing…)
+                </td>
+                <td className="px-4 py-2">
+                  <Input
+                    type="number"
+                    min={0}
+                    step="0.01"
+                    value={additionalCharges}
+                    onChange={(e) => setAdditionalCharges(Number(e.target.value))}
+                  />
+                </td>
+                <td />
+              </tr>
+              <tr className="border-t border-neutral-200 bg-neutral-50">
+                <td colSpan={3} className="px-4 py-2.5 text-right font-semibold">
                   Total
                 </td>
                 <td className="px-4 py-2.5 text-right font-semibold">₹{total.toFixed(2)}</td>

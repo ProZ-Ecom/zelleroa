@@ -63,6 +63,13 @@ export const purchaseOrderSchema = z
       .optional()
       .nullable()
       .transform((v) => (v ? v : null)),
+    purchaseDate: z
+      .string()
+      .optional()
+      .nullable()
+      .transform((v) => (v ? v : null)),
+    invoiceNumber: optionalText(60),
+    additionalCharges: z.coerce.number().min(0, "Charges cannot be negative").default(0),
     notes: optionalText(500),
     items: z.array(poItemSchema).min(1, "Add at least one item"),
   })
