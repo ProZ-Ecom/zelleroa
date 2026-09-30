@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Plus, Trash2, Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -11,6 +11,9 @@ import type { PurchaseOrderResponse, PurchaseProductOption } from "../types";
 interface Line {
   variantUnitPriceId: number;
   label: string;
+  productName: string;
+  colorName: string | null;
+  sizeName: string | null;
   sku: string;
   stock: number;
   quantity: number;
@@ -31,6 +34,8 @@ interface Props {
   initial?: PurchaseOrderResponse | null;
   isLoading?: boolean;
   submitLabel: string;
+  /** "confirm" records a finished purchase: no expected date, quantity is typed in, never guessed. */
+  mode?: "draft" | "confirm";
   onSubmit: (data: PurchaseOrderFormData) => Promise<void>;
 }
 
@@ -45,7 +50,7 @@ function useDebounced(value: string, ms = 300) {
   return v;
 }
 
-export function PurchaseOrderForm({ initial, isLoading, submitLabel, onSubmit }: Props) {
+export function PurchaseOrderForm({ initial, isLoading, submitLabel, mode = "draft", onSubmit }: Props) {
   const [vendorId, setVendorId] = useState(initial?.vendor.id ?? "");
   const [expectedDate, setExpectedDate] = useState(initial?.expectedDate ?? "");
   const [purchaseDate, setPurchaseDate] = useState(
@@ -58,12 +63,16 @@ export function PurchaseOrderForm({ initial, isLoading, submitLabel, onSubmit }:
     initial?.items?.map((i) => ({
       variantUnitPriceId: i.variantUnitPriceId,
       label: [i.productName, i.variantName, i.colorName, i.sizeName ?? i.unitName].filter(Boolean).join(" · "),
+      productName: i.productName,
+      colorName: i.colorName,
+      sizeName: i.sizeName ?? i.unitName,
       sku: i.sku,
       stock: 0,
       quantity: i.quantityOrdered,
       unitCost: i.unitCost,
     })) ?? []
   );
+  const searchRef = useRef<HTMLInputElement>(null);
   const [search, setSearch] = useState("");
   const [showResults, setShowResults] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -89,7 +98,10 @@ export function PurchaseOrderForm({ initial, isLoading, submitLabel, onSubmit }:
               label: o.label,
               sku: o.sku,
               stock: o.stock,
-              quantity: Math.max(1, o.reorderLevel - o.stock),
+              productName: o.productName,
+              colorName: o.colorName,
+              sizeName: o.sizeName,
+              quantity: mode === "confirm" ? 0 : Math.max(1, o.reorderLevel - o.stock),
               unitCost: 0,
             },
           ]
@@ -156,17 +168,32 @@ export function PurchaseOrderForm({ initial, isLoading, submitLabel, onSubmit }:
           <label className={labelCls}>Purchase date</label>
           <Input type="date" value={purchaseDate} onChange={(e) => setPurchaseDate(e.target.value)} />
         </div>
-        <div>
-          <label className={labelCls}>Expected delivery</label>
-          <Input type="date" value={expectedDate} onChange={(e) => setExpectedDate(e.target.value)} />
-        </div>
+        {mode === "draft" && (
+          <div>
+            <label className={labelCls}>Expected delivery</label>
+            <Input type="date" value={expectedDate} onChange={(e) => setExpectedDate(e.target.value)} />
+          </div>
+        )}
       </div>
 
       <div>
-        <label className={labelCls}>Add product</label>
+        <div className="mb-1.5 flex items-center justify-between">
+          <label className="text-sm font-medium text-neutral-700">Add item</label>
+          <button
+            type="button"
+            onClick={() => {
+              searchRef.current?.focus();
+              setShowResults(true);
+            }}
+            className="inline-flex items-center gap-1 text-sm font-medium text-[var(--color-secondary-700)] hover:underline"
+          >
+            <Plus className="h-4 w-4" /> Add Item
+          </button>
+        </div>
         <div className="relative">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" />
           <Input
+            ref={searchRef}
             className="pl-9"
             placeholder="Search by product name or SKU..."
             value={search}
@@ -216,6 +243,8 @@ export function PurchaseOrderForm({ initial, isLoading, submitLabel, onSubmit }:
           <thead className="bg-neutral-50 text-left text-xs uppercase text-neutral-500">
             <tr>
               <th className="px-4 py-2.5">Product</th>
+              <th className="px-4 py-2.5">Color</th>
+              <th className="px-4 py-2.5">Size</th>
               <th className="px-4 py-2.5 w-28">Qty</th>
               <th className="px-4 py-2.5 w-36">Purchase price (₹)</th>
               <th className="px-4 py-2.5 w-32 text-right">Line total</th>
@@ -225,7 +254,7 @@ export function PurchaseOrderForm({ initial, isLoading, submitLabel, onSubmit }:
           <tbody>
             {lines.length === 0 && (
               <tr>
-                <td colSpan={5} className="px-4 py-6 text-center text-neutral-500">
+                <td colSpan={7} className="px-4 py-6 text-center text-neutral-500">
                   No items yet. Search above to add products.
                 </td>
               </tr>
@@ -233,15 +262,17 @@ export function PurchaseOrderForm({ initial, isLoading, submitLabel, onSubmit }:
             {lines.map((l) => (
               <tr key={l.variantUnitPriceId} className="border-t border-neutral-100">
                 <td className="px-4 py-2.5">
-                  <p className="font-medium text-neutral-900">{l.label}</p>
+                  <p className="font-medium text-neutral-900">{l.productName}</p>
                   <p className="text-xs text-neutral-500">{l.sku}</p>
                 </td>
+                <td className="px-4 py-2.5">{l.colorName ?? "—"}</td>
+                <td className="px-4 py-2.5">{l.sizeName ?? "—"}</td>
                 <td className="px-4 py-2.5">
                   <Input
                     type="number"
                     min={1}
                     step={1}
-                    value={l.quantity}
+                    value={l.quantity || ""}
                     onChange={(e) => patch(l.variantUnitPriceId, { quantity: Number(e.target.value) })}
                   />
                 </td>
@@ -273,14 +304,14 @@ export function PurchaseOrderForm({ initial, isLoading, submitLabel, onSubmit }:
           {lines.length > 0 && (
             <tfoot>
               <tr className="border-t border-neutral-200 bg-neutral-50">
-                <td colSpan={3} className="px-4 py-2.5 text-right font-medium">
+                <td colSpan={5} className="px-4 py-2.5 text-right font-medium">
                   Subtotal
                 </td>
                 <td className="px-4 py-2.5 text-right font-medium">₹{subtotal.toFixed(2)}</td>
                 <td />
               </tr>
               <tr className="bg-neutral-50">
-                <td colSpan={3} className="px-4 py-2.5 text-right font-medium">
+                <td colSpan={5} className="px-4 py-2.5 text-right font-medium">
                   Additional charges (freight, packing…)
                 </td>
                 <td className="px-4 py-2">
@@ -295,7 +326,7 @@ export function PurchaseOrderForm({ initial, isLoading, submitLabel, onSubmit }:
                 <td />
               </tr>
               <tr className="border-t border-neutral-200 bg-neutral-50">
-                <td colSpan={3} className="px-4 py-2.5 text-right font-semibold">
+                <td colSpan={5} className="px-4 py-2.5 text-right font-semibold">
                   Total
                 </td>
                 <td className="px-4 py-2.5 text-right font-semibold">₹{total.toFixed(2)}</td>

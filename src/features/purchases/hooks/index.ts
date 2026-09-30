@@ -104,6 +104,14 @@ export function usePurchaseMutations() {
       },
       onError,
     }),
+    confirm: useMutation({
+      mutationFn: (data: Record<string, unknown>) => api.confirmPurchase(data),
+      onSuccess: () => {
+        refresh();
+        toast.success("Purchase confirmed, stock updated");
+      },
+      onError,
+    }),
     update: useMutation({
       mutationFn: ({ uuid, data }: { uuid: string; data: Record<string, unknown> }) =>
         api.updatePurchaseOrder(uuid, data),

@@ -98,6 +98,9 @@ export interface GetPurchasesParams {
 export interface PurchaseProductOption {
   variantUnitPriceId: number;
   label: string;
+  productName: string;
+  colorName: string | null;
+  sizeName: string | null;
   sku: string;
   stock: number;
   reorderLevel: number;
