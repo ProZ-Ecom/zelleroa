@@ -1,12 +1,25 @@
 import crypto from "crypto";
+import { createCommissionsForOrder, syncCommissionsWithOrderStatus } from "@/features/agents/services/commission.service";
 import { db } from "@/lib/db/prisma";
 import { Prisma } from "@/generated/prisma";
 import { ApiError } from "@/lib/api/api-error";
 import { formatVariantMeasurement } from "@/features/variants/utils/measurement.util";
 import { reservationService } from "@/features/inventory/services/reservation.service";
-import { getDelhiveryTrackingUrl } from "@/lib/shipping/delhivery-client";
+import { recordStockMovement } from "@/features/inventory/services/stock-ledger.service";
+import { getReturnWindow } from "@/features/returns/lib/policy";
+import {
+  buildOrderTimeline,
+  summarizeReplacementRequest,
+  summarizeReturnRequest,
+} from "@/features/returns/lib/summary";
+import {
+  replacementRequestInclude,
+  returnRequestInclude,
+} from "@/features/returns/lib/includes";
+import { getIndiaPostTrackingUrl, INDIA_POST_PARTNER_CODE } from "@/lib/shipping/india-post";
 import type {
   OrderDetailResponse,
+  OrderReferralDto,
   OrderListItemResponse,
   OrderItemResponse,
   OrderAddressResponse,
@@ -51,6 +64,8 @@ export const orderItemInclude = Prisma.validator<Prisma.OrderItemInclude>()({
   // only path to the color's images.
   variant: {
     select: {
+      color_name: true,
+      color_hex: true,
       product_variant_images: {
         where: { is_active: true },
         orderBy: [{ is_primary: "desc" }, { sort_order: "asc" }],
@@ -64,6 +79,7 @@ export const orderItemInclude = Prisma.validator<Prisma.OrderItemInclude>()({
       uuid: true,
       sku: true,
       unit_value: true,
+      attribute_value: { select: { value: true } },
       // Live sku/unit fallback for display; the authoritative values for an
       // already-placed order are the *_snapshot fields on OrderItem itself.
       product_units: {
@@ -80,6 +96,7 @@ export const orderItemInclude = Prisma.validator<Prisma.OrderItemInclude>()({
           id: true,
           uuid: true,
           variant_name: true,
+          color_name: true,
           product_variant_images: {
             where: { is_active: true },
             orderBy: [{ is_primary: "desc" }, { sort_order: "asc" }],
@@ -112,6 +129,26 @@ export const orderDetailInclude = Prisma.validator<Prisma.OrderInclude>()({
   order_status_history: {
     where: { is_active: true },
     orderBy: [{ created_at: "desc" }, { id: "desc" }],
+  },
+  return_requests: {
+    where: { is_active: true },
+    orderBy: { requested_at: "desc" },
+    include: returnRequestInclude,
+  },
+  replacement_requests: {
+    where: { is_active: true },
+    orderBy: { requested_at: "desc" },
+    include: replacementRequestInclude,
+  },
+  refunds: {
+    where: { is_active: true },
+    orderBy: { id: "asc" },
+  },
+  payments: {
+    where: { status: "success" },
+    orderBy: { id: "asc" },
+    take: 1,
+    select: { updatedAt: true },
   },
   shipments: {
     where: { is_active: true },
@@ -188,7 +225,25 @@ export function formatOrderItem(
     variantName: item.variant_snapshot,
     sku: item.sku_snapshot,
     measurement,
+    // Historical selection; orders placed before snapshots existed fall back to live data.
+    attributes: Array.isArray(item.attributes_snapshot)
+      ? (item.attributes_snapshot as unknown as Array<{ name: string; value: string }>)
+      : [
+          ...(variant?.color_name ? [{ name: "Color", value: variant.color_name }] : []),
+          ...(unitPrice?.attribute_value?.value
+            ? [{ name: "Size", value: unitPrice.attribute_value.value }]
+            : Number(unitPrice?.unit_value ?? 0) > 0 && unitPrice?.product_units
+              ? [
+                  {
+                    name: "Size",
+                    value: `${Number(unitPrice.unit_value)} ${unitPrice.product_units.code || unitPrice.product_units.name}`,
+                  },
+                ]
+              : []),
+        ],
     primaryImage,
+    colorName: item.variant?.color_name ?? variant?.color_name ?? null,
+    colorHex: item.variant?.color_hex ?? null,
     quantity: item.quantity,
     unitPrice: Number(item.unit_price),
     discountAmount: Number(item.discount_amount ?? 0),
@@ -279,8 +334,8 @@ export function formatCourierShipment(
     carrier: shipment.delivery_partners.name,
     trackingNumber: shipment.tracking_number,
     trackingUrl:
-      shipment.delivery_partners.code === "DELHIVERY"
-        ? getDelhiveryTrackingUrl(shipment.tracking_number)
+      shipment.delivery_partners.code === INDIA_POST_PARTNER_CODE
+        ? getIndiaPostTrackingUrl(shipment.tracking_number)
         : "",
     status: shipment.status,
     timeline: (shipment.shipment_tracking || []).map((t) => ({
@@ -316,6 +371,16 @@ export function formatOrderDetail(
     formatOrderStatusHistory
   );
 
+  const returnRequests = (order.return_requests || []).map(summarizeReturnRequest);
+  const replacementRequests = (order.replacement_requests || []).map(
+    summarizeReplacementRequest
+  );
+  const deliveredAt = resolveDeliveredAt(order);
+  const { deliveredAt: windowDelivered, ...windowRest } = getReturnWindow(
+    order.order_status,
+    deliveredAt
+  );
+
   return {
     id: order.uuid || String(order.id),
     orderNumber: order.orderNumber,
@@ -332,12 +397,63 @@ export function formatOrderDetail(
     courierShipment: formatCourierShipment((order as any).shipments),
     notes: order.notes ?? null,
     placedAt: order.placed_at ?? null,
+    deliveredAt,
+    cancellation: formatCancellation(order),
     createdAt: order.createdAt,
     updatedAt: order.updatedAt,
     items,
     shippingAddress,
     billingAddress,
     statusHistory,
+    returnWindow: { ...windowRest, deliveredAt: windowDelivered },
+    refunds: (order.refunds || []).map((r) => ({
+      id: String(r.id),
+      amount: Number(r.amount),
+      status: r.status,
+      processedAt: r.processed_at ?? null,
+      createdAt: r.created_at,
+    })),
+    returnRequests,
+    replacementRequests,
+    timeline: buildOrderTimeline({
+      orderStatus: order.order_status,
+      placedAt: order.placed_at ?? order.createdAt,
+      paymentStatus: order.payment_status,
+      paymentConfirmedAt: order.payments?.[0]?.updatedAt ?? null,
+      statusHistory: order.order_status_history || [],
+      requests: [...returnRequests, ...replacementRequests],
+    }),
+  };
+}
+
+/** `delivered_at` is authoritative; older rows fall back to the delivery history entry. */
+export function resolveDeliveredAt(order: {
+  order_status: string;
+  delivered_at?: Date | null;
+  updatedAt: Date;
+  order_status_history?: Array<{ status: string; created_at: Date }>;
+}): Date | null {
+  if (order.delivered_at) return order.delivered_at;
+  if (order.order_status !== "delivered" && order.order_status !== "returned") return null;
+  const row = (order.order_status_history || [])
+    .filter((h) => h.status === "delivered")
+    .sort((a, b) => b.created_at.getTime() - a.created_at.getTime())[0];
+  return row?.created_at ?? order.updatedAt;
+}
+
+function formatCancellation(order: {
+  order_status: string;
+  cancelled_at?: Date | null;
+  cancellation_reason?: string | null;
+  cancellation_comment?: string | null;
+  cancelled_by?: string | null;
+}) {
+  if (order.order_status !== "cancelled") return null;
+  return {
+    cancelledAt: order.cancelled_at ?? null,
+    reason: order.cancellation_reason ?? null,
+    comment: order.cancellation_comment ?? null,
+    cancelledBy: order.cancelled_by ?? null,
   };
 }
 
@@ -390,6 +506,8 @@ export function formatOrderListItem(
     courierShipment: formatCourierShipment((order as any).shipments),
     notes: order.notes ?? null,
     placedAt: order.placed_at ?? null,
+    deliveredAt: order.delivered_at ?? null,
+    cancellation: formatCancellation(order),
     createdAt: order.createdAt,
     updatedAt: order.updatedAt,
   };
@@ -420,9 +538,42 @@ export async function generateUniqueOrderNumber(
 }
 
 export const orderRepository = {
+  /** Referral/commission summary of one order (admin view). Null when the order has no agent. */
+  async findOrderReferral(orderUuid: string): Promise<OrderReferralDto | null> {
+    const order = await db.order.findFirst({
+      where: { uuid: orderUuid },
+      select: {
+        referral_code: true,
+        commission_percentage: true,
+        commission_amount: true,
+        agent: { select: { name: true, agent_profile: { select: { agent_code: true } } } },
+        commissions: { select: { status: true, commission_amount: true, product_amount: true } },
+      },
+    });
+    if (!order?.agent) return null;
+
+    const statuses = new Set(order.commissions.map((c) => c.status));
+    const total = order.commissions.reduce((sum, c) => sum + Number(c.commission_amount), 0);
+    const base = order.commissions.reduce((sum, c) => sum + Number(c.product_amount), 0);
+    return {
+      referralCode: order.referral_code,
+      agentName: order.agent.name,
+      agentCode: order.agent.agent_profile?.agent_code ?? null,
+      commissionPercentage:
+        order.commission_percentage != null
+          ? Number(order.commission_percentage)
+          : base > 0
+            ? Math.round((total * 10000) / base) / 100
+            : 0,
+      commissionAmount: order.commission_amount != null ? Number(order.commission_amount) : Math.round(total * 100) / 100,
+      commissionStatus: statuses.size === 0 ? "none" : statuses.size === 1 ? [...statuses][0] : "mixed",
+    };
+  },
+
   async createCustomerOrderTransaction(params: {
     userId: bigint;
     agentId?: bigint | null;
+    referralCode?: string | null;
     cartId: bigint;
     subtotal: number;
     discountAmount?: number;
@@ -467,6 +618,7 @@ export const orderRepository = {
       variantUnitPriceId: bigint;
       productName: string;
       itemName: string;
+      attributes?: Array<{ name: string; value: string }>;
       variantName: string;
       sku: string;
       quantity: number;
@@ -487,6 +639,7 @@ export const orderRepository = {
           orderNumber,
           userId: params.userId,
           agent_id: params.agentId ?? null,
+          referral_code: params.agentId ? (params.referralCode ?? null) : null,
           cart_id: params.cartId,
           couponId: params.coupon?.id ?? null,
           order_status: (params.orderStatus ?? "pending") as any,
@@ -576,6 +729,7 @@ export const orderRepository = {
           product_name_snapshot: item.productName,
           item_name_snapshot: item.itemName,
           variant_snapshot: item.variantName,
+          attributes_snapshot: item.attributes ?? [],
           sku_snapshot: item.sku,
           quantity: item.quantity,
           unit_price: item.unitPrice,
@@ -588,36 +742,25 @@ export const orderRepository = {
         })),
       });
 
+      // 3.4. Agent commission rows (one per item) when the order is attributed to an agent.
+      await createCommissionsForOrder(tx, createdOrder.id);
+
       // 3.5. Decrement stock for the exact variant+unit purchased, and log it.
       // A conditional updateMany (quantity_available >= requested) makes this
       // race-safe: if another order beat us to the last units, count is 0 and
       // we throw, rolling back the whole order transaction.
       for (const item of params.items) {
-        const decremented = await tx.inventory.updateMany({
-          where: {
-            variantUnitPriceId: item.variantUnitPriceId,
-            quantity_available: { gte: item.quantity },
-          },
-          data: { quantity_available: { decrement: item.quantity } },
-        });
-
-        if (decremented.count === 0) {
-          throw ApiError.badRequest(
-            `Insufficient stock for "${item.variantName}" (SKU: ${item.sku})`
-          );
-        }
-
-        await tx.inventoryTransaction.create({
-          data: {
-            variant_unit_price_id: item.variantUnitPriceId,
-            type: "out",
-            quantity: item.quantity,
-            referenceType: "order",
-            referenceId: createdOrder.id,
-            note: `Order ${orderNumber}`,
-            created_by: params.userId,
-            updated_by: params.userId,
-          },
+        await recordStockMovement(tx, {
+          variantUnitPriceId: item.variantUnitPriceId,
+          movementType: "SALE",
+          direction: "out",
+          quantity: item.quantity,
+          referenceType: "order",
+          referenceId: createdOrder.id,
+          referenceNumber: orderNumber,
+          reason: `Order ${orderNumber}`,
+          actorId: params.userId,
+          itemLabel: `${item.variantName} (SKU: ${item.sku})`,
         });
       }
 
@@ -1024,51 +1167,101 @@ export const orderRepository = {
   async cancelOrderTransaction(params: {
     orderId: bigint;
     note?: string;
+    reason: string;
+    comment?: string | null;
+    cancelledBy: "USER" | "ADMIN" | "SYSTEM";
     changedBy: bigint;
+    /** Statuses the order may still be in; guards against concurrent transitions. */
+    allowedStatuses: string[];
   }): Promise<OrderDetailResponse> {
     return db.$transaction(async (tx) => {
       const now = new Date();
+
+      // Conditional update = atomic claim: a second concurrent cancel (or a
+      // ship/deliver that raced us) updates 0 rows and aborts before restocking.
+      const claimed = await tx.order.updateMany({
+        where: {
+          id: params.orderId,
+          order_status: { in: params.allowedStatuses as any[] },
+        },
+        data: {
+          order_status: "cancelled",
+          cancelled_at: now,
+          cancellation_reason: params.reason.slice(0, 100),
+          cancellation_comment: params.comment?.trim() ? params.comment.trim().slice(0, 500) : null,
+          cancelled_by: params.cancelledBy,
+          cancelled_by_user_id: params.changedBy,
+          updatedAt: now,
+          updated_by: params.changedBy,
+        },
+      });
+      if (claimed.count !== 1) {
+        throw ApiError.conflict("This order can no longer be cancelled.");
+      }
 
       const items = await tx.orderItem.findMany({
         where: { orderId: params.orderId, is_active: true, variantUnitPriceId: { not: null } },
         select: { variantUnitPriceId: true, quantity: true },
       });
 
+      const cancelledOrder = await tx.order.findUnique({
+        where: { id: params.orderId },
+        select: { orderNumber: true },
+      });
       for (const item of items) {
-        const variantUnitPriceId = item.variantUnitPriceId!;
-        await tx.inventory.update({
-          where: { variantUnitPriceId },
-          data: { quantity_available: { increment: item.quantity } },
-        });
-
-        await tx.inventoryTransaction.create({
-          data: {
-            variant_unit_price_id: variantUnitPriceId,
-            type: "in",
-            quantity: item.quantity,
-            referenceType: "order_cancel",
-            referenceId: params.orderId,
-            note: params.note || "Order cancelled",
-            created_by: params.changedBy,
-            updated_by: params.changedBy,
-          },
+        await recordStockMovement(tx, {
+          variantUnitPriceId: item.variantUnitPriceId!,
+          movementType: "RETURN",
+          direction: "in",
+          quantity: item.quantity,
+          referenceType: "order_cancel",
+          referenceId: params.orderId,
+          referenceNumber: cancelledOrder?.orderNumber,
+          reason: params.note || "Order cancelled",
+          actorId: params.changedBy,
         });
       }
 
-      await tx.order.update({
+      await syncCommissionsWithOrderStatus(tx, params.orderId, "cancelled", { id: params.changedBy, role: "USER" });
+
+      // Money already collected online is owed back: track it as a refund
+      // (settled through the gateway by the admin, like return refunds).
+      const order = await tx.order.findUniqueOrThrow({
         where: { id: params.orderId },
-        data: {
-          order_status: "cancelled",
-          updatedAt: now,
-          updated_by: params.changedBy,
-        },
+        select: { payment_status: true, totalAmount: true },
       });
+      if (order.payment_status === "paid") {
+        const payment = await tx.payment.findFirst({
+          where: { orderId: params.orderId, status: "success", gateway: { not: null } },
+          orderBy: { id: "asc" },
+        });
+        const existingRefund = payment
+          ? await tx.refunds.findFirst({ where: { order_id: params.orderId, payment_id: payment.id } })
+          : null;
+        if (payment && !existingRefund) {
+          await tx.refunds.create({
+            data: {
+              payment_id: payment.id,
+              order_id: params.orderId,
+              amount: payment.amount,
+              reason: "Order cancelled",
+              status: "initiated",
+              created_by: params.changedBy,
+              updated_by: params.changedBy,
+            },
+          });
+        }
+      }
 
       await tx.order_status_history.create({
         data: {
           order_id: params.orderId,
           status: "cancelled",
-          note: params.note || "Order cancelled",
+          note: (
+            params.note ||
+            [params.reason, params.comment?.trim()].filter(Boolean).join(" - ") ||
+            "Order cancelled"
+          ).slice(0, 255),
           changed_by: params.changedBy,
           is_active: true,
           created_by: params.changedBy,
@@ -1093,29 +1286,48 @@ export const orderRepository = {
     return db.$transaction(async (tx) => {
       const now = new Date();
 
-      const items = await tx.orderItem.findMany({
+      const orderItems = await tx.orderItem.findMany({
         where: { orderId: params.orderId, is_active: true, variantUnitPriceId: { not: null } },
-        select: { variantUnitPriceId: true, quantity: true },
+        select: { id: true, variantUnitPriceId: true, quantity: true },
       });
-
-      for (const item of items) {
-        const variantUnitPriceId = item.variantUnitPriceId!;
-        await tx.inventory.update({
-          where: { variantUnitPriceId },
-          data: { quantity_available: { increment: item.quantity } },
-        });
-
-        await tx.inventoryTransaction.create({
-          data: {
-            variant_unit_price_id: variantUnitPriceId,
-            type: "in",
-            quantity: item.quantity,
-            referenceType: "order_return",
-            referenceId: params.orderId,
-            note: params.note || "Order returned",
-            created_by: params.changedBy,
-            updated_by: params.changedBy,
+      // Units already put back on the shelf through an item-level return request
+      // must not be restocked a second time.
+      const alreadyBack = await tx.return_items.groupBy({
+        by: ["order_item_id"],
+        where: {
+          is_active: true,
+          order_item_id: { in: orderItems.map((i) => i.id) },
+          return_requests: {
+            is_active: true,
+            rejected_at: null,
+            status: { in: ["received", "refund_pending", "refunded", "closed"] },
           },
+        },
+        _sum: { quantity: true },
+      });
+      const backByItem = new Map(alreadyBack.map((r) => [String(r.order_item_id), r._sum.quantity ?? 0]));
+      const items = orderItems
+        .map((i) => ({
+          variantUnitPriceId: i.variantUnitPriceId,
+          quantity: i.quantity - (backByItem.get(String(i.id)) ?? 0),
+        }))
+        .filter((i) => i.quantity > 0);
+
+      const returnedOrder = await tx.order.findUnique({
+        where: { id: params.orderId },
+        select: { orderNumber: true },
+      });
+      for (const item of items) {
+        await recordStockMovement(tx, {
+          variantUnitPriceId: item.variantUnitPriceId!,
+          movementType: "RETURN",
+          direction: "in",
+          quantity: item.quantity,
+          referenceType: "order_return",
+          referenceId: params.orderId,
+          referenceNumber: returnedOrder?.orderNumber,
+          reason: params.note || "Order returned",
+          actorId: params.changedBy,
         });
       }
 
@@ -1127,6 +1339,7 @@ export const orderRepository = {
           updated_by: params.changedBy,
         },
       });
+      await syncCommissionsWithOrderStatus(tx, params.orderId, "returned", { id: params.changedBy, role: "USER" });
 
       await tx.order_status_history.create({
         data: {
@@ -1162,10 +1375,12 @@ export const orderRepository = {
         where: { id: params.orderId },
         data: {
           order_status: params.status as any,
+          ...(params.status === "delivered" ? { delivered_at: now } : {}),
           updatedAt: now,
           updated_by: params.changedBy,
         },
       });
+      await syncCommissionsWithOrderStatus(tx, params.orderId, params.status, { id: params.changedBy, role: "USER" });
 
       await tx.order_status_history.create({
         data: {

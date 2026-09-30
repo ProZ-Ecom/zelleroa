@@ -1,6 +1,8 @@
 export { FormInput, formatSlug } from "./form-input";
 export { FormTextarea } from "./form-textarea";
 export { FormSelect } from "./form-select";
+export { FormMultiSelect } from "./form-multi-select";
+export type { FormMultiSelectOption } from "./form-multi-select";
 export { FormCheckbox } from "./form-checkbox";
 export { FormSwitch } from "./FormSwitch";
 export type { FormSwitchProps } from "./FormSwitch";

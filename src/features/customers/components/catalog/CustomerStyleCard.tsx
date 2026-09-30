@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { ProductImage } from "@/components/common/ProductImage";
+import { ItemQuickAdd } from "./ItemQuickAdd";
 import { formatPrice } from "@/lib/utils";
 import type { CustomerProductListItemDto } from "../../types/catalog.types";
 
@@ -11,17 +12,15 @@ export interface CustomerStyleCardProps {
 
 /**
  * The storefront listing's Style card - shows the Style only (image, name,
- * short description, starting price, available color count) and defers
- * Color/Size selection to the Style's own detail page via "View Style".
+ * short description, starting price, available color count) and offers "Add to Cart", which opens
+ * the Item/Color/Size picker when there is more than one option.
  */
 export function CustomerStyleCard({ style }: CustomerStyleCardProps) {
   const colorCount = style.colorCount ?? 0;
 
   return (
-    <Link
-      href={`/products/${style.id}`}
-      className="group flex flex-col overflow-hidden rounded-2xl border border-theme-border bg-theme-surface shadow-2xs transition-shadow hover:shadow-md"
-    >
+    <div className="group flex flex-col overflow-hidden rounded-2xl border border-theme-border bg-theme-surface shadow-2xs transition-shadow hover:shadow-md">
+    <Link href={`/products/${style.id}`} className="flex flex-1 flex-col">
       <div className="relative aspect-square w-full overflow-hidden bg-theme-surface-alt">
         <ProductImage
           src={style.image}
@@ -49,11 +48,12 @@ export function CustomerStyleCard({ style }: CustomerStyleCardProps) {
           )}
         </div>
 
-        <span className="mt-2 inline-flex items-center justify-center rounded-xl bg-theme-primary px-4 py-2 text-xs font-bold text-theme-primary-fg transition-colors group-hover:bg-theme-primary-hover">
-          View Style
-        </span>
       </div>
     </Link>
+    <div className="px-3.5 pb-3.5">
+      <ItemQuickAdd styleId={style.id} name={style.name} />
+    </div>
+    </div>
   );
 }
 

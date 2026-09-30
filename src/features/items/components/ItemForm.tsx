@@ -6,7 +6,7 @@ import {
   type ItemEntityFormValues,
 } from "@/components/forms/item-entity-form";
 
-// The admin-only sub-variant under a Style (e.g. Style "V Neck T-Shirt" -> Item
+// The admin-only sub-variant (called "Type" in the UI) under a Style (e.g. Style "V Neck T-Shirt" -> Item
 // "Regular Fit", "Slim Fit", "Oversized"). Never shown to customers. Color/Size
 // splits live one/two levels down, managed separately via VariantForm/
 // VariantGenerator once the Item exists.
@@ -28,7 +28,7 @@ function ItemForm({
   isEditing = false,
   onSubmit,
   isLoading = false,
-  submitLabel = "Save Item",
+  submitLabel = "Save Type",
 }: ItemFormProps) {
   return (
     <ItemEntityForm
@@ -40,7 +40,9 @@ function ItemForm({
       namePlaceholder="e.g. Regular Fit, Slim Fit, Oversized"
       skuPlaceholder="e.g. TSHIRT-VNECK-REGULAR"
       codePlaceholder="e.g. regular-fit"
-      defaultItemDescription="Auto-selected on the style page"
+      defaultItemDescription="Auto-selected on the item page"
+      entityLabel="Model"
+      compact
     />
   );
 }

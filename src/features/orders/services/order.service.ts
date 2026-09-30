@@ -8,8 +8,9 @@ import { couponValidationService } from "@/features/coupons/services/coupon-vali
 import { customerAddressService } from "@/features/customers/services/customer-address.service";
 import { cartRepository } from "@/features/cart/repositories/cart.repository";
 import { generateAccessToken, generateRefreshToken } from "@/lib/auth/jwt";
-import { getAttributingAgent } from "@/lib/referral/agent-attribution";
+import { referralService, type ReferralAgent } from "@/features/agents/services/referral.service";
 import { orderRepository } from "../repositories/order.repository";
+import { getShippingCharge } from "../shipping";
 import type {
   OrderDetailResponse,
   OrderListItemResponse,
@@ -24,10 +25,15 @@ import type {
   CustomerOrdersListInput,
   AdminOrdersListInput,
   CancelOrderInput,
+  AdminCancelOrderInput,
   ReturnOrderInput,
   OrderStatusTransitionInput,
 } from "../validations/order.schema";
 import type { orders_order_status } from "@/generated/prisma";
+import {
+  CUSTOMER_CANCELLABLE_STATUSES,
+  isOrderCancellable,
+} from "@/features/returns/lib/policy";
 
 const CUSTOMER_ROLE_ID = BigInt(3);
 
@@ -35,7 +41,16 @@ export const orderService = {
   async createCustomerOrder(
     sessionUserId: string,
     input: CustomerCreateOrderInput,
-    request?: NextRequest
+    request?: NextRequest,
+    /**
+     * Explicit referral to attribute, bypassing cookie resolution. Used by
+     * flows (e.g. the Razorpay redirect checkout) where order creation
+     * happens server-to-server with no access to the customer's browser
+     * cookies - the referral must have been resolved earlier and threaded
+     * through instead. `undefined` (the default) means "resolve from the
+     * request cookie as normal"; `null` explicitly means "no referral".
+     */
+    referralOverride?: ReferralAgent | null
   ): Promise<OrderDetailResponse> {
     const user = await userRepository.findById(sessionUserId);
     if (!user || !user.internalId) {
@@ -58,6 +73,9 @@ export const orderService = {
         items: {
           where: {
             is_active: true,
+            // The cart view hides lines for deleted products, so the customer
+            // can't remove them; don't let those block checkout.
+            product: { is: { isActive: true, deleted_at: null } },
           },
           include: {
             product: true,
@@ -65,7 +83,20 @@ export const orderService = {
             item: true,
             variant_unit_price: {
               include: {
-                variant: true,
+                variant: {
+                  include: {
+                    variant_attribute_values: {
+                      include: {
+                        product_attributes: { select: { name: true } },
+                        attribute_values: { select: { value: true } },
+                      },
+                    },
+                  },
+                },
+                attribute_value: {
+                  include: { attribute: { select: { name: true } } },
+                },
+                product_units: { select: { name: true, code: true } },
                 inventories: {
                   select: { quantity_available: true },
                 },
@@ -89,6 +120,7 @@ export const orderService = {
       variantUnitPriceId: bigint;
       productName: string;
       itemName: string;
+      attributes: Array<{ name: string; value: string }>;
       variantName: string;
       sku: string;
       quantity: number;
@@ -120,6 +152,24 @@ export const orderService = {
         !variant.isActive ||
         variant.deleted_at !== null
       ) {
+        const reason = !item.product
+          ? "product missing"
+          : !item.product.isActive || item.product.deleted_at !== null
+            ? "product inactive/deleted"
+            : !item.style
+              ? "style missing"
+              : !item.style.isActive || item.style.deleted_at !== null
+                ? "style inactive/deleted"
+                : !unitPriceRow
+                  ? "price row missing"
+                  : !unitPriceRow.isActive || unitPriceRow.deleted_at !== null
+                    ? "price row inactive/deleted"
+                    : !variant
+                      ? "variant missing"
+                      : "variant inactive/deleted";
+        console.error(
+          `[order] cart item ${item.id} unavailable: ${reason}`
+        );
         throw ApiError.badRequest(
           `Product variant "${variant?.variant_name || item.product?.name || "item"}" is no longer available`
         );
@@ -141,7 +191,31 @@ export const orderService = {
       const totalPrice = unitPrice * item.quantity;
       subtotal += totalPrice;
 
+      const attributes: Array<{ name: string; value: string }> = [];
+      if (variant.color_name) {
+        attributes.push({ name: "Color", value: variant.color_name });
+      }
+      if (unitPriceRow.attribute_value) {
+        attributes.push({
+          name: unitPriceRow.attribute_value.attribute?.name || "Size",
+          value: unitPriceRow.attribute_value.value,
+        });
+      } else if (Number(unitPriceRow.unit_value) > 0 && unitPriceRow.product_units) {
+        attributes.push({
+          name: "Size",
+          value: `${Number(unitPriceRow.unit_value)} ${unitPriceRow.product_units.code || unitPriceRow.product_units.name}`,
+        });
+      }
+      for (const av of variant.variant_attribute_values ?? []) {
+        const name = av.product_attributes?.name;
+        const value = av.attribute_values?.value;
+        if (name && value && !attributes.some((a) => a.name === name && a.value === value)) {
+          attributes.push({ name, value });
+        }
+      }
+
       orderItemsData.push({
+        attributes,
         productId: item.productId,
         styleId: item.styleId,
         itemId: item.itemId,
@@ -254,21 +328,23 @@ export const orderService = {
 
 
 
-    // Free delivery is judged on what the customer actually pays, after offers and coupon.
+    // Delivery is free within Tamil Nadu and a flat charge for every other state.
     const payableBeforeShipping = subtotal - totalDiscount;
-    const shippingCharge = payableBeforeShipping >= 499 ? 0 : 49;
+    const shippingCharge = getShippingCharge(shippingAddress.state);
     const totalAmount = payableBeforeShipping + shippingCharge;
 
-    // Commission attribution: referral_agent cookie takes priority over the
-    // agent the customer was attributed to at signup.
-    const agentId = request
-      ? await getAttributingAgent(request, user.referred_by_agent_id)
-      : (user.referred_by_agent_id ?? null);
+    // Commission attribution is per ORDER: whichever valid agent referral code is active
+    // right now gets this order. The customer's earlier orders/agents are never consulted.
+    const referral =
+      referralOverride !== undefined
+        ? referralOverride
+        : await referralService.resolveForOrder(BigInt(userId), request);
 
     // 5. Execute creation transaction
     return orderRepository.createCustomerOrderTransaction({
       userId,
-      agentId,
+      agentId: referral?.id ?? null,
+      referralCode: referral?.referralCode ?? null,
       cartId: cart.id,
       subtotal,
       discountAmount: totalDiscount,
@@ -456,7 +532,7 @@ export const orderService = {
     if (!order) {
       throw ApiError.notFound("Order not found");
     }
-    return order;
+    return { ...order, referral: await orderRepository.findOrderReferral(uuid) };
   },
 
   async cancelCustomerOrder(
@@ -467,6 +543,11 @@ export const orderService = {
     const user = await userRepository.findById(sessionUserId);
     if (!user || !user.internalId) {
       throw ApiError.unauthorized("User not found");
+    }
+
+    const reason = input?.reason?.trim();
+    if (!reason) {
+      throw ApiError.badRequest("Cancellation reason is required");
     }
 
     const order = await db.order.findFirst({
@@ -481,9 +562,12 @@ export const orderService = {
       throw ApiError.notFound("Order not found");
     }
 
+    if (order.order_status === "cancelled") {
+      throw ApiError.conflict("This order has already been cancelled");
+    }
+
     // Cancellation window: pending, confirmed, processing
-    const cancellableStatuses = ["pending", "confirmed", "processing"];
-    if (!cancellableStatuses.includes(order.order_status)) {
+    if (!isOrderCancellable(order.order_status)) {
       throw ApiError.badRequest(
         `Order cannot be cancelled in '${order.order_status}' status`
       );
@@ -491,15 +575,18 @@ export const orderService = {
 
     return orderRepository.cancelOrderTransaction({
       orderId: order.id,
-      note: input?.note || "Cancelled by customer",
+      reason,
+      comment: input?.comment,
+      cancelledBy: "USER",
       changedBy: user.internalId,
+      allowedStatuses: [...CUSTOMER_CANCELLABLE_STATUSES],
     });
   },
 
   async cancelAdminOrder(
     adminSessionUserId: string,
     uuid: string,
-    input?: CancelOrderInput
+    input?: AdminCancelOrderInput
   ): Promise<OrderDetailResponse> {
     const adminUser = await userRepository.findById(adminSessionUserId);
     if (!adminUser || !adminUser.internalId) {
@@ -529,8 +616,19 @@ export const orderService = {
 
     return orderRepository.cancelOrderTransaction({
       orderId: order.id,
-      note: input?.note || "Cancelled by admin",
+      note: input?.note,
+      reason: input?.reason?.trim() || "Cancelled by admin",
+      comment: input?.comment,
+      cancelledBy: "ADMIN",
       changedBy: adminUser.internalId,
+      allowedStatuses: [
+        "pending",
+        "confirmed",
+        "processing",
+        "packed",
+        "shipped",
+        "out_for_delivery",
+      ],
     });
   },
 
@@ -773,7 +871,8 @@ export const orderService = {
   async getCheckoutSummary(
     userId: number | string | bigint,
     deliveryMethod?: string,
-    couponCode?: string
+    couponCode?: string,
+    shippingAddressId?: string
   ) {
     const user = await userRepository.findById(String(userId));
     if (!user || !user.internalId) throw ApiError.unauthorized("User not found");
@@ -797,7 +896,24 @@ export const orderService = {
     }));
 
     const pricing = await offerService.priceCartItems(lines);
-    const deliveryCharge = deliveryMethod === "EXPRESS" || deliveryMethod === "express" ? 100 : 0;
+    // Delivery depends on the destination state; until an address is chosen
+    // there is nothing to charge yet, and order creation recomputes it anyway.
+    const isAddressNumeric = !!shippingAddressId && /^\d+$/.test(shippingAddressId);
+    const shippingAddress = shippingAddressId
+      ? await db.customerAddress.findFirst({
+          where: {
+            userId: user.internalId,
+            is_active: true,
+            deleted_at: null,
+            OR: [
+              { uuid: shippingAddressId },
+              ...(isAddressNumeric ? [{ id: BigInt(shippingAddressId) }] : []),
+            ],
+          },
+          select: { state: true },
+        })
+      : null;
+    const deliveryCharge = shippingAddress ? getShippingCharge(shippingAddress.state) : 0;
 
     let couponResult: { code: string; discount: number } | null = null;
     let couponError: string | null = null;

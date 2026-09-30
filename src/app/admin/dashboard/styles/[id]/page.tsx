@@ -136,6 +136,10 @@ export default function AdminStyleDetailsPage() {
               <dd className="text-neutral-800 font-medium">{style.productName}</dd>
             </div>
             <div>
+              <dt className="text-xs font-semibold text-neutral-400 uppercase">Brand</dt>
+              <dd className="text-neutral-800 font-medium">{style.brandName || "Not Assigned"}</dd>
+            </div>
+            <div>
               <dt className="text-xs font-semibold text-neutral-400 uppercase">Item Name</dt>
               <dd className="text-neutral-800 font-medium">{style.name}</dd>
             </div>
@@ -168,7 +172,7 @@ export default function AdminStyleDetailsPage() {
               className="h-9 rounded-lg bg-[var(--color-secondary-600)] px-4 text-xs font-semibold text-white hover:bg-[var(--color-secondary-700)]"
             >
               <Plus className="mr-1.5 h-3.5 w-3.5" />
-              Add Item
+              Add Model
             </Button>
           </div>
           {productUuid && (
@@ -196,6 +200,7 @@ export default function AdminStyleDetailsPage() {
         <StyleForm
           isEditing
           initialData={{
+            brandId: style.brandId || "",
             name: style.name,
             slug: style.slug,
             sku: style.sku || "",
@@ -215,6 +220,7 @@ export default function AdminStyleDetailsPage() {
                 productUuid: style.productId,
                 styleUuid: style.id,
                 data: {
+                  brandId: formData.brandId,
                   name: formData.name,
                   slug: formData.slug,
                   sku: formData.sku || null,
@@ -249,11 +255,11 @@ export default function AdminStyleDetailsPage() {
           setIsAddItemOpen(false);
           setNewlyCreatedItem(null);
         }}
-        title={newlyCreatedItem ? "Choose Attribute Values" : "Add Item"}
+        title={newlyCreatedItem ? "Choose Attribute Values" : "Add Model"}
         description={
           newlyCreatedItem
             ? `Pick which ${colorColumnLabel}/${sizeColumnLabel}/etc. values "${newlyCreatedItem.name}" comes in`
-            : `Create a new sub-variant under "${style.name}" (e.g. "Regular Fit", "Slim Fit")`
+            : `Create a new Model under "${style.name}" (e.g. "Regular Fit", "Slim Fit")`
         }
         size="lg"
       >
@@ -280,10 +286,10 @@ export default function AdminStyleDetailsPage() {
                 });
                 const created = (res as any)?.data as AdminItemResponse | undefined;
                 if (created) setNewlyCreatedItem(created);
-                toast.success("Item created", `"${formData.name}" is ready for Colors & Sizes.`);
+                toast.success("Model created", `"${formData.name}" is ready for Colors & Sizes.`);
                 refetchItems();
               } catch (err: any) {
-                toast.error("Failed to create item", err?.message || "Please try again.");
+                toast.error("Failed to create model", err?.message || "Please try again.");
               }
             }}
           />
@@ -363,7 +369,7 @@ export default function AdminStyleDetailsPage() {
       <FormModal
         open={Boolean(editingItem)}
         onClose={() => setEditingItem(null)}
-        title="Edit Item"
+        title="Edit Model"
         description={`Update information for ${editingItem?.name || ""}`}
         size="lg"
       >
@@ -403,10 +409,10 @@ export default function AdminStyleDetailsPage() {
                   },
                 });
                 setEditingItem(null);
-                toast.success("Item updated", `"${formData.name}" was saved.`);
+                toast.success("Model updated", `"${formData.name}" was saved.`);
                 refetchItems();
               } catch (err: any) {
-                toast.error("Failed to update item", err?.message || "Please try again.");
+                toast.error("Failed to update model", err?.message || "Please try again.");
               }
             }}
           />
@@ -430,10 +436,10 @@ export default function AdminStyleDetailsPage() {
               styleUuid,
               itemUuid: target.id,
             });
-            toast.success("Item deleted", `"${target.name}" was removed.`);
+            toast.success("Model deleted", `"${target.name}" was removed.`);
             refetchItems();
           } catch (err: any) {
-            toast.error("Failed to delete item", err?.message || "Please try again.");
+            toast.error("Failed to delete model", err?.message || "Please try again.");
           }
         }}
         confirmText="Delete"

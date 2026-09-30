@@ -36,7 +36,7 @@ const EDITS: Edit[] = [
     tag: "Celebrations",
     title: "Festive Edit",
     description: "Traditional craftsmanship reimagined with contemporary cuts for celebratory events.",
-    href: "/products?sortBy=discount",
+    href: "/products",
     gradient: "from-slate-900 via-purple-950 to-slate-900",
     image: "https://images.unsplash.com/photo-1610030469983-98e550d6193c?auto=format&fit=crop&w=800&q=80",
   },

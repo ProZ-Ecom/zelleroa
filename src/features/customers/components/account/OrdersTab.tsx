@@ -12,6 +12,9 @@ import { loadRazorpayScript } from "../../utils/razorpay-loader";
 import { CustomDropdown, type DropdownOption } from "./CustomDropdown";
 import { SearchInput } from "@/components/common/search-input";
 import { ProductImage } from "@/components/common/ProductImage";
+import { toast } from "@/components/ui/Toast";
+import { CancelOrderDialog } from "@/features/orders/components/CancelOrderDialog";
+import { isOrderCancellable } from "@/features/returns/lib/policy";
 
 const STATUS_OPTIONS: DropdownOption[] = [
   { value: "all", label: "All Orders" },
@@ -47,6 +50,8 @@ export function OrdersTab({
   const [payingOrderId, setPayingOrderId] = useState<string | null>(null);
   const [paymentError, setPaymentError] = useState<string | null>(null);
 
+  const [cancelTarget, setCancelTarget] = useState<OrderDetailResponse | null>(null);
+  const [cancelError, setCancelError] = useState<string | null>(null);
   const cancelMutation = useCancelCustomerOrder();
   const addToCartMutation = useAddToCartMutation();
   const createRazorpayOrderMutation = useCreateRazorpayOrder();
@@ -446,7 +451,7 @@ export function OrdersTab({
                       <div key={idx} className="flex items-center gap-3.5 py-2.5 first:pt-0 last:pb-0">
                         <div className="w-12 h-12 rounded-lg flex-shrink-0 overflow-hidden border border-theme-border-subtle">
                           <ProductImage
-                            src={(it as any).image || (it as any).productImage || null}
+                            src={it.primaryImage || (it as any).image || null}
                             alt={it.productName || "Fashion Item"}
                             fallbackText={it.productName || "Fashion Item"}
                             containerClassName="w-full h-full"
@@ -459,10 +464,17 @@ export function OrdersTab({
                           </div>
                           <div className="text-[11px] text-theme-text-muted mt-0.5 flex items-center gap-2">
                             {it.quantity && <span>Qty: {it.quantity}</span>}
-                            {it.variantName && (
+                            {(it.attributes?.length ? it.attributes.map((a) => `${a.name}: ${a.value}`).join(" | ") : it.variantName) && (
                               <>
                                 <span className="w-1 h-1 rounded-full bg-theme-border inline-block" />
-                                <span>{it.variantName}</span>
+                                <span className="truncate">
+                                  {it.attributes?.length
+                                    ? it.attributes
+                                        .filter((a, i, arr) => arr.findIndex((b) => b.value === a.value && b.name.toLowerCase().startsWith("colo") === a.name.toLowerCase().startsWith("colo")) === i)
+                                        .map((a) => `${a.name}: ${a.value}`)
+                                        .join(" | ")
+                                    : it.variantName}
+                                </span>
                               </>
                             )}
                           </div>
@@ -553,21 +565,17 @@ export function OrdersTab({
                     </button>
                   </Link>
 
-                  {order.status === "pending" && (
+                  {isOrderCancellable(order.status) && (
                     <button
                       type="button"
                       disabled={cancelMutation.isPending}
                       onClick={() => {
-                        if (window.confirm("Are you sure you want to cancel this order?")) {
-                          cancelMutation.mutate({
-                            uuid: order.id,
-                            payload: { note: "Cancelled by customer" },
-                          });
-                        }
+                        setCancelError(null);
+                        setCancelTarget(order);
                       }}
                       className="border border-red-200 hover:bg-red-50 text-red-600 text-xs font-semibold uppercase tracking-wider py-2.5 px-4 rounded-lg transition-colors cursor-pointer min-h-[40px] disabled:opacity-50 ml-auto"
                     >
-                      {cancelMutation.isPending ? "Cancelling..." : "Cancel Order"}
+                      Cancel Order
                     </button>
                   )}
                 </div>
@@ -774,7 +782,7 @@ export function OrdersTab({
                   <div key={idx} className="flex items-center gap-3 py-2 border-b border-theme-border-subtle last:border-0">
                     <div className="w-9 h-9 rounded-lg overflow-hidden border border-theme-border-subtle flex-shrink-0">
                       <ProductImage
-                        src={(it as any).image || (it as any).productImage || null}
+                        src={it.primaryImage || (it as any).image || null}
                         alt={it.productName || "Fashion Item"}
                         fallbackText={it.productName}
                         containerClassName="w-full h-full"
@@ -782,7 +790,7 @@ export function OrdersTab({
                       />
                     </div>
                     <span className="text-xs text-theme-text-primary font-medium flex-1 truncate">
-                      {it.productName} {it.variantName ? `(${it.variantName})` : ""} × {it.quantity}
+                      {it.productName} {it.attributes?.length ? `(${it.attributes.map((a) => a.value).filter((v, i, r) => r.indexOf(v) === i).join(", ")})` : it.variantName ? `(${it.variantName})` : ""} × {it.quantity}
                     </span>
                     <span className="font-semibold text-xs text-theme-primary flex-shrink-0">
                       {formatPrice(it.totalPrice ?? it.unitPrice ?? 0)}
@@ -804,6 +812,33 @@ export function OrdersTab({
             </div>
           </div>
         </div>
+      )}
+
+      {cancelTarget && (
+        <CancelOrderDialog
+          open
+          orderNumber={cancelTarget.orderNumber}
+          isPaid={cancelTarget.paymentStatus === "paid"}
+          isSubmitting={cancelMutation.isPending}
+          serverError={cancelError}
+          onClose={() => setCancelTarget(null)}
+          onConfirm={(payload) =>
+            cancelMutation.mutate(
+              { uuid: cancelTarget.id, payload },
+              {
+                onSuccess: () => {
+                  toast.success("Order cancelled successfully.");
+                  setCancelTarget(null);
+                },
+                onError: (err) => {
+                  const msg = err instanceof Error ? err.message : "Could not cancel the order.";
+                  setCancelError(msg);
+                  toast.error("Could not cancel order", msg);
+                },
+              }
+            )
+          }
+        />
       )}
     </div>
   );

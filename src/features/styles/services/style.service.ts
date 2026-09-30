@@ -2,6 +2,7 @@ import crypto from "crypto";
 import { ApiError } from "@/lib/api/api-error";
 import { styleRepository } from "../repositories/style.repository";
 import { productRepository } from "@/features/products/repositories/product.repository";
+import { brandRepository } from "@/features/brands/repositories/brand.repository";
 import { userRepository } from "@/features/users/repositories/user.repository";
 import type { Prisma } from "@/generated/prisma";
 import type { AdminStyleResponse, GetAdminStylesParams } from "../types";
@@ -45,6 +46,7 @@ function formatAdminStyleResponse(item: {
     slug?: string | null;
     categoryId?: bigint | null;
   } | null;
+  brand?: { uuid: string | null; name: string } | null;
   images?: Array<{ image_url: string; is_primary: boolean }> | null;
   _count?: { items: number };
   categoryName?: string | null;
@@ -58,6 +60,8 @@ function formatAdminStyleResponse(item: {
     productSlug: item.product?.slug ?? "",
     categoryId: item.product?.categoryId ? String(item.product.categoryId) : null,
     categoryName: item.categoryName ?? null,
+    brandId: item.brand?.uuid ?? null,
+    brandName: item.brand?.name ?? null,
     name: item.name,
     slug: item.slug,
     sku: item.sku,
@@ -78,6 +82,15 @@ function formatAdminStyleResponse(item: {
     createdAt: item.createdAt,
     updatedAt: item.updatedAt,
   };
+}
+
+/** Brand UUID -> internal id; rejects unknown, inactive and deleted brands. */
+async function resolveActiveBrandId(brandUuid: string): Promise<bigint> {
+  const brand = await brandRepository.findByUuid(brandUuid);
+  if (!brand) {
+    throw ApiError.badRequest("Invalid or inactive brand");
+  }
+  return brand.id;
 }
 
 async function getAdminInternalId(email?: string): Promise<bigint | null> {
@@ -106,12 +119,15 @@ export const styleService = {
       throw ApiError.conflict(`An active style with slug '${data.slug}' already exists`);
     }
 
+    const brandId = await resolveActiveBrandId(data.brandId);
+
     const existingCount = await styleRepository.countActiveByProductId(product.id);
     const isDefault = data.isDefault ?? existingCount === 0;
 
     const created = await styleRepository.create({
       uuid: crypto.randomUUID(),
       productId: product.id,
+      brandId,
       name: data.name,
       slug: styleSlug,
       sku: data.sku ?? null,
@@ -189,6 +205,7 @@ export const styleService = {
     const updateData: Prisma.StyleUncheckedUpdateInput = {};
 
     if (adminId) updateData.updated_by = adminId;
+    if (data.brandId !== undefined) updateData.brandId = await resolveActiveBrandId(data.brandId);
     if (data.name !== undefined) updateData.name = data.name;
     if (data.sku !== undefined) updateData.sku = data.sku;
     if (data.shortDescription !== undefined) updateData.short_description = data.shortDescription;

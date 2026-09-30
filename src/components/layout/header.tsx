@@ -14,10 +14,11 @@ import { getInitials } from "@/lib/utils";
 import { useCustomerWishlistCount } from "@/features/customers/hooks/use-customer-wishlist";
 import { useCustomerCartCount } from "@/features/customers/hooks/use-customer-cart";
 import { useCustomerProfile } from "@/features/customers/hooks/use-customer-profile";
-import { useCategoryTree } from "@/features/categories/hooks";
+import { useHeaderMenu } from "@/features/header-menu/hooks";
 import { categoryHref } from "@/features/customers/utils/catalog-listing-query";
 import type { CategoryTreeNode } from "@/features/categories/types";
-import { MegaMenu } from "./MegaMenu";
+import type { HeaderNavItem } from "@/features/header-menu/types";
+import { MegaMenuTrigger, MegaMenuPanel, type NavNode } from "./MegaMenu";
 import { MobileCategoryAccordion } from "./MobileCategoryAccordion";
 
 /** True when the current page is this category's listing or one of its descendants'. */
@@ -28,9 +29,55 @@ function isInCategoryTree(node: CategoryTreeNode, pathname: string): boolean {
   );
 }
 
+/** True when the current page matches any of this nav item's category subtrees, or its plain link. */
+function isNavItemActive(item: HeaderNavItem, pathname: string): boolean {
+  if (item.categories.some((c) => isInCategoryTree(c, pathname))) return true;
+  return item.link ? pathname === item.link : false;
+}
+
+/**
+ * Builds the node MegaMenu/MobileCategoryAccordion render for a nav item that
+ * carries one or more categories. A single category behaves exactly as
+ * before (its own real page + subtree, with the admin's label as display
+ * text); two or more are grouped into one synthetic dropdown, clicking
+ * through to the item's own link (or /products as a safe fallback).
+ */
+function buildNavNode(item: HeaderNavItem): NavNode {
+  if (item.categories.length === 1 && !item.link) {
+    return { ...item.categories[0], name: item.label, gender: item.gender };
+  }
+  return {
+    id: item.id,
+    name: item.label,
+    slug: "",
+    icon: null,
+    children: item.categories,
+    href: item.link ?? "/products",
+    gender: item.gender,
+  };
+}
+
 export function Header() {
   const [isOpen, setIsOpen] = React.useState(false);
+  const [isSearchOpen, setIsSearchOpen] = React.useState(false);
   const [searchQuery, setSearchQuery] = React.useState("");
+  const searchInputRef = React.useRef<HTMLInputElement>(null);
+  const [openNavId, setOpenNavId] = React.useState<string | null>(null);
+  const megaMenuCloseTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const cancelMegaMenuClose = React.useCallback(() => {
+    if (megaMenuCloseTimer.current) clearTimeout(megaMenuCloseTimer.current);
+  }, []);
+  const scheduleMegaMenuClose = React.useCallback(() => {
+    cancelMegaMenuClose();
+    megaMenuCloseTimer.current = setTimeout(() => setOpenNavId(null), 150);
+  }, [cancelMegaMenuClose]);
+  const openMegaMenu = React.useCallback(
+    (id: string) => {
+      cancelMegaMenuClose();
+      setOpenNavId(id);
+    },
+    [cancelMegaMenuClose]
+  );
   const router = useRouter();
   const pathname = usePathname();
   const { data: session, status } = useSession();
@@ -71,9 +118,9 @@ export function Header() {
         (cartCountData as { count?: number })?.count ??
         0;
 
-  // Full category tree (Women/Men/Kids/Beauty/... roots with nested children)
-  // drives both the desktop mega-menu and the mobile accordion.
-  const { data: categoryTree = [], isLoading: isCategoriesLoading } = useCategoryTree();
+  // Curated, admin-managed nav items (category-linked or plain custom links)
+  // drive both the desktop mega-menu and the mobile accordion.
+  const { data: headerMenu = [], isLoading: isCategoriesLoading } = useHeaderMenu();
 
   const menuRef = React.useRef<HTMLDivElement>(null);
   const buttonRef = React.useRef<HTMLDivElement>(null);
@@ -81,6 +128,15 @@ export function Header() {
   useClickOutside([menuRef, buttonRef], () => {
     setIsOpen(false);
   });
+
+  React.useEffect(() => {
+    if (!openNavId) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpenNavId(null);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [openNavId]);
 
   const resolvePath = React.useCallback(
     (item: { id: number; path?: string; alt?: string; text?: string }) => {
@@ -111,20 +167,29 @@ export function Header() {
     const trimmed = searchQuery.trim();
     if (!trimmed) return;
     router.push(`/products?search=${encodeURIComponent(trimmed)}`);
+    setIsSearchOpen(false);
   };
 
+  React.useEffect(() => {
+    if (isSearchOpen) searchInputRef.current?.focus();
+  }, [isSearchOpen]);
+
   const wishlistHref = isAuthenticated ? "/wishlist" : "/login?callbackUrl=/wishlist";
+
+  const openNavItem = headerMenu.find(
+    (item) => item.id === openNavId && item.categories.length > 0
+  );
 
   return (
     <>
       {/* Top promo bar */}
       <div className="w-full bg-[var(--brown-600)] text-white text-[11px] sm:text-xs font-medium">
         <div className="w-full max-w-[1400px] 2xl:max-w-[1600px] 3xl:max-w-[1800px] mx-auto px-4 sm:px-6 md:px-8 h-8 flex items-center justify-center gap-2 sm:gap-6 text-center">
-          <span className="truncate">Free Shipping Across India on Orders Above ₹999</span>
+          <span className="truncate">Free Delivery Across Tamil Nadu · ₹80 for Other States</span>
           <span className="hidden sm:inline text-white/40">|</span>
-          <span className="hidden sm:inline truncate">Express 48-Hour Delivery in Metro Cities</span>
+          <span className="hidden sm:inline truncate">Delivered in 3–7 Days</span>
           <span className="hidden md:inline text-white/40">|</span>
-          <span className="hidden md:inline truncate">Easy 15-Day Hassle-Free Returns</span>
+          <span className="hidden md:inline truncate">Easy 3-Day Hassle-Free Returns</span>
         </div>
       </div>
 
@@ -181,49 +246,85 @@ export function Header() {
             Home
           </Link>
 
-          {categoryTree.map((root) => (
-            <MegaMenu
-              key={root.id}
-              root={root}
-              isActive={isInCategoryTree(root, pathname)}
-            />
-          ))}
-
-          <Link
-            href="/products?sortBy=discount"
-            className="flex items-center gap-1.5 rounded-full px-3.5 py-2 text-sm font-medium text-red-600 hover:bg-red-50 transition-colors"
-          >
-            Sale
-            <span className="rounded-full bg-orange-100 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-orange-600">
-              Trending
-            </span>
-          </Link>
+          {isCategoriesLoading ? (
+            <div className="flex items-center gap-2" aria-hidden="true">
+              {[1, 2, 3, 4].map((n) => (
+                <div
+                  key={`nav-skel-${n}`}
+                  className="h-8 w-20 rounded-full bg-theme-surface-alt animate-pulse"
+                />
+              ))}
+            </div>
+          ) : (
+            headerMenu.map((item) =>
+              item.categories.length > 0 ? (
+                <MegaMenuTrigger
+                  key={item.id}
+                  root={buildNavNode(item)}
+                  isActive={isNavItemActive(item, pathname)}
+                  isOpen={openNavId === item.id}
+                  onMouseEnter={() => openMegaMenu(item.id)}
+                  onMouseLeave={scheduleMegaMenuClose}
+                  onFocus={() => openMegaMenu(item.id)}
+                />
+              ) : (
+                <Link
+                  key={item.id}
+                  href={item.link ?? "#"}
+                  className={`flex items-center gap-1.5 rounded-full px-3.5 py-2 text-sm font-medium transition-colors ${
+                    isNavItemActive(item, pathname)
+                      ? "bg-theme-primary text-theme-primary-fg font-semibold"
+                      : "text-red-600 hover:bg-red-50"
+                  }`}
+                >
+                  {item.label}
+                </Link>
+              )
+            )
+          )}
         </nav>
 
         {/* Right Section (Icons & Hamburger) */}
         <div className="flex items-center gap-2 sm:gap-3 md:gap-5">
           <div className="hidden lg:flex items-center gap-5">
             {/* Inline search */}
-            <form onSubmit={handleSearchSubmit} className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-theme-text-subtle pointer-events-none" />
+            <form onSubmit={handleSearchSubmit} className="relative flex items-center">
               <input
+                ref={searchInputRef}
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
+                onBlur={() => {
+                  if (!searchQuery.trim()) setIsSearchOpen(false);
+                }}
                 placeholder="Search"
-                className="w-40 xl:w-56 h-9 pl-9 pr-3 rounded-full border border-theme-border bg-theme-surface-alt text-sm text-theme-text-primary placeholder:text-theme-text-subtle outline-none focus:border-theme-primary transition-colors"
+                className={`h-9 pl-3 pr-9 rounded-full border border-theme-border bg-theme-surface-alt text-sm text-theme-text-primary placeholder:text-theme-text-subtle outline-none focus:border-theme-primary transition-all duration-200 overflow-hidden ${
+                  isSearchOpen ? "w-40 xl:w-56 opacity-100" : "w-0 px-0 border-transparent opacity-0"
+                }`}
               />
+              <button
+                type={isSearchOpen ? "submit" : "button"}
+                onClick={() => {
+                  if (!isSearchOpen) setIsSearchOpen(true);
+                }}
+                aria-label="Search"
+                className={`flex items-center justify-center text-neutral-700 hover:text-theme-primary transition-colors ${
+                  isSearchOpen ? "absolute right-2.5" : "static"
+                }`}
+              >
+                <Search className="h-[18px] w-[18px]" strokeWidth={1.75} />
+              </button>
             </form>
 
             {/* Wishlist */}
             <Link
               href={wishlistHref}
-              className="flex items-center gap-1.5 text-sm font-medium text-neutral-700 hover:text-theme-primary transition-colors"
+              aria-label="Wishlist"
+              className="relative flex items-center text-neutral-700 hover:text-theme-primary transition-colors"
             >
               <Heart className="h-[18px] w-[18px]" strokeWidth={1.75} />
-              <span>Wishlist</span>
               {wishlistCount > 0 && (
-                <span className="inline-flex items-center justify-center h-4 min-w-[16px] px-1 rounded-full bg-theme-status-can-fg text-white text-[10px] font-bold">
+                <span className="absolute -top-2 -right-2 inline-flex items-center justify-center h-4 min-w-[16px] px-1 rounded-full bg-theme-status-can-fg text-white text-[10px] font-bold">
                   {wishlistCount > 99 ? "99+" : wishlistCount}
                 </span>
               )}
@@ -232,12 +333,12 @@ export function Header() {
             {/* Cart */}
             <Link
               href="/cart"
-              className="flex items-center gap-1.5 text-sm font-medium text-neutral-700 hover:text-theme-primary transition-colors"
+              aria-label="Cart"
+              className="relative flex items-center text-neutral-700 hover:text-theme-primary transition-colors"
             >
               <ShoppingCart className="h-[18px] w-[18px]" strokeWidth={1.75} />
-              <span>Cart</span>
               {cartCount > 0 && (
-                <span className="inline-flex items-center justify-center h-4 min-w-[16px] px-1 rounded-full bg-theme-primary text-white text-[10px] font-bold">
+                <span className="absolute -top-2 -right-2 inline-flex items-center justify-center h-4 min-w-[16px] px-1 rounded-full bg-theme-primary text-white text-[10px] font-bold">
                   {cartCount > 99 ? "99+" : cartCount}
                 </span>
               )}
@@ -292,6 +393,19 @@ export function Header() {
         </div>
       </div>
 
+      {/* Mega-menu dropdown: in normal document flow (not absolutely
+          positioned) so opening it pushes the page content below the header
+          down instead of floating over it. */}
+      {openNavItem && (
+        <div className="hidden lg:block" onMouseEnter={cancelMegaMenuClose} onMouseLeave={scheduleMegaMenuClose}>
+          <MegaMenuPanel
+            root={buildNavNode(openNavItem)}
+            enableProductPreview={openNavItem.categories.length === 1 && !openNavItem.link}
+            onNavigate={() => setOpenNavId(null)}
+          />
+        </div>
+      )}
+
       {/* Mobile Drawer Menu */}
       <>
         {/* Overlay */}
@@ -335,21 +449,27 @@ export function Header() {
                 ))}
               </div>
             ) : (
-              <MobileCategoryAccordion
-                nodes={categoryTree}
-                onNavigate={() => {
-                  setIsOpen(false);
-                }}
-              />
+              <>
+                <MobileCategoryAccordion
+                  nodes={headerMenu.filter((item) => item.categories.length > 0).map(buildNavNode)}
+                  onNavigate={() => {
+                    setIsOpen(false);
+                  }}
+                />
+                {headerMenu
+                  .filter((item) => item.categories.length === 0)
+                  .map((item) => (
+                    <Link
+                      key={item.id}
+                      href={item.link ?? "#"}
+                      onClick={() => setIsOpen(false)}
+                      className="block px-6 py-4 text-sm font-semibold text-red-400 hover:bg-white/10 transition-colors"
+                    >
+                      {item.label}
+                    </Link>
+                  ))}
+              </>
             )}
-
-            <Link
-              href="/products?sortBy=discount"
-              onClick={() => setIsOpen(false)}
-              className="block px-6 py-4 text-sm font-semibold text-red-400 hover:bg-white/10 transition-colors"
-            >
-              Sale
-            </Link>
           </nav>
         </div>
       </>

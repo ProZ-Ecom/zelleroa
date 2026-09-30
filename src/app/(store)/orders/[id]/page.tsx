@@ -6,15 +6,15 @@ import { useSession } from "next-auth/react";
 import { ArrowLeft, RefreshCw, AlertCircle } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { toast } from "@/components/ui/Toast";
+import { CancelOrderDialog } from "@/features/orders/components/CancelOrderDialog";
+import { RequestWizard } from "@/features/returns/components/RequestWizard";
+import { isOrderCancellable } from "@/features/returns/lib/policy";
 import {
   useCustomerOrderDetail,
   useCancelCustomerOrder,
 } from "@/features/customers/hooks/use-customer-orders";
 import { OrderDetailView } from "@/features/orders/components/OrderDetailView";
-import type { OrderStatus } from "@/features/orders/types";
-
-const CUSTOMER_CANCELLABLE: OrderStatus[] = ["pending", "confirmed"];
 
 function OrderDetailSkeleton() {
   return (
@@ -50,6 +50,8 @@ export default function OrderDetailPage() {
   const { id } = useParams<{ id: string }>();
   const { data: session, status } = useSession();
   const [cancelOpen, setCancelOpen] = useState(false);
+  const [cancelError, setCancelError] = useState<string | null>(null);
+  const [requestMode, setRequestMode] = useState<"return" | "replacement" | null>(null);
 
   const { data: order, isLoading, error, refetch } = useCustomerOrderDetail(id);
   const cancelOrderMutation = useCancelCustomerOrder();
@@ -110,7 +112,8 @@ export default function OrderDetailPage() {
     );
   }
 
-  const canCancel = CUSTOMER_CANCELLABLE.includes(order.status);
+  const canCancel = isOrderCancellable(order.status);
+  const isPaid = order.paymentStatus === "paid";
 
   return (
     <div className="container mx-auto px-4 py-8 sm:py-10 max-w-5xl">
@@ -140,26 +143,50 @@ export default function OrderDetailPage() {
         order={order}
         canCancel={canCancel}
         isCancelling={cancelOrderMutation.isPending}
-        onCancel={() => setCancelOpen(true)}
+        onCancel={() => {
+          setCancelError(null);
+          setCancelOpen(true);
+        }}
+        onRequest={(mode) => setRequestMode(mode)}
       />
 
-      <ConfirmDialog
+      <CancelOrderDialog
         open={cancelOpen}
+        orderNumber={order.orderNumber}
+        isPaid={isPaid}
+        isSubmitting={cancelOrderMutation.isPending}
+        serverError={cancelError}
         onClose={() => setCancelOpen(false)}
-        onConfirm={() => {
+        onConfirm={(payload) => {
           cancelOrderMutation.mutate(
-            { uuid: order.id },
+            { uuid: order.id, payload },
             {
-              onSuccess: () => setCancelOpen(false),
+              onSuccess: () => {
+                setCancelOpen(false);
+                toast.success(
+                  "Order cancelled successfully.",
+                  isPaid ? "Your refund status is shown below." : undefined
+                );
+              },
+              onError: (err) => {
+                const msg = err instanceof Error ? err.message : "Could not cancel the order.";
+                setCancelError(msg);
+                toast.error("Could not cancel order", msg);
+              },
             }
           );
         }}
-        title="Cancel Order"
-        description={`Are you sure you want to cancel order ${order.orderNumber}? Your items will be returned to stock.`}
-        confirmText="Cancel Order"
-        variant="destructive"
-        isLoading={cancelOrderMutation.isPending}
       />
+
+      {requestMode && (
+        // Mounted per open so the wizard always starts from a clean state.
+        <RequestWizard
+          open
+          orderUuid={order.id}
+          initialMode={requestMode}
+          onClose={() => setRequestMode(null)}
+        />
+      )}
     </div>
   );
 }

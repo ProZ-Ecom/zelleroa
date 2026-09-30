@@ -6,6 +6,7 @@ import { Copy, Check, ArrowRight } from "lucide-react";
 import { useOffers } from "@/features/offers/hooks";
 import type { OfferListItem } from "@/features/offers/types";
 import { formatPrice } from "@/lib/utils";
+import { getOfferValidity } from "@/features/offers/utils/offer-validity";
 
 function offerTag(offer: OfferListItem): string {
   switch (offer.type) {
@@ -67,6 +68,75 @@ function CopyCodeButton({ code }: { code: string }) {
   );
 }
 
+/** The conditions a shopper needs to know before relying on the offer. */
+function offerConditions(offer: OfferListItem): string[] {
+  const conditions: string[] = [];
+  if (offer.minCartValue) conditions.push(`Min. order ${formatPrice(offer.minCartValue)}`);
+  if (offer.minQuantity > 1) conditions.push(`Min. ${offer.minQuantity} qty`);
+  if (offer.maxDiscountAmount) conditions.push(`Max. discount ${formatPrice(offer.maxDiscountAmount)}`);
+  return conditions;
+}
+
+export function OfferCard({ offer }: { offer: OfferListItem }) {
+  const validity = getOfferValidity(offer.endsAt);
+  const conditions = offerConditions(offer);
+
+  return (
+    <div className="flex flex-col rounded-xl border border-theme-border bg-white p-6">
+      <span className="self-start rounded bg-amber-100 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-amber-900">
+        {offerTag(offer)}
+      </span>
+
+      <h3 className="mt-4 text-2xl font-extrabold uppercase tracking-tight text-theme-text-primary leading-tight">
+        {offerHeadline(offer)}
+      </h3>
+
+      <p className="mt-2 text-sm text-theme-text-subtle flex-1">
+        {offerDescription(offer)}
+      </p>
+
+      {conditions.length > 0 && (
+        <ul className="mt-3 flex flex-wrap gap-1.5">
+          {conditions.map((condition) => (
+            <li
+              key={condition}
+              className="rounded-full bg-theme-surface-alt px-2.5 py-0.5 text-[11px] font-medium text-theme-text-subtle"
+            >
+              {condition}
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {offer.code && (
+        <div className="mt-4">
+          <CopyCodeButton code={offer.code} />
+        </div>
+      )}
+
+      <div className="mt-5 pt-4 border-t border-theme-border flex items-center justify-between gap-3">
+        <span
+          className={
+            validity?.urgent
+              ? "text-xs font-bold text-red-600"
+              : "text-xs font-medium text-theme-text-subtle"
+          }
+        >
+          {validity?.label ??
+            (offer.code ? "Auto-applies at checkout" : "Valid till stocks last")}
+        </span>
+        <Link
+          href="/products"
+          className="inline-flex items-center gap-1.5 rounded-md bg-theme-primary hover:bg-theme-primary-hover px-4 py-2 text-xs font-bold uppercase tracking-wide text-white transition-colors shrink-0"
+        >
+          Shop Now
+          <ArrowRight className="h-3.5 w-3.5" />
+        </Link>
+      </div>
+    </div>
+  );
+}
+
 export function DealsSection() {
   const { data } = useOffers({
     status: "active",
@@ -96,42 +166,18 @@ export function DealsSection() {
 
         <div className="mt-8 grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
           {offers.map((offer) => (
-            <div
-              key={offer.id}
-              className="flex flex-col rounded-xl border border-theme-border bg-white p-6"
-            >
-              <span className="self-start rounded bg-amber-100 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-amber-900">
-                {offerTag(offer)}
-              </span>
-
-              <h3 className="mt-4 text-2xl font-extrabold uppercase tracking-tight text-theme-text-primary leading-tight">
-                {offerHeadline(offer)}
-              </h3>
-
-              <p className="mt-2 text-sm text-theme-text-subtle flex-1">
-                {offerDescription(offer)}
-              </p>
-
-              {offer.code && (
-                <div className="mt-4">
-                  <CopyCodeButton code={offer.code} />
-                </div>
-              )}
-
-              <div className="mt-5 pt-4 border-t border-theme-border flex items-center justify-between gap-3">
-                <span className="text-xs font-medium text-theme-text-subtle">
-                  {offer.code ? "Auto-applies at checkout" : "Valid till stocks last"}
-                </span>
-                <Link
-                  href="/products"
-                  className="inline-flex items-center gap-1.5 rounded-md bg-theme-primary hover:bg-theme-primary-hover px-4 py-2 text-xs font-bold uppercase tracking-wide text-white transition-colors shrink-0"
-                >
-                  Shop Now
-                  <ArrowRight className="h-3.5 w-3.5" />
-                </Link>
-              </div>
-            </div>
+            <OfferCard key={offer.id} offer={offer} />
           ))}
+        </div>
+
+        <div className="mt-8 text-center">
+          <Link
+            href="/offers"
+            className="inline-flex items-center gap-1.5 text-sm font-bold uppercase tracking-wide text-theme-primary hover:text-theme-primary-hover transition-colors"
+          >
+            View All Offers
+            <ArrowRight className="h-4 w-4" />
+          </Link>
         </div>
       </div>
     </section>

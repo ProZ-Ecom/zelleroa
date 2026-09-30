@@ -92,7 +92,7 @@ function buildCategoryTree(
   return build("root");
 }
 
-function flattenTree(nodes: CategoryTreeNode[]): CategoryTreeNode[] {
+export function flattenTree(nodes: CategoryTreeNode[]): CategoryTreeNode[] {
   return nodes.flatMap((n) => [n, ...flattenTree(n.children)]);
 }
 

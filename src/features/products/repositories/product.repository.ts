@@ -281,6 +281,10 @@ export const productRepository = {
     const existing = await this.findByUuid(uuid);
     if (!existing) return null;
 
+    // Carts must not keep lines for a product that can no longer be bought,
+    // otherwise checkout fails with "no longer available".
+    await db.cartItem.deleteMany({ where: { productId: existing.id } });
+
     return db.product.update({
       where: { id: existing.id },
       data: {

@@ -29,6 +29,34 @@ import type {
   CustomerItemDetailDto,
 } from "../types/catalog.types";
 
+const brandSelect = { id: true, uuid: true, name: true } as const;
+
+type BrandRow = { id: bigint; uuid: string | null; name: string };
+
+/**
+ * A brand is chosen per Item (`styles.brand_id`); `products.brand_id` is only
+ * the legacy fallback for rows created before brands moved down a level. The
+ * first non-null brand wins, so callers pass the Item's brand before the
+ * Product's.
+ */
+function toBrandDto(...brands: Array<BrandRow | null | undefined>): { id: string; name: string } | null {
+  const brand = brands.find((b): b is BrandRow => Boolean(b));
+  return brand ? { id: brand.uuid || String(brand.id), name: brand.name } : null;
+}
+
+/**
+ * Matches Items of the given brands: the Item's own brand, or - for Items with
+ * no brand of their own - the Product's.
+ */
+function styleBrandWhere(brandIds: bigint[]): Prisma.StyleWhereInput {
+  return {
+    OR: [
+      { brandId: { in: brandIds } },
+      { brandId: null, product: { brandId: { in: brandIds } } },
+    ],
+  };
+}
+
 /**
  * Selling price is not stored on the unit price row - it is basePrice minus
  * any active offer/discount, computed here at read time. No offer/discount
@@ -541,7 +569,10 @@ export const catalogRepository = {
         where: { uuid: { in: params.brandIds }, isActive: true, deleted_at: null },
         select: { id: true },
       });
-      where.brandId = { in: matchingBrands.map((b) => b.id) };
+      const brandIds = matchingBrands.map((b) => b.id);
+      // Brand lives on the Item; the Product's brand only counts for Items
+      // with none of their own - same rule the card label uses.
+      where.AND = [{ styles: { some: { deleted_at: null, ...styleBrandWhere(brandIds) } } }];
     }
 
     // Filter by Category UUIDs
@@ -612,7 +643,7 @@ export const catalogRepository = {
         orderBy: params.sortBy === "price" ? undefined : orderBy,
         ...(params.sortBy === "price" ? {} : { skip: (page - 1) * pageSize, take: pageSize }),
         include: {
-          brand: { select: { id: true, uuid: true, name: true } },
+          brand: { select: brandSelect },
           images: {
             where: { is_active: true },
             orderBy: [{ isPrimary: "desc" }, { sortOrder: "asc" }],
@@ -621,6 +652,7 @@ export const catalogRepository = {
           styles: {
             where: { deleted_at: null },
             include: {
+              brand: { select: brandSelect },
               items: {
                 where: { deleted_at: null },
                 include: {
@@ -694,12 +726,7 @@ export const catalogRepository = {
         name: p.name,
         description:
           primaryItem?.short_description || primaryItem?.description || null,
-        brand: p.brand
-          ? {
-              id: p.brand.uuid || String(p.brand.id),
-              name: p.brand.name,
-            }
-          : null,
+        brand: toBrandDto(primaryItem?.brand, p.brand),
         category: null,
         image: imgUrl,
         minPrice: minP,
@@ -778,7 +805,7 @@ export const catalogRepository = {
         where: { uuid: { in: params.brandIds }, isActive: true, deleted_at: null },
         select: { id: true },
       });
-      where.product = { ...productWhere(), brandId: { in: matchingBrands.map((b) => b.id) } };
+      where.AND = [styleBrandWhere(matchingBrands.map((b) => b.id))];
     }
 
     if (params.categoryIds && params.categoryIds.length > 0) {
@@ -841,9 +868,10 @@ export const catalogRepository = {
               uuid: true,
               name: true,
               categoryId: true,
-              brand: { select: { id: true, uuid: true, name: true } },
+              brand: { select: brandSelect },
             },
           },
+          brand: { select: brandSelect },
           images: {
             where: { is_active: true },
             orderBy: [{ is_primary: "desc" }, { sort_order: "asc" }],
@@ -892,9 +920,7 @@ export const catalogRepository = {
         id: s.uuid || String(s.id),
         name: s.name,
         description: s.short_description || s.description || null,
-        brand: s.product.brand
-          ? { id: s.product.brand.uuid || String(s.product.brand.id), name: s.product.brand.name }
-          : null,
+        brand: toBrandDto(s.brand, s.product.brand),
         category: null,
         image: imgUrl,
         minPrice,
@@ -966,9 +992,10 @@ export const catalogRepository = {
             name: true,
             gender: true,
             categoryId: true,
-            brand: { select: { id: true, uuid: true, name: true } },
+            brand: { select: brandSelect },
           },
         },
+        brand: { select: brandSelect },
         images: {
           where: { is_active: true },
           orderBy: [{ is_primary: "desc" }, { sort_order: "asc" }],
@@ -1038,12 +1065,7 @@ export const catalogRepository = {
       id: productUuid,
       name: style.product.name,
       description: style.description || style.short_description || null,
-      brand: style.product.brand
-        ? {
-            id: style.product.brand.uuid || String(style.product.brand.id),
-            name: style.product.brand.name,
-          }
-        : null,
+      brand: toBrandDto(style.brand, style.product.brand),
       category: categoryDto,
       image: imgUrl,
       gender: (style.product.gender as CustomerProductDetailDto["gender"]) ?? null,
@@ -1070,9 +1092,10 @@ export const catalogRepository = {
             name: true,
             gender: true,
             categoryId: true,
-            brand: { select: { id: true, uuid: true, name: true } },
+            brand: { select: brandSelect },
           },
         },
+        brand: { select: brandSelect },
         images: {
           where: { is_active: true },
           orderBy: [{ is_primary: "desc" }, { sort_order: "asc" }],
@@ -1126,12 +1149,7 @@ export const catalogRepository = {
         name: style.product.name,
         gender: (style.product.gender as CustomerStyleDetailDto["product"]["gender"]) ?? null,
       },
-      brand: style.product.brand
-        ? {
-            id: style.product.brand.uuid || String(style.product.brand.id),
-            name: style.product.brand.name,
-          }
-        : null,
+      brand: toBrandDto(style.brand, style.product.brand),
       category: categoryDto,
       image: styleImages[0]?.imageUrl ?? items.find((i) => i.image)?.image ?? null,
       images: styleImages,
@@ -1154,6 +1172,7 @@ export const catalogRepository = {
         ...styleItemIncludeArgs,
         style: {
           include: {
+            brand: { select: brandSelect },
             images: {
               where: { is_active: true },
               orderBy: [{ is_primary: "desc" }, { sort_order: "asc" }],
@@ -1165,7 +1184,7 @@ export const catalogRepository = {
                 name: true,
                 gender: true,
                 categoryId: true,
-                brand: { select: { id: true, uuid: true, name: true } },
+                brand: { select: brandSelect },
               },
             },
           },
@@ -1207,12 +1226,7 @@ export const catalogRepository = {
         name: style.product.name,
         gender: (style.product.gender as CustomerItemDetailDto["product"]["gender"]) ?? null,
       },
-      brand: style.product.brand
-        ? {
-            id: style.product.brand.uuid || String(style.product.brand.id),
-            name: style.product.brand.name,
-          }
-        : null,
+      brand: toBrandDto(style.brand, style.product.brand),
       category: categoryDto,
     };
   },
@@ -1246,7 +1260,7 @@ export const catalogRepository = {
       orderBy: { createdAt: "desc" },
       take: limit,
       include: {
-        brand: { select: { id: true, uuid: true, name: true } },
+        brand: { select: brandSelect },
         images: {
           where: { is_active: true },
           orderBy: [{ isPrimary: "desc" }, { sortOrder: "asc" }],
@@ -1255,6 +1269,7 @@ export const catalogRepository = {
         styles: {
           where: { deleted_at: null },
           include: {
+            brand: { select: brandSelect },
             items: {
               where: { deleted_at: null },
               include: {
@@ -1323,7 +1338,7 @@ export const catalogRepository = {
         id: p.uuid || String(p.id),
         name: p.name,
         description: primaryItem?.short_description || primaryItem?.description || null,
-        brand: p.brand ? { id: p.brand.uuid || String(p.brand.id), name: p.brand.name } : null,
+        brand: toBrandDto(primaryItem?.brand, p.brand),
         category: cat ? { id: cat.uuid || String(cat.id), name: cat.name } : null,
         image: imgUrl,
         minPrice: minP,
@@ -1549,7 +1564,7 @@ export const catalogRepository = {
         ...(where.item as Prisma.ItemWhereInput),
         style: {
           ...itemStyleWhere(),
-          product: { ...itemStyleProductWhere(), brandId: { in: matchingBrands.map((b) => b.id) } },
+          ...styleBrandWhere(matchingBrands.map((b) => b.id)),
         },
       };
     }
@@ -1931,13 +1946,14 @@ export const catalogRepository = {
           select: {
             style: {
               select: {
+                brand: { select: brandSelect },
                 product: {
                   select: {
                     id: true,
                     uuid: true,
                     name: true,
                     categoryId: true,
-                    brand: { select: { id: true, uuid: true, name: true } },
+                    brand: { select: brandSelect },
                     images: {
                       where: { is_active: true },
                       orderBy: [{ isPrimary: "desc" }, { sortOrder: "asc" }],
@@ -2049,9 +2065,7 @@ export const catalogRepository = {
           parentCategory && categoryRow
             ? { id: categoryRow.uuid || String(categoryRow.id), name: categoryRow.name }
             : null,
-        brand: product.brand
-          ? { id: product.brand.uuid || String(product.brand.id), name: product.brand.name }
-          : null,
+        brand: toBrandDto(variant.item.style.brand, product.brand),
         inStock: !variant.out_of_stock && stockQuantity > 0,
         stockQuantity,
       });

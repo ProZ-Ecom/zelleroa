@@ -3,24 +3,28 @@ import {
   AboutHeroSection,
   AboutOurStorySection,
   AboutFounderSection,
+  AboutMarquee,
 } from "@/components/storefront/about";
 
 export const metadata: Metadata = {
-  title: "About Us - Zellora | Elegance in Every Stitch",
+  title: "About Us | ZELLORA INDIA",
   description:
-    "Learn about Zellora, delivering bespoke fashion, contemporary craftsmanship, and timeless designer clothing crafted with care.",
+    "ZELLORA INDIA is an online-based fashion business bringing fashion products to customers through a convenient online shopping experience and our Sales Partner network.",
 };
 
 export default function AboutPage() {
   return (
     <div className="w-full">
-      {/* 1. Hero Banner: Tradition in Every Bite */}
+      {/* 1. Hero: Welcome to ZELLORA INDIA */}
       <AboutHeroSection />
 
-      {/* 2. Our Story: Rooted in tradition, growing with purpose */}
+      {/* Highlights ribbon */}
+      <AboutMarquee />
+
+      {/* 2. Our Business: Sales Partner model */}
       <AboutOurStorySection />
 
-      {/* 3. The Woman Behind The Vision: Dr. S. Anita */}
+      {/* 3. Our Commitment + Thank You */}
       <AboutFounderSection />
     </div>
   );

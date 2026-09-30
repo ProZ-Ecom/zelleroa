@@ -3,13 +3,15 @@
 import * as React from "react";
 import Link from "next/link";
 import { ChevronDown } from "lucide-react";
-import type { CategoryTreeNode } from "@/features/categories/types";
-import { categoryHref } from "@/features/customers/utils/catalog-listing-query";
+import { categoryHref, withGenderParam } from "@/features/customers/utils/catalog-listing-query";
+import type { NavNode } from "./MegaMenu";
 
 interface MobileCategoryAccordionProps {
-  nodes: CategoryTreeNode[];
+  nodes: NavNode[];
   depth?: number;
   onNavigate?: () => void;
+  /** Audience of the top-level nav item this subtree belongs to - carried down to every child link. */
+  gender?: string | null;
 }
 
 /** Recursive expand/collapse accordion for the mobile drawer's category tree. */
@@ -17,13 +19,14 @@ export function MobileCategoryAccordion({
   nodes,
   depth = 0,
   onNavigate,
+  gender,
 }: MobileCategoryAccordionProps) {
   const [expandedId, setExpandedId] = React.useState<string | null>(null);
 
   return (
     <div className={depth > 0 ? "pl-4 border-l border-white/10" : undefined}>
       {nodes.map((node) => {
-        const href = categoryHref(node);
+        const href = withGenderParam(node.href ?? categoryHref(node), gender ?? node.gender);
         const hasChildren = node.children.length > 0;
         const isExpanded = expandedId === node.id;
 
@@ -60,6 +63,7 @@ export function MobileCategoryAccordion({
                   nodes={node.children}
                   depth={depth + 1}
                   onNavigate={onNavigate}
+                  gender={gender ?? node.gender}
                 />
               </div>
             )}

@@ -8,7 +8,6 @@ import type {
   DeliveryTransitionResult,
   StaffDeliveriesCountResponse,
   CourierShipmentResult,
-  RefreshCourierTrackingResult,
 } from "../types/delivery.types";
 import type {
   StaffDeliveryListInput,
@@ -18,7 +17,6 @@ import type {
   AdminDeliveryStaffListInput,
   AssignDeliveryInput,
   ShipViaCourierInput,
-  RefreshCourierTrackingInput,
 } from "../validations/delivery.schema";
 
 export interface PaginatedResult<T> {
@@ -355,7 +353,7 @@ export async function assignDelivery(
 }
 
 /**
- * Book a Delhivery courier shipment for a packed order (Admin).
+ * Record an India Post shipment for a packed order (Admin).
  * Endpoint: POST /api/admin/delivery/ship-courier
  */
 export async function shipViaCourier(
@@ -367,26 +365,7 @@ export async function shipViaCourier(
   );
 
   if (!response.data) {
-    throw new Error(response.message || "Failed to book Delhivery shipment");
-  }
-
-  return response.data;
-}
-
-/**
- * Pull the latest tracking scans from Delhivery for a shipment (Admin).
- * Endpoint: POST /api/admin/delivery/refresh-tracking
- */
-export async function refreshCourierTracking(
-  input: RefreshCourierTrackingInput
-): Promise<RefreshCourierTrackingResult> {
-  const response = await apiClient.post<RefreshCourierTrackingResult>(
-    "/api/admin/delivery/refresh-tracking",
-    input
-  );
-
-  if (!response.data) {
-    throw new Error(response.message || "Failed to refresh tracking");
+    throw new Error(response.message || "Failed to record India Post shipment");
   }
 
   return response.data;

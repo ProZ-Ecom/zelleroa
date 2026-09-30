@@ -9,6 +9,8 @@ import {
   Trash2,
   CheckCircle2,
   AlertCircle,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ImageCropperModal } from "@/components/common";
@@ -17,6 +19,7 @@ import {
   useCreateProductImages,
   useSetPrimaryProductImage,
   useDeleteProductImage,
+  useUpdateProductImage,
 } from "../hooks";
 import {
   uploadProductImageFiles,
@@ -59,6 +62,8 @@ export function ProductImageUploader({
   const createImagesMutation = useCreateProductImages();
   const setPrimaryImageMutation = useSetPrimaryProductImage();
   const deleteImageMutation = useDeleteProductImage();
+  const updateImageMutation = useUpdateProductImage();
+  const [reorderingId, setReorderingId] = useState<string | null>(null);
 
   const totalImageCount = existingImages.length + pendingImages.length;
   const maxAllowedImages = 4;
@@ -249,6 +254,36 @@ export function ProductImageUploader({
     }
   };
 
+  const handleMoveExistingImage = async (index: number, direction: -1 | 1) => {
+    const targetIndex = index + direction;
+    if (targetIndex < 0 || targetIndex >= existingImages.length) return;
+
+    const current = existingImages[index];
+    const target = existingImages[targetIndex];
+
+    try {
+      setErrorMessage(null);
+      setReorderingId(current.id);
+      await Promise.all([
+        updateImageMutation.mutateAsync({
+          productUuid,
+          imageId: current.id,
+          data: { sortOrder: target.sortOrder },
+        }),
+        updateImageMutation.mutateAsync({
+          productUuid,
+          imageId: target.id,
+          data: { sortOrder: current.sortOrder },
+        }),
+      ]);
+    } catch (err: unknown) {
+      console.error("Failed to reorder images:", err);
+      setErrorMessage(err instanceof Error ? err.message : "Failed to reorder images.");
+    } finally {
+      setReorderingId(null);
+    }
+  };
+
   const handleDeleteExistingImage = async (imageId: string) => {
     try {
       setErrorMessage(null);
@@ -300,7 +335,7 @@ export function ProductImageUploader({
             Current Images ({existingImages.length})
           </h4>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-            {existingImages.map((img: AdminProductImageResponse) => (
+            {existingImages.map((img: AdminProductImageResponse, index: number) => (
               <div
                 key={img.id}
                 className={`group relative aspect-square rounded-xl overflow-hidden border ${
@@ -346,6 +381,31 @@ export function ProductImageUploader({
                 >
                   <Trash2 className="h-4 w-4" />
                 </button>
+
+                {existingImages.length > 1 && (
+                  <div className="absolute bottom-2 left-2 right-2 flex items-center justify-between opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button
+                      type="button"
+                      onClick={() => handleMoveExistingImage(index, -1)}
+                      disabled={index === 0 || reorderingId !== null}
+                      aria-label="Move image earlier"
+                      title="Move earlier"
+                      className="rounded-lg bg-black/60 p-1.5 text-white hover:bg-black/80 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
+                    >
+                      <ChevronLeft className="h-3.5 w-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleMoveExistingImage(index, 1)}
+                      disabled={index === existingImages.length - 1 || reorderingId !== null}
+                      aria-label="Move image later"
+                      title="Move later"
+                      className="rounded-lg bg-black/60 p-1.5 text-white hover:bg-black/80 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
+                    >
+                      <ChevronRight className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                )}
               </div>
             ))}
           </div>

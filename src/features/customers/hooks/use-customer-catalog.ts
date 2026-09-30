@@ -1,6 +1,6 @@
 "use client";
 
-import { useQuery, useInfiniteQuery, useMutation, keepPreviousData } from "@tanstack/react-query";
+import { useQuery, useQueries, useInfiniteQuery, useMutation, keepPreviousData } from "@tanstack/react-query";
 import { useSession } from "next-auth/react";
 import { customerCatalogApi } from "../api/customer-catalog.api";
 import type {
@@ -19,8 +19,8 @@ export const CUSTOMER_CATALOG_QUERY_KEYS = {
     [...CUSTOMER_CATALOG_QUERY_KEYS.all, "styles", params ?? {}] as const,
   listing: (category: string, queryString: string, pageSize: number) =>
     [...CUSTOMER_CATALOG_QUERY_KEYS.all, "listing", category, queryString, pageSize] as const,
-  categoryMenu: (category: string) =>
-    [...CUSTOMER_CATALOG_QUERY_KEYS.all, "category-menu", category] as const,
+  categoryMenu: (category: string, gender?: string | null) =>
+    [...CUSTOMER_CATALOG_QUERY_KEYS.all, "category-menu", category, gender ?? null] as const,
   item: (uuid: string) =>
     [...CUSTOMER_CATALOG_QUERY_KEYS.all, "item", uuid] as const,
   product: (uuid: string) =>
@@ -85,12 +85,34 @@ export function useCategoryListing(category: string, queryString: string, pageSi
  * Header menu preview for a category - its Products and their Items. Only
  * fetched once the menu opens (`enabled`), then cached.
  */
-export function useCategoryMenu(category: string, options?: { enabled?: boolean }) {
+export function useCategoryMenu(
+  category: string,
+  options?: { enabled?: boolean; gender?: string | null }
+) {
   return useQuery({
-    queryKey: CUSTOMER_CATALOG_QUERY_KEYS.categoryMenu(category),
-    queryFn: () => customerCatalogApi.getCategoryMenu(category),
+    queryKey: CUSTOMER_CATALOG_QUERY_KEYS.categoryMenu(category, options?.gender),
+    queryFn: () => customerCatalogApi.getCategoryMenu(category, options?.gender),
     enabled: !!category && (options?.enabled ?? true),
     staleTime: 1000 * 60 * 5,
+  });
+}
+
+/**
+ * Same preview as `useCategoryMenu`, fetched in parallel for several
+ * categories at once - used to fill one mega-menu column per category when a
+ * nav item groups multiple categories together.
+ */
+export function useCategoryMenus(
+  categories: string[],
+  options?: { enabled?: boolean; gender?: string | null }
+) {
+  return useQueries({
+    queries: categories.map((category) => ({
+      queryKey: CUSTOMER_CATALOG_QUERY_KEYS.categoryMenu(category, options?.gender),
+      queryFn: () => customerCatalogApi.getCategoryMenu(category, options?.gender),
+      enabled: !!category && (options?.enabled ?? true),
+      staleTime: 1000 * 60 * 5,
+    })),
   });
 }
 

@@ -1,203 +1,153 @@
 import Link from "next/link";
-import { Users, ShoppingBag, IndianRupee } from "lucide-react";
-import { requireAgent } from "@/lib/auth/require-auth";
-import { userRepository } from "@/features/users/repositories/user.repository";
+import { BadgeCheck, CheckCircle2, Clock, Coins, ShoppingBag, TrendingUp, Users, Wallet, ArrowRight } from "lucide-react";
 import { agentService } from "@/features/agents/services/agent.service";
+import { commissionService } from "@/features/agents/services/commission.service";
+import { payoutService } from "@/features/agents/services/payout.service";
+import { requireAgentPage } from "@/features/agents/lib/page-context";
+import { ReferralFlow } from "@/features/agents/components/ReferralFlow";
 import { ReferralLinkCard } from "@/features/agents/components/ReferralLinkCard";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { formatPrice, formatDateTime } from "@/lib/utils";
+import {
+  MetricCard,
+  PageHeader,
+  Panel,
+  SimpleTable,
+  StatusBadge,
+  dateOnly,
+  money,
+  pct,
+} from "@/features/agents/components/shared";
 
-const PAGE_SIZE = 20;
+export const metadata = { title: "Sales Partner Dashboard" };
 
-interface AgentDashboardPageProps {
-  searchParams: Promise<{ refPage?: string; ordPage?: string }>;
-}
+const viewAll = (href: string) => (
+  <Link href={href} className="inline-flex items-center gap-1 text-xs font-semibold text-neutral-600 transition-colors hover:text-neutral-900">
+    View all <ArrowRight className="h-3.5 w-3.5" />
+  </Link>
+);
 
-export default async function AgentDashboardPage({ searchParams }: AgentDashboardPageProps) {
-  const session = await requireAgent();
-  const params = await searchParams;
+export default async function AgentDashboardPage() {
+  const { agentId, name } = await requireAgentPage("/agent/dashboard");
 
-  const user = await userRepository.findById(session.user.id);
-  if (!user || !user.internalId) {
-    throw new Error("Agent account could not be resolved");
-  }
-  const agentId = BigInt(user.internalId);
+  // Approve anything whose return period has ended before we total it up.
+  await commissionService.approveEligible({ agentId });
 
-  const refPage = Math.max(1, Number(params.refPage) || 1);
-  const ordPage = Math.max(1, Number(params.ordPage) || 1);
-
-  const [summary, referrals, orders] = await Promise.all([
-    agentService.getDashboardSummary(agentId),
-    agentService.getReferredUsers(agentId, refPage, PAGE_SIZE),
-    agentService.getAttributedOrders(agentId, ordPage, PAGE_SIZE),
+  const [profile, summary, balance, customers, orders, commissions, payouts] = await Promise.all([
+    agentService.getProfile(agentId),
+    agentService.getSummary(agentId),
+    payoutService.availableBalance(agentId),
+    agentService.listCustomers(agentId, { limit: 5 }),
+    agentService.listOrderLines({ limit: 5 }, { agentId }),
+    commissionService.list({ limit: 5 }, { agentId }),
+    payoutService.list({ limit: 5 }, { agentId }),
   ]);
 
   return (
-    <div className="mx-auto flex max-w-5xl flex-col gap-6 p-4 sm:p-6">
-      <div>
-        <h1 className="text-2xl font-bold">Agent Dashboard</h1>
-        <p className="text-sm text-muted-foreground">Welcome back, {user.name}</p>
+    <>
+      <PageHeader title={`Welcome back, ${name}`} description="Here’s how your referrals are performing.">
+        {profile.agentCode && (
+          <span className="rounded-full border border-neutral-200 bg-white px-3 py-1 text-xs font-medium text-neutral-600">
+            Agent ID <span className="font-mono font-semibold text-neutral-900">{profile.agentCode}</span>
+          </span>
+        )}
+      </PageHeader>
+
+      {profile.referralCode && profile.referralLink && (
+        <ReferralLinkCard referralCode={profile.referralCode} referralLink={profile.referralLink} />
+      )}
+
+      <ReferralFlow />
+
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+        <MetricCard icon={Users} label="Customers ordered" value={summary.totalReferredCustomers} />
+        <MetricCard icon={ShoppingBag} label="Total orders" value={summary.totalOrders} hint="Excludes cancelled / returned" />
+        <MetricCard icon={TrendingUp} label="Total sales" value={money(summary.totalSales)} hint="Product value, excl. delivery" />
+        <MetricCard icon={Coins} label="Total commission" value={money(summary.totalCommission)} />
+        <MetricCard icon={Clock} label="Pending commission" value={money(summary.pendingCommission)} tone="warn" hint="Awaiting return period" />
+        <MetricCard icon={CheckCircle2} label="Approved commission" value={money(summary.approvedCommission)} tone="good" hint="Ready / in payout" />
+        <MetricCard icon={BadgeCheck} label="Paid commission" value={money(summary.paidCommission)} tone="good" />
+        <div className="flex flex-col justify-between rounded-2xl bg-gradient-to-br from-emerald-600 to-emerald-800 p-4 text-white shadow-sm">
+          <div>
+            <div className="flex items-start justify-between gap-2">
+              <p className="text-[11px] font-semibold uppercase tracking-wider text-emerald-100">Available for payout</p>
+              <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-white/15">
+                <Wallet className="h-4 w-4" />
+              </span>
+            </div>
+            <p className="mt-2 text-xl font-bold tracking-tight sm:text-2xl">{money(balance.amount)}</p>
+          </div>
+          <Link
+            href="/agent/payouts"
+            className="mt-3 inline-flex min-h-[36px] items-center justify-center rounded-lg bg-white px-3 text-xs font-semibold text-emerald-800 transition-colors hover:bg-emerald-50"
+          >
+            {balance.amount > 0 ? "Request payout" : "Payout history"}
+          </Link>
+        </div>
       </div>
 
-      <ReferralLinkCard referralCode={summary.referralCode} referralLink={summary.referralLink} />
+      <Panel title="Recent commissions" action={viewAll("/agent/commissions")}>
+        <SimpleTable
+          rows={commissions.data}
+          rowKey={(r) => r.id}
+          empty="No commissions yet. They appear when your customers place orders."
+          columns={[
+            { header: "Commission", cell: (r) => <span className="font-mono text-xs">{r.code}</span> },
+            { header: "Order", cell: (r) => <span className="font-mono text-xs">{r.orderNumber}</span> },
+            { header: "Customer", cell: (r) => r.customerName },
+            { header: "Product", cell: (r) => r.productName },
+            { header: "Category", cell: (r) => r.categoryName ?? "—" },
+            { header: "Amount", cell: (r) => money(r.productAmount) },
+            { header: "%", cell: (r) => pct(r.percentage) },
+            { header: "Commission", cell: (r) => <strong>{money(r.amount)}</strong> },
+            { header: "Status", cell: (r) => <StatusBadge status={r.status} /> },
+            { header: "Order date", cell: (r) => dateOnly(r.createdAt) },
+          ]}
+        />
+      </Panel>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Referred signups</CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{summary.totalReferredUsers}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Attributed orders</CardTitle>
-            <ShoppingBag className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{summary.totalAttributedOrders}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Attributed order value</CardTitle>
-            <IndianRupee className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{formatPrice(summary.totalAttributedOrderValue)}</div>
-          </CardContent>
-        </Card>
+      <div className="grid gap-5 lg:grid-cols-2">
+        <Panel title="Customers who ordered with your code" action={viewAll("/agent/customers")}>
+          <SimpleTable
+            rows={customers.data}
+            rowKey={(r) => r.id}
+            empty="No customers yet. Share your referral link to get started."
+            columns={[
+              { header: "Customer", cell: (r) => r.name },
+              { header: "Last order", cell: (r) => dateOnly(r.lastOrderAt) },
+              { header: "Orders", cell: (r) => r.totalOrders },
+              { header: "Commission", cell: (r) => money(r.commissionGenerated) },
+            ]}
+          />
+        </Panel>
+
+        <Panel title="Recent orders" action={viewAll("/agent/orders")}>
+          <SimpleTable
+            rows={orders.data}
+            rowKey={(r) => r.id}
+            empty="No orders from your customers yet."
+            columns={[
+              { header: "Order", cell: (r) => <span className="font-mono text-xs">{r.orderNumber}</span> },
+              { header: "Product", cell: (r) => r.productName },
+              { header: "Amount", cell: (r) => money(r.productAmount) },
+              { header: "Status", cell: (r) => <StatusBadge status={r.orderStatus} /> },
+            ]}
+          />
+        </Panel>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Referred signups</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {referrals.data.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No one has signed up through your link yet.</p>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b text-left text-muted-foreground">
-                    <th className="py-2 pr-4 font-medium">Name</th>
-                    <th className="py-2 pr-4 font-medium">Email</th>
-                    <th className="py-2 pr-4 font-medium">Signed up</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {referrals.data.map((u) => (
-                    <tr key={u.id} className="border-b last:border-0">
-                      <td className="py-2 pr-4">{u.name}</td>
-                      <td className="py-2 pr-4">{u.email ?? "-"}</td>
-                      <td className="py-2 pr-4">{u.referredAt ? formatDateTime(u.referredAt) : "-"}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-          <PaginationLinks
-            page={referrals.meta.page}
-            totalPages={referrals.meta.totalPages}
-            paramName="refPage"
-            otherParams={{ ordPage: String(ordPage) }}
-          />
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Attributed orders</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {orders.data.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No orders attributed to you yet.</p>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b text-left text-muted-foreground">
-                    <th className="py-2 pr-4 font-medium">Order #</th>
-                    <th className="py-2 pr-4 font-medium">Customer</th>
-                    <th className="py-2 pr-4 font-medium">Amount</th>
-                    <th className="py-2 pr-4 font-medium">Status</th>
-                    <th className="py-2 pr-4 font-medium">Placed</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {orders.data.map((o) => (
-                    <tr key={o.id} className="border-b last:border-0">
-                      <td className="py-2 pr-4 font-mono">{o.orderNumber}</td>
-                      <td className="py-2 pr-4">{o.customerName}</td>
-                      <td className="py-2 pr-4">{formatPrice(o.totalAmount)}</td>
-                      <td className="py-2 pr-4">
-                        <Badge variant="outline" className="capitalize">
-                          {o.orderStatus}
-                        </Badge>
-                      </td>
-                      <td className="py-2 pr-4">{formatDateTime(o.createdAt)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-          <PaginationLinks
-            page={orders.meta.page}
-            totalPages={orders.meta.totalPages}
-            paramName="ordPage"
-            otherParams={{ refPage: String(refPage) }}
-          />
-        </CardContent>
-      </Card>
-    </div>
-  );
-}
-
-function PaginationLinks({
-  page,
-  totalPages,
-  paramName,
-  otherParams,
-}: {
-  page: number;
-  totalPages: number;
-  paramName: "refPage" | "ordPage";
-  otherParams: Record<string, string>;
-}) {
-  if (totalPages <= 1) return null;
-
-  const buildHref = (p: number) => {
-    const search = new URLSearchParams({ ...otherParams, [paramName]: String(p) });
-    return `/agent/dashboard?${search.toString()}`;
-  };
-
-  return (
-    <div className="mt-4 flex items-center justify-end gap-3 text-sm">
-      <Link
-        href={buildHref(Math.max(1, page - 1))}
-        aria-disabled={page <= 1}
-        className={page <= 1 ? "pointer-events-none text-muted-foreground" : "text-theme-primary hover:underline"}
-      >
-        Previous
-      </Link>
-      <span className="text-muted-foreground">
-        Page {page} of {totalPages}
-      </span>
-      <Link
-        href={buildHref(Math.min(totalPages, page + 1))}
-        aria-disabled={page >= totalPages}
-        className={
-          page >= totalPages ? "pointer-events-none text-muted-foreground" : "text-theme-primary hover:underline"
-        }
-      >
-        Next
-      </Link>
-    </div>
+      <Panel title="Payout history" action={viewAll("/agent/payouts")}>
+        <SimpleTable
+          rows={payouts.data}
+          rowKey={(r) => r.id}
+          empty="No payouts requested yet."
+          columns={[
+            { header: "Payout", cell: (r) => <span className="font-mono text-xs">{r.code}</span> },
+            { header: "Amount", cell: (r) => <strong>{money(r.amount)}</strong> },
+            { header: "Method", cell: (r) => (r.method === "upi" ? "UPI" : "Bank transfer") },
+            { header: "Requested", cell: (r) => dateOnly(r.requestedAt) },
+            { header: "Status", cell: (r) => <StatusBadge status={r.status} /> },
+          ]}
+        />
+      </Panel>
+    </>
   );
 }

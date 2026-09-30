@@ -195,14 +195,16 @@ export function useAssignOrderDelivery() {
 
 export function useCheckoutSummary(
   deliveryMethod: DeliveryMethod,
-  couponCode: string | null
+  couponCode: string | null,
+  shippingAddressId?: string | number | null
 ) {
   return useQuery({
-    queryKey: checkoutKeys.list({ deliveryMethod, couponCode }),
+    queryKey: checkoutKeys.list({ deliveryMethod, couponCode, shippingAddressId }),
     queryFn: () =>
       getCheckoutSummary({
         deliveryMethod,
         couponCode: couponCode ?? undefined,
+        shippingAddressId: shippingAddressId != null ? String(shippingAddressId) : undefined,
       }),
   });
 }

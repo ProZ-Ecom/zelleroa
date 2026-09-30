@@ -33,6 +33,15 @@ import {
   Mail,
   PackagePlus,
   HelpCircle,
+  Menu,
+  Wallet,
+  Percent,
+  Handshake,
+  Warehouse,
+  History,
+  Building2,
+  ClipboardList,
+  SlidersHorizontal,
 } from "lucide-react";
 import { cn, getInitials } from "@/lib/utils";
 import { APP_NAME } from "@/lib/constants";
@@ -68,12 +77,26 @@ const sidebarItems: SidebarItem[] = [
     icon: Package,
     children: [
       { label: "Categories", href: "/admin/dashboard/categories", icon: FolderTree },
+      { label: "Header Menu", href: "/admin/dashboard/header-menu", icon: Menu },
       { label: "Products", href: "/admin/dashboard/products", icon: Package },
       { label: "Items", href: "/admin/dashboard/styles", icon: Layers },
       { label: "Colors", href: "/admin/dashboard/variants", icon: Layers },
       { label: "Brands", href: "/admin/dashboard/brands", icon: Crown },
       { label: "Attributes", href: "/admin/dashboard/attributes", icon: Tag },
       { label: "Units", href: "/admin/dashboard/units", icon: Ruler },
+    ],
+  },
+  {
+    label: "Inventory",
+    href: "/admin/dashboard/inventory",
+    icon: Warehouse,
+    children: [
+      { label: "Dashboard", href: "/admin/dashboard/inventory", icon: LayoutDashboard },
+      { label: "Current Stock", href: "/admin/dashboard/inventory/stock", icon: Warehouse },
+      { label: "Vendors", href: "/admin/dashboard/vendors", icon: Building2 },
+      { label: "Purchases", href: "/admin/dashboard/purchase-orders", icon: ClipboardList },
+      { label: "Stock Movements", href: "/admin/dashboard/inventory/movements", icon: History },
+      { label: "Stock Adjustment", href: "/admin/dashboard/inventory/adjustment", icon: SlidersHorizontal },
     ],
   },
   {
@@ -103,6 +126,18 @@ const sidebarItems: SidebarItem[] = [
       { label: "Blogs", href: "/admin/dashboard/blogs", icon: BookOpen },
       { label: "FAQs", href: "/admin/dashboard/faqs", icon: HelpCircle },
       { label: "Contact List", href: "/admin/dashboard/contacts", icon: Mail },
+    ],
+  },
+  {
+    label: "Sales Partners",
+    href: "/admin/dashboard/agents-menu",
+    icon: Handshake,
+    children: [
+      { label: "Sales Partners", href: "/admin/dashboard/agents", icon: UserCheck },
+      { label: "Commission Rates", href: "/admin/dashboard/commission-rates", icon: Percent },
+      { label: "Commissions", href: "/admin/dashboard/commissions", icon: Receipt },
+      { label: "Payouts", href: "/admin/dashboard/agent-payouts", icon: Wallet },
+      { label: "Commission Reports", href: "/admin/dashboard/commission-reports", icon: BarChart3 },
     ],
   },
   {

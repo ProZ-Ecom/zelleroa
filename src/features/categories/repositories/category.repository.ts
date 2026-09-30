@@ -219,16 +219,86 @@ export const categoryRepository = {
     const existing = await this.findByUuid(uuid);
     if (!existing) return null;
 
-    return db.productCategory.update({
-      where: { id: existing.id },
-      data: {
-        isActive: false,
-        deleted_at: new Date(),
-        // Free the unique slug so a new category can reuse it; the archived row
-        // keeps a namespaced slug instead of blocking the insert.
-        slug: retireUniqueValue(existing.slug, existing.id, 170),
-        ...(adminId ? { updated_by: adminId } : {}),
-      },
+    return db.$transaction(async (tx) => {
+      const category = await tx.productCategory.update({
+        where: { id: existing.id },
+        data: {
+          isActive: false,
+          deleted_at: new Date(),
+          // Free the unique slug so a new category can reuse it; the archived row
+          // keeps a namespaced slug instead of blocking the insert.
+          slug: retireUniqueValue(existing.slug, existing.id, 170),
+          ...(adminId ? { updated_by: adminId } : {}),
+        },
+      });
+
+      // Cascade the soft delete to every product under this category, and
+      // from there to their styles ("items" in the storefront) and item
+      // sub-variants, so nothing orphaned stays visible after the category
+      // disappears.
+      const now = new Date();
+
+      const products = await tx.product.findMany({
+        where: { categoryId: existing.id, deleted_at: null },
+        select: { id: true, slug: true },
+      });
+      await Promise.all(
+        products.map((product) =>
+          tx.product.update({
+            where: { id: product.id },
+            data: {
+              isActive: false,
+              deleted_at: now,
+              slug: retireUniqueValue(product.slug, product.id, 220),
+              ...(adminId ? { updated_by: adminId } : {}),
+            },
+          })
+        )
+      );
+
+      if (products.length > 0) {
+        const styles = await tx.style.findMany({
+          where: { productId: { in: products.map((p) => p.id) }, deleted_at: null },
+          select: { id: true, slug: true, sku: true },
+        });
+        await Promise.all(
+          styles.map((style) =>
+            tx.style.update({
+              where: { id: style.id },
+              data: {
+                isActive: false,
+                deleted_at: now,
+                slug: retireUniqueValue(style.slug, style.id, 220),
+                ...(style.sku ? { sku: retireUniqueValue(style.sku, style.id, 100) } : {}),
+                ...(adminId ? { updated_by: adminId } : {}),
+              },
+            })
+          )
+        );
+
+        if (styles.length > 0) {
+          const items = await tx.item.findMany({
+            where: { styleId: { in: styles.map((s) => s.id) }, deleted_at: null },
+            select: { id: true, slug: true, sku: true },
+          });
+          await Promise.all(
+            items.map((item) =>
+              tx.item.update({
+                where: { id: item.id },
+                data: {
+                  isActive: false,
+                  deleted_at: now,
+                  slug: retireUniqueValue(item.slug, item.id, 220),
+                  ...(item.sku ? { sku: retireUniqueValue(item.sku, item.id, 100) } : {}),
+                  ...(adminId ? { updated_by: adminId } : {}),
+                },
+              })
+            )
+          );
+        }
+      }
+
+      return category;
     });
   },
 

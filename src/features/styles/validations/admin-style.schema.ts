@@ -3,8 +3,17 @@ import { vegTypeEnum } from "@/features/products/validations/admin-product.schem
 
 export { vegTypeEnum };
 
+// Every Item belongs to exactly one Brand (multi-brand store). Only the Brand's
+// public UUID is sent; the service resolves it to the internal id.
+const brandUuid = z
+  .string({ message: "Brand is required" })
+  .trim()
+  .min(1, "Brand is required")
+  .uuid("Invalid Brand UUID format");
+
 export const createAdminStyleSchema = z
   .object({
+    brandId: brandUuid,
     name: z
       .string({ message: "Style name is required" })
       .trim()
@@ -45,6 +54,9 @@ export type CreateAdminStyleInput = z.infer<typeof createAdminStyleSchema>;
 
 export const updateAdminStyleSchema = z
   .object({
+    // Optional so partial updates still work, but never nullable - an Item
+    // can switch brands, not lose its brand.
+    brandId: brandUuid.optional(),
     name: z
       .string()
       .trim()

@@ -6,7 +6,6 @@ import { ApiError } from "@/lib/api/api-error";
 import { userRepository } from "../repositories/user.repository";
 import { otpRepository } from "@/features/auth/repositories/otp.repository";
 import { verifyEmailVerificationToken } from "@/lib/auth/jwt";
-import { getAttributingAgent } from "@/lib/referral/agent-attribution";
 import type { GetUserParams, CreateUserInput, UpdateUserInput } from "../types";
 import type { RegisterInput } from "../validations/user.schema";
 
@@ -103,11 +102,6 @@ export const userService = {
       const hashedPassword = await bcrypt.hash(data.password, 12);
       const userUuid = crypto.randomUUID();
 
-      // First-touch attribution: a brand-new user has no referred_by_agent_id
-      // yet, so this is the only place it's ever written - the referral_agent
-      // cookie is never consulted again after signup.
-      const attributingAgentId = request ? await getAttributingAgent(request) : null;
-
       // Create user
       const newUser = await tx.user.create({
         data: {
@@ -119,10 +113,6 @@ export const userService = {
           role: { connect: { id: BigInt(3) } }, // CUSTOMER
           status: "active",
           email_verified_at: new Date(),
-          agent_referrer: attributingAgentId
-            ? { connect: { id: attributingAgentId } }
-            : undefined,
-          referred_at: attributingAgentId ? new Date() : null,
         },
       });
 

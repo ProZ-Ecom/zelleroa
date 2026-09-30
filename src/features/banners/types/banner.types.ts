@@ -17,6 +17,9 @@ export interface BannerDto {
   videoUrl: string | null;
   thumbnailUrl: string | null;
   linkUrl: string | null;
+  badgeLabel: string | null;
+  subtitle: string | null;
+  priceText: string | null;
   sortOrder: number;
   isActive: boolean;
   startsAt: Date | null;
@@ -39,6 +42,9 @@ export interface CustomerBannerDto {
   videoUrl: string | null;
   thumbnailUrl: string | null;
   linkUrl: string | null;
+  badgeLabel: string | null;
+  subtitle: string | null;
+  priceText: string | null;
   sortOrder: number;
   bannerPosition: BannerPositionSummaryDto;
 }

@@ -9,6 +9,11 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { formatPrice } from "@/lib/utils";
+import {
+  DELIVERY_ESTIMATE,
+  FREE_DELIVERY_STATE,
+  OTHER_STATE_DELIVERY_CHARGE,
+} from "@/features/orders/shipping";
 import type { CartSummaryType } from "../types";
 
 interface CartSummaryProps {
@@ -22,17 +27,6 @@ function CartSummary({
   onCheckout,
   isCheckingOut = false,
 }: CartSummaryProps) {
-  const freeShippingThreshold = 500;
-  const subtotal = Number(summary.subtotal || 0);
-  const remainingForFreeShipping = Math.max(
-    0,
-    freeShippingThreshold - subtotal
-  );
-  const progressPercent = Math.min(
-    100,
-    Math.round((subtotal / freeShippingThreshold) * 100)
-  );
-
   return (
     <div className="rounded-2xl border border-theme-border bg-theme-surface shadow-xs overflow-hidden">
       {/* Header */}
@@ -44,25 +38,15 @@ function CartSummary({
       </div>
 
       <div className="p-5 space-y-5">
-        {/* Free Shipping Progress */}
-        <div className="rounded-xl border border-theme-border-subtle bg-theme-surface-alt p-3.5 space-y-2">
-          <div className="flex items-center justify-between text-xs font-medium">
-            <span className="flex items-center gap-1.5 text-theme-primary">
-              <Truck className="h-3.5 w-3.5 text-theme-secondary" />
-              {remainingForFreeShipping > 0
-                ? `Add ${formatPrice(remainingForFreeShipping)} more for FREE delivery`
-                : "You unlocked FREE Standard Delivery!"}
-            </span>
-            <span className="text-theme-text-muted font-semibold">
-              {progressPercent}%
-            </span>
-          </div>
-          <div className="h-1.5 w-full overflow-hidden rounded-full bg-theme-border">
-            <div
-              className="h-full rounded-full bg-theme-secondary transition-all duration-500"
-              style={{ width: `${progressPercent}%` }}
-            />
-          </div>
+        {/* Delivery Info */}
+        <div className="rounded-xl border border-theme-border-subtle bg-theme-surface-alt p-3.5 space-y-1">
+          <p className="flex items-center gap-1.5 text-xs font-medium text-theme-primary">
+            <Truck className="h-3.5 w-3.5 text-theme-secondary" />
+            FREE delivery within {FREE_DELIVERY_STATE}
+          </p>
+          <p className="text-[11px] text-theme-text-muted">
+            {formatPrice(OTHER_STATE_DELIVERY_CHARGE)} for other states · Delivered in {DELIVERY_ESTIMATE}
+          </p>
         </div>
 
         {/* Pricing Breakdown */}
@@ -94,13 +78,13 @@ function CartSummary({
 
           <div className="flex justify-between items-center text-sm">
             <span className="text-theme-text-subtle">Delivery Charges</span>
-            {summary.shippingCharge === 0 || remainingForFreeShipping === 0 ? (
-              <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-theme-status-del-bg text-theme-status-del-fg font-bold text-xs">
-                FREE
-              </span>
-            ) : (
+            {summary.shippingCharge > 0 ? (
               <span className="font-semibold text-theme-text-primary">
                 {formatPrice(summary.shippingCharge)}
+              </span>
+            ) : (
+              <span className="text-xs text-theme-text-muted">
+                Calculated at checkout
               </span>
             )}
           </div>

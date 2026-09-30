@@ -118,7 +118,7 @@ function buildCandidates(
         ? row.items
         : row.items.filter((item) => item.name.toLowerCase().includes(needle));
 
-      const brand = row.product.brand;
+      const brand = row.brand ?? row.product.brand;
       const brandRef =
         brand && brand.isActive && !brand.deleted_at
           ? { id: brand.uuid || String(brand.id), key: brand.slug.toLowerCase(), name: brand.name }
@@ -257,12 +257,13 @@ function resolveFilters(
   }
 
   const knownBrands = new Set(candidates.map((c) => c.brand?.key).filter(Boolean));
-  const knownGenders = new Set(candidates.map((c) => c.gender).filter(Boolean));
 
   return {
     attributes,
     brands: new Set(query.brands.filter((b) => knownBrands.has(b))),
-    genders: new Set(query.genders.filter((g) => knownGenders.has(g))),
+    // Kept even when no product has this gender: dropping it would show every
+    // audience (e.g. men's items under Women) instead of an empty list.
+    genders: new Set(query.genders),
     minPrice: query.minPrice,
     maxPrice: query.maxPrice,
     inStockOnly: query.inStockOnly,
@@ -741,6 +742,7 @@ export const catalogListingService = {
     categoryKey: string;
     productLimit: number;
     itemLimit: number;
+    gender?: "men" | "women" | "kids" | "unisex";
   }): Promise<CategoryMenuDto> {
     const allCategories = await catalogListingRepository.findActiveCategories();
     const row = catalogListingRepository.resolveCategoryKey(allCategories, params.categoryKey);
@@ -750,6 +752,7 @@ export const catalogListingService = {
     const products = await catalogListingRepository.findMenuProducts({
       categoryIds: subtreeIds,
       take: params.productLimit,
+      gender: params.gender,
     });
 
     return {

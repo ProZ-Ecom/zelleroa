@@ -524,7 +524,7 @@ export default function AdminVariantsPage() {
                 className="h-11 rounded-xl bg-[var(--color-secondary-600)] px-5 text-sm font-semibold text-white hover:bg-[var(--color-secondary-700)] cursor-pointer"
               >
                 <Plus className="mr-2 h-4 w-4" />
-                Add Item
+                Add Variant
               </Button>
             </div>
           </div>
@@ -569,7 +569,7 @@ export default function AdminVariantsPage() {
                       className="mt-5 rounded-xl bg-[var(--color-secondary-600)] text-xs font-semibold text-white"
                     >
                       <Plus className="mr-1.5 h-3.5 w-3.5" />
-                      Add Item
+                      Add Variant
                     </Button>
                   </div>
                 ) : (
@@ -669,7 +669,7 @@ export default function AdminVariantsPage() {
         onClose={handleCloseCreateModal}
         title={
           createStep === 1
-            ? "Add Product Item"
+            ? "Add Variant"
             : createStep === 2
               ? `Units & Pricing: ${createdVariant?.name || "Item"}`
               : createStep === 3

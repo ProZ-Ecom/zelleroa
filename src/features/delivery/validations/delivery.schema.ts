@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { INDIA_POST_CONSIGNMENT_REGEX } from "@/lib/shipping/india-post";
 
 /* ----------------------- Admin Delivery Schemas ----------------------- */
 
@@ -88,20 +89,18 @@ export type AssignDeliveryInput = z.infer<typeof assignDeliverySchema>;
 export const shipViaCourierSchema = z
   .object({
     orderId: z.string().uuid("Invalid order UUID"),
+    trackingNumber: z
+      .string()
+      .trim()
+      .toUpperCase()
+      .regex(
+        INDIA_POST_CONSIGNMENT_REGEX,
+        "Enter a valid Speed Post consignment number (e.g. EE123456789IN)"
+      ),
   })
   .strict();
 
 export type ShipViaCourierInput = z.infer<typeof shipViaCourierSchema>;
-
-export const refreshCourierTrackingSchema = z
-  .object({
-    shipmentId: z.string().uuid("Invalid shipment UUID"),
-  })
-  .strict();
-
-export type RefreshCourierTrackingInput = z.infer<
-  typeof refreshCourierTrackingSchema
->;
 
 /* ----------------------- Staff Delivery Schemas ----------------------- */
 

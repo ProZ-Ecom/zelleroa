@@ -47,7 +47,7 @@ export default function AdminStylesPage() {
   });
 
   const { data: categoriesData } = useCategories({ pageSize: 100 });
-  const { data: productsData } = useAdminProducts({ pageSize: 200 });
+  const { data: productsData } = useAdminProducts({ pageSize: 100 }); // API max is 100
 
   const createStyleMutation = useCreateStyle();
   const updateStyleMutation = useUpdateStyle();
@@ -101,6 +101,11 @@ export default function AdminStylesPage() {
       accessorKey: "productName",
       header: "Product",
       cell: ({ row }) => <span className="text-[var(--color-neutral-700)]">{row.original.productName || "—"}</span>,
+    },
+    {
+      accessorKey: "brandName",
+      header: "Brand",
+      cell: ({ row }) => <span className="text-[var(--color-neutral-700)]">{row.original.brandName || "—"}</span>,
     },
     {
       accessorKey: "categoryName",
@@ -179,7 +184,7 @@ export default function AdminStylesPage() {
     <div className="flex flex-1 min-h-0 flex-col">
       <AdminPageHeader
         title="Item Management"
-        description="Manage the sellable Items customers see - each groups one or more admin-only sub-variants."
+        description="Manage the sellable Items customers see - each groups one or more admin-only Models."
       />
 
       <AdminContent className="flex-1 min-h-0 overflow-hidden">
@@ -273,13 +278,15 @@ export default function AdminStylesPage() {
             <Select
               value={addProductUuid}
               onChange={(e) => setAddProductUuid(e.target.value)}
-              options={[{ value: "", label: "Select a product" }, ...productOptions]}
+              options={productOptions}
+              placeholder="Select a product"
               className="h-10 rounded-lg"
             />
           </div>
 
           {addProductUuid && (
             <StyleForm
+              defaultBrandId={products.find((p) => p.id === addProductUuid)?.brandId ?? null}
               isLoading={createStyleMutation.isPending}
               submitLabel="Create Item"
               onSubmit={async (formData: StyleFormValues) => {
@@ -287,6 +294,7 @@ export default function AdminStylesPage() {
                   await createStyleMutation.mutateAsync({
                     productUuid: addProductUuid,
                     data: {
+                      brandId: formData.brandId,
                       name: formData.name,
                       slug: formData.slug,
                       sku: formData.sku || null,
@@ -328,6 +336,7 @@ export default function AdminStylesPage() {
           <StyleForm
             isEditing
             initialData={{
+              brandId: editingStyle.brandId || "",
               name: editingStyle.name,
               slug: editingStyle.slug,
               sku: editingStyle.sku || "",
@@ -348,6 +357,7 @@ export default function AdminStylesPage() {
                   productUuid: editingStyle.productId,
                   styleUuid: editingStyle.id,
                   data: {
+                    brandId: formData.brandId,
                     name: formData.name,
                     slug: formData.slug,
                     sku: formData.sku || null,

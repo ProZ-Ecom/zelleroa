@@ -121,7 +121,7 @@ export const features = [
     id: 1,
     image: ICONS.shipping,
     name: "Fast, Free Shipping",
-    footer: "On all orders above ₹999",
+    footer: "Across Tamil Nadu",
   },
   {
     id: 2,

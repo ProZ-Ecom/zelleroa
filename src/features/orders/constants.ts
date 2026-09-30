@@ -1,3 +1,4 @@
+import { DELIVERY_ESTIMATE, OTHER_STATE_DELIVERY_CHARGE } from "./shipping";
 import type {
   DeliveryMethod,
   PaymentMethod,
@@ -7,8 +8,8 @@ export const DELIVERY_OPTIONS: Record<
   DeliveryMethod,
   { label: string; cost: number; description: string }
 > = {
-  standard: { label: "Standard Delivery", cost: 49, description: "3 - 5 business days" },
-  express: { label: "Express Delivery", cost: 99, description: "1 - 2 business days" },
+  standard: { label: "Standard Delivery", cost: OTHER_STATE_DELIVERY_CHARGE, description: DELIVERY_ESTIMATE },
+  express: { label: "Express Delivery", cost: OTHER_STATE_DELIVERY_CHARGE, description: DELIVERY_ESTIMATE },
 };
 
 export const PAYMENT_METHOD_OPTIONS: {

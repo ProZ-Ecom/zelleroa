@@ -153,14 +153,35 @@ export const adminOrdersListSchema = z
 
 export type AdminOrdersListInput = z.infer<typeof adminOrdersListSchema>;
 
+/** Customer cancellation: a reason is mandatory, the comment is optional. */
 export const cancelOrderSchema = z
   .object({
-    note: z.string().max(255, "Note cannot exceed 255 characters").optional(),
+    reason: z
+      .string({ error: "Cancellation reason is required" })
+      .trim()
+      .min(1, "Cancellation reason is required")
+      .max(100, "Reason cannot exceed 100 characters"),
+    comment: z
+      .string()
+      .trim()
+      .max(500, "Comment cannot exceed 500 characters")
+      .optional(),
   })
   .strict();
 
 export type CancelOrderInput = z.infer<typeof cancelOrderSchema>;
 export type CancelOrderSchemaInput = CancelOrderInput;
+
+/** Admin cancellation keeps the reason optional (defaults to a generic one). */
+export const adminCancelOrderSchema = z
+  .object({
+    reason: z.string().trim().max(100).optional(),
+    comment: z.string().trim().max(500).optional(),
+    note: z.string().max(255, "Note cannot exceed 255 characters").optional(),
+  })
+  .strict();
+
+export type AdminCancelOrderInput = z.infer<typeof adminCancelOrderSchema>;
 
 export const updateOrderStatusSchema = z
   .object({
@@ -223,6 +244,7 @@ export const checkoutSummarySchema = z
   .object({
     deliveryMethod: z.string().optional().default("STANDARD"),
     couponCode: z.string().trim().max(50).optional(),
+    shippingAddressId: z.string().optional(),
   })
   .passthrough();
 

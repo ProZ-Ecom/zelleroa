@@ -144,9 +144,10 @@ export const customerCatalogApi = {
    * Header menu preview: Products (with their Items) under a category.
    * GET /api/customer/catalog/menu?category=
    */
-  async getCategoryMenu(category: string): Promise<CategoryMenuDto> {
+  async getCategoryMenu(category: string, gender?: string | null): Promise<CategoryMenuDto> {
+    const genderQuery = gender ? `&gender=${encodeURIComponent(gender)}` : "";
     const response = await apiClient.get<CategoryMenuDto>(
-      `/api/customer/catalog/menu?category=${encodeURIComponent(category)}`
+      `/api/customer/catalog/menu?category=${encodeURIComponent(category)}${genderQuery}`
     );
     return response.data ?? { products: [] };
   },

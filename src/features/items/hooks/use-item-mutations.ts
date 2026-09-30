@@ -1,7 +1,7 @@
 "use client";
 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { itemKeys, variantKeys } from "@/lib/api/query-keys";
+import { itemKeys, productKeys, styleKeys, variantKeys } from "@/lib/api/query-keys";
 import { createAdminItem, updateAdminItem, deleteAdminItem } from "../api/get-items";
 
 export function useCreateItem() {
@@ -19,6 +19,8 @@ export function useCreateItem() {
     }) => createAdminItem(productUuid, styleUuid, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: itemKeys.all });
+      queryClient.invalidateQueries({ queryKey: productKeys.all });
+      queryClient.invalidateQueries({ queryKey: styleKeys.all });
     },
   });
 }
@@ -40,6 +42,8 @@ export function useUpdateItem() {
     }) => updateAdminItem(productUuid, styleUuid, itemUuid, data),
     onSuccess: (_result, variables) => {
       queryClient.invalidateQueries({ queryKey: itemKeys.all });
+      queryClient.invalidateQueries({ queryKey: productKeys.all });
+      queryClient.invalidateQueries({ queryKey: styleKeys.all });
       queryClient.invalidateQueries({ queryKey: itemKeys.detail(variables.itemUuid) });
       // The Item's name/slug/base price feed variant/unit-price display copy too.
       queryClient.invalidateQueries({ queryKey: variantKeys.all });
@@ -62,6 +66,8 @@ export function useDeleteItem() {
     }) => deleteAdminItem(productUuid, styleUuid, itemUuid),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: itemKeys.all });
+      queryClient.invalidateQueries({ queryKey: productKeys.all });
+      queryClient.invalidateQueries({ queryKey: styleKeys.all });
       queryClient.invalidateQueries({ queryKey: variantKeys.all });
     },
   });

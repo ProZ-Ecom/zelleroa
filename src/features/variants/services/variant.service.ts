@@ -1,4 +1,5 @@
 import crypto from "crypto";
+import { recordStockMovement } from "@/features/inventory/services/stock-ledger.service";
 import { db } from "@/lib/db/prisma";
 import { ApiError } from "@/lib/api/api-error";
 import { variantRepository } from "../repositories/variant.repository";
@@ -878,7 +879,7 @@ export const variantService = {
           await tx.inventory.create({
             data: {
               variantUnitPriceId: unitPrice.id,
-              quantity_available: initialStock,
+              quantity_available: 0,
               quantity_reserved: 0,
               is_active: true,
               created_by: adminId,
@@ -887,15 +888,13 @@ export const variantService = {
           });
 
           if (initialStock > 0) {
-            await tx.inventoryTransaction.create({
-              data: {
-                variant_unit_price_id: unitPrice.id,
-                type: "in",
-                quantity: initialStock,
-                note: "Initial stock from bulk variant generation",
-                created_by: adminId,
-                updated_by: adminId,
-              },
+            await recordStockMovement(tx, {
+              variantUnitPriceId: unitPrice.id,
+              movementType: "ADJUSTMENT",
+              direction: "in",
+              quantity: initialStock,
+              reason: "Opening stock (bulk variant generation)",
+              actorId: adminId,
             });
           }
 

@@ -1,28 +1,20 @@
 "use client";
 
+import * as React from "react";
 import { FormProvider, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { createCategorySchema } from "../validations/category.schema";
-import { FormInput } from "@/components/forms/form-input";
+import { FormInput, formatSlug } from "@/components/forms/form-input";
 import { FormTextarea } from "@/components/forms/form-textarea";
 import { FormImageUpload } from "@/components/forms/form-image-upload";
-import { FormSelect } from "@/components/forms/form-select";
 import { FormSubmitButton } from "@/components/forms/form-submit-button";
 import type { z } from "zod";
 
 type CategoryFormData = z.infer<typeof createCategorySchema>;
 
-interface ParentCategoryOption {
-  value: string;
-  label: string;
-}
-
 interface CategoryFormProps {
   initialData?: Record<string, unknown>;
   isEditing?: boolean;
-  parentCategories?: ParentCategoryOption[];
-  /** When true, a parent must be chosen — used by the Subcategories page, where "None" doesn't make sense. */
-  requireParent?: boolean;
   onSubmit: (data: CategoryFormData) => Promise<void>;
   isLoading?: boolean;
   submitLabel?: string;
@@ -31,8 +23,6 @@ interface CategoryFormProps {
 function CategoryForm({
   initialData,
   isEditing = false,
-  parentCategories = [],
-  requireParent = false,
   onSubmit,
   isLoading = false,
   submitLabel = "Save Category",
@@ -54,6 +44,21 @@ function CategoryForm({
     },
   });
 
+  const [codeTouched, setCodeTouched] = React.useState<boolean>(() =>
+    Boolean(initialData?.slug)
+  );
+  const watchedName = methods.watch("name");
+
+  // Fill in the code from the Category Name automatically, same convention as
+  // ItemEntityForm's code field - stops as soon as the admin edits it by hand.
+  React.useEffect(() => {
+    if (codeTouched) return;
+    methods.setValue("slug", formatSlug(watchedName || ""), {
+      shouldValidate: methods.formState.isSubmitted,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [watchedName, codeTouched]);
+
   return (
     <FormProvider {...methods}>
       <form
@@ -73,9 +78,10 @@ function CategoryForm({
 
           <FormInput
             name="slug"
-            label="Category Code"
+            label="Category Code (fills in automatically)"
             placeholder="e.g. SWEETS_SNACKS"
             infoMessage="Use letters, numbers, and underscores only (e.g. SWEETS_SNACKS). No spaces or other special characters allowed."
+            onFocus={() => setCodeTouched(true)}
             required
           />
         </div>
@@ -92,18 +98,6 @@ function CategoryForm({
           folder="categories"
           infoMessage="Upload a JPG, PNG, or WebP image up to 5MB. Recommended size: 500 × 500 px."
           required
-        />
-
-        <FormSelect
-          name="parentId"
-          label="Parent Category"
-          placeholder={requireParent ? "Select a parent category" : "None (Top Level)"}
-          required={requireParent}
-          options={
-            requireParent
-              ? parentCategories
-              : [{ value: "", label: "None (Top Level)" }, ...parentCategories]
-          }
         />
 
         {/* <FormCheckbox

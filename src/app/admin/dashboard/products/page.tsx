@@ -6,9 +6,6 @@ import {
   useCreateProduct,
   useUpdateProduct,
   useDeleteProduct,
-  useCreateProductImages,
-  useDeleteProductImage,
-  useProductImages,
 } from "@/features/products/hooks";
 import { useCategories } from "@/features/categories/hooks";
 import { useBrands } from "@/features/brands/hooks";
@@ -32,6 +29,7 @@ import type { ColumnDef } from "@tanstack/react-table";
 import type { AdminProductResponse } from "@/features/products/types";
 import { ProductForm } from "@/features/products/components/ProductForm";
 import { ProductAttributesPanel } from "@/features/products/components/ProductAttributesPanel";
+import { ProductImageUploader } from "@/features/products/components/ProductImageUploader";
 
 export default function AdminProductsPage() {
   const [search, setSearch] = useState("");
@@ -74,38 +72,6 @@ export default function AdminProductsPage() {
   const createMutation = useCreateProduct();
   const updateMutation = useUpdateProduct();
   const deleteMutation = useDeleteProduct();
-  const createImagesMutation = useCreateProductImages();
-  const deleteImageMutation = useDeleteProductImage();
-
-  // Existing primary image for the product being edited (to prefill the form)
-  const { data: selectedProductImages = [], isLoading: isLoadingSelectedProductImages } = useProductImages(
-    isEditOpen ? selectedProduct?.id ?? null : null
-  );
-  const selectedProductPrimaryImage =
-    selectedProductImages.find((img) => img.isPrimary)?.imageUrl ||
-    selectedProductImages[0]?.imageUrl ||
-    null;
-
-  // A product carries only one image — remove any existing ones before saving the new one
-  const saveProductPrimaryImage = async (
-    productUuid: string,
-    imageUrl: string,
-    existingImages: { id: string }[] = []
-  ) => {
-    try {
-      await Promise.all(
-        existingImages.map((img) =>
-          deleteImageMutation.mutateAsync({ productUuid, imageId: img.id })
-        )
-      );
-      await createImagesMutation.mutateAsync({
-        productUuid,
-        images: [{ imageUrl, isPrimary: true }],
-      });
-    } catch (err) {
-      console.error("Failed to save product image", err);
-    }
-  };
 
   const handleClearFilters = () => {
     setSearch("");
@@ -328,6 +294,13 @@ export default function AdminProductsPage() {
       >
         {createdProductId ? (
           <div className="space-y-5">
+            <div>
+              <h3 className="text-sm font-bold text-neutral-900 mb-3">Product Images</h3>
+              <ProductImageUploader
+                productUuid={createdProductId}
+                productName={createdProductName}
+              />
+            </div>
             <ProductAttributesPanel productUuid={createdProductId} />
             <div className="flex justify-end pt-2 border-t border-neutral-100">
               <Button
@@ -363,9 +336,6 @@ export default function AdminProductsPage() {
 
               const created = await createMutation.mutateAsync(payload);
 
-              if (formData.productImage && created?.data?.id) {
-                await saveProductPrimaryImage(created.data.id, formData.productImage);
-              }
               if (created?.data?.id) {
                 setCreatedProductId(created.data.id);
                 setCreatedProductName(formData.name);
@@ -389,9 +359,9 @@ export default function AdminProductsPage() {
         description="Update the selected product"
         size="lg"
       >
-        {selectedProduct && !isLoadingSelectedProductImages && (
+        {selectedProduct && (
           <ProductForm
-            key={`${selectedProduct.id}-${selectedProductPrimaryImage ?? ""}`}
+            key={selectedProduct.id}
             initialData={{
               name: selectedProduct.name,
               slug: selectedProduct.slug,
@@ -400,7 +370,6 @@ export default function AdminProductsPage() {
               hsnCodeId: selectedProduct.hsnCodeId || "",
               gender: selectedProduct.gender || "unisex",
             }}
-            initialImageUrl={selectedProductPrimaryImage}
             isEditing
             categories={categoryOptions}
             brands={brandOptions}
@@ -423,22 +392,20 @@ export default function AdminProductsPage() {
               });
 
               setIsEditOpen(false);
-
-              if (
-                formData.productImage &&
-                formData.productImage !== selectedProductPrimaryImage
-              ) {
-                await saveProductPrimaryImage(
-                  selectedProduct.id,
-                  formData.productImage,
-                  selectedProductImages
-                );
-              }
-
               setSelectedProduct(null);
               refetch();
             }}
           />
+        )}
+
+        {selectedProduct && (
+          <div className="mt-8 pt-6 border-t border-neutral-100">
+            <h3 className="text-sm font-bold text-neutral-900 mb-3">Product Images</h3>
+            <ProductImageUploader
+              productUuid={selectedProduct.id}
+              productName={selectedProduct.name}
+            />
+          </div>
         )}
 
         {selectedProduct && (

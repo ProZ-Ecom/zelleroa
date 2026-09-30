@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { useBrands } from "@/features/brands/hooks";
 import {
   ItemEntityForm,
   type ItemEntityFormValues,
@@ -24,6 +25,8 @@ interface StyleFormProps {
   onSubmit: (data: StyleFormValues) => Promise<void>;
   isLoading?: boolean;
   submitLabel?: string;
+  /** Brand pre-selected on a new Item - normally the parent Product's brand. */
+  defaultBrandId?: string | null;
 }
 
 function StyleForm({
@@ -32,10 +35,32 @@ function StyleForm({
   onSubmit,
   isLoading = false,
   submitLabel = "Save Item",
+  defaultBrandId,
 }: StyleFormProps) {
+  // Same active-brand list (and cache entry) the Product form uses.
+  const { data: brandsData, isLoading: isLoadingBrands } = useBrands({ limit: 100 });
+  const brandOptions = React.useMemo(
+    () => (brandsData?.data ?? []).map((b) => ({ value: b.uuid || String(b.id), label: b.name })),
+    [brandsData]
+  );
+
+  const formInitialData = React.useMemo(
+    () =>
+      !initialData?.brandId && defaultBrandId
+        ? { ...initialData, brandId: defaultBrandId }
+        : initialData,
+    [initialData, defaultBrandId]
+  );
+
   return (
     <ItemEntityForm
-      initialData={initialData}
+      initialData={formInitialData}
+      brandOptions={brandOptions}
+      brandDescription={
+        !isLoadingBrands && brandOptions.length === 0
+          ? "No active brands yet - add one on the Brands page first."
+          : undefined
+      }
       isEditing={isEditing}
       isLoading={isLoading}
       submitLabel={submitLabel}

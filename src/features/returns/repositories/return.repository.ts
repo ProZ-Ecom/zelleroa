@@ -1,440 +1,388 @@
 import crypto from "crypto";
+import { voidCommissions } from "@/features/agents/services/commission.service";
 import { db } from "@/lib/db/prisma";
+import { ApiError } from "@/lib/api/api-error";
+import { recordStockMovement } from "@/features/inventory/services/stock-ledger.service";
 import { Prisma } from "@/generated/prisma";
+import { adminReturnInclude } from "../lib/includes";
+import { findItemConflicts, lockOrder } from "../lib/guards";
+import type { ReturnAction, ReturnStatus } from "../lib/policy";
 import type {
-  CustomerReturnListInput,
   AdminReturnListInput,
+  CustomerReturnListInput,
 } from "../validations/return.schema";
 
-const returnDetailInclude = {
-  orders: {
-    select: {
-      id: true,
-      uuid: true,
-      orderNumber: true,
-      order_status: true,
-      totalAmount: true,
-      placed_at: true,
-      createdAt: true,
-    },
-  },
-  users_return_requests_user_idTousers: {
-    select: {
-      id: true,
-      uuid: true,
-      name: true,
-      email: true,
-      phone: true,
-    },
-  },
-  return_items: {
+export interface Actor {
+  id: bigint;
+  type: "USER" | "ADMIN" | "STAFF" | "SYSTEM";
+}
+
+export async function findOrderForRequest(orderUuid: string) {
+  return db.order.findFirst({
+    where: { uuid: orderUuid, is_active: true },
     include: {
-      order_items: {
-        select: {
-          id: true,
-          uuid: true,
-          product_name_snapshot: true,
-          variant_snapshot: true,
-          sku_snapshot: true,
-          quantity: true,
-          unit_price: true,
-          total_price: true,
-        },
-      },
+      items: { where: { is_active: true } },
+      order_status_history: { where: { is_active: true } },
     },
-  },
-};
+  });
+}
+
+function sortColumn(sortBy: string | undefined) {
+  switch (sortBy) {
+    case "createdAt":
+      return "created_at";
+    case "updatedAt":
+      return "updated_at";
+    case "approvedAt":
+      return "approved_at";
+    default:
+      return "requested_at";
+  }
+}
+
+function searchWhere(search?: string): Prisma.return_requestsWhereInput | undefined {
+  const s = search?.trim();
+  if (!s) return undefined;
+  return {
+    OR: [
+      { reason: { contains: s } },
+      { uuid: { contains: s } },
+      { orders: { orderNumber: { contains: s } } },
+      { users_return_requests_user_idTousers: { name: { contains: s } } },
+      { users_return_requests_user_idTousers: { email: { contains: s } } },
+      { users_return_requests_user_idTousers: { phone: { contains: s } } },
+    ],
+  };
+}
+
+async function list(
+  base: Prisma.return_requestsWhereInput,
+  params: CustomerReturnListInput | AdminReturnListInput
+) {
+  const page = params.page ?? 1;
+  const limit = params.limit ?? 10;
+  const where: Prisma.return_requestsWhereInput = {
+    ...base,
+    is_active: true,
+    ...(params.status ? { status: params.status } : {}),
+    ...searchWhere(params.search),
+  };
+  const [requests, total] = await Promise.all([
+    db.return_requests.findMany({
+      where,
+      orderBy: { [sortColumn(params.sortBy)]: params.sortOrder ?? "desc" },
+      skip: (page - 1) * limit,
+      take: limit,
+      include: adminReturnInclude,
+    }),
+    db.return_requests.count({ where }),
+  ]);
+  return { requests, total, page, limit };
+}
+
+export interface CreateReturnParams {
+  orderId: bigint;
+  userId: bigint;
+  reason: string;
+  description?: string | null;
+  unboxingVideoUrl: string;
+  items: { orderItemId: bigint; quantity: number; refundAmount: number; label: string }[];
+}
+
+export interface TransitionParams {
+  request: { id: bigint; status: ReturnStatus; orderId: bigint };
+  action: ReturnAction;
+  to: ReturnStatus;
+  actor: Actor;
+  comment?: string;
+  rejectionReason?: string;
+  pickupAt?: Date;
+  note?: string;
+}
 
 export const returnRepository = {
-  async findOrderWithItems(orderUuid: string) {
-    return db.order.findFirst({
-      where: { uuid: orderUuid, is_active: true },
-      include: {
-        items: {
-          where: { is_active: true },
-        },
-        user: {
-          select: {
-            id: true,
-            uuid: true,
-            name: true,
-            email: true,
-            phone: true,
-          },
-        },
-      },
-    });
-  },
+  findOrderForRequest,
 
-  async findActiveReturnsForOrderItems(orderItemIds: bigint[]) {
-    return db.return_items.findMany({
-      where: {
-        order_item_id: { in: orderItemIds },
-        is_active: true,
-        return_requests: {
-          status: { in: ["requested", "approved"] },
-          is_active: true,
-        },
-      },
-      include: {
-        return_requests: {
-          select: {
-            id: true,
-            uuid: true,
-            status: true,
-          },
-        },
-        order_items: {
-          select: {
-            id: true,
-            uuid: true,
-            product_name_snapshot: true,
-          },
-        },
-      },
-    });
-  },
-
-  async createReturnRequestTransaction(params: {
-    orderId: bigint;
-    userId: bigint;
-    reason: string;
-    items: {
-      orderItemId: bigint;
-      quantity: number;
-      reason?: string | null;
-    }[];
-  }) {
-    const returnUuid = crypto.randomUUID();
-    const now = new Date();
-
+  async create(params: CreateReturnParams) {
     return db.$transaction(async (tx) => {
-      const returnRequest = await tx.return_requests.create({
+      await lockOrder(tx, params.orderId);
+
+      const conflicts = await findItemConflicts(
+        tx,
+        params.items.map((i) => i.orderItemId)
+      );
+      if (conflicts.length > 0) {
+        const c = conflicts[0];
+        const label = params.items.find((i) => i.orderItemId === c.orderItemId)?.label ?? "item";
+        throw ApiError.conflict(
+          `An active ${c.kind} request already exists for '${label}'.`
+        );
+      }
+
+      const now = new Date();
+      const created = await tx.return_requests.create({
         data: {
-          uuid: returnUuid,
+          uuid: crypto.randomUUID(),
           order_id: params.orderId,
           user_id: params.userId,
           reason: params.reason,
-          status: "requested",
+          description: params.description || null,
+          unboxing_video_url: params.unboxingVideoUrl,
+          status: "return_requested",
           requested_at: now,
-          is_active: true,
           created_by: params.userId,
           updated_by: params.userId,
+          return_items: {
+            create: params.items.map((i) => ({
+              order_item_id: i.orderItemId,
+              quantity: i.quantity,
+              reason: params.reason,
+              refund_amount: i.refundAmount,
+              created_by: params.userId,
+              updated_by: params.userId,
+            })),
+          },
+          history: {
+            create: {
+              from_status: null,
+              to_status: "return_requested",
+              action: "requested",
+              note: params.description?.slice(0, 500) || null,
+              actor_user_id: params.userId,
+              actor_type: "USER",
+            },
+          },
         },
+        include: adminReturnInclude,
       });
-
-      await tx.return_items.createMany({
-        data: params.items.map((item) => ({
-          return_request_id: returnRequest.id,
-          order_item_id: item.orderItemId,
-          quantity: item.quantity,
-          reason: item.reason || null,
-          refund_amount: null,
-          is_active: true,
-          created_by: params.userId,
-          updated_by: params.userId,
-        })),
-      });
-
-      const fullRecord = await tx.return_requests.findUniqueOrThrow({
-        where: { id: returnRequest.id },
-        include: returnDetailInclude,
-      });
-
-      return fullRecord;
+      return created;
     });
   },
 
-  async findCustomerReturnRequests(
-    customerId: bigint,
-    params: CustomerReturnListInput
-  ) {
-    const page = params.page ?? 1;
-    const limit = params.limit ?? 10;
-    const skip = (page - 1) * limit;
-
-    const where: Prisma.return_requestsWhereInput = {
-      user_id: customerId,
-      is_active: true,
-    };
-
-    if (params.status) {
-      where.status = params.status;
-    }
-
-    if (params.search) {
-      const s = params.search.trim();
-      where.OR = [
-        { reason: { contains: s } },
-        { orders: { orderNumber: { contains: s } } },
-      ];
-    }
-
-    const sortOrder = params.sortOrder ?? "desc";
-    const sortBy = params.sortBy ?? "createdAt";
-    const orderBy: Prisma.return_requestsOrderByWithRelationInput = {
-      [sortBy === "requestedAt" ? "requested_at" : sortBy === "approvedAt" ? "approved_at" : sortBy === "updatedAt" ? "updated_at" : "created_at"]: sortOrder,
-    };
-
-    const [requests, total] = await Promise.all([
-      db.return_requests.findMany({
-        where,
-        orderBy,
-        skip,
-        take: limit,
-        include: returnDetailInclude,
-      }),
-      db.return_requests.count({ where }),
-    ]);
-
-    return {
-      requests,
-      total,
-      page,
-      limit,
-    };
+  listForCustomer(customerId: bigint, params: CustomerReturnListInput) {
+    return list({ user_id: customerId }, params);
   },
 
-  async findCustomerReturnRequestByUuid(uuid: string, customerId: bigint) {
+  listForAdmin(params: AdminReturnListInput) {
+    return list({}, params);
+  },
+
+  findByUuid(uuid: string, customerId?: bigint) {
     return db.return_requests.findFirst({
-      where: {
-        uuid,
-        user_id: customerId,
-        is_active: true,
-      },
-      include: returnDetailInclude,
+      where: { uuid, is_active: true, ...(customerId ? { user_id: customerId } : {}) },
+      include: adminReturnInclude,
     });
   },
 
-  async findReturnRequestByUuidOnly(uuid: string) {
-    return db.return_requests.findFirst({
-      where: {
-        uuid,
-        is_active: true,
-      },
-      include: returnDetailInclude,
-    });
-  },
-
-  async findAdminReturnRequests(params: AdminReturnListInput) {
-    const page = params.page ?? 1;
-    const limit = params.limit ?? 10;
-    const skip = (page - 1) * limit;
-
-    const where: Prisma.return_requestsWhereInput = {
-      is_active: true,
-    };
-
-    if (params.status) {
-      where.status = params.status;
-    }
-
-    if (params.search) {
-      const s = params.search.trim();
-      where.OR = [
-        { reason: { contains: s } },
-        { orders: { orderNumber: { contains: s } } },
-        { users_return_requests_user_idTousers: { name: { contains: s } } },
-        { users_return_requests_user_idTousers: { email: { contains: s } } },
-        { users_return_requests_user_idTousers: { phone: { contains: s } } },
-      ];
-    }
-
-    const sortOrder = params.sortOrder ?? "desc";
-    const sortBy = params.sortBy ?? "requestedAt";
-    const orderBy: Prisma.return_requestsOrderByWithRelationInput = {
-      [sortBy === "createdAt" ? "created_at" : sortBy === "approvedAt" ? "approved_at" : sortBy === "updatedAt" ? "updated_at" : "requested_at"]: sortOrder,
-    };
-
-    const [requests, total] = await Promise.all([
-      db.return_requests.findMany({
-        where,
-        orderBy,
-        skip,
-        take: limit,
-        include: returnDetailInclude,
-      }),
-      db.return_requests.count({ where }),
-    ]);
-
-    return {
-      requests,
-      total,
-      page,
-      limit,
-    };
-  },
-
-  async approveReturnRequest(returnRequestId: bigint, adminId: bigint) {
-    const now = new Date();
-    return db.return_requests.update({
-      where: { id: returnRequestId },
-      data: {
-        status: "approved",
-        approved_at: now,
-        updated_at: now,
-        updated_by: adminId,
-      },
-      include: returnDetailInclude,
-    });
-  },
-
-  async rejectReturnRequest(returnRequestId: bigint, adminId: bigint) {
-    const now = new Date();
-    return db.return_requests.update({
-      where: { id: returnRequestId },
-      data: {
-        status: "rejected",
-        updated_at: now,
-        updated_by: adminId,
-      },
-      include: returnDetailInclude,
-    });
-  },
-
-  async completePickupTransaction(params: {
-    returnRequestId: bigint;
-    orderId: bigint;
-    adminId: bigint;
-  }) {
-    const now = new Date();
-
+  /** Applies one workflow step atomically, with its side effects and audit row. */
+  async transition(p: TransitionParams) {
     return db.$transaction(async (tx) => {
-      const updatedReturn = await tx.return_requests.update({
-        where: { id: params.returnRequestId },
-        data: {
-          status: "picked_up",
-          updated_at: now,
-          updated_by: params.adminId,
-        },
-        include: returnDetailInclude,
-      });
+      const now = new Date();
 
-      const updatedOrder = await tx.order.update({
-        where: { id: params.orderId },
-        data: {
-          order_status: "returned",
-          updatedAt: now,
-          updated_by: params.adminId,
-        },
-      });
-
-      await tx.order_status_history.create({
-        data: {
-          order_id: params.orderId,
-          status: "returned",
-          note: "Return picked up and order marked returned",
-          changed_by: params.adminId,
-          is_active: true,
-          created_by: params.adminId,
-          updated_by: params.adminId,
-        },
-      });
-
-      return {
-        returnRequest: updatedReturn,
-        order: updatedOrder,
+      // Optimistic guard: only succeeds if nobody moved the request meanwhile.
+      const data: Prisma.return_requestsUpdateManyMutationInput & { updated_by: bigint } = {
+        status: p.to,
+        updated_at: now,
+        updated_by: p.actor.id,
       };
-    });
-  },
+      if (p.action === "approve") {
+        Object.assign(data, { approved_at: now, approved_by: p.actor.id, admin_comment: p.comment ?? null });
+      } else if (p.action === "reject") {
+        Object.assign(data, {
+          rejected_at: now,
+          rejected_by: p.actor.id,
+          rejection_reason: p.rejectionReason,
+          admin_comment: p.comment ?? null,
+        });
+      } else if (p.action === "pickup") {
+        Object.assign(data, { pickup_scheduled_at: p.pickupAt ?? now });
+      } else if (p.action === "complete" || p.action === "close") {
+        Object.assign(data, { completed_at: now });
+      }
+      if (p.comment && !["approve", "reject"].includes(p.action)) {
+        Object.assign(data, { admin_comment: p.comment });
+      }
 
-  async findPaymentByOrderId(orderId: bigint) {
-    return db.payment.findFirst({ where: { orderId } });
-  },
-
-  /**
-   * Retroactively records the COD collection as a Payment row, for orders that
-   * were paid on delivery and so never went through the online payment flow
-   * (the only place Payment rows are normally created). Needed so a refund -
-   * whose schema requires a payment_id - has something to attach to.
-   */
-  async findOrCreateCodPayment(params: {
-    orderId: bigint;
-    amount: number;
-    adminId: bigint;
-  }) {
-    const existing = await db.payment.findFirst({ where: { orderId: params.orderId } });
-    if (existing) return existing;
-
-    let codMethod = await db.payment_methods.findFirst({ where: { code: "COD" } });
-    if (!codMethod) {
-      codMethod = await db.payment_methods.create({
-        data: { name: "Cash on Delivery", code: "COD", is_active: true },
+      const moved = await tx.return_requests.updateMany({
+        where: { id: p.request.id, status: p.request.status },
+        data,
       });
-    }
+      if (moved.count !== 1) {
+        throw ApiError.conflict("This request was updated by someone else. Please refresh.");
+      }
 
-    return db.payment.create({
-      data: {
-        orderId: params.orderId,
-        payment_method_id: codMethod.id,
-        amount: params.amount,
-        currency: "INR",
-        status: "success",
-        created_by: params.adminId,
-        updated_by: params.adminId,
-      },
-    });
-  },
+      const items = await tx.return_items.findMany({
+        where: { return_request_id: p.request.id, is_active: true },
+        include: {
+          order_items: {
+            select: { id: true, quantity: true, total_price: true, variantUnitPriceId: true },
+          },
+        },
+      });
+      const orderId = p.request.orderId;
+      let historyNote = p.rejectionReason ?? p.note ?? p.comment ?? null;
 
-  async refundReturnTransaction(params: {
-    returnRequestId: bigint;
-    orderId: bigint;
-    paymentId: bigint;
-    amount: number;
-    refundStatus: "initiated" | "completed";
-    adminId: bigint;
-  }) {
-    const now = new Date();
+      if (p.action === "received") {
+        // Goods are physically back: put them on the shelf, one ledger row per line.
+        const orderRow = await tx.order.findUnique({
+          where: { id: orderId },
+          select: { orderNumber: true },
+        });
+        for (const item of items) {
+          if (!item.order_items.variantUnitPriceId) continue;
+          await recordStockMovement(tx, {
+            variantUnitPriceId: item.order_items.variantUnitPriceId,
+            movementType: "RETURN",
+            direction: "in",
+            quantity: item.quantity,
+            referenceType: "return_request",
+            referenceId: p.request.id,
+            referenceNumber: orderRow?.orderNumber,
+            reason: "Returned item received",
+            actorId: p.actor.id,
+          });
+        }
 
-    return db.$transaction(async (tx) => {
-      const refund = await tx.refunds.create({
+        await voidCommissions(tx, {
+          orderId,
+          orderItemIds: items.map((i) => i.order_item_id),
+          kind: "returned",
+          reason: "Item returned",
+          actor: { id: p.actor.id, role: "ADMIN" },
+        });
+
+        // Whole order back? then the order itself becomes "returned".
+        const received = await tx.return_items.findMany({
+          where: {
+            is_active: true,
+            return_requests: {
+              is_active: true,
+              order_id: orderId,
+              status: { in: ["received", "refund_pending", "refunded", "closed"] },
+              rejected_at: null,
+            },
+          },
+          select: { order_item_id: true, quantity: true },
+        });
+        const backById = new Map<string, number>();
+        for (const r of received) {
+          const k = String(r.order_item_id);
+          backById.set(k, (backById.get(k) ?? 0) + r.quantity);
+        }
+        const orderItems = await tx.orderItem.findMany({
+          where: { orderId, is_active: true },
+          select: { id: true, quantity: true },
+        });
+        // this request's own rows are already flipped to "received" by the update above
+        const full = orderItems.every((oi) => (backById.get(String(oi.id)) ?? 0) >= oi.quantity);
+        if (full) {
+          await tx.order.update({
+            where: { id: orderId },
+            data: { order_status: "returned", updatedAt: now, updated_by: p.actor.id },
+          });
+          await tx.commissions.updateMany({ where: { order_id: orderId }, data: { order_status: "returned" } });
+          await tx.order_status_history.create({
+            data: {
+              order_id: orderId,
+              status: "returned",
+              note: "All items returned and received",
+              changed_by: p.actor.id,
+              created_by: p.actor.id,
+              updated_by: p.actor.id,
+            },
+          });
+        }
+      }
+
+      if (p.action === "refund") {
+        const amount = items.reduce((sum, i) => sum + Number(i.refund_amount ?? i.order_items.total_price), 0);
+        let payment = await tx.payment.findFirst({ where: { orderId }, orderBy: { id: "asc" } });
+        if (!payment) {
+          let cod = await tx.payment_methods.findFirst({ where: { code: "COD" } });
+          if (!cod) {
+            cod = await tx.payment_methods.create({
+              data: { name: "Cash on Delivery", code: "COD", is_active: true },
+            });
+          }
+          const order = await tx.order.findUniqueOrThrow({ where: { id: orderId }, select: { totalAmount: true } });
+          payment = await tx.payment.create({
+            data: {
+              orderId,
+              payment_method_id: cod.id,
+              amount: order.totalAmount,
+              currency: "INR",
+              status: "success",
+              created_by: p.actor.id,
+              updated_by: p.actor.id,
+            },
+          });
+        }
+        await tx.refunds.create({
+          data: {
+            payment_id: payment.id,
+            order_id: orderId,
+            return_request_id: p.request.id,
+            amount,
+            reason: "Return approved",
+            status: "initiated",
+            created_by: p.actor.id,
+            updated_by: p.actor.id,
+          },
+        });
+        historyNote = `Refund of ₹${amount.toFixed(2)} initiated`;
+      }
+
+      if (p.action === "complete") {
+        const refunds = await tx.refunds.updateMany({
+          where: { return_request_id: p.request.id, status: { in: ["initiated", "processing"] } },
+          data: { status: "completed", processed_at: now, updated_by: p.actor.id },
+        });
+        const order = await tx.order.findUniqueOrThrow({
+          where: { id: orderId },
+          select: { totalAmount: true },
+        });
+        const agg = await tx.refunds.aggregate({
+          where: { order_id: orderId, status: "completed" },
+          _sum: { amount: true },
+        });
+        const refunded = Number(agg._sum.amount ?? 0);
+        await tx.order.update({
+          where: { id: orderId },
+          data: {
+            payment_status: refunded >= Number(order.totalAmount) ? "refunded" : "partial_refund",
+            updatedAt: now,
+            updated_by: p.actor.id,
+          },
+        });
+        await tx.order_status_history.create({
+          data: {
+            order_id: orderId,
+            status: "returned",
+            note: `Refund of ₹${refunded.toFixed(2)} completed`,
+            changed_by: p.actor.id,
+            created_by: p.actor.id,
+            updated_by: p.actor.id,
+          },
+        });
+        historyNote = refunds.count > 0 ? "Refund completed" : "Marked refunded";
+      }
+
+      await tx.return_request_history.create({
         data: {
-          payment_id: params.paymentId,
-          order_id: params.orderId,
-          amount: params.amount,
-          reason: "Return approved and refunded",
-          status: params.refundStatus,
-          processed_at: params.refundStatus === "completed" ? now : null,
-          created_by: params.adminId,
-          updated_by: params.adminId,
+          return_request_id: p.request.id,
+          from_status: p.request.status,
+          to_status: p.to,
+          action: p.action,
+          note: historyNote?.slice(0, 500) ?? null,
+          actor_user_id: p.actor.id,
+          actor_type: p.actor.type,
         },
       });
 
-      const updatedReturn = await tx.return_requests.update({
-        where: { id: params.returnRequestId },
-        data: {
-          status: "refunded",
-          updated_at: now,
-          updated_by: params.adminId,
-        },
-        include: returnDetailInclude,
+      return tx.return_requests.findUniqueOrThrow({
+        where: { id: p.request.id },
+        include: adminReturnInclude,
       });
-
-      const updatedOrder = await tx.order.update({
-        where: { id: params.orderId },
-        data: {
-          payment_status: "refunded",
-          updatedAt: now,
-          updated_by: params.adminId,
-        },
-      });
-
-      await tx.order_status_history.create({
-        data: {
-          order_id: params.orderId,
-          status: "returned",
-          note:
-            params.refundStatus === "completed"
-              ? `Refund of ₹${params.amount} completed`
-              : `Refund of ₹${params.amount} initiated`,
-          changed_by: params.adminId,
-          is_active: true,
-          created_by: params.adminId,
-          updated_by: params.adminId,
-        },
-      });
-
-      return { refund, returnRequest: updatedReturn, order: updatedOrder };
     });
   },
 };

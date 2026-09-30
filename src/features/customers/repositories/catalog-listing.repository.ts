@@ -25,6 +25,10 @@ const sellableUnitPriceWhere = {
   base_price: { gt: 0 },
 } satisfies Prisma.VariantUnitPriceWhereInput;
 
+const listingBrandSelect = {
+  select: { id: true, uuid: true, name: true, slug: true, isActive: true, deleted_at: true },
+} as const;
+
 const listingStyleSelect = {
   id: true,
   uuid: true,
@@ -33,15 +37,15 @@ const listingStyleSelect = {
   description: true,
   is_featured: true,
   createdAt: true,
+  // The Item's own brand; `product.brand` is only the legacy fallback.
+  brand: listingBrandSelect,
   product: {
     select: {
       id: true,
       name: true,
       gender: true,
       categoryId: true,
-      brand: {
-        select: { id: true, uuid: true, name: true, slug: true, isActive: true, deleted_at: true },
-      },
+      brand: listingBrandSelect,
     },
   },
   images: {
@@ -227,7 +231,7 @@ export const catalogListingRepository = {
    * each with its live Items (across all its Styles). Only Items with a
    * sellable Colour are included - the same rule the listing applies.
    */
-  async findMenuProducts(params: { categoryIds: bigint[]; take: number }) {
+  async findMenuProducts(params: { categoryIds: bigint[]; take: number; gender?: "men" | "women" | "kids" | "unisex" }) {
     const sellableItemWhere = {
       deleted_at: null,
       isActive: true,
@@ -245,6 +249,12 @@ export const catalogListingRepository = {
         isActive: true,
         deleted_at: null,
         categoryId: { in: params.categoryIds },
+        ...(params.gender
+          ? {
+              gender:
+                params.gender === "unisex" ? "unisex" : { in: [params.gender, "unisex"] },
+            }
+          : {}),
         styles: { some: { isActive: true, deleted_at: null, items: { some: sellableItemWhere } } },
       },
       orderBy: { createdAt: "desc" },

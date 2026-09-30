@@ -1,5 +1,12 @@
 import type { orders_order_status, orders_payment_status, order_addresses_type } from "@/generated/prisma";
 import type { VariantMeasurement } from "@/features/variants/utils/measurement.util";
+import type {
+  CancellationInfo,
+  OrderRefundInfo,
+  RequestSummary,
+  TimelineEvent,
+} from "@/features/returns/lib/summary";
+import type { ReturnWindow } from "@/features/returns/lib/policy";
 
 export type OrderStatus = orders_order_status;
 export type PaymentStatus = orders_payment_status;
@@ -24,7 +31,12 @@ export interface OrderItemResponse {
   variantName: string; // snapshot
   sku: string; // snapshot
   measurement: VariantMeasurement;
+  /** Options selected at purchase time (Color, Size, custom attributes). */
+  attributes: Array<{ name: string; value: string }>;
   primaryImage: string | null;
+  /** Color of the ordered variant (live lookup; null if the variant has no color). */
+  colorName: string | null;
+  colorHex: string | null;
   quantity: number;
   /** Undiscounted price per unit at the time the order was placed. */
   unitPrice: number;
@@ -106,15 +118,37 @@ export interface OrderListItemResponse {
   courierShipment?: OrderCourierShipmentDto | null;
   notes: string | null;
   placedAt: Date | null;
+  deliveredAt?: Date | null;
+  /** Present once the order has been cancelled. */
+  cancellation?: CancellationInfo | null;
   createdAt: Date;
   updatedAt: Date;
 }
 
+/** Order-specific referral attribution. Admin-facing only - never sent to customers. */
+export interface OrderReferralDto {
+  referralCode: string | null;
+  agentName: string;
+  agentCode: string | null;
+  /** Blended commission % over the order's commissionable amount. */
+  commissionPercentage: number;
+  commissionAmount: number;
+  /** Single status when all item commissions agree, otherwise "mixed". */
+  commissionStatus: string;
+}
+
 export interface OrderDetailResponse extends OrderListItemResponse {
+  referral?: OrderReferralDto | null;
   items: OrderItemResponse[];
   shippingAddress: OrderAddressResponse | null;
   billingAddress: OrderAddressResponse | null;
   statusHistory: OrderStatusHistoryResponse[];
+  /** 3-day return/replacement window, computed on the server from `deliveredAt`. */
+  returnWindow?: Omit<ReturnWindow, "deliveredAt"> & { deliveredAt: Date | null };
+  refunds?: OrderRefundInfo[];
+  returnRequests?: RequestSummary[];
+  replacementRequests?: RequestSummary[];
+  timeline?: TimelineEvent[];
 }
 
 export interface OrderStatusTransitionResponse {

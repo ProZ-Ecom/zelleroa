@@ -7,6 +7,8 @@ export interface AdminStyleResponse {
   productSlug: string;
   categoryId: string | null;
   categoryName: string | null;
+  brandId: string | null; // Public Brand UUID
+  brandName: string | null;
   name: string;
   slug: string;
   sku: string | null;

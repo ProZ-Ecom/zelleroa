@@ -46,6 +46,24 @@ export const createBannerSchema = z
       .max(500, "Link URL cannot exceed 500 characters")
       .nullable()
       .optional(),
+    badgeLabel: z
+      .string()
+      .trim()
+      .max(50, "Badge label cannot exceed 50 characters")
+      .nullable()
+      .optional(),
+    subtitle: z
+      .string()
+      .trim()
+      .max(100, "Subtitle cannot exceed 100 characters")
+      .nullable()
+      .optional(),
+    priceText: z
+      .string()
+      .trim()
+      .max(50, "Price text cannot exceed 50 characters")
+      .nullable()
+      .optional(),
     sortOrder: z
       .number()
       .int("Sort order must be an integer")
@@ -116,6 +134,24 @@ export const updateBannerSchema = z
       .string()
       .trim()
       .max(500, "Link URL cannot exceed 500 characters")
+      .nullable()
+      .optional(),
+    badgeLabel: z
+      .string()
+      .trim()
+      .max(50, "Badge label cannot exceed 50 characters")
+      .nullable()
+      .optional(),
+    subtitle: z
+      .string()
+      .trim()
+      .max(100, "Subtitle cannot exceed 100 characters")
+      .nullable()
+      .optional(),
+    priceText: z
+      .string()
+      .trim()
+      .max(50, "Price text cannot exceed 50 characters")
       .nullable()
       .optional(),
     sortOrder: z

@@ -41,7 +41,7 @@ export function ItemDetailClient({ itemId }: { itemId: string }) {
     <PageContainer>
       <Breadcrumb
         items={[
-          { label: "Products", href: "/products" },
+          { label: "Shop All", href: "/products" },
           ...(item.category
             ? [{ label: item.category.name, href: categoryHref(item.category) }]
             : []),
@@ -54,6 +54,7 @@ export function ItemDetailClient({ itemId }: { itemId: string }) {
         <ItemView
           item={item}
           eyebrow={item.styleName}
+          brandName={item.brand?.name}
           returnUrl={`/items/${item.id}`}
         />
       </div>

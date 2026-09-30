@@ -173,3 +173,16 @@ export function categoryHref(category: { slug?: string | null; id: string }): st
   const slug = category.slug?.trim();
   return `/category/${encodeURIComponent(slug ? slug.toLowerCase() : category.id)}`;
 }
+
+/**
+ * Appends `?gender=` to a storefront href so a nav item's audience survives
+ * onto the page it links to, even when the destination category is also
+ * linked from a different nav item with a different (or no) audience.
+ */
+export function withGenderParam(href: string, gender?: string | null): string {
+  if (!gender) return href;
+  const [path, query] = href.split("?");
+  const params = new URLSearchParams(query);
+  params.set("gender", gender);
+  return `${path}?${params.toString()}`;
+}

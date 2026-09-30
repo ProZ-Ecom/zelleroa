@@ -194,40 +194,40 @@
   /* ================================================================== */
   /* About Us Page Design Tokens (Figma Design System)                  */
   /* ================================================================== */
-  --about-hero-bg: #381514;
-  --about-hero-bg-dark: #2D100F;
-  --about-hero-gold: #E5B880;
-  --about-hero-gold-hover: #DDAA6D;
-  --about-hero-gold-text: #E8BF87;
-  --about-hero-btn-dark: #2C1210;
+  --about-hero-bg: var(--theme-primary);
+  --about-hero-bg-dark: var(--primary-800);
+  --about-hero-gold: #FFFFFF;
+  --about-hero-gold-hover: var(--primary-50);
+  --about-hero-gold-text: var(--tertiary-200);
+  --about-hero-btn-dark: var(--primary-700);
   --about-hero-badge-bg: rgba(255, 255, 255, 0.06);
-  --about-hero-badge-border: rgba(231, 195, 146, 0.3);
+  --about-hero-badge-border: rgba(255, 255, 255, 0.25);
   --about-hero-border: rgba(255, 255, 255, 0.12);
-  --about-hero-subtext: #D5C7C5;
-  --about-hero-circle-bg: #DCAE74;
-  --about-hero-circle-border: #381514;
+  --about-hero-subtext: var(--primary-100);
+  --about-hero-circle-bg: var(--tertiary-100);
+  --about-hero-circle-border: var(--theme-primary);
 
-  --about-story-bg: #FFFFFF;
-  --about-story-badge-bg: #D7A368;
-  --about-story-badge-text: #2C1210;
-  --about-story-badge-sub: #4A2518;
-  --about-eyebrow: #C87A38;
-  --about-heading: #2B1B17;
-  --about-body: #57534E;
-  --about-card-bg: #FDFBF7;
-  --about-card-border: #EFE8DC;
-  --about-card-border-hover: #DFCBB5;
-  --about-card-icon-bg: #F7EFE3;
-  --about-card-icon-fg: #B67332;
+  --about-story-bg: var(--theme-surface);
+  --about-story-badge-bg: var(--tertiary-100);
+  --about-story-badge-text: var(--theme-secondary-fg);
+  --about-story-badge-sub: var(--tertiary-800);
+  --about-eyebrow: var(--tertiary-700);
+  --about-heading: var(--theme-text-primary);
+  --about-body: var(--theme-text-subtle);
+  --about-card-bg: var(--theme-bg);
+  --about-card-border: var(--theme-border);
+  --about-card-border-hover: var(--theme-border-accent);
+  --about-card-icon-bg: var(--primary-50);
+  --about-card-icon-fg: var(--theme-primary);
 
-  --about-founder-bg: #F8F3EC;
+  --about-founder-bg: var(--theme-bg);
   --about-arch-from: #C49377;
   --about-arch-via: #B88467;
   --about-arch-to: #A46E51;
   --about-signature: #9E6438;
-  --about-quote-bg: #361514;
-  --about-quote-accent: #E5B880;
-  --about-divider: #E3D7C5;
+  --about-quote-bg: var(--primary-800);
+  --about-quote-accent: var(--tertiary-200);
+  --about-divider: var(--theme-border);
 }
 
 @theme inline {
@@ -687,4 +687,76 @@ textarea:focus-visible {
   height: 0;
   pointer-events: none;
   color: var(--color-neutral-400, #a3a3a3);
+}
+
+/* About page: gentle float for the hero illustration */
+@keyframes aboutFloat {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
+}
+
+.about-float {
+  animation: aboutFloat 6s ease-in-out infinite;
+}
+
+/* About page: drifting background blobs */
+@keyframes aboutBlob {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33% { transform: translate(30px, -40px) scale(1.08); }
+  66% { transform: translate(-20px, 20px) scale(0.95); }
+}
+
+.about-blob {
+  animation: aboutBlob 14s ease-in-out infinite;
+}
+
+/* About page: shimmering gradient text */
+@keyframes aboutShine {
+  to { background-position: 200% center; }
+}
+
+.about-shine-text {
+  background-image: linear-gradient(
+    90deg,
+    var(--tertiary-100),
+    var(--tertiary-200),
+    #ffffff,
+    var(--tertiary-200),
+    var(--tertiary-100)
+  );
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: aboutShine 6s linear infinite;
+}
+
+/* About page: infinite highlights ribbon */
+@keyframes aboutMarquee {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+
+.about-marquee {
+  animation: aboutMarquee 30s linear infinite;
+}
+
+/* About page: reveal on scroll (toggled by <Reveal />) */
+.about-reveal {
+  opacity: 0;
+  transform: translateY(28px);
+  transition: opacity 0.7s ease, transform 0.7s ease;
+}
+
+.about-reveal[data-shown="true"] {
+  opacity: 1;
+  transform: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .about-float,
+  .about-blob,
+  .about-shine-text,
+  .about-marquee { animation: none; }
+  .about-reveal { opacity: 1; transform: none; transition: none; }
 }

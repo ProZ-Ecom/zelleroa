@@ -14,7 +14,6 @@ import {
   getAdminDeliveryStaff,
   assignDelivery,
   shipViaCourier,
-  refreshCourierTracking,
 } from "../api/delivery.api";
 import type {
   StaffDeliveryListInput,
@@ -24,7 +23,6 @@ import type {
   AdminDeliveryStaffListInput,
   AssignDeliveryInput,
   ShipViaCourierInput,
-  RefreshCourierTrackingInput,
 } from "../validations/delivery.schema";
 import type {
   StaffDeliveryDetailResponse,
@@ -32,7 +30,6 @@ import type {
   DeliveryTransitionResult,
   StaffDeliveriesCountResponse,
   CourierShipmentResult,
-  RefreshCourierTrackingResult,
 } from "../types/delivery.types";
 
 /* ----------------------- Staff Delivery Queries & Mutations ----------------------- */
@@ -235,25 +232,8 @@ export function useShipViaCourier() {
   return useMutation<CourierShipmentResult, Error, ShipViaCourierInput>({
     mutationFn: (input: ShipViaCourierInput) => shipViaCourier(input),
     meta: {
-      successMessage: "Shipment booked with Delhivery.",
-      errorMessage: "Failed to book Delhivery shipment",
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: deliveryKeys.all });
-      queryClient.invalidateQueries({ queryKey: orderKeys.all });
-      queryClient.invalidateQueries({ queryKey: adminOrderKeys.all });
-    },
-  });
-}
-
-export function useRefreshCourierTracking() {
-  const queryClient = useQueryClient();
-
-  return useMutation<RefreshCourierTrackingResult, Error, RefreshCourierTrackingInput>({
-    mutationFn: (input: RefreshCourierTrackingInput) => refreshCourierTracking(input),
-    meta: {
-      successMessage: "Tracking updated.",
-      errorMessage: "Failed to refresh tracking",
+      successMessage: "Shipment recorded with India Post.",
+      errorMessage: "Failed to record India Post shipment",
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: deliveryKeys.all });

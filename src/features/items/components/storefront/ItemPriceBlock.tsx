@@ -1,6 +1,7 @@
 "use client";
 
 import { cn, formatPrice } from "@/lib/utils";
+import { getOfferValidity } from "@/features/offers/utils/offer-validity";
 import type { CustomerVariantUnitPriceDto } from "@/features/customers/types/catalog.types";
 
 interface ItemPriceBlockProps {
@@ -29,8 +30,13 @@ export function ItemPriceBlock({
         ? `${formatPrice(minPrice)} - ${formatPrice(maxPrice)}`
         : formatPrice(minPrice);
     return (
-      <div className={cn("flex items-baseline gap-2", className)}>
-        <span className="text-2xl font-bold text-theme-text-primary">{range}</span>
+      <div
+        className={cn(
+          "flex items-baseline gap-2 rounded-2xl bg-theme-surface-alt px-4",
+          className
+        )}
+      >
+        <span className="text-xl font-bold text-theme-text-primary">{range}</span>
       </div>
     );
   }
@@ -42,21 +48,22 @@ export function ItemPriceBlock({
       : hasOffer
         ? Math.round(((size.basePrice - size.sellingPrice) / size.basePrice) * 100)
         : 0;
+  const validity = getOfferValidity(size.offer?.endsAt);
 
   return (
-    <div className={cn("space-y-1", className)}>
+    <div className={cn("space-y-1.5 rounded-2xl bg-theme-surface-alt px-4", className)}>
       <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-        <span className="text-3xl font-bold text-theme-text-primary">
+        <span className="text-2xl font-bold tracking-tight text-theme-text-primary">
           {formatPrice(size.sellingPrice)}
         </span>
 
         {hasOffer && (
           <>
-            <span className="text-base font-medium text-theme-text-subtle line-through">
+            <span className="text-sm font-medium text-theme-text-subtle line-through">
               {formatPrice(size.basePrice)}
             </span>
             {discountPercent > 0 && (
-              <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-bold text-emerald-700 border border-emerald-200">
+              <span className="rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-bold text-emerald-700 shadow-sm">
                 {discountPercent}% OFF
               </span>
             )}
@@ -64,8 +71,23 @@ export function ItemPriceBlock({
         )}
       </div>
 
+      {hasOffer && (
+        <p className="text-xs font-semibold text-emerald-700">
+          You save {formatPrice(size.basePrice - size.sellingPrice)}
+        </p>
+      )}
       {hasOffer && size.offer?.name && (
         <p className="text-xs font-semibold text-emerald-700">{size.offer.name}</p>
+      )}
+      {hasOffer && validity && (
+        <p
+          className={cn(
+            "text-xs font-medium",
+            validity.urgent ? "font-bold text-red-600" : "text-theme-text-subtle"
+          )}
+        >
+          {validity.label}
+        </p>
       )}
       <p className="text-xs text-theme-text-subtle">Inclusive of all taxes</p>
     </div>

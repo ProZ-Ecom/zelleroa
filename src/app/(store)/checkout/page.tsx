@@ -16,7 +16,6 @@ import {
   ArrowLeft,
   ShieldCheck,
   ShoppingBag,
-  Sparkles,
   Lock,
   AlertCircle,
   Loader2,
@@ -41,6 +40,13 @@ import {
 } from "@/features/customers/hooks/use-customer-orders";
 import { customerPaymentApi } from "@/features/customers/api/customer-payment.api";
 import { useCheckout } from "@/features/checkout/checkout-context";
+import {
+  DELIVERY_ESTIMATE,
+  FREE_DELIVERY_STATE,
+  OTHER_STATE_DELIVERY_CHARGE,
+  getShippingCharge,
+  isFreeDeliveryState,
+} from "@/features/orders/shipping";
 import type { CustomerAddressResponse } from "@/features/customers/types/customer-address.types";
 
 
@@ -104,9 +110,6 @@ export default function CheckoutPage() {
 
   // Selected state
   const [selectedAddressId, setSelectedAddressId] = useState<string>("");
-  const [deliveryMethod, setDeliveryMethod] = useState<"standard" | "express">(
-    "standard"
-  );
   const [paymentMethod, setPaymentMethod] = useState<"CARD" | "UPI" | "COD">(
     "CARD"
   );
@@ -155,9 +158,13 @@ export default function CheckoutPage() {
   // Pricing calculations
   const items = cart?.items || [];
   const subtotal = Number(cart?.subtotal || 0);
-  const isFreeDelivery = subtotal >= 499;
-  const shippingCharge =
-    deliveryMethod === "express" ? 99 : isFreeDelivery ? 0 : 49;
+  // Delivery is priced by destination state: guests by the form, customers by the chosen address.
+  const deliveryState = isGuest
+    ? newAddressForm.state
+    : addresses.find((a) => a.id === effectiveAddressId)?.state;
+  const hasDeliveryState = !!deliveryState?.trim();
+  const isFreeDelivery = isFreeDeliveryState(deliveryState);
+  const shippingCharge = hasDeliveryState ? getShippingCharge(deliveryState) : 0;
   const grandTotal = subtotal + shippingCharge;
 
   // Authentication gate
@@ -791,60 +798,31 @@ export default function CheckoutPage() {
               </h2>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-              {/* Standard */}
-              <div
-                onClick={() => setDeliveryMethod("standard")}
-                className={`rounded-xl border p-4 cursor-pointer transition-all ${
-                  deliveryMethod === "standard"
-                    ? "border-theme-primary bg-theme-surface-alt/70 shadow-xs ring-1 ring-theme-primary"
-                    : "border-theme-border bg-theme-surface hover:border-theme-border-accent"
-                }`}
-              >
-                <div className="flex items-center justify-between mb-1.5">
-                  <span className="text-xs font-bold text-theme-text-primary">
-                    Standard Delivery
-                  </span>
-                  <span className="text-xs font-extrabold text-theme-primary">
-                    {isFreeDelivery ? "FREE" : "₹49"}
-                  </span>
-                </div>
-                <p className="text-[11px] text-theme-text-subtle flex items-center gap-1">
-                  <Clock className="h-3 w-3" />
-                  Estimated: 3 - 5 business days
-                </p>
-                {isFreeDelivery && (
-                  <span className="mt-2 inline-block rounded bg-theme-status-del-bg px-2 py-0.5 text-[10px] font-bold text-theme-status-del-fg">
-                    Free Delivery Unlocked!
-                  </span>
-                )}
+            <div className="rounded-xl border border-theme-primary bg-theme-surface-alt/70 shadow-xs ring-1 ring-theme-primary p-4">
+              <div className="flex items-center justify-between mb-1.5">
+                <span className="text-xs font-bold text-theme-text-primary">
+                  Standard Delivery
+                </span>
+                <span className="text-xs font-extrabold text-theme-primary">
+                  {!hasDeliveryState
+                    ? "—"
+                    : isFreeDelivery
+                      ? "FREE"
+                      : formatPrice(OTHER_STATE_DELIVERY_CHARGE)}
+                </span>
               </div>
-
-              {/* Express */}
-              <div
-                onClick={() => setDeliveryMethod("express")}
-                className={`rounded-xl border p-4 cursor-pointer transition-all ${
-                  deliveryMethod === "express"
-                    ? "border-theme-primary bg-theme-surface-alt/70 shadow-xs ring-1 ring-theme-primary"
-                    : "border-theme-border bg-theme-surface hover:border-theme-border-accent"
-                }`}
-              >
-                <div className="flex items-center justify-between mb-1.5">
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-xs font-bold text-theme-text-primary">
-                      Express Fast Delivery
-                    </span>
-                    <Sparkles className="h-3 w-3 text-theme-secondary" />
-                  </div>
-                  <span className="text-xs font-extrabold text-theme-primary">
-                    ₹99
-                  </span>
-                </div>
-                <p className="text-[11px] text-theme-text-subtle flex items-center gap-1">
-                  <Clock className="h-3 w-3" />
-                  Estimated: 1 - 2 business days (Priority)
-                </p>
-              </div>
+              <p className="text-[11px] text-theme-text-subtle flex items-center gap-1">
+                <Clock className="h-3 w-3" />
+                Estimated: {DELIVERY_ESTIMATE}
+              </p>
+              <p className="mt-2 text-[11px] text-theme-text-muted">
+                Free delivery within {FREE_DELIVERY_STATE}. {formatPrice(OTHER_STATE_DELIVERY_CHARGE)} for all other states.
+              </p>
+              {hasDeliveryState && isFreeDelivery && (
+                <span className="mt-2 inline-block rounded bg-theme-status-del-bg px-2 py-0.5 text-[10px] font-bold text-theme-status-del-fg">
+                  Free Delivery in {FREE_DELIVERY_STATE}!
+                </span>
+              )}
             </div>
           </div>
 
@@ -1049,7 +1027,11 @@ export default function CheckoutPage() {
 
                 <div className="flex justify-between text-theme-text-subtle items-center">
                   <span>Shipping & Handling</span>
-                  {shippingCharge === 0 ? (
+                  {!hasDeliveryState ? (
+                    <span className="text-[11px] text-theme-text-muted">
+                      Select an address
+                    </span>
+                  ) : shippingCharge === 0 ? (
                     <span className="rounded bg-theme-status-del-bg px-2 py-0.5 text-[10px] font-bold text-theme-status-del-fg">
                       FREE
                     </span>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight, Sparkles, CheckCircle2 } from "lucide-react";
@@ -34,8 +34,36 @@ function ProductGallery({
   showQualitySeal = true,
 }: ProductGalleryProps) {
   const [selectedIndex, setSelectedIndex] = useState(0);
+  const touchStartX = useRef<number | null>(null);
+  const touchDeltaX = useRef(0);
 
   const validImages = (images || []).filter((img) => img && img.url && img.url.trim() !== "");
+
+  const goPrev = () =>
+    setSelectedIndex((i) => (i > 0 ? i - 1 : validImages.length - 1));
+  const goNext = () =>
+    setSelectedIndex((i) => (i < validImages.length - 1 ? i + 1 : 0));
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0].clientX;
+    touchDeltaX.current = 0;
+  };
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (touchStartX.current === null) return;
+    touchDeltaX.current = e.touches[0].clientX - touchStartX.current;
+  };
+  const handleTouchEnd = () => {
+    if (validImages.length > 1) {
+      const swipeThreshold = 40;
+      if (touchDeltaX.current > swipeThreshold) {
+        goPrev();
+      } else if (touchDeltaX.current < -swipeThreshold) {
+        goNext();
+      }
+    }
+    touchStartX.current = null;
+    touchDeltaX.current = 0;
+  };
 
   if (validImages.length === 0) {
     return (
@@ -77,7 +105,12 @@ function ProductGallery({
 
   return (
     <div className={cn("space-y-4", className)}>
-      <div className="relative aspect-square w-full overflow-hidden rounded-2xl border border-stone-200/80 bg-stone-50 shadow-xs group">
+      <div
+        className="relative aspect-square w-full overflow-hidden rounded-2xl border border-stone-200/80 bg-stone-50 shadow-xs group touch-pan-y"
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+      >
         {/* Badges */}
         <div className="absolute top-3.5 left-3.5 z-20 flex flex-wrap gap-2">
           {isVeg && (
@@ -109,12 +142,13 @@ function ProductGallery({
         )}
 
         <ProductImage
+          key={selected.id || selected.url}
           src={selected.url}
           alt={selected.altText || productName}
           fallbackText={productName}
           priority={true}
           containerClassName="w-full h-full aspect-square"
-          className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+          className="w-full h-full object-cover transition-all duration-300 ease-out animate-in fade-in group-hover:scale-105"
         />
 
         {validImages.length > 1 && (
@@ -124,7 +158,7 @@ function ProductGallery({
               variant="secondary"
               size="icon"
               className="absolute left-3 top-1/2 -translate-y-1/2 bg-white/90 hover:bg-white text-stone-700 shadow-md h-9 w-9 rounded-full border border-stone-200 transition-transform active:scale-95"
-              onClick={() => setSelectedIndex((i) => (i > 0 ? i - 1 : validImages.length - 1))}
+              onClick={goPrev}
               aria-label="Previous image"
             >
               <ChevronLeft className="h-5 w-5" />
@@ -134,11 +168,26 @@ function ProductGallery({
               variant="secondary"
               size="icon"
               className="absolute right-3 top-1/2 -translate-y-1/2 bg-white/90 hover:bg-white text-stone-700 shadow-md h-9 w-9 rounded-full border border-stone-200 transition-transform active:scale-95"
-              onClick={() => setSelectedIndex((i) => (i < validImages.length - 1 ? i + 1 : 0))}
+              onClick={goNext}
               aria-label="Next image"
             >
               <ChevronRight className="h-5 w-5" />
             </Button>
+
+            {/* Position dots for mobile touch feedback */}
+            <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-20 flex items-center gap-1.5">
+              {validImages.map((image, index) => (
+                <span
+                  key={image.id || index}
+                  className={cn(
+                    "h-1.5 rounded-full transition-all duration-300",
+                    selectedIndex === index
+                      ? "w-4 bg-white shadow-sm"
+                      : "w-1.5 bg-white/60"
+                  )}
+                />
+              ))}
+            </div>
           </>
         )}
       </div>

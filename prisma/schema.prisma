@@ -90,11 +90,12 @@ model User {
   is_blocked                                                          BigInt?
   blocked_at                                                          DateTime?                  @default(now()) @db.Timestamp(0)
   referral_code                                                       String?                    @unique(map: "users_referral_code") @db.VarChar(30)
-  referred_by_agent_id                                                BigInt?                    @db.UnsignedBigInt
   referred_at                                                         DateTime?                  @db.Timestamp(0)
-  agent_referrer                                                      User?                      @relation("UserReferredByAgent", fields: [referred_by_agent_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_users_referred_by_agent")
-  referred_users                                                      User[]                     @relation("UserReferredByAgent")
   agent_orders                                                        Order[]                    @relation("OrderAgent")
+  agent_profile                                                       agent_profiles?
+  agent_commissions                                                   commissions[]              @relation("CommissionAgent")
+  customer_commissions                                                commissions[]              @relation("CommissionCustomer")
+  agent_payouts                                                       commission_payouts[]       @relation("PayoutAgent")
   attribute_values_attribute_values_created_byTousers                 AttributeValue[]           @relation("attribute_values_created_byTousers")
   attribute_values_attribute_values_updated_byTousers                 AttributeValue[]           @relation("attribute_values_updated_byTousers")
   audit_logs_audit_logs_created_byTousers                             AuditLog[]                 @relation("audit_logs_created_byTousers")
@@ -197,6 +198,8 @@ model User {
   permissions_permissions_created_byTousers                           Permission[]               @relation("permissions_created_byTousers")
   permissions_permissions_updated_byTousers                           Permission[]               @relation("permissions_updated_byTousers")
   pincode_serviceability_pincode_serviceability_created_byTousers     pincode_serviceability[]   @relation("pincode_serviceability_created_byTousers")
+  header_menu_items_header_menu_items_created_byTousers               HeaderMenuItem[]           @relation("header_menu_items_created_byTousers")
+  header_menu_items_header_menu_items_updated_byTousers               HeaderMenuItem[]           @relation("header_menu_items_updated_byTousers")
   pincode_serviceability_pincode_serviceability_updated_byTousers     pincode_serviceability[]   @relation("pincode_serviceability_updated_byTousers")
   product_attribute_values_product_attribute_values_created_byTousers product_attribute_values[] @relation("product_attribute_values_created_byTousers")
   product_attribute_values_product_attribute_values_updated_byTousers product_attribute_values[] @relation("product_attribute_values_updated_byTousers")
@@ -228,10 +231,10 @@ model User {
   product_variant_images_product_variant_images_updated_byTousers     product_variant_images[]   @relation("product_variant_images_updated_byTousers")
   product_variants_product_variants_created_byTousers                 ProductVariant[]           @relation("product_variants_created_byTousers")
   product_variants_product_variants_updated_byTousers                 ProductVariant[]           @relation("product_variants_updated_byTousers")
-  styles_created_byTousers                                             Style[]                    @relation("styles_created_byTousers")
-  styles_updated_byTousers                                             Style[]                    @relation("styles_updated_byTousers")
-  style_images_created_byTousers                                       StyleImage[]               @relation("style_images_created_byTousers")
-  style_images_updated_byTousers                                       StyleImage[]               @relation("style_images_updated_byTousers")
+  styles_created_byTousers                                            Style[]                    @relation("styles_created_byTousers")
+  styles_updated_byTousers                                            Style[]                    @relation("styles_updated_byTousers")
+  style_images_created_byTousers                                      StyleImage[]               @relation("style_images_created_byTousers")
+  style_images_updated_byTousers                                      StyleImage[]               @relation("style_images_updated_byTousers")
   items_created_byTousers                                             Item[]                     @relation("items_created_byTousers")
   items_updated_byTousers                                             Item[]                     @relation("items_updated_byTousers")
   variant_unit_prices_created_byTousers                               VariantUnitPrice[]         @relation("variant_unit_prices_created_byTousers")
@@ -252,6 +255,7 @@ model User {
   return_requests_return_requests_created_byTousers                   return_requests[]          @relation("return_requests_created_byTousers")
   return_requests_return_requests_updated_byTousers                   return_requests[]          @relation("return_requests_updated_byTousers")
   return_requests_return_requests_user_idTousers                      return_requests[]          @relation("return_requests_user_idTousers")
+  replacement_requests                                                replacement_requests[]     @relation("replacement_requests_user")
   review_images_review_images_created_byTousers                       ReviewImage[]              @relation("review_images_created_byTousers")
   review_images_review_images_updated_byTousers                       ReviewImage[]              @relation("review_images_updated_byTousers")
   reviews                                                             Review[]
@@ -312,7 +316,6 @@ model User {
   @@index([created_by], map: "fk_users_created_by")
   @@index([roleId], map: "fk_users_role")
   @@index([updated_by], map: "fk_users_updated_by")
-  @@index([referred_by_agent_id], map: "fk_users_referred_by_agent")
   @@index([status], map: "idx_users_status")
   @@map("users")
 }
@@ -342,12 +345,54 @@ model ProductCategory {
   offer_categories                           offer_categories[]
   coupon_categories                          coupon_categories[]
   size_charts                                size_charts[]
+  headerMenuLinks                            HeaderMenuItemCategory[]
+  commissions                                commissions[]
+  commission_rates                           commission_rates[]
 
   @@index([parentId], map: "fk_cat_parent")
   @@index([created_by], map: "fk_categories_created_by")
   @@index([updated_by], map: "fk_categories_updated_by")
   @@index([slug], map: "idx_cat_slug")
   @@map("product_categories")
+}
+
+model HeaderMenuItem {
+  id                                        BigInt                   @id @default(autoincrement()) @db.UnsignedBigInt
+  uuid                                      String?                  @default("UUID()") @db.VarChar(255)
+  label                                     String                   @db.VarChar(150)
+  link                                      String?                  @db.VarChar(500)
+  /**
+   * Audience this nav item targets - appended as ?gender= on every link it resolves to.
+   */
+  gender                                    products_gender?
+  sortOrder                                 Int                      @default(0) @map("sort_order")
+  isActive                                  Boolean                  @default(true) @map("is_active")
+  createdAt                                 DateTime                 @default(now()) @map("created_at") @db.Timestamp(0)
+  updatedAt                                 DateTime                 @default(now()) @updatedAt @map("updated_at") @db.Timestamp(0)
+  deleted_at                                DateTime?                @db.Timestamp(0)
+  created_by                                BigInt?                  @db.UnsignedBigInt
+  updated_by                                BigInt?                  @db.UnsignedBigInt
+  categories                                HeaderMenuItemCategory[]
+  users_header_menu_items_created_byTousers User?                    @relation("header_menu_items_created_byTousers", fields: [created_by], references: [id], onUpdate: NoAction, map: "fk_header_menu_created_by")
+  users_header_menu_items_updated_byTousers User?                    @relation("header_menu_items_updated_byTousers", fields: [updated_by], references: [id], onUpdate: NoAction, map: "fk_header_menu_updated_by")
+
+  @@index([created_by], map: "fk_header_menu_created_by")
+  @@index([updated_by], map: "fk_header_menu_updated_by")
+  @@map("header_menu_items")
+}
+
+model HeaderMenuItemCategory {
+  id               BigInt          @id @default(autoincrement()) @db.UnsignedBigInt
+  headerMenuItemId BigInt          @map("header_menu_item_id") @db.UnsignedBigInt
+  categoryId       BigInt          @map("category_id") @db.UnsignedBigInt
+  sortOrder        Int             @default(0) @map("sort_order")
+  createdAt        DateTime        @default(now()) @map("created_at") @db.Timestamp(0)
+  headerMenuItem   HeaderMenuItem  @relation(fields: [headerMenuItemId], references: [id], onDelete: Cascade, map: "fk_hmic_item")
+  category         ProductCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade, map: "fk_hmic_category")
+
+  @@unique([headerMenuItemId, categoryId], map: "uq_hmic_item_category")
+  @@index([categoryId], map: "fk_hmic_category")
+  @@map("header_menu_item_categories")
 }
 
 model ProductBrand {
@@ -366,6 +411,7 @@ model ProductBrand {
   users_product_brands_created_byTousers User?                 @relation("product_brands_created_byTousers", fields: [created_by], references: [id], onUpdate: NoAction, map: "fk_brands_created_by")
   users_product_brands_updated_byTousers User?                 @relation("product_brands_updated_byTousers", fields: [updated_by], references: [id], onUpdate: NoAction, map: "fk_brands_updated_by")
   products                               Product[]
+  styles                                 Style[]
   produt_brand_images                    produt_brand_images[]
   offer_brands                           offer_brands[]
 
@@ -375,36 +421,38 @@ model ProductBrand {
 }
 
 model Product {
-  id                               BigInt                     @id @default(autoincrement()) @db.UnsignedBigInt
-  uuid                             String?                    @unique(map: "idx_products_uuid") @default("UUID()") @db.VarChar(255)
-  categoryId                       BigInt?                    @map("category_id")
+  id                               BigInt                      @id @default(autoincrement()) @db.UnsignedBigInt
+  uuid                             String?                     @unique(map: "idx_products_uuid") @default("UUID()") @db.VarChar(255)
+  categoryId                       BigInt?                     @map("category_id")
   gender                           products_gender?
-  brandId                          BigInt?                    @map("brand_id") @db.UnsignedBigInt
-  hsn_code_id                      BigInt?                    @db.UnsignedBigInt
-  name                             String                     @db.VarChar(200)
-  slug                             String                     @unique(map: "slug") @db.VarChar(220)
-  status                           Boolean?                   @default(true)
-  isActive                         Boolean                    @default(true) @map("is_active")
-  createdAt                        DateTime                   @default(now()) @map("created_at") @db.Timestamp(0)
-  updatedAt                        DateTime                   @default(now()) @updatedAt @map("updated_at") @db.Timestamp(0)
-  deleted_at                       DateTime?                  @db.Timestamp(0)
-  created_by                       BigInt?                    @db.UnsignedBigInt
-  updated_by                       BigInt?                    @db.UnsignedBigInt
+  brandId                          BigInt?                     @map("brand_id") @db.UnsignedBigInt
+  hsn_code_id                      BigInt?                     @db.UnsignedBigInt
+  name                             String                      @db.VarChar(200)
+  slug                             String                      @unique(map: "slug") @db.VarChar(220)
+  status                           Boolean?                    @default(true)
+  isActive                         Boolean                     @default(true) @map("is_active")
+  createdAt                        DateTime                    @default(now()) @map("created_at") @db.Timestamp(0)
+  updatedAt                        DateTime                    @default(now()) @updatedAt @map("updated_at") @db.Timestamp(0)
+  deleted_at                       DateTime?                   @db.Timestamp(0)
+  created_by                       BigInt?                     @db.UnsignedBigInt
+  updated_by                       BigInt?                     @db.UnsignedBigInt
   cartItems                        CartItem[]
   combo_product_items              combo_product_items[]
   offer_products                   offer_products[]
   coupon_products                  coupon_products[]
   orderItems                       OrderItem[]
+  commissions                      commissions[]
+  commission_rates                 commission_rates[]
   product_attribute_values         product_attribute_values[]
   product_attribute_configs        product_attribute_configs[]
   images                           ProductImage[]
   product_questions                product_questions[]
   product_tag_maps                 product_tag_maps[]
   styles                           Style[]
-  brand                            ProductBrand?              @relation(fields: [brandId], references: [id], onUpdate: NoAction, map: "fk_products_brand")
-  users_products_created_byTousers User?                      @relation("products_created_byTousers", fields: [created_by], references: [id], onUpdate: NoAction, map: "fk_products_created_by")
-  product_hsn_codes                product_hsn_codes?         @relation(fields: [hsn_code_id], references: [id], onUpdate: NoAction, map: "fk_products_hsn")
-  users_products_updated_byTousers User?                      @relation("products_updated_byTousers", fields: [updated_by], references: [id], onUpdate: NoAction, map: "fk_products_updated_by")
+  brand                            ProductBrand?               @relation(fields: [brandId], references: [id], onUpdate: NoAction, map: "fk_products_brand")
+  users_products_created_byTousers User?                       @relation("products_created_byTousers", fields: [created_by], references: [id], onUpdate: NoAction, map: "fk_products_created_by")
+  product_hsn_codes                product_hsn_codes?          @relation(fields: [hsn_code_id], references: [id], onUpdate: NoAction, map: "fk_products_hsn")
+  users_products_updated_byTousers User?                       @relation("products_updated_byTousers", fields: [updated_by], references: [id], onUpdate: NoAction, map: "fk_products_updated_by")
   recently_viewed_products         recently_viewed_products[]
   reviews                          Review[]
   wishlistItems                    WishlistItem[]
@@ -428,6 +476,9 @@ model Style {
   id                             BigInt            @id @default(autoincrement()) @db.UnsignedBigInt
   uuid                           String            @default("UUID()") @db.VarChar(255)
   productId                      BigInt            @map("product_id") @db.UnsignedBigInt
+  /// Required by the admin API for every new Item; nullable only so rows
+  /// created before brands moved to this level stay valid.
+  brandId                        BigInt?           @map("brand_id") @db.UnsignedBigInt
   name                           String            @db.VarChar(200)
   slug                           String            @unique(map: "idx_item_slug") @db.VarChar(220)
   sku                            String?           @unique(map: "idx_item_sku") @db.VarChar(100)
@@ -449,6 +500,7 @@ model Style {
   created_by                     BigInt?           @db.UnsignedBigInt
   updated_by                     BigInt?           @db.UnsignedBigInt
   product                        Product           @relation(fields: [productId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_item_product")
+  brand                          ProductBrand?     @relation(fields: [brandId], references: [id], onUpdate: NoAction, map: "fk_styles_brand")
   users_styles_created_byTousers User?             @relation("styles_created_byTousers", fields: [created_by], references: [id], onUpdate: NoAction, map: "fk_items_created_by")
   users_styles_updated_byTousers User?             @relation("styles_updated_byTousers", fields: [updated_by], references: [id], onUpdate: NoAction, map: "fk_items_updated_by")
   images                         StyleImage[]
@@ -458,6 +510,7 @@ model Style {
   wishlistItems                  WishlistItem[]
 
   @@index([productId], map: "idx_item_product")
+  @@index([brandId], map: "idx_styles_brand")
   @@index([created_by], map: "fk_items_created_by")
   @@index([updated_by], map: "fk_items_updated_by")
   @@map("styles")
@@ -477,7 +530,7 @@ model StyleImage {
   is_active                            Boolean  @default(true)
   created_by                           BigInt?  @db.UnsignedBigInt
   updated_by                           BigInt?  @db.UnsignedBigInt
-  style                                 Style    @relation(fields: [styleId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_itemimg_item")
+  style                                Style    @relation(fields: [styleId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_itemimg_item")
   users_style_images_created_byTousers User?    @relation("style_images_created_byTousers", fields: [created_by], references: [id], onUpdate: NoAction, map: "fk_item_images_created_by")
   users_style_images_updated_byTousers User?    @relation("style_images_updated_byTousers", fields: [updated_by], references: [id], onUpdate: NoAction, map: "fk_item_images_updated_by")
 
@@ -493,27 +546,27 @@ model StyleImage {
 /// one/two levels down. Reuses the "items" table name freed up by the Style
 /// rename above.
 model Item {
-  id                            BigInt          @id @default(autoincrement()) @db.UnsignedBigInt
-  uuid                          String          @default("UUID()") @db.VarChar(255)
-  styleId                       BigInt          @map("style_id") @db.UnsignedBigInt
-  name                          String          @db.VarChar(200)
-  slug                          String          @unique(map: "idx_new_item_slug") @db.VarChar(220)
-  sku                           String?         @unique(map: "idx_new_item_sku") @db.VarChar(100)
-  short_description             String?         @db.VarChar(500)
-  description                   String?         @db.Text
-  base_price                    Decimal         @default(0.00) @db.Decimal(10, 2)
-  is_featured                   Boolean         @default(false)
-  is_default                    Boolean         @default(false)
-  isActive                      Boolean         @default(true) @map("is_active")
-  out_of_stock                  Boolean         @default(false) @map("out_of_stock")
-  createdAt                     DateTime        @default(now()) @map("created_at") @db.Timestamp(0)
-  updatedAt                     DateTime        @default(now()) @updatedAt @map("updated_at") @db.Timestamp(0)
-  deleted_at                    DateTime?       @db.Timestamp(0)
-  created_by                    BigInt?         @db.UnsignedBigInt
-  updated_by                    BigInt?         @db.UnsignedBigInt
-  style                         Style           @relation(fields: [styleId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_newitem_style")
-  users_items_created_byTousers User?           @relation("items_created_byTousers", fields: [created_by], references: [id], onUpdate: NoAction, map: "fk_newitem_created_by")
-  users_items_updated_byTousers User?           @relation("items_updated_byTousers", fields: [updated_by], references: [id], onUpdate: NoAction, map: "fk_newitem_updated_by")
+  id                            BigInt                  @id @default(autoincrement()) @db.UnsignedBigInt
+  uuid                          String                  @default("UUID()") @db.VarChar(255)
+  styleId                       BigInt                  @map("style_id") @db.UnsignedBigInt
+  name                          String                  @db.VarChar(200)
+  slug                          String                  @unique(map: "idx_new_item_slug") @db.VarChar(220)
+  sku                           String?                 @unique(map: "idx_new_item_sku") @db.VarChar(100)
+  short_description             String?                 @db.VarChar(500)
+  description                   String?                 @db.Text
+  base_price                    Decimal                 @default(0.00) @db.Decimal(10, 2)
+  is_featured                   Boolean                 @default(false)
+  is_default                    Boolean                 @default(false)
+  isActive                      Boolean                 @default(true) @map("is_active")
+  out_of_stock                  Boolean                 @default(false) @map("out_of_stock")
+  createdAt                     DateTime                @default(now()) @map("created_at") @db.Timestamp(0)
+  updatedAt                     DateTime                @default(now()) @updatedAt @map("updated_at") @db.Timestamp(0)
+  deleted_at                    DateTime?               @db.Timestamp(0)
+  created_by                    BigInt?                 @db.UnsignedBigInt
+  updated_by                    BigInt?                 @db.UnsignedBigInt
+  style                         Style                   @relation(fields: [styleId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_newitem_style")
+  users_items_created_byTousers User?                   @relation("items_created_byTousers", fields: [created_by], references: [id], onUpdate: NoAction, map: "fk_newitem_created_by")
+  users_items_updated_byTousers User?                   @relation("items_updated_byTousers", fields: [updated_by], references: [id], onUpdate: NoAction, map: "fk_newitem_updated_by")
   variants                      ProductVariant[]
   cartItems                     CartItem[]
   orderItems                    OrderItem[]
@@ -527,31 +580,32 @@ model Item {
 }
 
 model ProductVariant {
-  id                                       BigInt                     @id @default(autoincrement()) @db.UnsignedBigInt
-  uuid                                     String                     @default("UUID()") @db.VarChar(255)
-  itemId                                   BigInt                     @map("item_id") @db.UnsignedBigInt
-  variant_name                             String                     @default("") @map("variant_name") @db.VarChar(100)
-  slug                                     String?                    @unique(map: "idx_variant_slug") @db.VarChar(255)
-  color_name                               String?                    @map("color_name") @db.VarChar(50)
-  color_hex                                String?                    @map("color_hex") @db.VarChar(7)
-  price_adjustment                         Decimal                    @default(0.00) @map("price_adjustment") @db.Decimal(10, 2)
-  is_featured                              Boolean                    @default(false)
-  is_default                               Boolean                    @default(false)
-  isActive                                 Boolean                    @default(true) @map("is_active")
-  out_of_stock                             Boolean                    @default(false) @map("out_of_stock")
-  createdAt                                DateTime                   @default(now()) @map("created_at") @db.Timestamp(0)
-  updatedAt                                DateTime                   @default(now()) @updatedAt @map("updated_at") @db.Timestamp(0)
-  deleted_at                               DateTime?                  @db.Timestamp(0)
-  created_by                               BigInt?                    @db.UnsignedBigInt
-  updated_by                               BigInt?                    @db.UnsignedBigInt
+  id                                       BigInt                      @id @default(autoincrement()) @db.UnsignedBigInt
+  uuid                                     String                      @default("UUID()") @db.VarChar(255)
+  itemId                                   BigInt                      @map("item_id") @db.UnsignedBigInt
+  variant_name                             String                      @default("") @map("variant_name") @db.VarChar(100)
+  slug                                     String?                     @unique(map: "idx_variant_slug") @db.VarChar(255)
+  color_name                               String?                     @map("color_name") @db.VarChar(50)
+  color_hex                                String?                     @map("color_hex") @db.VarChar(7)
+  price_adjustment                         Decimal                     @default(0.00) @map("price_adjustment") @db.Decimal(10, 2)
+  is_featured                              Boolean                     @default(false)
+  is_default                               Boolean                     @default(false)
+  isActive                                 Boolean                     @default(true) @map("is_active")
+  out_of_stock                             Boolean                     @default(false) @map("out_of_stock")
+  createdAt                                DateTime                    @default(now()) @map("created_at") @db.Timestamp(0)
+  updatedAt                                DateTime                    @default(now()) @updatedAt @map("updated_at") @db.Timestamp(0)
+  deleted_at                               DateTime?                   @db.Timestamp(0)
+  created_by                               BigInt?                     @db.UnsignedBigInt
+  updated_by                               BigInt?                     @db.UnsignedBigInt
   product_variant_images                   product_variant_images[]
-  users_product_variants_created_byTousers User?                      @relation("product_variants_created_byTousers", fields: [created_by], references: [id], onUpdate: NoAction, map: "fk_product_variants_created_by")
-  users_product_variants_updated_byTousers User?                      @relation("product_variants_updated_byTousers", fields: [updated_by], references: [id], onUpdate: NoAction, map: "fk_product_variants_updated_by")
-  item                                     Item                       @relation(fields: [itemId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_variant_item")
+  users_product_variants_created_byTousers User?                       @relation("product_variants_created_byTousers", fields: [created_by], references: [id], onUpdate: NoAction, map: "fk_product_variants_created_by")
+  users_product_variants_updated_byTousers User?                       @relation("product_variants_updated_byTousers", fields: [updated_by], references: [id], onUpdate: NoAction, map: "fk_product_variants_updated_by")
+  item                                     Item                        @relation(fields: [itemId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_variant_item")
   variant_unit_prices                      VariantUnitPrice[]
   cart_items                               CartItem[]
   wishlist_items                           WishlistItem[]
   order_items                              OrderItem[]
+  replacement_request_items                replacement_request_items[]
   variant_attribute_values                 variant_attribute_values[]
 
   @@index([created_by], map: "fk_product_variants_created_by")
@@ -563,31 +617,32 @@ model ProductVariant {
 }
 
 model VariantUnitPrice {
-  id                                          BigInt                   @id @default(autoincrement()) @db.UnsignedBigInt
-  uuid                                        String                   @default("UUID()") @db.VarChar(255)
-  variant_id                                  BigInt                   @map("variant_id") @db.UnsignedBigInt
-  unit_id                                     BigInt                   @map("unit_id") @db.UnsignedBigInt
-  unit_value                                  Decimal                  @default(0.00) @db.Decimal(10, 2)
-  attribute_value_id                          BigInt?                  @db.UnsignedBigInt
-  sku                                         String                   @unique(map: "sku") @db.VarChar(100)
-  base_price                                  Decimal                  @default(0.00) @db.Decimal(10, 2)
-  is_default                                  Boolean                  @default(false)
-  isActive                                    Boolean                  @default(true) @map("is_active")
-  createdAt                                   DateTime                 @default(now()) @map("created_at") @db.Timestamp(0)
-  updatedAt                                   DateTime                 @default(now()) @updatedAt @map("updated_at") @db.Timestamp(0)
-  deleted_at                                  DateTime?                @db.Timestamp(0)
-  created_by                                  BigInt?                  @db.UnsignedBigInt
-  updated_by                                  BigInt?                  @db.UnsignedBigInt
-  variant                                     ProductVariant           @relation(fields: [variant_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_vup_variant")
-  product_units                               product_units            @relation(fields: [unit_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_vup_unit")
-  attribute_value                             AttributeValue?          @relation(fields: [attribute_value_id], references: [id], onDelete: SetNull, onUpdate: NoAction, map: "fk_vup_size_value")
+  id                                          BigInt                      @id @default(autoincrement()) @db.UnsignedBigInt
+  uuid                                        String                      @default("UUID()") @db.VarChar(255)
+  variant_id                                  BigInt                      @map("variant_id") @db.UnsignedBigInt
+  unit_id                                     BigInt                      @map("unit_id") @db.UnsignedBigInt
+  unit_value                                  Decimal                     @default(0.00) @db.Decimal(10, 2)
+  attribute_value_id                          BigInt?                     @db.UnsignedBigInt
+  sku                                         String                      @unique(map: "sku") @db.VarChar(100)
+  base_price                                  Decimal                     @default(0.00) @db.Decimal(10, 2)
+  is_default                                  Boolean                     @default(false)
+  isActive                                    Boolean                     @default(true) @map("is_active")
+  createdAt                                   DateTime                    @default(now()) @map("created_at") @db.Timestamp(0)
+  updatedAt                                   DateTime                    @default(now()) @updatedAt @map("updated_at") @db.Timestamp(0)
+  deleted_at                                  DateTime?                   @db.Timestamp(0)
+  created_by                                  BigInt?                     @db.UnsignedBigInt
+  updated_by                                  BigInt?                     @db.UnsignedBigInt
+  variant                                     ProductVariant              @relation(fields: [variant_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_vup_variant")
+  product_units                               product_units               @relation(fields: [unit_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_vup_unit")
+  attribute_value                             AttributeValue?             @relation(fields: [attribute_value_id], references: [id], onDelete: SetNull, onUpdate: NoAction, map: "fk_vup_size_value")
   inventories                                 Inventory?
   inventory_transactions                      InventoryTransaction[]
   variant_price_history                       variant_price_history[]
-  users_variant_unit_prices_created_byTousers User?                    @relation("variant_unit_prices_created_byTousers", fields: [created_by], references: [id], onUpdate: NoAction, map: "fk_vup_created_by")
-  users_variant_unit_prices_updated_byTousers User?                    @relation("variant_unit_prices_updated_byTousers", fields: [updated_by], references: [id], onUpdate: NoAction, map: "fk_vup_updated_by")
+  users_variant_unit_prices_created_byTousers User?                       @relation("variant_unit_prices_created_byTousers", fields: [created_by], references: [id], onUpdate: NoAction, map: "fk_vup_created_by")
+  users_variant_unit_prices_updated_byTousers User?                       @relation("variant_unit_prices_updated_byTousers", fields: [updated_by], references: [id], onUpdate: NoAction, map: "fk_vup_updated_by")
   cartItems                                   CartItem[]
   orderItems                                  OrderItem[]
+  replacement_request_items                   replacement_request_items[]
   wishlist_items                              WishlistItem[]
   reviews                                     Review[]
   combo_product_items                         combo_product_items[]
@@ -595,6 +650,8 @@ model VariantUnitPrice {
   stock_reports                               stock_reports[]
   offer_items                                 offer_items[]
   inventory_reservations                      inventory_reservations[]
+  purchase_order_items                        purchase_order_items[]
+  purchase_receipt_items                      purchase_receipt_items[]
 
   @@unique([variant_id, attribute_value_id], map: "uniq_vup_variant_size")
   @@index([variant_id], map: "fk_vup_variant")
@@ -628,25 +685,25 @@ model ProductImage {
 }
 
 model ProductAttribute {
-  id                                         BigInt                     @id @default(autoincrement()) @db.UnsignedBigInt
-  uuid                                       String?                    @default("UUID()") @db.VarChar(255)
-  name                                       String                     @db.VarChar(100)
-  slug                                       String                     @unique(map: "slug") @db.VarChar(120)
-  type                                       attribute_type_enum        @default(text)
-  multiple_selection                         Boolean                    @default(true)
-  createdAt                                  DateTime                   @default(now()) @map("created_at") @db.Timestamp(0)
-  updated_at                                 DateTime                   @default(now()) @db.Timestamp(0)
-  is_active                                  Boolean                    @default(true)
-  created_by                                 BigInt?                    @db.UnsignedBigInt
-  updated_by                                 BigInt?                    @db.UnsignedBigInt
+  id                                         BigInt                      @id @default(autoincrement()) @db.UnsignedBigInt
+  uuid                                       String?                     @default("UUID()") @db.VarChar(255)
+  name                                       String                      @db.VarChar(100)
+  slug                                       String                      @unique(map: "slug") @db.VarChar(120)
+  type                                       attribute_type_enum         @default(text)
+  multiple_selection                         Boolean                     @default(true)
+  createdAt                                  DateTime                    @default(now()) @map("created_at") @db.Timestamp(0)
+  updated_at                                 DateTime                    @default(now()) @db.Timestamp(0)
+  is_active                                  Boolean                     @default(true)
+  created_by                                 BigInt?                     @db.UnsignedBigInt
+  updated_by                                 BigInt?                     @db.UnsignedBigInt
   values                                     AttributeValue[]
   product_attribute_values                   product_attribute_values[]
   category_attributes                        category_attributes[]
   variant_attribute_values                   variant_attribute_values[]
   product_attribute_configs                  product_attribute_configs[]
   item_attribute_values                      item_attribute_values[]
-  users_product_attributes_created_byTousers User?                      @relation("product_attributes_created_byTousers", fields: [created_by], references: [id], onUpdate: NoAction, map: "fk_product_attributes_created_by")
-  users_product_attributes_updated_byTousers User?                      @relation("product_attributes_updated_byTousers", fields: [updated_by], references: [id], onUpdate: NoAction, map: "fk_product_attributes_updated_by")
+  users_product_attributes_created_byTousers User?                       @relation("product_attributes_created_byTousers", fields: [created_by], references: [id], onUpdate: NoAction, map: "fk_product_attributes_created_by")
+  users_product_attributes_updated_byTousers User?                       @relation("product_attributes_updated_byTousers", fields: [updated_by], references: [id], onUpdate: NoAction, map: "fk_product_attributes_updated_by")
 
   @@index([created_by], map: "fk_product_attributes_created_by")
   @@index([updated_by], map: "fk_product_attributes_updated_by")
@@ -932,6 +989,19 @@ model Order {
   created_by                     BigInt?                  @db.UnsignedBigInt
   updated_by                     BigInt?                  @db.UnsignedBigInt
   agent_id                       BigInt?                  @db.UnsignedBigInt
+  /// Referral code active when THIS order was placed (order-specific, never customer-specific).
+  referral_code                  String?                  @db.VarChar(30)
+  /// Blended commission % and total commission frozen at order creation (per-item detail lives in `commissions`).
+  commission_percentage          Decimal?                 @db.Decimal(5, 2)
+  commission_amount              Decimal?                 @db.Decimal(12, 2)
+  /// Set when the delivery is confirmed; anchors the 3-day return/replacement window.
+  delivered_at                   DateTime?                @db.Timestamp(0)
+  cancelled_at                   DateTime?                @db.Timestamp(0)
+  cancellation_reason            String?                  @db.VarChar(100)
+  cancellation_comment           String?                  @db.VarChar(500)
+  /// USER | ADMIN | SYSTEM
+  cancelled_by                   String?                  @db.VarChar(20)
+  cancelled_by_user_id           BigInt?                  @db.UnsignedBigInt
   coupon_usage                   coupon_usage[]
   address                        OrderAddress[]
   items                          OrderItem[]
@@ -941,20 +1011,25 @@ model Order {
   delivery_slots                 delivery_slots?          @relation(fields: [delivery_slot_id], references: [id], onUpdate: NoAction, map: "fk_order_slot")
   user                           User                     @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_order_user")
   agent                          User?                    @relation("OrderAgent", fields: [agent_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_orders_agent")
+  commissions                    commissions[]
   users_orders_created_byTousers User?                    @relation("orders_created_byTousers", fields: [created_by], references: [id], onUpdate: NoAction, map: "fk_orders_created_by")
   users_orders_updated_byTousers User?                    @relation("orders_updated_byTousers", fields: [updated_by], references: [id], onUpdate: NoAction, map: "fk_orders_updated_by")
   payments                       Payment[]
   refunds                        refunds[]
   return_requests                return_requests[]
+  replacement_requests           replacement_requests[]
   shipments                      shipments[]
   inventory_reservations         inventory_reservations[]
 
+  @@index([delivered_at], map: "idx_order_delivered_at")
+  @@index([cancelled_at], map: "idx_order_cancelled_at")
   @@index([cart_id], map: "fk_order_cart")
   @@index([couponId], map: "fk_order_coupon")
   @@index([delivery_slot_id], map: "fk_order_slot")
   @@index([created_by], map: "fk_orders_created_by")
   @@index([updated_by], map: "fk_orders_updated_by")
   @@index([agent_id], map: "fk_orders_agent")
+  @@index([referral_code], map: "idx_orders_referral_code")
   @@index([createdAt], map: "idx_order_created")
   @@index([order_status], map: "idx_order_status")
   @@index([userId], map: "idx_order_user")
@@ -962,37 +1037,41 @@ model Order {
 }
 
 model OrderItem {
-  id                                  BigInt            @id @default(autoincrement()) @db.UnsignedBigInt
-  uuid                                String?           @default("UUID()") @db.VarChar(255)
-  orderId                             BigInt            @map("order_id") @db.UnsignedBigInt
-  productId                           BigInt            @map("product_id") @db.UnsignedBigInt
-  styleId                             BigInt            @map("style_id") @db.UnsignedBigInt
-  itemId                              BigInt?           @map("item_id") @db.UnsignedBigInt
-  variantId                           BigInt            @map("variant_id") @db.UnsignedBigInt
-  variantUnitPriceId                  BigInt?           @map("variant_unit_price_id") @db.UnsignedBigInt
-  product_name_snapshot               String            @db.VarChar(200)
-  item_name_snapshot                  String            @db.VarChar(200)
-  variant_snapshot                    String            @db.VarChar(100)
-  sku_snapshot                        String            @db.VarChar(100)
+  id                                  BigInt                      @id @default(autoincrement()) @db.UnsignedBigInt
+  uuid                                String?                     @default("UUID()") @db.VarChar(255)
+  orderId                             BigInt                      @map("order_id") @db.UnsignedBigInt
+  productId                           BigInt                      @map("product_id") @db.UnsignedBigInt
+  styleId                             BigInt                      @map("style_id") @db.UnsignedBigInt
+  itemId                              BigInt?                     @map("item_id") @db.UnsignedBigInt
+  variantId                           BigInt                      @map("variant_id") @db.UnsignedBigInt
+  variantUnitPriceId                  BigInt?                     @map("variant_unit_price_id") @db.UnsignedBigInt
+  product_name_snapshot               String                      @db.VarChar(200)
+  item_name_snapshot                  String                      @db.VarChar(200)
+  variant_snapshot                    String                      @db.VarChar(100)
+  /// Selected options at purchase time: [{ name, value }] (Color, Size, custom attributes).
+  attributes_snapshot                 Json?
+  sku_snapshot                        String                      @db.VarChar(100)
   quantity                            Int
-  unit_price                          Decimal           @db.Decimal(10, 2)
-  discount_amount                     Decimal           @default(0.00) @db.Decimal(10, 2)
-  tax_amount                          Decimal           @default(0.00) @db.Decimal(10, 2)
-  total_price                         Decimal           @db.Decimal(10, 2)
-  createdAt                           DateTime          @default(now()) @map("created_at") @db.Timestamp(0)
-  updated_at                          DateTime          @default(now()) @db.Timestamp(0)
-  is_active                           Boolean           @default(true)
-  created_by                          BigInt?           @db.UnsignedBigInt
-  updated_by                          BigInt?           @db.UnsignedBigInt
-  users_order_items_created_byTousers User?             @relation("order_items_created_byTousers", fields: [created_by], references: [id], onUpdate: NoAction, map: "fk_order_items_created_by")
-  users_order_items_updated_byTousers User?             @relation("order_items_updated_byTousers", fields: [updated_by], references: [id], onUpdate: NoAction, map: "fk_order_items_updated_by")
-  order                               Order             @relation(fields: [orderId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_orderitem_order")
-  product                             Product           @relation(fields: [productId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_orderitem_product")
-  style                               Style             @relation(fields: [styleId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_orderitem_item")
-  item                                Item?             @relation(fields: [itemId], references: [id], onDelete: SetNull, onUpdate: NoAction, map: "fk_orderitem_newitem")
-  variant                             ProductVariant    @relation(fields: [variantId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_orderitem_variant")
-  variant_unit_price                  VariantUnitPrice? @relation(fields: [variantUnitPriceId], references: [id], onDelete: Restrict, onUpdate: NoAction, map: "fk_orderitem_variant_unit_price")
+  unit_price                          Decimal                     @db.Decimal(10, 2)
+  discount_amount                     Decimal                     @default(0.00) @db.Decimal(10, 2)
+  tax_amount                          Decimal                     @default(0.00) @db.Decimal(10, 2)
+  total_price                         Decimal                     @db.Decimal(10, 2)
+  createdAt                           DateTime                    @default(now()) @map("created_at") @db.Timestamp(0)
+  updated_at                          DateTime                    @default(now()) @db.Timestamp(0)
+  is_active                           Boolean                     @default(true)
+  created_by                          BigInt?                     @db.UnsignedBigInt
+  updated_by                          BigInt?                     @db.UnsignedBigInt
+  users_order_items_created_byTousers User?                       @relation("order_items_created_byTousers", fields: [created_by], references: [id], onUpdate: NoAction, map: "fk_order_items_created_by")
+  users_order_items_updated_byTousers User?                       @relation("order_items_updated_byTousers", fields: [updated_by], references: [id], onUpdate: NoAction, map: "fk_order_items_updated_by")
+  order                               Order                       @relation(fields: [orderId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_orderitem_order")
+  product                             Product                     @relation(fields: [productId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_orderitem_product")
+  style                               Style                       @relation(fields: [styleId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_orderitem_item")
+  item                                Item?                       @relation(fields: [itemId], references: [id], onDelete: SetNull, onUpdate: NoAction, map: "fk_orderitem_newitem")
+  variant                             ProductVariant              @relation(fields: [variantId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_orderitem_variant")
+  variant_unit_price                  VariantUnitPrice?           @relation(fields: [variantUnitPriceId], references: [id], onDelete: Restrict, onUpdate: NoAction, map: "fk_orderitem_variant_unit_price")
   return_items                        return_items[]
+  replacement_request_items           replacement_request_items[]
+  commission                          commissions?
   reviews                             Review[]
 
   @@index([created_by], map: "fk_order_items_created_by")
@@ -1238,6 +1317,14 @@ model InventoryTransaction {
   referenceType                                  String?                     @map("reference_type") @db.VarChar(50)
   referenceId                                    BigInt?                     @map("reference_id") @db.UnsignedBigInt
   note                                           String?                     @db.VarChar(255)
+  /// Business meaning of the movement (type above is only its direction).
+  /// Null on rows written before the ledger existed.
+  movement_type                                  stock_movement_type?
+  /// Stock level immediately before/after this movement; null on legacy rows.
+  previous_stock                                 Int?
+  new_stock                                      Int?
+  /// Human-readable source reference, e.g. PO-000012 or the order number.
+  reference_number                               String?                     @db.VarChar(60)
   created_by                                     BigInt?                     @db.UnsignedBigInt
   createdAt                                      DateTime                    @default(now()) @map("created_at") @db.Timestamp(0)
   updated_at                                     DateTime                    @default(now()) @db.Timestamp(0)
@@ -1250,6 +1337,8 @@ model InventoryTransaction {
   @@index([updated_by], map: "fk_inventory_transactions_updated_by")
   @@index([created_by], map: "fk_invtx_user")
   @@index([variant_unit_price_id], map: "idx_invtx_variant_unit_price")
+  @@index([movement_type, createdAt], map: "idx_invtx_movement_type")
+  @@index([createdAt], map: "idx_invtx_created")
   @@map("inventory_transactions")
 }
 
@@ -1326,6 +1415,9 @@ model Banner {
   title                           String?            @db.VarChar(150)
   image_url                       String             @db.VarChar(500)
   link_url                        String?            @db.VarChar(500)
+  badge_label                     String?            @db.VarChar(50)
+  subtitle                        String?            @db.VarChar(100)
+  price_text                      String?            @db.VarChar(50)
   media_type                      banners_media_type @default(image)
   video_url                       String?            @db.VarChar(500)
   thumbnail_url                   String?            @db.VarChar(500)
@@ -2358,23 +2450,26 @@ model redirect_urls {
 }
 
 model refunds {
-  id                              BigInt         @id @default(autoincrement()) @db.UnsignedBigInt
-  payment_id                      BigInt         @db.UnsignedBigInt
-  order_id                        BigInt         @db.UnsignedBigInt
-  amount                          Decimal        @db.Decimal(10, 2)
-  reason                          String?        @db.VarChar(255)
-  status                          refunds_status @default(initiated)
-  processed_at                    DateTime?      @db.Timestamp(0)
-  created_at                      DateTime       @default(now()) @db.Timestamp(0)
-  updated_at                      DateTime       @default(now()) @db.Timestamp(0)
-  is_active                       Boolean        @default(true)
-  created_by                      BigInt?        @db.UnsignedBigInt
-  updated_by                      BigInt?        @db.UnsignedBigInt
-  orders                          Order          @relation(fields: [order_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_refund_order")
-  payments                        Payment        @relation(fields: [payment_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_refund_payment")
-  users_refunds_created_byTousers User?          @relation("refunds_created_byTousers", fields: [created_by], references: [id], onUpdate: NoAction, map: "fk_refunds_created_by")
-  users_refunds_updated_byTousers User?          @relation("refunds_updated_byTousers", fields: [updated_by], references: [id], onUpdate: NoAction, map: "fk_refunds_updated_by")
+  id                              BigInt           @id @default(autoincrement()) @db.UnsignedBigInt
+  payment_id                      BigInt           @db.UnsignedBigInt
+  order_id                        BigInt           @db.UnsignedBigInt
+  amount                          Decimal          @db.Decimal(10, 2)
+  reason                          String?          @db.VarChar(255)
+  return_request_id               BigInt?          @db.UnsignedBigInt
+  status                          refunds_status   @default(initiated)
+  processed_at                    DateTime?        @db.Timestamp(0)
+  created_at                      DateTime         @default(now()) @db.Timestamp(0)
+  updated_at                      DateTime         @default(now()) @db.Timestamp(0)
+  is_active                       Boolean          @default(true)
+  created_by                      BigInt?          @db.UnsignedBigInt
+  updated_by                      BigInt?          @db.UnsignedBigInt
+  orders                          Order            @relation(fields: [order_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_refund_order")
+  payments                        Payment          @relation(fields: [payment_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_refund_payment")
+  return_request                  return_requests? @relation(fields: [return_request_id], references: [id], onDelete: SetNull, onUpdate: NoAction, map: "fk_refund_return_request")
+  users_refunds_created_byTousers User?            @relation("refunds_created_byTousers", fields: [created_by], references: [id], onUpdate: NoAction, map: "fk_refunds_created_by")
+  users_refunds_updated_byTousers User?            @relation("refunds_updated_byTousers", fields: [updated_by], references: [id], onUpdate: NoAction, map: "fk_refunds_updated_by")
 
+  @@index([return_request_id], map: "idx_refund_return_request")
   @@index([order_id], map: "fk_refund_order")
   @@index([payment_id], map: "fk_refund_payment")
   @@index([created_by], map: "fk_refunds_created_by")
@@ -2405,29 +2500,133 @@ model return_items {
 }
 
 model return_requests {
-  id                                      BigInt                 @id @default(autoincrement()) @db.UnsignedBigInt
-  uuid                                    String?                @unique(map: "idx_return_requests_uuid") @db.VarChar(255)
-  order_id                                BigInt                 @db.UnsignedBigInt
-  user_id                                 BigInt                 @db.UnsignedBigInt
-  reason                                  String                 @db.VarChar(255)
-  status                                  return_requests_status @default(requested)
-  requested_at                            DateTime               @default(now()) @db.Timestamp(0)
-  approved_at                             DateTime?              @db.Timestamp(0)
-  created_at                              DateTime               @default(now()) @db.Timestamp(0)
-  updated_at                              DateTime               @default(now()) @db.Timestamp(0)
-  is_active                               Boolean                @default(true)
-  created_by                              BigInt?                @db.UnsignedBigInt
-  updated_by                              BigInt?                @db.UnsignedBigInt
+  id                                      BigInt                   @id @default(autoincrement()) @db.UnsignedBigInt
+  uuid                                    String?                  @unique(map: "idx_return_requests_uuid") @db.VarChar(255)
+  order_id                                BigInt                   @db.UnsignedBigInt
+  user_id                                 BigInt                   @db.UnsignedBigInt
+  reason                                  String                   @db.VarChar(255)
+  description                             String?                  @db.Text
+  unboxing_video_url                      String?                  @db.VarChar(500)
+  status                                  return_requests_status   @default(return_requested)
+  requested_at                            DateTime                 @default(now()) @db.Timestamp(0)
+  approved_at                             DateTime?                @db.Timestamp(0)
+  approved_by                             BigInt?                  @db.UnsignedBigInt
+  rejected_at                             DateTime?                @db.Timestamp(0)
+  rejected_by                             BigInt?                  @db.UnsignedBigInt
+  rejection_reason                        String?                  @db.VarChar(500)
+  admin_comment                           String?                  @db.VarChar(500)
+  pickup_scheduled_at                     DateTime?                @db.Timestamp(0)
+  completed_at                            DateTime?                @db.Timestamp(0)
+  created_at                              DateTime                 @default(now()) @db.Timestamp(0)
+  updated_at                              DateTime                 @default(now()) @db.Timestamp(0)
+  is_active                               Boolean                  @default(true)
+  created_by                              BigInt?                  @db.UnsignedBigInt
+  updated_by                              BigInt?                  @db.UnsignedBigInt
   return_items                            return_items[]
-  orders                                  Order                  @relation(fields: [order_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_return_order")
-  users_return_requests_created_byTousers User?                  @relation("return_requests_created_byTousers", fields: [created_by], references: [id], onUpdate: NoAction, map: "fk_return_requests_created_by")
-  users_return_requests_updated_byTousers User?                  @relation("return_requests_updated_byTousers", fields: [updated_by], references: [id], onUpdate: NoAction, map: "fk_return_requests_updated_by")
-  users_return_requests_user_idTousers    User                   @relation("return_requests_user_idTousers", fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_return_user")
+  history                                 return_request_history[]
+  refunds                                 refunds[]
+  orders                                  Order                    @relation(fields: [order_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_return_order")
+  users_return_requests_created_byTousers User?                    @relation("return_requests_created_byTousers", fields: [created_by], references: [id], onUpdate: NoAction, map: "fk_return_requests_created_by")
+  users_return_requests_updated_byTousers User?                    @relation("return_requests_updated_byTousers", fields: [updated_by], references: [id], onUpdate: NoAction, map: "fk_return_requests_updated_by")
+  users_return_requests_user_idTousers    User                     @relation("return_requests_user_idTousers", fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_return_user")
 
   @@index([order_id], map: "fk_return_order")
   @@index([created_by], map: "fk_return_requests_created_by")
   @@index([updated_by], map: "fk_return_requests_updated_by")
   @@index([user_id], map: "fk_return_user")
+  @@index([status], map: "idx_return_status")
+  @@index([requested_at], map: "idx_return_requested_at")
+}
+
+model return_request_history {
+  id                BigInt          @id @default(autoincrement()) @db.UnsignedBigInt
+  return_request_id BigInt          @db.UnsignedBigInt
+  from_status       String?         @db.VarChar(30)
+  to_status         String          @db.VarChar(30)
+  action            String          @db.VarChar(40)
+  note              String?         @db.VarChar(500)
+  actor_user_id     BigInt?         @db.UnsignedBigInt
+  /// USER | ADMIN | STAFF | SYSTEM
+  actor_type        String          @default("SYSTEM") @db.VarChar(20)
+  created_at        DateTime        @default(now()) @db.Timestamp(0)
+  return_request    return_requests @relation(fields: [return_request_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_return_hist_request")
+
+  @@index([return_request_id, created_at], map: "idx_return_hist_request")
+  @@index([actor_user_id], map: "idx_return_hist_actor")
+}
+
+model replacement_requests {
+  id                  BigInt                        @id @default(autoincrement()) @db.UnsignedBigInt
+  uuid                String?                       @unique(map: "idx_replacement_requests_uuid") @db.VarChar(255)
+  order_id            BigInt                        @db.UnsignedBigInt
+  user_id             BigInt                        @db.UnsignedBigInt
+  reason              String                        @db.VarChar(255)
+  description         String?                       @db.Text
+  unboxing_video_url  String                        @db.VarChar(500)
+  status              replacement_requests_status   @default(replacement_requested)
+  requested_at        DateTime                      @default(now()) @db.Timestamp(0)
+  approved_at         DateTime?                     @db.Timestamp(0)
+  approved_by         BigInt?                       @db.UnsignedBigInt
+  rejected_at         DateTime?                     @db.Timestamp(0)
+  rejected_by         BigInt?                       @db.UnsignedBigInt
+  rejection_reason    String?                       @db.VarChar(500)
+  admin_comment       String?                       @db.VarChar(500)
+  pickup_scheduled_at DateTime?                     @db.Timestamp(0)
+  shipped_at          DateTime?                     @db.Timestamp(0)
+  delivered_at        DateTime?                     @db.Timestamp(0)
+  completed_at        DateTime?                     @db.Timestamp(0)
+  created_at          DateTime                      @default(now()) @db.Timestamp(0)
+  updated_at          DateTime                      @default(now()) @db.Timestamp(0)
+  is_active           Boolean                       @default(true)
+  created_by          BigInt?                       @db.UnsignedBigInt
+  updated_by          BigInt?                       @db.UnsignedBigInt
+  items               replacement_request_items[]
+  history             replacement_request_history[]
+  orders              Order                         @relation(fields: [order_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_replacement_order")
+  user                User                          @relation("replacement_requests_user", fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_replacement_user")
+
+  @@index([order_id], map: "fk_replacement_order")
+  @@index([user_id], map: "fk_replacement_user")
+  @@index([status], map: "idx_replacement_status")
+  @@index([requested_at], map: "idx_replacement_requested_at")
+}
+
+model replacement_request_items {
+  id                              BigInt               @id @default(autoincrement()) @db.UnsignedBigInt
+  replacement_request_id          BigInt               @db.UnsignedBigInt
+  order_item_id                   BigInt               @db.UnsignedBigInt
+  quantity                        Int
+  requested_variant_id            BigInt?              @db.UnsignedBigInt
+  requested_variant_unit_price_id BigInt?              @db.UnsignedBigInt
+  created_at                      DateTime             @default(now()) @db.Timestamp(0)
+  updated_at                      DateTime             @default(now()) @db.Timestamp(0)
+  is_active                       Boolean              @default(true)
+  replacement_request             replacement_requests @relation(fields: [replacement_request_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_replitem_request")
+  order_items                     OrderItem            @relation(fields: [order_item_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_replitem_orderitem")
+  requested_variant               ProductVariant?      @relation(fields: [requested_variant_id], references: [id], onDelete: SetNull, onUpdate: NoAction, map: "fk_replitem_variant")
+  requested_variant_unit_price    VariantUnitPrice?    @relation(fields: [requested_variant_unit_price_id], references: [id], onDelete: SetNull, onUpdate: NoAction, map: "fk_replitem_vup")
+
+  @@index([replacement_request_id], map: "fk_replitem_request")
+  @@index([order_item_id], map: "fk_replitem_orderitem")
+  @@index([requested_variant_id], map: "fk_replitem_variant")
+  @@index([requested_variant_unit_price_id], map: "fk_replitem_vup")
+}
+
+model replacement_request_history {
+  id                     BigInt               @id @default(autoincrement()) @db.UnsignedBigInt
+  replacement_request_id BigInt               @db.UnsignedBigInt
+  from_status            String?              @db.VarChar(30)
+  to_status              String               @db.VarChar(30)
+  action                 String               @db.VarChar(40)
+  note                   String?              @db.VarChar(500)
+  actor_user_id          BigInt?              @db.UnsignedBigInt
+  /// USER | ADMIN | STAFF | SYSTEM
+  actor_type             String               @default("SYSTEM") @db.VarChar(20)
+  created_at             DateTime             @default(now()) @db.Timestamp(0)
+  replacement_request    replacement_requests @relation(fields: [replacement_request_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_replacement_hist_request")
+
+  @@index([replacement_request_id, created_at], map: "idx_replacement_hist_request")
+  @@index([actor_user_id], map: "idx_replacement_hist_actor")
 }
 
 model reward_points {
@@ -2714,6 +2913,14 @@ enum banners_media_type {
   video
 }
 
+enum stock_movement_type {
+  PURCHASE
+  SALE
+  RETURN
+  REPLACEMENT
+  ADJUSTMENT
+}
+
 enum inventory_transactions_type {
   in
   out
@@ -2823,11 +3030,29 @@ enum product_units_type {
 }
 
 enum return_requests_status {
-  requested
+  return_requested
+  under_review
   approved
   rejected
+  pickup_scheduled
   picked_up
+  received
+  refund_pending
   refunded
+  closed
+}
+
+enum replacement_requests_status {
+  replacement_requested
+  under_review
+  approved
+  rejected
+  pickup_scheduled
+  picked_up
+  replacement_processing
+  replacement_shipped
+  replaced
+  closed
 }
 
 enum shipments_status {
@@ -2997,4 +3222,312 @@ model WhatsAppTemplate {
   updated_at DateTime @default(now()) @updatedAt @db.Timestamp(0)
 
   @@map("whatsapp_templates")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Agent referral & commission system
+// An agent is a `users` row whose role is AGENT; everything below hangs off it.
+// ─────────────────────────────────────────────────────────────────────────────
+
+enum commission_rate_scope {
+  global
+  category
+  product
+}
+
+enum commission_status {
+  pending
+  approved
+  payout_requested
+  payout_approved
+  paid
+  cancelled
+  reversed
+}
+
+enum commission_payouts_status {
+  requested
+  approved
+  rejected
+  paid
+  cancelled
+}
+
+enum commission_payouts_method {
+  upi
+  bank_transfer
+}
+
+/// 1:1 extension of an AGENT user: public agent id + saved payout details.
+/// The bank account number is stored AES-256-GCM encrypted (see lib/security/field-crypto).
+model agent_profiles {
+  id                      BigInt                     @id @default(autoincrement()) @db.UnsignedBigInt
+  user_id                 BigInt                     @unique(map: "uq_agent_profiles_user") @db.UnsignedBigInt
+  agent_code              String                     @unique(map: "uq_agent_profiles_code") @db.VarChar(20)
+  notes                   String?                    @db.VarChar(500)
+  preferred_payout_method commission_payouts_method?
+  upi_id                  String?                    @db.VarChar(100)
+  bank_account_holder     String?                    @db.VarChar(150)
+  bank_name               String?                    @db.VarChar(150)
+  bank_account_number_enc String?                    @db.VarChar(500)
+  bank_account_last4      String?                    @db.VarChar(4)
+  bank_ifsc               String?                    @db.VarChar(15)
+  created_at              DateTime                   @default(now()) @db.Timestamp(0)
+  updated_at              DateTime                   @default(now()) @updatedAt @db.Timestamp(0)
+  created_by              BigInt?                    @db.UnsignedBigInt
+  updated_by              BigInt?                    @db.UnsignedBigInt
+  user                    User                       @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_agent_profiles_user")
+
+  @@map("agent_profiles")
+}
+
+/// Configurable percentages. `scope_key` (global, category:<id> or product:<id>) is unique
+/// so a target can only ever carry one rate.
+model commission_rates {
+  id          BigInt                @id @default(autoincrement()) @db.UnsignedBigInt
+  scope       commission_rate_scope
+  scope_key   String                @unique(map: "uq_commission_rates_scope_key") @db.VarChar(40)
+  category_id BigInt?               @db.UnsignedBigInt
+  product_id  BigInt?               @db.UnsignedBigInt
+  percentage  Decimal               @db.Decimal(5, 2)
+  is_active   Boolean               @default(true)
+  created_by  BigInt?               @db.UnsignedBigInt
+  updated_by  BigInt?               @db.UnsignedBigInt
+  created_at  DateTime              @default(now()) @db.Timestamp(0)
+  updated_at  DateTime              @default(now()) @updatedAt @db.Timestamp(0)
+  category    ProductCategory?      @relation(fields: [category_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_commission_rates_category")
+  product     Product?              @relation(fields: [product_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_commission_rates_product")
+
+  @@index([scope, is_active], map: "idx_commission_rates_scope")
+  @@index([category_id], map: "idx_commission_rates_category")
+  @@index([product_id], map: "idx_commission_rates_product")
+  @@map("commission_rates")
+}
+
+/// One row per order item. Percentage and amount are frozen at creation time.
+model commissions {
+  id                    BigInt              @id @default(autoincrement()) @db.UnsignedBigInt
+  uuid                  String              @unique(map: "uq_commissions_uuid") @db.VarChar(64)
+  agent_id              BigInt              @db.UnsignedBigInt
+  referral_code         String?             @db.VarChar(30)
+  customer_id           BigInt              @db.UnsignedBigInt
+  order_id              BigInt              @db.UnsignedBigInt
+  order_item_id         BigInt              @unique(map: "uq_commissions_order_item") @db.UnsignedBigInt
+  product_id            BigInt              @db.UnsignedBigInt
+  category_id           BigInt?             @db.UnsignedBigInt
+  product_amount        Decimal             @db.Decimal(12, 2)
+  commission_percentage Decimal             @db.Decimal(5, 2)
+  rate_source           String              @db.VarChar(20)
+  commission_amount     Decimal             @db.Decimal(12, 2)
+  status                commission_status   @default(pending)
+  order_status          String              @db.VarChar(30)
+  delivered_at          DateTime?           @db.Timestamp(0)
+  return_period_ends_at DateTime?           @db.Timestamp(0)
+  approved_at           DateTime?           @db.Timestamp(0)
+  payout_id             BigInt?             @db.UnsignedBigInt
+  paid_at               DateTime?           @db.Timestamp(0)
+  cancelled_at          DateTime?           @db.Timestamp(0)
+  reversed_at           DateTime?           @db.Timestamp(0)
+  reversal_reason       String?             @db.VarChar(255)
+  clawback_due          Boolean             @default(false)
+  created_at            DateTime            @default(now()) @db.Timestamp(0)
+  updated_at            DateTime            @default(now()) @updatedAt @db.Timestamp(0)
+  agent                 User                @relation("CommissionAgent", fields: [agent_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_commissions_agent")
+  customer              User                @relation("CommissionCustomer", fields: [customer_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_commissions_customer")
+  order                 Order               @relation(fields: [order_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_commissions_order")
+  order_item            OrderItem           @relation(fields: [order_item_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_commissions_order_item")
+  product               Product             @relation(fields: [product_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_commissions_product")
+  category              ProductCategory?    @relation(fields: [category_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_commissions_category")
+  payout                commission_payouts? @relation(fields: [payout_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_commissions_payout")
+
+  @@index([agent_id, status], map: "idx_commissions_agent_status")
+  @@index([referral_code], map: "idx_commissions_referral_code")
+  @@index([customer_id], map: "idx_commissions_customer")
+  @@index([order_id], map: "idx_commissions_order")
+  @@index([product_id], map: "idx_commissions_product")
+  @@index([category_id], map: "idx_commissions_category")
+  @@index([payout_id], map: "idx_commissions_payout")
+  @@index([status, return_period_ends_at], map: "idx_commissions_status_due")
+  @@map("commissions")
+}
+
+/// A payout request. Payment details are snapshotted so later profile edits never rewrite history.
+model commission_payouts {
+  id                    BigInt                    @id @default(autoincrement()) @db.UnsignedBigInt
+  uuid                  String                    @unique(map: "uq_commission_payouts_uuid") @db.VarChar(64)
+  agent_id              BigInt                    @db.UnsignedBigInt
+  amount                Decimal                   @db.Decimal(12, 2)
+  method                commission_payouts_method
+  upi_id                String?                   @db.VarChar(100)
+  account_holder_name   String?                   @db.VarChar(150)
+  bank_name             String?                   @db.VarChar(150)
+  account_number_enc    String?                   @db.VarChar(500)
+  account_last4         String?                   @db.VarChar(4)
+  ifsc                  String?                   @db.VarChar(15)
+  status                commission_payouts_status @default(requested)
+  requested_at          DateTime                  @default(now()) @db.Timestamp(0)
+  reviewed_at           DateTime?                 @db.Timestamp(0)
+  reviewed_by           BigInt?                   @db.UnsignedBigInt
+  rejection_reason      String?                   @db.VarChar(255)
+  paid_at               DateTime?                 @db.Timestamp(0)
+  paid_by               BigInt?                   @db.UnsignedBigInt
+  transaction_reference String?                   @db.VarChar(100)
+  admin_note            String?                   @db.VarChar(500)
+  created_at            DateTime                  @default(now()) @db.Timestamp(0)
+  updated_at            DateTime                  @default(now()) @updatedAt @db.Timestamp(0)
+  agent                 User                      @relation("PayoutAgent", fields: [agent_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_commission_payouts_agent")
+  commissions           commissions[]
+
+  @@index([agent_id, status], map: "idx_commission_payouts_agent_status")
+  @@index([status], map: "idx_commission_payouts_status")
+  @@map("commission_payouts")
+}
+
+/// Append-only trail for every commission / payout / assignment / rate action.
+model commission_audit_logs {
+  id          BigInt   @id @default(autoincrement()) @db.UnsignedBigInt
+  entity_type String   @db.VarChar(30)
+  entity_id   BigInt   @db.UnsignedBigInt
+  agent_id    BigInt?  @db.UnsignedBigInt
+  action      String   @db.VarChar(50)
+  from_status String?  @db.VarChar(30)
+  to_status   String?  @db.VarChar(30)
+  actor_id    BigInt?  @db.UnsignedBigInt
+  actor_role  String?  @db.VarChar(20)
+  note        String?  @db.VarChar(500)
+  metadata    Json?
+  created_at  DateTime @default(now()) @db.Timestamp(0)
+
+  @@index([entity_type, entity_id], map: "idx_cal_entity")
+  @@index([agent_id], map: "idx_cal_agent")
+  @@index([created_at], map: "idx_cal_created")
+  @@map("commission_audit_logs")
+}
+
+model vendors {
+  id              BigInt            @id @default(autoincrement()) @db.UnsignedBigInt
+  uuid            String            @unique(map: "uq_vendors_uuid") @db.VarChar(64)
+  code            String            @unique(map: "uq_vendors_code") @db.VarChar(30)
+  name            String            @db.VarChar(150)
+  contact_person  String?           @db.VarChar(120)
+  phone           String?           @db.VarChar(20)
+  email           String?           @db.VarChar(150)
+  gstin           String?           @db.VarChar(20)
+  address         String?           @db.VarChar(500)
+  notes           String?           @db.VarChar(500)
+  is_active       Boolean           @default(true)
+  created_at      DateTime          @default(now()) @db.Timestamp(0)
+  updated_at      DateTime          @default(now()) @updatedAt @db.Timestamp(0)
+  deleted_at      DateTime?         @db.Timestamp(0)
+  created_by      BigInt?           @db.UnsignedBigInt
+  updated_by      BigInt?           @db.UnsignedBigInt
+  purchase_orders purchase_orders[]
+
+  @@index([name], map: "idx_vendors_name")
+}
+
+model purchase_orders {
+  id                 BigInt                   @id @default(autoincrement()) @db.UnsignedBigInt
+  uuid               String                   @unique(map: "uq_po_uuid") @db.VarChar(64)
+  po_number          String                   @unique(map: "uq_po_number") @db.VarChar(30)
+  vendor_id          BigInt                   @db.UnsignedBigInt
+  status             purchase_orders_status   @default(DRAFT)
+  expected_date      DateTime?                @db.Date
+  /// Date the goods were bought (vendor invoice date), not when the record was keyed in.
+  purchase_date      DateTime?                @db.Date
+  invoice_number     String?                  @db.VarChar(60)
+  notes              String?                  @db.VarChar(500)
+  reject_reason      String?                  @db.VarChar(255)
+  subtotal           Decimal                  @default(0.00) @db.Decimal(12, 2)
+  /// Freight, packing, etc. total_amount = subtotal + additional_charges.
+  additional_charges Decimal                  @default(0.00) @db.Decimal(12, 2)
+  total_amount       Decimal                  @default(0.00) @db.Decimal(12, 2)
+  submitted_at       DateTime?                @db.Timestamp(0)
+  approved_by        BigInt?                  @db.UnsignedBigInt
+  approved_at        DateTime?                @db.Timestamp(0)
+  ordered_at         DateTime?                @db.Timestamp(0)
+  received_at        DateTime?                @db.Timestamp(0)
+  cancelled_at       DateTime?                @db.Timestamp(0)
+  created_at         DateTime                 @default(now()) @db.Timestamp(0)
+  updated_at         DateTime                 @default(now()) @updatedAt @db.Timestamp(0)
+  created_by         BigInt?                  @db.UnsignedBigInt
+  updated_by         BigInt?                  @db.UnsignedBigInt
+  vendor             vendors                  @relation(fields: [vendor_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_po_vendor")
+  items              purchase_order_items[]
+  receipts           purchase_receipts[]
+  history            purchase_order_history[]
+
+  @@index([vendor_id], map: "idx_po_vendor")
+  @@index([status], map: "idx_po_status")
+  @@index([purchase_date], map: "idx_po_purchase_date")
+}
+
+model purchase_order_items {
+  id                    BigInt                   @id @default(autoincrement()) @db.UnsignedBigInt
+  purchase_order_id     BigInt                   @db.UnsignedBigInt
+  variant_unit_price_id BigInt                   @db.UnsignedBigInt
+  quantity_ordered      Int
+  quantity_received     Int                      @default(0)
+  unit_cost             Decimal                  @default(0.00) @db.Decimal(10, 2)
+  created_at            DateTime                 @default(now()) @db.Timestamp(0)
+  purchase_order        purchase_orders          @relation(fields: [purchase_order_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_poi_po")
+  variant_unit_price    VariantUnitPrice         @relation(fields: [variant_unit_price_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_poi_vup")
+  receipt_items         purchase_receipt_items[]
+
+  @@index([purchase_order_id], map: "idx_poi_po")
+  @@index([variant_unit_price_id], map: "idx_poi_vup")
+}
+
+model purchase_receipts {
+  id                BigInt                   @id @default(autoincrement()) @db.UnsignedBigInt
+  purchase_order_id BigInt                   @db.UnsignedBigInt
+  receipt_number    String                   @unique(map: "uq_receipt_number") @db.VarChar(30)
+  received_at       DateTime                 @default(now()) @db.Timestamp(0)
+  notes             String?                  @db.VarChar(500)
+  received_by       BigInt?                  @db.UnsignedBigInt
+  created_at        DateTime                 @default(now()) @db.Timestamp(0)
+  purchase_order    purchase_orders          @relation(fields: [purchase_order_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_receipt_po")
+  items             purchase_receipt_items[]
+
+  @@index([purchase_order_id], map: "idx_receipt_po")
+}
+
+model purchase_receipt_items {
+  id                     BigInt               @id @default(autoincrement()) @db.UnsignedBigInt
+  receipt_id             BigInt               @db.UnsignedBigInt
+  purchase_order_item_id BigInt               @db.UnsignedBigInt
+  variant_unit_price_id  BigInt               @db.UnsignedBigInt
+  quantity_received      Int
+  unit_cost              Decimal              @default(0.00) @db.Decimal(10, 2)
+  receipt                purchase_receipts    @relation(fields: [receipt_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_ri_receipt")
+  order_item             purchase_order_items @relation(fields: [purchase_order_item_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_ri_poi")
+  variant_unit_price     VariantUnitPrice     @relation(fields: [variant_unit_price_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_ri_vup")
+
+  @@index([receipt_id], map: "idx_ri_receipt")
+  @@index([purchase_order_item_id], map: "idx_ri_poi")
+  @@index([variant_unit_price_id], map: "idx_ri_vup")
+}
+
+model purchase_order_history {
+  id                BigInt          @id @default(autoincrement()) @db.UnsignedBigInt
+  purchase_order_id BigInt          @db.UnsignedBigInt
+  from_status       String?         @db.VarChar(30)
+  to_status         String          @db.VarChar(30)
+  note              String?         @db.VarChar(255)
+  changed_by        BigInt?         @db.UnsignedBigInt
+  created_at        DateTime        @default(now()) @db.Timestamp(0)
+  purchase_order    purchase_orders @relation(fields: [purchase_order_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_poh_po")
+
+  @@index([purchase_order_id], map: "idx_poh_po")
+}
+
+enum purchase_orders_status {
+  DRAFT
+  PENDING_APPROVAL
+  APPROVED
+  REJECTED
+  ORDERED
+  PARTIALLY_RECEIVED
+  RECEIVED
+  CANCELLED
 }

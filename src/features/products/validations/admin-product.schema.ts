@@ -29,7 +29,7 @@ export const createAdminProductSchema = z
       .min(1, "Product code cannot be empty")
       .max(220, "Product code cannot exceed 220 characters"),
     /** Audience this product is designed for - drives which size chart applies. */
-    gender: productGenderEnum.optional(),
+    gender: productGenderEnum,
   })
   .strict();
 

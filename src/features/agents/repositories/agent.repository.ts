@@ -15,20 +15,6 @@ export const agentRepository = {
     });
   },
 
-  async countReferredUsers(agentId: bigint) {
-    return db.user.count({ where: { referred_by_agent_id: agentId } });
-  },
-
-  async listReferredUsers(agentId: bigint, page: number, limit: number) {
-    return db.user.findMany({
-      where: { referred_by_agent_id: agentId },
-      select: { uuid: true, name: true, email: true, referred_at: true },
-      orderBy: { referred_at: "desc" },
-      skip: (page - 1) * limit,
-      take: limit,
-    });
-  },
-
   async countAttributedOrders(agentId: bigint) {
     return db.order.count({ where: { agent_id: agentId, is_active: true } });
   },

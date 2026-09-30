@@ -12,8 +12,11 @@ export const GET = createApiHandler(
     GET: async (_request, context) => {
       const categoryKey = context.searchParams?.get("category")?.trim().slice(0, 170);
       if (!categoryKey) throw ApiError.badRequest("category is required");
+      const genderParam = context.searchParams?.get("gender")?.trim().toLowerCase();
+      const gender = (["men", "women", "kids", "unisex"] as const).find((g) => g === genderParam);
       const menu = await catalogListingService.getCategoryMenu({
         categoryKey,
+        gender,
         productLimit: 6,
         itemLimit: 4,
       });

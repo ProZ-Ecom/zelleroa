@@ -13,7 +13,11 @@ export const styleInclude = Prisma.validator<Prisma.StyleInclude>()({
       isActive: true,
       deleted_at: true,
       categoryId: true,
+      brand: { select: { uuid: true, name: true } },
     },
+  },
+  brand: {
+    select: { uuid: true, name: true },
   },
   images: {
     where: { is_active: true },

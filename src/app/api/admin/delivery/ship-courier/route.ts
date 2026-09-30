@@ -11,9 +11,9 @@ export const POST = createApiHandler(
     POST: async (_request, context) => {
       const body = context.body as ShipViaCourierInput;
       const adminEmail = context.session?.user?.email;
-      const result = await deliveryService.shipViaDelhivery(body, adminEmail);
+      const result = await deliveryService.shipViaIndiaPost(body, adminEmail);
 
-      return apiSuccess(result, "Shipment booked with Delhivery", 201);
+      return apiSuccess(result, "Shipment recorded with India Post", 201);
     },
   },
   {

@@ -183,7 +183,7 @@ export function CategoryListingView({ categoryKey, initialTitle }: CategoryListi
   }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
 
   const breadcrumb = [
-    ...(isAll ? [] : [{ label: "All Products", href: categoryHref({ slug: "all", id: "all" }) }]),
+    ...(isAll ? [] : [{ label: "Shop All", href: categoryHref({ slug: "all", id: "all" }) }]),
     ...(category?.ancestors ?? []).map((a) => ({ label: a.name, href: categoryHref(a) })),
     { label: title },
   ];

@@ -136,11 +136,3 @@ export interface CourierShipmentResult {
   trackingUrl: string;
   status: string;
 }
-
-export interface RefreshCourierTrackingResult {
-  id: string; // Shipment UUID
-  orderId: string;
-  status: string;
-  timeline: ShipmentTrackingItem[];
-}
-

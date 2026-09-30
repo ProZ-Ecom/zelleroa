@@ -1,6 +1,8 @@
 import crypto from "crypto";
+import { syncCommissionsWithOrderStatus } from "@/features/agents/services/commission.service";
 import { db } from "@/lib/db/prisma";
 import { Prisma } from "@/generated/prisma";
+import { INDIA_POST_PARTNER_CODE, INDIA_POST_PARTNER_NAME } from "@/lib/shipping/india-post";
 import type {
   AdminDeliveryOrdersListInput,
   AdminDeliveryStaffListInput,
@@ -488,18 +490,18 @@ export const deliveryRepository = {
     });
   },
 
-  /* ----------------------- Courier (Delhivery) Shipments ----------------------- */
+  /* ----------------------- Courier (India Post) Shipments ----------------------- */
 
-  async findOrCreateDelhiveryPartner(adminId?: bigint | null) {
+  async findOrCreateIndiaPostPartner(adminId?: bigint | null) {
     const existing = await db.delivery_partners.findUnique({
-      where: { code: "DELHIVERY" },
+      where: { code: INDIA_POST_PARTNER_CODE },
     });
     if (existing) return existing;
 
     return db.delivery_partners.create({
       data: {
-        name: "Delhivery",
-        code: "DELHIVERY",
+        name: INDIA_POST_PARTNER_NAME,
+        code: INDIA_POST_PARTNER_CODE,
         is_active: true,
         created_by: adminId,
         updated_by: adminId,
@@ -546,7 +548,7 @@ export const deliveryRepository = {
         data: {
           shipment_id: shipment.id,
           status: "booked",
-          note: `Shipment booked with Delhivery. AWB: ${params.trackingNumber}`,
+          note: `Shipment handed to India Post. Consignment no: ${params.trackingNumber}`,
           created_by: params.adminId,
           updated_by: params.adminId,
         },
@@ -559,12 +561,13 @@ export const deliveryRepository = {
           updated_by: params.adminId,
         },
       });
+      await syncCommissionsWithOrderStatus(tx, params.orderId, "shipped", { id: params.adminId ?? null, role: "USER" });
 
       await tx.order_status_history.create({
         data: {
           order_id: params.orderId,
           status: "shipped",
-          note: `Shipped via Delhivery. AWB: ${params.trackingNumber}`,
+          note: `Shipped via India Post. Consignment no: ${params.trackingNumber}`,
           changed_by: params.adminId,
           created_by: params.adminId,
           updated_by: params.adminId,
@@ -572,83 +575,6 @@ export const deliveryRepository = {
       });
 
       return { shipment, order: updatedOrder };
-    });
-  },
-
-  async findCourierShipmentByUuid(uuid: string) {
-    return db.shipments.findFirst({
-      where: { uuid, is_active: true },
-      include: {
-        delivery_partners: true,
-        orders: { select: { id: true, uuid: true, orderNumber: true, order_status: true } },
-        shipment_tracking: { orderBy: { id: "asc" } },
-      },
-    });
-  },
-
-  async appendCourierTrackingTransaction(params: {
-    shipmentId: bigint;
-    orderId: bigint;
-    newScans: { status: string; location: string | null; note: string | null; trackedAt: Date }[];
-    finalShipmentStatus?: "in_transit" | "out_for_delivery" | "delivered" | "failed";
-    finalOrderStatus?: "shipped" | "out_for_delivery" | "delivered";
-    adminId?: bigint | null;
-  }) {
-    if (params.newScans.length === 0 && !params.finalShipmentStatus) {
-      return null;
-    }
-
-    return db.$transaction(async (tx) => {
-      for (const scan of params.newScans) {
-        await tx.shipment_tracking.create({
-          data: {
-            shipment_id: params.shipmentId,
-            status: scan.status,
-            location: scan.location,
-            note: scan.note,
-            tracked_at: scan.trackedAt,
-            created_by: params.adminId,
-            updated_by: params.adminId,
-          },
-        });
-      }
-
-      let updatedShipment = null;
-      if (params.finalShipmentStatus) {
-        updatedShipment = await tx.shipments.update({
-          where: { id: params.shipmentId },
-          data: {
-            status: params.finalShipmentStatus,
-            shipped_at: params.finalShipmentStatus === "out_for_delivery" ? new Date() : undefined,
-            delivered_at: params.finalShipmentStatus === "delivered" ? new Date() : undefined,
-            updated_by: params.adminId,
-          },
-        });
-      }
-
-      let updatedOrder = null;
-      if (params.finalOrderStatus) {
-        updatedOrder = await tx.order.update({
-          where: { id: params.orderId },
-          data: {
-            order_status: params.finalOrderStatus,
-            updated_by: params.adminId,
-          },
-        });
-
-        await tx.order_status_history.create({
-          data: {
-            order_id: params.orderId,
-            status: params.finalOrderStatus,
-            note: `Delhivery tracking update: ${params.finalOrderStatus.replace(/_/g, " ")}`,
-            changed_by: params.adminId,
-            created_by: params.adminId,
-            updated_by: params.adminId,
-          },
-        });
-      }
-
-      return { shipment: updatedShipment, order: updatedOrder };
     });
   },
 
@@ -705,6 +631,7 @@ export const deliveryRepository = {
           updated_by: staffInternalId,
         },
       });
+      await syncCommissionsWithOrderStatus(tx, orderId, "out_for_delivery", { id: staffInternalId, role: "USER" });
 
       await tx.order_status_history.create({
         data: {
@@ -756,9 +683,11 @@ export const deliveryRepository = {
         where: { id: orderId },
         data: {
           order_status: "delivered",
+          delivered_at: now,
           updated_by: staffInternalId,
         },
       });
+      await syncCommissionsWithOrderStatus(tx, orderId, "delivered", { id: staffInternalId, role: "USER" });
 
       await tx.order_status_history.create({
         data: {

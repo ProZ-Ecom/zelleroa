@@ -14,7 +14,8 @@ export const POST = createApiHandler(
         const summary = await orderService.getCheckoutSummary(
           userId,
           body.deliveryMethod,
-          body.couponCode
+          body.couponCode,
+          body.shippingAddressId
         );
         return apiSuccess(summary, "Checkout summary fetched successfully");
       } catch (error) {

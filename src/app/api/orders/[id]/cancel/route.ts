@@ -13,7 +13,8 @@ export const PATCH = createApiHandler(
         const id = context.params?.id ?? "";
         const body = (context.body as any) ?? {};
         const order = await orderService.cancelOrder(userId, id, {
-          reason: body.reason || body.note,
+          reason: body.reason,
+          comment: body.comment,
         });
         return apiSuccess(order, "Order cancelled successfully");
       } catch (error) {

@@ -1,9 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Copy, Check } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { Copy, Check, Link2 } from "lucide-react";
 
 interface ReferralLinkCardProps {
   referralCode: string;
@@ -24,27 +22,39 @@ export function ReferralLinkCard({ referralCode, referralLink }: ReferralLinkCar
   };
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-base">Your referral link</CardTitle>
-      </CardHeader>
-      <CardContent className="flex flex-col gap-3">
-        <div className="text-sm text-muted-foreground">
-          Code: <span className="font-mono font-semibold text-foreground">{referralCode}</span>
+    <section className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-neutral-900 via-neutral-800 to-neutral-700 p-5 text-white shadow-sm sm:p-6">
+      <div className="pointer-events-none absolute -right-10 -top-10 h-40 w-40 rounded-full bg-white/10" aria-hidden />
+      <div className="pointer-events-none absolute -bottom-14 right-16 h-32 w-32 rounded-full bg-white/5" aria-hidden />
+      <div className="relative flex flex-col gap-4">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-white/15">
+              <Link2 className="h-4 w-4" />
+            </span>
+            <h2 className="text-base font-bold">Your referral link</h2>
+          </div>
+          <span className="rounded-full bg-white/15 px-3 py-1 text-xs">
+            Code <span className="ml-1 font-mono font-semibold tracking-wider">{referralCode}</span>
+          </span>
         </div>
-        <div className="flex items-center gap-2">
+        <p className="text-sm text-neutral-300">Share this link — every customer who signs up through it is assigned to you.</p>
+        <div className="flex flex-col gap-2 sm:flex-row">
           <input
             readOnly
             value={referralLink}
-            className="w-full min-w-0 truncate rounded-md border bg-muted px-3 py-2 text-sm"
+            className="h-11 w-full min-w-0 truncate rounded-xl border border-white/20 bg-white/10 px-3 text-sm text-white outline-none focus:border-white/50"
             onFocus={(e) => e.currentTarget.select()}
           />
-          <Button type="button" variant="outline" size="sm" onClick={handleCopy}>
-            {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-            {copied ? "Copied" : "Copy"}
-          </Button>
+          <button
+            type="button"
+            onClick={handleCopy}
+            className="inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-xl bg-white px-5 text-sm font-semibold text-neutral-900 transition-colors hover:bg-neutral-100"
+          >
+            {copied ? <Check className="h-4 w-4 text-emerald-600" /> : <Copy className="h-4 w-4" />}
+            {copied ? "Copied" : "Copy link"}
+          </button>
         </div>
-      </CardContent>
-    </Card>
+      </div>
+    </section>
   );
 }

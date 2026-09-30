@@ -231,7 +231,7 @@ export async function assignOrderDelivery(
 }
 
 export async function getCheckoutSummary(
-  input: { deliveryMethod?: DeliveryMethod; couponCode?: string }
+  input: { deliveryMethod?: DeliveryMethod; couponCode?: string; shippingAddressId?: string }
 ): Promise<CheckoutSummary> {
   const response = await apiClient.post<CheckoutSummary>(
     "/api/checkout/summary",

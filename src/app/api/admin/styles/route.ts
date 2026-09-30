@@ -1,10 +1,15 @@
 import { createApiHandler } from "@/lib/api/api-handler";
 import { apiSuccess } from "@/lib/api/api-response";
+import { categoryRepository } from "@/features/categories/repositories/category.repository";
 import { styleRepository } from "@/features/styles/repositories/style.repository";
 import { adminStyleListQuerySchema, type AdminStyleListQueryInput } from "@/features/styles/validations/admin-style.schema";
 import type { AdminStyleResponse } from "@/features/styles/types";
 
-function formatStyleListRow(style: Awaited<ReturnType<typeof styleRepository.findAdminList>>["data"][number]): AdminStyleResponse {
+type StyleListRow = Awaited<ReturnType<typeof styleRepository.findAdminList>>["data"][number];
+
+function formatStyleListRow(style: StyleListRow, categoryNames: Map<string, string>): AdminStyleResponse {
+  // Brand lives on the Product now; older Items may still carry their own.
+  const brand = style.brand ?? style.product?.brand ?? null;
   const primaryImgObj = style.images?.find((img) => img.is_primary) ?? style.images?.[0];
   return {
     id: style.uuid,
@@ -12,7 +17,11 @@ function formatStyleListRow(style: Awaited<ReturnType<typeof styleRepository.fin
     productName: style.product?.name ?? "",
     productSlug: style.product?.slug ?? "",
     categoryId: style.product?.categoryId ? String(style.product.categoryId) : null,
-    categoryName: null,
+    categoryName: style.product?.categoryId
+      ? categoryNames.get(String(style.product.categoryId)) ?? null
+      : null,
+    brandId: brand?.uuid ?? null,
+    brandName: brand?.name ?? null,
     name: style.name,
     slug: style.slug,
     sku: style.sku,
@@ -52,8 +61,21 @@ export const GET = createApiHandler(
         categoryId: query?.categoryId,
       });
 
+      const categoryIds = [
+        ...new Set(
+          result.data.flatMap((s) => (s.product?.categoryId ? [s.product.categoryId] : []))
+        ),
+      ];
+      const categoryNames = new Map<string, string>();
+      await Promise.all(
+        categoryIds.map(async (id) => {
+          const category = await categoryRepository.findById(id);
+          if (category?.name) categoryNames.set(String(id), category.name);
+        })
+      );
+
       return apiSuccess(
-        result.data.map(formatStyleListRow),
+        result.data.map((s) => formatStyleListRow(s, categoryNames)),
         "Styles fetched successfully",
         200,
         result.meta

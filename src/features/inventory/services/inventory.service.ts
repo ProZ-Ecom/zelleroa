@@ -1,6 +1,7 @@
 import { db } from "@/lib/db/prisma";
 import { ApiError } from "@/lib/api/api-error";
 import { inventoryRepository } from "../repositories/inventory.repository";
+import { recordStockMovement } from "./stock-ledger.service";
 import type {
   GetInventoryParams,
   InventoryListItem,
@@ -87,34 +88,20 @@ export const inventoryService = {
       throw ApiError.notFound("Inventory item not found");
     }
 
-    const currentQty = inventory.quantity_available;
-    const newQuantity = currentQty + input.quantity;
-
-    if (newQuantity < 0) {
-      throw ApiError.badRequest(
-        `Insufficient stock. Available: ${currentQty}, Requested: ${Math.abs(input.quantity)}`
-      );
+    if (!input.notes || input.notes.trim().length < 3) {
+      throw ApiError.badRequest("A reason is required for a stock adjustment");
     }
 
-    const txType = input.quantity >= 0 ? ("in" as const) : ("out" as const);
-
-    const transaction = await db.$transaction(async (tx) => {
-      const txn = await tx.inventoryTransaction.create({
-        data: {
-          variant_unit_price: { connect: { id: inventory.variantUnitPriceId } },
-          type: txType,
-          quantity: Math.abs(input.quantity),
-          note: input.notes ?? undefined,
-        },
-      });
-      await tx.inventory.update({
-        where: { id: BigInt(input.inventoryId) },
-        data: { quantity_available: newQuantity },
-      });
-      return txn;
-    });
-
-    return transaction;
+    // Legacy endpoint: routed through the ledger so the change is fully audited.
+    return db.$transaction((tx) =>
+      recordStockMovement(tx, {
+        variantUnitPriceId: inventory.variantUnitPriceId,
+        movementType: "ADJUSTMENT",
+        direction: input.quantity >= 0 ? "in" : "out",
+        quantity: Math.abs(input.quantity),
+        reason: input.notes,
+      })
+    );
   },
 
   async createInventory(input: CreateInventoryInput) {

@@ -12,7 +12,7 @@ const FEATURES = [
     iconClass: "bg-amber-100 text-amber-700",
     title: "Easy Returns",
     description:
-      "Simple, transparent, and hassle-free 15-day returns with instant refund tracking.",
+      "Simple, transparent, and hassle-free 3-day returns with instant refund tracking.",
   },
   {
     icon: Lock,

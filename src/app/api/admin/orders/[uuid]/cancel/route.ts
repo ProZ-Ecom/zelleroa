@@ -3,8 +3,8 @@ import { apiSuccess } from "@/lib/api/api-response";
 import { ApiError } from "@/lib/api/api-error";
 import { orderService } from "@/features/orders/services/order.service";
 import {
-  cancelOrderSchema,
-  type CancelOrderInput,
+  adminCancelOrderSchema,
+  type AdminCancelOrderInput,
 } from "@/features/orders/validations/order.schema";
 
 export const POST = createApiHandler(
@@ -20,7 +20,7 @@ export const POST = createApiHandler(
         throw ApiError.badRequest("Order UUID is required");
       }
 
-      const body = context.body as CancelOrderInput | undefined;
+      const body = context.body as AdminCancelOrderInput | undefined;
       const order = await orderService.cancelAdminOrder(sessionUserId, uuid, body);
 
       return apiSuccess(order, "Order cancelled successfully", 200);
@@ -29,6 +29,6 @@ export const POST = createApiHandler(
   {
     requireAuth: true,
     requiredRole: ["ADMIN", "STAFF"],
-    bodySchema: cancelOrderSchema,
+    bodySchema: adminCancelOrderSchema,
   }
 );
