@@ -14,6 +14,7 @@ import {
   mobileLookupVariants,
   PHONE_ALREADY_REGISTERED_MESSAGE,
 } from "@/lib/phone";
+import { getMobileError, MOBILE_INVALID_MESSAGE } from "@/lib/validations/mobile";
 import type { ResetPasswordInput } from "@/lib/validations/auth";
 
 export const otpService = {
@@ -34,11 +35,13 @@ export const otpService = {
 
     // Reject an already-registered mobile number before any OTP is generated/sent
     if (phone && phone.trim()) {
-      const normalizedPhone = normalizeIndianMobile(phone);
+      const trimmedPhone = phone.trim();
+      const phoneError = getMobileError(trimmedPhone);
+      const normalizedPhone = phoneError
+        ? null
+        : normalizeIndianMobile(trimmedPhone);
       if (!normalizedPhone) {
-        throw ApiError.badRequest(
-          "Mobile number must be a valid 10-digit Indian number"
-        );
+        throw ApiError.badRequest(phoneError ?? MOBILE_INVALID_MESSAGE);
       }
       const existingPhone = await userRepository.findByPhoneVariants(
         mobileLookupVariants(normalizedPhone)

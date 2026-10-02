@@ -1,4 +1,6 @@
 import { z } from "zod";
+import { NAME_REGEX, NAME_INVALID_MESSAGE } from "@/lib/validations/name";
+import { emailField } from "@/lib/validations/email";
 
 const upiIdRegex = /^[a-zA-Z0-9.\-_]{2,256}@[a-zA-Z]{2,64}$/;
 const ifscRegex = /^[A-Z]{4}0[A-Z0-9]{6}$/;
@@ -13,8 +15,8 @@ const optionalText = (max: number) =>
     .transform((v) => (v ? v : undefined));
 
 export const createAgentSchema = z.object({
-  name: z.string().trim().min(2, "Name is required").max(150),
-  email: z.string().trim().toLowerCase().email("Enter a valid email").max(150),
+  name: z.string().trim().min(2, "Name is required").max(150).regex(NAME_REGEX, NAME_INVALID_MESSAGE),
+  email: emailField,
   phone: z
     .string()
     .trim()
@@ -28,7 +30,7 @@ export type CreateAgentInput = z.infer<typeof createAgentSchema>;
 
 export const updateAgentSchema = z
   .object({
-    name: z.string().trim().min(2).max(150).optional(),
+    name: z.string().trim().min(2).max(150).regex(NAME_REGEX, NAME_INVALID_MESSAGE).optional(),
     phone: z
       .string()
       .trim()

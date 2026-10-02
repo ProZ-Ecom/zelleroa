@@ -3,7 +3,6 @@
 import { useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { signOut } from "next-auth/react";
 import {
   LayoutDashboard,
   LogOut,
@@ -23,7 +22,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { APP_NAME } from "@/lib/constants";
-import { logoutApi } from "@/features/auth/api/auth.api";
+import { useLogout } from "@/features/auth/hooks/use-auth-mutations";
 
 type NavItem = { href: string; label: string; icon: LucideIcon };
 
@@ -69,13 +68,10 @@ export function AgentShell({ name, children }: { name: string; children: ReactNo
     });
   };
 
-  const handleLogout = async () => {
-    try {
-      await logoutApi();
-    } catch {
-      // ignore network errors on logout
-    }
-    await signOut({ callbackUrl: "/login" });
+  const logout = useLogout("/login");
+  const handleLogout = () => {
+    if (logout.isPending) return;
+    logout.mutate();
   };
 
   const initial = name.trim().charAt(0).toUpperCase() || "A";
@@ -150,6 +146,7 @@ export function AgentShell({ name, children }: { name: string; children: ReactNo
         <button
           type="button"
           onClick={handleLogout}
+          disabled={logout.isPending}
           title={compact ? "Sign out" : undefined}
           className={cn(
             "mt-1 flex min-h-[40px] w-full items-center gap-3 rounded-lg px-3 text-sm font-medium text-neutral-400 transition-colors hover:bg-red-500/10 hover:text-red-400",

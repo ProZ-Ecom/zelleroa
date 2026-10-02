@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { EMAIL_MAX_LENGTH } from "@/lib/validations/email";
 import { useQueryClient } from "@tanstack/react-query";
 import { Loader2 } from "lucide-react";
 import { apiClient } from "@/lib/api/api-client";
@@ -101,7 +102,7 @@ function Form({ onClose, agent, onSaved }: Omit<Props, "open">) {
         {!editing && (
           <label className="flex flex-col gap-1 text-xs font-medium text-neutral-600">
             Email (used to sign in)
-            <input className={fieldCls} type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+            <input className={fieldCls} type="email" maxLength={EMAIL_MAX_LENGTH} value={email} onChange={(e) => setEmail(e.target.value)} />
             {err("email")}
           </label>
         )}

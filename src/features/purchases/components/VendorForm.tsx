@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { EMAIL_MAX_LENGTH } from "@/lib/validations/email";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
@@ -77,7 +78,7 @@ export function VendorForm({ initial, isLoading, submitLabel, onSubmit }: Vendor
         </div>
         <div>
           <label className={label}>Email</label>
-          <Input type="email" value={form.email} onChange={(e) => set("email")(e.target.value)} maxLength={150} />
+          <Input type="email" value={form.email} onChange={(e) => set("email")(e.target.value)} maxLength={EMAIL_MAX_LENGTH} />
         </div>
         <div>
           <label className={label}>GSTIN</label>

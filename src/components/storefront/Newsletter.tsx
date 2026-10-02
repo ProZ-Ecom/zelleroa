@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { EMAIL_MAX_LENGTH, emailField } from "@/lib/validations/email";
 import Link from "next/link";
 import { Bell, ArrowRight, Loader2 } from "lucide-react";
 import { useNewsletterSubscribe } from "@/features/newsletter/hooks/use-newsletter-subscribe";
@@ -16,8 +17,13 @@ export function Newsletter() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    const parsed = emailField.safeParse(email);
+    if (!parsed.success) {
+      setError(parsed.error.issues[0].message);
+      return;
+    }
     subscribe.mutate(
-      { email: email.trim() },
+      { email: parsed.data },
       {
         onSuccess: () => setEmail(""),
         onError: (err) => setError(err instanceof Error ? err.message : "Something went wrong"),
@@ -47,6 +53,7 @@ export function Newsletter() {
           >
             <input
               type="email"
+              maxLength={EMAIL_MAX_LENGTH}
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}

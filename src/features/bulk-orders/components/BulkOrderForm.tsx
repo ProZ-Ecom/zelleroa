@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { EMAIL_MAX_LENGTH } from "@/lib/validations/email";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { CheckCircle2 } from "lucide-react";
@@ -96,6 +97,7 @@ export function BulkOrderForm() {
         <input
           {...register("email")}
           type="email"
+          maxLength={EMAIL_MAX_LENGTH}
           className={inputClass}
           placeholder="you@example.com"
         />

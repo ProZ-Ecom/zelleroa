@@ -58,7 +58,20 @@ export default auth(async (req) => {
     rawAccessToken?.role ||
     (nextAuthUser as { role?: string })?.role;
 
-  const applyCookies = (res: NextResponse) => captureReferralCookie(req, res);
+  // Authenticated areas and the auth pages must never be served from the
+  // browser's back/forward cache after logout.
+  const isAuthSensitivePath =
+    pathname.startsWith("/admin") ||
+    pathname.startsWith("/agent") ||
+    ["/orders", "/profile", "/wishlist", "/login", "/register"].some(
+      (route) => pathname === route || pathname.startsWith(`${route}/`)
+    );
+
+  const applyCookies = (res: NextResponse) => {
+    const out = captureReferralCookie(req, res);
+    if (isAuthSensitivePath) out.headers.set("Cache-Control", "no-store");
+    return out;
+  };
 
   if (pathname.startsWith("/admin")) {
     // /admin or /admin/ direct navigation

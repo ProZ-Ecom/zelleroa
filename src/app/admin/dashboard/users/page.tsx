@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { EMAIL_MAX_LENGTH } from "@/lib/validations/email";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
@@ -303,6 +304,7 @@ export default function AdminUsersPage() {
             <input
               {...register("email")}
               type="email"
+              maxLength={EMAIL_MAX_LENGTH}
               className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
               placeholder="user@example.com"
             />

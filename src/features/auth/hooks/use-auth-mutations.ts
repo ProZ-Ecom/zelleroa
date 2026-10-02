@@ -1,6 +1,7 @@
 "use client";
 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { signOut } from "next-auth/react";
 import {
   loginApi,
   registerApi,
@@ -103,13 +104,48 @@ export function useRefreshToken() {
   });
 }
 
-export function useLogout() {
+/** Storage keys that may hold auth/session data; removed on logout. */
+const AUTH_STORAGE_KEY_PATTERN =
+  /token|jwt|next-?auth|authjs|pending_registration|fp_verification_email/i;
+
+function clearAuthStorage() {
+  for (const store of [window.localStorage, window.sessionStorage]) {
+    try {
+      Object.keys(store)
+        .filter((key) => AUTH_STORAGE_KEY_PATTERN.test(key))
+        .forEach((key) => store.removeItem(key));
+    } catch {
+      // storage can be unavailable (private mode / blocked)
+    }
+  }
+}
+
+/**
+ * Full logout: server clears the JWT + Auth.js cookies, then the client drops
+ * the NextAuth session state, cached queries and stored auth data, and does a
+ * hard navigation so nothing stale survives in memory or the bfcache.
+ *
+ * If the server call fails the mutation errors (toasted globally) and the user
+ * stays signed in - we never show a logged-out UI for a live session.
+ */
+export function useLogout(redirectTo: string = "/login") {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: () => logoutApi(),
+    mutationFn: async () => {
+      await logoutApi();
+      // Cookies are already expired by the response above; this resets the
+      // in-memory SessionProvider state. A failure here is not fatal.
+      try {
+        await signOut({ redirect: false });
+      } catch {
+        // ignore
+      }
+    },
     onSuccess: () => {
       queryClient.clear();
+      clearAuthStorage();
+      window.location.replace(redirectTo);
     },
   });
 }

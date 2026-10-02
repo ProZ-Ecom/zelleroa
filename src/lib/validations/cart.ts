@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { NAME_REGEX, NAME_INVALID_MESSAGE } from "@/lib/validations/name";
 
 export const addToCartSchema = z.object({
   productId: z.number().int().positive("Product is required"),
@@ -25,8 +26,8 @@ export const orderSchema = z.object({
 });
 
 export const customerAddressSchema = z.object({
-  firstName: z.string().min(1, "First name is required"),
-  lastName: z.string().min(1, "Last name is required"),
+  firstName: z.string().min(1, "First name is required").regex(NAME_REGEX, NAME_INVALID_MESSAGE),
+  lastName: z.string().min(1, "Last name is required").regex(NAME_REGEX, NAME_INVALID_MESSAGE),
   phone: z.string().min(10, "Phone number is required"),
   addressLine1: z.string().min(1, "Address is required"),
   addressLine2: z.string().optional(),
