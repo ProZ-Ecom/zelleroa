@@ -139,7 +139,7 @@ function ProductDetails({ product }: ProductDetailsProps) {
 
   // Clothing Size (e.g. S/M/L) - a separate concept from the pack-size/measurement
   // selector below. Hidden entirely when the category+gender has no size chart.
-  const { data: sizeChart = [] } = useSizeChart(product.category?.id ?? null, product.gender);
+  const { data: sizeChart = [] } = useSizeChart(product.category?.id ?? null, product.gender === "na" ? null : product.gender);
   const selectedSizeValueId = useMemo(
     () =>
       selectedVariant?.attributeValues.find(

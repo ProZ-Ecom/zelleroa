@@ -76,8 +76,13 @@ export function handlePrismaError(error: unknown): ApiError {
       return ApiError.badRequest("Related record not found");
     case "P2014":
       return ApiError.badRequest("Required relation violation");
-    case "P2011":
-      return ApiError.badRequest("Null constraint violation");
+    case "P2011": {
+      const column = prismaError.meta?.constraint ?? prismaError.meta?.target;
+      console.error("[prisma P2011] null constraint violation", prismaError.meta);
+      return ApiError.badRequest(
+        `Null constraint violation${column ? ` on ${String(column)}` : ""}`
+      );
+    }
     case "P2012":
       return ApiError.badRequest("Missing required value");
     default:
