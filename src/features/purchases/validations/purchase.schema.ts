@@ -77,6 +77,12 @@ export const purchaseOrderSchema = z
 
 export type PurchaseOrderInput = z.infer<typeof purchaseOrderSchema>;
 
+export const confirmPurchaseSchema = purchaseOrderSchema
+  .extend({ idempotencyKey: z.string().trim().min(8).max(64) })
+  .strict();
+
+export type ConfirmPurchaseInput = z.infer<typeof confirmPurchaseSchema>;
+
 export const purchaseQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1).optional(),
   pageSize: z.coerce.number().int().min(1).max(100).default(10).optional(),

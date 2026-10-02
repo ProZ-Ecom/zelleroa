@@ -41,6 +41,9 @@ export async function getPurchaseOrder(uuid: string) {
 export const createPurchaseOrder = (data: Record<string, unknown>) =>
   apiClient.post<PurchaseOrderResponse>("/api/admin/purchase-orders", data);
 
+export const confirmPurchase = (data: Record<string, unknown>) =>
+  apiClient.post<PurchaseOrderResponse>("/api/admin/purchase-orders/confirm", data);
+
 export const updatePurchaseOrder = (uuid: string, data: Record<string, unknown>) =>
   apiClient.put<PurchaseOrderResponse>(`/api/admin/purchase-orders/${uuid}`, data);
 

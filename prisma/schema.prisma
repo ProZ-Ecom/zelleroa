@@ -3436,6 +3436,8 @@ model purchase_orders {
   /// Date the goods were bought (vendor invoice date), not when the record was keyed in.
   purchase_date      DateTime?                @db.Date
   invoice_number     String?                  @db.VarChar(60)
+  /// Client-generated key of a one-step confirmed purchase; blocks duplicate stock addition.
+  idempotency_key    String?                  @unique(map: "uq_po_idempotency_key") @db.VarChar(64)
   notes              String?                  @db.VarChar(500)
   reject_reason      String?                  @db.VarChar(255)
   subtotal           Decimal                  @default(0.00) @db.Decimal(12, 2)
