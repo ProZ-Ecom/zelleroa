@@ -198,7 +198,7 @@ function buildCandidates(
           item,
           units,
           brand: brandRef,
-          gender: row.product.gender ?? null,
+          gender: row.product.gender === "na" ? null : (row.product.gender ?? null),
           colours: [...colours.values()],
         };
       });
