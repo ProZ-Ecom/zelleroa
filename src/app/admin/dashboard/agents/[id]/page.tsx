@@ -11,13 +11,17 @@ import type { AgentDto } from "@/features/agents/services/agent.service";
 import { errorMessage, useAdminObject } from "@/features/agents/hooks/use-admin-agents";
 import { AgentFormModal } from "@/features/agents/components/admin/AgentFormModal";
 import { AdminCommissionsSection } from "@/features/agents/components/admin/AdminCommissionsSection";
+import { AdminOwnPurchasesSection } from "@/features/agents/components/admin/AdminOwnPurchasesSection";
+import { AdminProfileSection } from "@/features/agents/components/admin/AdminProfileSection";
 import { AdminOrdersSection } from "@/features/agents/components/admin/AdminOrdersSection";
 import { AdminPayoutsSection } from "@/features/agents/components/admin/AdminPayoutsSection";
 import { ReferralFlow } from "@/features/agents/components/ReferralFlow";
 import { MetricCard, Panel, StatusBadge, dateOnly, money } from "@/features/agents/components/shared";
 
 const TABS = [
-  { key: "orders", label: "Orders & sales" },
+  { key: "profile", label: "Profile & KYC" },
+  { key: "orders", label: "Referral orders" },
+  { key: "purchases", label: "Own purchases" },
   { key: "commissions", label: "Commissions" },
   { key: "payouts", label: "Payouts" },
 ] as const;
@@ -25,7 +29,7 @@ const TABS = [
 export default function AdminAgentDetailPage() {
   const { id } = useParams<{ id: string }>();
   const qc = useQueryClient();
-  const [tab, setTab] = useState<(typeof TABS)[number]["key"]>("orders");
+  const [tab, setTab] = useState<(typeof TABS)[number]["key"]>("profile");
   const [editing, setEditing] = useState(false);
   const [copied, setCopied] = useState(false);
 
@@ -152,6 +156,8 @@ export default function AdminAgentDetailPage() {
             ))}
           </div>
 
+          {tab === "profile" && <AdminProfileSection agentId={agent.id} />}
+          {tab === "purchases" && <AdminOwnPurchasesSection agentId={agent.id} />}
           {tab === "orders" && <AdminOrdersSection fixedAgent={agent.id} />}
           {tab === "commissions" && <AdminCommissionsSection fixedAgent={agent.id} allowApprove={false} />}
           {tab === "payouts" && <AdminPayoutsSection fixedAgent={agent.id} />}

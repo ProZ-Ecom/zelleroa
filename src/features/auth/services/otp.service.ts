@@ -9,6 +9,11 @@ import {
   verifyResetPasswordToken,
   generateEmailVerificationToken,
 } from "@/lib/auth/jwt";
+import {
+  normalizeIndianMobile,
+  mobileLookupVariants,
+  PHONE_ALREADY_REGISTERED_MESSAGE,
+} from "@/lib/phone";
 import type { ResetPasswordInput } from "@/lib/validations/auth";
 
 export const otpService = {
@@ -24,14 +29,30 @@ export const otpService = {
   // REGISTRATION FLOW (purpose = "register")
   // -------------------------------------------------------------
 
-  async sendRegistrationEmailOtp(email: string) {
+  async sendRegistrationEmailOtp(email: string, phone?: string) {
     const normalizedEmail = email.toLowerCase().trim();
+
+    // Reject an already-registered mobile number before any OTP is generated/sent
+    if (phone && phone.trim()) {
+      const normalizedPhone = normalizeIndianMobile(phone);
+      if (!normalizedPhone) {
+        throw ApiError.badRequest(
+          "Mobile number must be a valid 10-digit Indian number"
+        );
+      }
+      const existingPhone = await userRepository.findByPhoneVariants(
+        mobileLookupVariants(normalizedPhone)
+      );
+      if (existingPhone) {
+        throw ApiError.conflict(PHONE_ALREADY_REGISTERED_MESSAGE);
+      }
+    }
 
     // Check if user already exists
     const existingUser = await userRepository.findByEmail(normalizedEmail);
     if (existingUser) {
       throw ApiError.conflict(
-        "An account with this email address already exists"
+        "This email address is already registered. Please login instead."
       );
     }
 

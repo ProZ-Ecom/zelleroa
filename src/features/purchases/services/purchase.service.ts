@@ -188,7 +188,7 @@ async function resolveVendor(vendorUuid: string) {
 type Tx = Prisma.TransactionClient;
 
 /** Writes a goods receipt and raises stock (PURCHASE movement) for each line. */
-async function postReceipt(
+export async function postReceipt(
   tx: Tx,
   po: { id: bigint; po_number: string; invoice_number: string | null },
   lines: { item: { id: bigint; variant_unit_price_id: bigint; unit_cost: Prisma.Decimal }; quantity: number }[],

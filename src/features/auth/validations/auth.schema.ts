@@ -8,6 +8,7 @@ export const sendEmailOtpSchema = z
       .min(1, "Email is required")
       .email("Please enter a valid email address")
       .transform((val) => val.toLowerCase()),
+    phone: z.string().trim().max(20).optional(),
   })
   .strict();
 

@@ -252,7 +252,7 @@ export const catalogListingRepository = {
         ...(params.gender
           ? {
               gender:
-                params.gender === "unisex" ? "unisex" : { in: [params.gender, "unisex"] },
+                params.gender === "unisex" ? "unisex" : { in: [params.gender, "unisex", "na"] },
             }
           : {}),
         styles: { some: { isActive: true, deleted_at: null, items: { some: sellableItemWhere } } },

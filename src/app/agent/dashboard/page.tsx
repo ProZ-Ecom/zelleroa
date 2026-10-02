@@ -2,6 +2,8 @@ import Link from "next/link";
 import { BadgeCheck, CheckCircle2, Clock, Coins, ShoppingBag, TrendingUp, Users, Wallet, ArrowRight } from "lucide-react";
 import { agentService } from "@/features/agents/services/agent.service";
 import { commissionService } from "@/features/agents/services/commission.service";
+import { agentProfileService } from "@/features/agents/services/agent-profile.service";
+import { ProfileCompletionCard } from "@/features/agents/components/ProfileCompletionCard";
 import { payoutService } from "@/features/agents/services/payout.service";
 import { requireAgentPage } from "@/features/agents/lib/page-context";
 import { ReferralFlow } from "@/features/agents/components/ReferralFlow";
@@ -31,7 +33,8 @@ export default async function AgentDashboardPage() {
   // Approve anything whose return period has ended before we total it up.
   await commissionService.approveEligible({ agentId });
 
-  const [profile, summary, balance, customers, orders, commissions, payouts] = await Promise.all([
+  const [details, profile, summary, balance, customers, orders, commissions, payouts] = await Promise.all([
+    agentProfileService.get(agentId),
     agentService.getProfile(agentId),
     agentService.getSummary(agentId),
     payoutService.availableBalance(agentId),
@@ -55,12 +58,28 @@ export default async function AgentDashboardPage() {
         <ReferralLinkCard referralCode={profile.referralCode} referralLink={profile.referralLink} />
       )}
 
+      <ProfileCompletionCard completion={details.completion} />
+
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+        {[
+          { href: "/products", title: "Purchase Products", sub: "Shop for yourself – no commission on your own orders" },
+          { href: "/orders", title: "My Orders", sub: "Your own purchases and tracking" },
+          { href: "/agent/profile?step=kyc", title: "KYC Details", sub: details.kyc.status.replace("_", " ") },
+          { href: "/agent/profile?step=bank", title: "Bank Details", sub: details.bank.status.replace("_", " ") },
+        ].map((q) => (
+          <Link key={q.href} href={q.href} className="rounded-2xl border border-neutral-200 bg-white p-4 shadow-xs transition-colors hover:bg-neutral-50">
+            <p className="text-sm font-semibold text-neutral-900">{q.title}</p>
+            <p className="mt-0.5 text-xs capitalize text-neutral-500">{q.sub}</p>
+          </Link>
+        ))}
+      </div>
+
       <ReferralFlow />
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         <MetricCard icon={Users} label="Customers ordered" value={summary.totalReferredCustomers} />
-        <MetricCard icon={ShoppingBag} label="Total orders" value={summary.totalOrders} hint="Excludes cancelled / returned" />
-        <MetricCard icon={TrendingUp} label="Total sales" value={money(summary.totalSales)} hint="Product value, excl. delivery" />
+        <MetricCard icon={ShoppingBag} label="Referral orders" value={summary.totalOrders} hint="Excludes cancelled / returned" />
+        <MetricCard icon={TrendingUp} label="Referral sales" value={money(summary.totalSales)} hint="Product value, excl. delivery" />
         <MetricCard icon={Coins} label="Total commission" value={money(summary.totalCommission)} />
         <MetricCard icon={Clock} label="Pending commission" value={money(summary.pendingCommission)} tone="warn" hint="Awaiting return period" />
         <MetricCard icon={CheckCircle2} label="Approved commission" value={money(summary.approvedCommission)} tone="good" hint="Ready / in payout" />

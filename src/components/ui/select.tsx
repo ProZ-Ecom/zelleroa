@@ -22,6 +22,8 @@ export interface SelectProps
   rightIcon?: React.ReactNode;
   size?: "sm" | "md" | "lg";
   variant?: "default" | "warm" | "ghost";
+  /** Always show the search box. Defaults to on only for lists of 7+ options. */
+  searchable?: boolean;
 }
 
 const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
@@ -43,6 +45,7 @@ const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
       rightIcon,
       size = "md",
       variant = "default",
+      searchable,
       ...props
     },
     ref
@@ -88,14 +91,16 @@ const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
       };
     }, [isOpen]);
 
+    const showSearch = searchable ?? options.length > 6;
+
     // Focus search input when dropdown opens
     React.useEffect(() => {
-      if (isOpen && options.length > 6) {
+      if (isOpen && showSearch) {
         setTimeout(() => {
           searchInputRef.current?.focus();
         }, 50);
       }
-    }, [isOpen, options.length]);
+    }, [isOpen, showSearch]);
 
     // Keyboard navigation (Escape to close)
     const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -250,7 +255,7 @@ const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
             role="listbox"
           >
             {/* Search Input for Long Lists (>= 7 options) */}
-            {options.length > 6 && (
+            {showSearch && (
               <div className="border-b border-theme-border-subtle p-2 bg-theme-surface-alt">
                 <div className="relative flex items-center">
                   <Search className="absolute left-2.5 h-3.5 w-3.5 text-theme-text-muted pointer-events-none" />

@@ -21,6 +21,8 @@ interface ItemFormProps {
   onSubmit: (data: ItemFormValues) => Promise<void>;
   isLoading?: boolean;
   submitLabel?: string;
+  /** Brands to pick from. Brand lives on the parent Item, so the host applies a change there. */
+  brandOptions?: { value: string; label: string }[];
 }
 
 function ItemForm({
@@ -29,10 +31,12 @@ function ItemForm({
   onSubmit,
   isLoading = false,
   submitLabel = "Save Type",
+  brandOptions,
 }: ItemFormProps) {
   return (
     <ItemEntityForm
       initialData={initialData}
+      brandOptions={brandOptions}
       isEditing={isEditing}
       onSubmit={onSubmit}
       isLoading={isLoading}

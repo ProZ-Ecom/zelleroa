@@ -13,7 +13,9 @@ import {
   Percent,
   Package,
   ShoppingBag,
-  Settings,
+  ReceiptText,
+  ShoppingCart,
+  UserRound,
   Users,
   Wallet,
   X,
@@ -27,12 +29,14 @@ type NavItem = { href: string; label: string; icon: LucideIcon };
 
 const LINKS: NavItem[] = [
   { href: "/agent/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/agent/profile", label: "My Profile", icon: UserRound },
+  { href: "/products", label: "Purchase Products", icon: Package },
+  { href: "/cart", label: "My Cart", icon: ShoppingCart },
+  { href: "/orders", label: "My Orders", icon: ReceiptText },
   { href: "/agent/customers", label: "Customers", icon: Users },
-  { href: "/products", label: "Products", icon: Package },
-  { href: "/agent/orders", label: "Orders", icon: ShoppingBag },
+  { href: "/agent/orders", label: "Referral Orders", icon: ShoppingBag },
   { href: "/agent/commissions", label: "Commissions", icon: Percent },
-  { href: "/agent/payouts", label: "Payouts", icon: Wallet },
-  { href: "/agent/profile", label: "Settings", icon: Settings },
+  { href: "/agent/payouts", label: "Payout History", icon: Wallet },
 ];
 
 const STORAGE_KEY = "agent-sidebar-collapsed";

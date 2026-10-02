@@ -3140,6 +3140,8 @@ enum products_gender {
   women
   kids
   unisex
+  /// Not applicable - electronics etc. Shown under every audience filter like unisex.
+  na
 }
 
 model variant_price_history {
@@ -3253,6 +3255,13 @@ enum commission_payouts_status {
   cancelled
 }
 
+enum agent_verification_status {
+  not_submitted
+  pending
+  verified
+  rejected
+}
+
 enum commission_payouts_method {
   upi
   bank_transfer
@@ -3272,6 +3281,35 @@ model agent_profiles {
   bank_account_number_enc String?                    @db.VarChar(500)
   bank_account_last4      String?                    @db.VarChar(4)
   bank_ifsc               String?                    @db.VarChar(15)
+  // Personal / address (name, email, phone and photo live on `users`)
+  alt_phone               String?                    @db.VarChar(20)
+  dob                     DateTime?                  @db.Date
+  gender                  String?                    @db.VarChar(20)
+  addr_line1              String?                    @db.VarChar(200)
+  addr_line2              String?                    @db.VarChar(200)
+  addr_area               String?                    @db.VarChar(150)
+  addr_city               String?                    @db.VarChar(100)
+  addr_district           String?                    @db.VarChar(100)
+  addr_state              String?                    @db.VarChar(100)
+  addr_pincode            String?                    @db.VarChar(10)
+  addr_country            String?                    @db.VarChar(100)
+  // KYC: numbers AES-256-GCM encrypted, documents kept in private storage (never under /document)
+  aadhaar_enc             String?                    @db.VarChar(500)
+  aadhaar_last4           String?                    @db.VarChar(4)
+  aadhaar_doc             String?                    @db.VarChar(255)
+  pan_enc                 String?                    @db.VarChar(500)
+  pan_last4               String?                    @db.VarChar(4)
+  pan_doc                 String?                    @db.VarChar(255)
+  kyc_status              agent_verification_status  @default(not_submitted)
+  kyc_remarks             String?                    @db.VarChar(255)
+  kyc_reviewed_at         DateTime?                  @db.Timestamp(0)
+  kyc_reviewed_by         BigInt?                    @db.UnsignedBigInt
+  bank_branch             String?                    @db.VarChar(150)
+  bank_proof_doc          String?                    @db.VarChar(255)
+  bank_status             agent_verification_status  @default(not_submitted)
+  bank_remarks            String?                    @db.VarChar(255)
+  bank_reviewed_at        DateTime?                  @db.Timestamp(0)
+  bank_reviewed_by        BigInt?                    @db.UnsignedBigInt
   created_at              DateTime                   @default(now()) @db.Timestamp(0)
   updated_at              DateTime                   @default(now()) @updatedAt @db.Timestamp(0)
   created_by              BigInt?                    @db.UnsignedBigInt

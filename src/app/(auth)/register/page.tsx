@@ -147,7 +147,7 @@ function RegisterForm() {
     authFlowState.setRegistrationEmail(regData.email);
 
     sendEmailOtpMutation.mutate(
-      { email: regData.email },
+      { email: regData.email, phone: regData.phone },
       {
         onSuccess: () => {
           const targetUrl = `/register/verify-otp${

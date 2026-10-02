@@ -76,7 +76,7 @@ interface Candidate {
   item: ListingItemRow;
   units: SellableUnit[];
   brand: { id: string; key: string; name: string } | null;
-  gender: ListingGender | null;
+  gender: ListingGender | "na" | null;
   colours: Colour[];
 }
 
@@ -270,10 +270,14 @@ function resolveFilters(
   };
 }
 
-/** A men's/women's/kids' filter also includes unisex products (matches /api/customer/styles). */
-function genderMatches(gender: ListingGender | null, selected: Set<ListingGender>): boolean {
+/**
+ * A men's/women's/kids' filter also includes unisex and not-applicable (electronics etc.)
+ * products (matches /api/customer/styles).
+ */
+function genderMatches(gender: ListingGender | "na" | null, selected: Set<ListingGender>): boolean {
   if (selected.size === 0) return true;
   if (!gender) return false;
+  if (gender === "na") return [...selected].some((g) => g !== "unisex");
   return selected.has(gender) || (gender === "unisex" && [...selected].some((g) => g !== "unisex"));
 }
 
