@@ -37,7 +37,7 @@ function formatAdminHeaderMenuItemResponse(
       slug: join.category.slug,
     })),
     link: item.link,
-    gender: item.gender === "na" ? null : item.gender,
+    gender: (item.gender as unknown as string) === "na" ? null : item.gender,
     sortOrder: item.sortOrder,
     isActive: item.isActive,
     createdAt: item.createdAt,
@@ -235,7 +235,7 @@ export const headerMenuService = {
         id: item.uuid || String(item.id),
         label: item.label,
         link: item.link,
-        gender: item.gender === "na" ? null : item.gender,
+        gender: (item.gender as unknown as string) === "na" ? null : item.gender,
         categories,
       };
     });
