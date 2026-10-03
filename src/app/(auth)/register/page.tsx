@@ -1,5 +1,5 @@
 "use client";
-import { useMemo, Suspense, useState, useRef } from "react";
+import { useMemo, Suspense, useState, useRef, useTransition } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { FormProvider, useForm } from "react-hook-form";
@@ -61,6 +61,10 @@ function RegisterForm() {
   const [termsError, setTermsError] = useState(false);
   const termsRef = useRef<HTMLInputElement>(null);
   const sendEmailOtpMutation = useSendEmailOtp();
+  // Stays pending until the destination route has rendered, so the button
+  // keeps spinning after the API call resolves.
+  const [isNavigating, startNavigation] = useTransition();
+  const busy = sendEmailOtpMutation.isPending || isNavigating;
 
   const methods = useForm<RegisterFormData>({
     resolver: zodResolver(registerFormSchema),
@@ -125,6 +129,7 @@ function RegisterForm() {
   }, [password]);
 
   const onSubmit = (data: RegisterFormData) => {
+    if (busy) return;
     methods.clearErrors("root");
 
     if (!acceptTerms) {
@@ -157,7 +162,7 @@ function RegisterForm() {
               ? `?callbackUrl=${encodeURIComponent(callbackUrl)}`
               : ""
           }`;
-          router.push(targetUrl);
+          startNavigation(() => router.push(targetUrl));
         },
         onError: (err: any) => {
           // Surface field-level API validation errors ("phone: <message>") on the field
@@ -329,10 +334,10 @@ function RegisterForm() {
 
           <FormSubmitButton
             size="xl"
-            disabled={sendEmailOtpMutation.isPending}
+            disabled={busy}
             className="mt-2 h-10 w-full rounded-lg bg-secondary-600 text-sm text-white transition-all hover:bg-secondary-700 cursor-pointer disabled:opacity-50"
           >
-            {sendEmailOtpMutation.isPending ? (
+            {busy ? (
               <Spinner size="sm" className="text-white" />
             ) : (
               "Create Account"

@@ -7,15 +7,16 @@ import type { Prisma } from "@/generated/prisma";
 import type { AdminItemResponse, GetAdminItemsParams } from "../types";
 import type { CreateAdminItemInput, UpdateAdminItemInput } from "../validations/admin-item.schema";
 
+// Model codes are UPPER_SNAKE_CASE: uppercase letters, digits and underscores.
 function slugify(text: string): string {
   return text
     .toString()
-    .toLowerCase()
+    .toUpperCase()
     .trim()
-    .replace(/\s+/g, "-")
-    .replace(/&/g, "-and-")
-    .replace(/[^\w\-]+/g, "")
-    .replace(/\-\-+/g, "-");
+    .replace(/&/g, "_AND_")
+    .replace(/[\s-]+/g, "_")
+    .replace(/[^A-Z0-9_]+/g, "")
+    .replace(/_+/g, "_");
 }
 
 type ItemWithRollups = {

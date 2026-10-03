@@ -29,7 +29,7 @@ export const GET = createApiHandler(
     },
   },
   {
-    requireAuth: true,
+    requireAuth: true, requiredRole: ["CUSTOMER", "AGENT"],
   }
 );
 
@@ -58,7 +58,7 @@ export const PUT = createApiHandler(
     },
   },
   {
-    requireAuth: true,
+    requireAuth: true, requiredRole: ["CUSTOMER", "AGENT"],
     bodySchema: updateCustomerAddressSchema,
   }
 );
@@ -85,6 +85,6 @@ export const DELETE = createApiHandler(
     },
   },
   {
-    requireAuth: true,
+    requireAuth: true, requiredRole: ["CUSTOMER", "AGENT"],
   }
 );

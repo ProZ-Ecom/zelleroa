@@ -135,7 +135,7 @@ export function HeroIntro() {
                   type="button"
                   onClick={previous}
                   aria-label="Previous slide"
-                  className="absolute left-3 top-1/2 -translate-y-1/2 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-white/80 text-theme-text-primary opacity-0 shadow-md transition-opacity hover:bg-white group-hover:opacity-100"
+                  className="absolute left-3 top-1/2 -translate-y-1/2 z-10 flex cursor-pointer h-9 w-9 items-center justify-center rounded-full bg-white/80 text-theme-text-primary opacity-0 shadow-md transition-opacity hover:bg-white group-hover:opacity-100"
                 >
                   <ChevronLeft className="h-5 w-5" />
                 </button>
@@ -143,7 +143,7 @@ export function HeroIntro() {
                   type="button"
                   onClick={next}
                   aria-label="Next slide"
-                  className="absolute right-3 top-1/2 -translate-y-1/2 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-white/80 text-theme-text-primary opacity-0 shadow-md transition-opacity hover:bg-white group-hover:opacity-100"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 z-10 flex cursor-pointer h-9 w-9 items-center justify-center rounded-full bg-white/80 text-theme-text-primary opacity-0 shadow-md transition-opacity hover:bg-white group-hover:opacity-100"
                 >
                   <ChevronRight className="h-5 w-5" />
                 </button>

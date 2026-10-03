@@ -100,9 +100,21 @@ export interface ItemEntityFormProps {
    * storefront copy fields: descriptions and "Featured".
    */
   compact?: boolean;
+  /**
+   * "slug" is lowercase-with-hyphens (default); "constant" is UPPER_SNAKE_CASE
+   * (uppercase letters, digits and underscores only), used for Model codes.
+   */
+  codeFormat?: "slug" | "constant";
 }
 
-function toItemCode(raw: string): string {
+function toItemCode(raw: string, format: "slug" | "constant" = "slug"): string {
+  if (format === "constant") {
+    return raw
+      .trim()
+      .toUpperCase()
+      .replace(/[^A-Z0-9]+/g, "_")
+      .replace(/^_+|_+$/g, "");
+  }
   return raw
     .trim()
     .toLowerCase()
@@ -140,6 +152,7 @@ function ItemEntityForm({
   brandDescription,
   entityLabel = "Item",
   compact = false,
+  codeFormat = "slug",
 }: ItemEntityFormProps) {
   const entityLower = entityLabel.toLowerCase();
   const showBrand = Boolean(brandOptions);
@@ -166,10 +179,10 @@ function ItemEntityForm({
   // VariantForm's Item Code field - stops as soon as the admin edits it by hand.
   useEffect(() => {
     if (codeTouched) return;
-    methods.setValue("slug", toItemCode(watchedName || ""), {
+    methods.setValue("slug", toItemCode(watchedName || "", codeFormat), {
       shouldValidate: methods.formState.isSubmitted,
     });
-  }, [watchedName, codeTouched, methods]);
+  }, [watchedName, codeTouched, codeFormat, methods]);
 
   useEffect(() => {
     if (initialData) {
@@ -181,15 +194,18 @@ function ItemEntityForm({
 
   const handleSlugChange = (raw: string) => {
     setCodeTouched(true);
-    methods.setValue(
-      "slug",
-      raw
-        .toLowerCase()
-        .trim()
-        .replace(/\s+/g, "-")
-        .replace(/[^a-z0-9-]+/g, ""),
-      { shouldValidate: true, shouldDirty: true }
-    );
+    const cleaned =
+      codeFormat === "constant"
+        ? raw
+            .toUpperCase()
+            .replace(/[\s-]+/g, "_")
+            .replace(/[^A-Z0-9_]+/g, "")
+        : raw
+            .toLowerCase()
+            .trim()
+            .replace(/\s+/g, "-")
+            .replace(/[^a-z0-9-]+/g, "");
+    methods.setValue("slug", cleaned, { shouldValidate: true, shouldDirty: true });
   };
 
   return (

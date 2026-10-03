@@ -223,3 +223,51 @@ export function createApiHandler(
     }
   };
 }
+
+/**
+ * Role guard for raw route handlers that don't go through createApiHandler.
+ * Resolves the session the same way (NextAuth, then the access_token cookie /
+ * bearer token) and rejects with 401/403 before the wrapped handler runs.
+ */
+export function withApiRoles<A extends unknown[]>(
+  roles: string[],
+  handler: (request: NextRequest, ...args: A) => Promise<Response> | Response
+) {
+  return async (request: NextRequest, ...args: A): Promise<Response> => {
+    let role: string | undefined;
+    let authed = false;
+
+    try {
+      const session = await auth();
+      if (session?.user) {
+        authed = true;
+        role = (session.user as { role?: string }).role;
+      }
+    } catch {
+      // fall through to the token check
+    }
+
+    if (!authed) {
+      let token: string | undefined;
+      try {
+        token = (await cookies()).get("access_token")?.value;
+      } catch {
+        token = undefined;
+      }
+      token = token || request.headers.get("authorization")?.replace("Bearer ", "");
+      if (token) {
+        try {
+          role = verifyAccessToken(token).role;
+          authed = true;
+        } catch {
+          return apiError("Session expired. Please log in again.", 401);
+        }
+      }
+    }
+
+    if (!authed) return apiError("You must be logged in", 401);
+    if (!role || !roles.includes(role)) return apiError("You don't have permission", 403);
+
+    return handler(request, ...args);
+  };
+}

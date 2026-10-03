@@ -184,8 +184,11 @@ export default function AdminBannersPage() {
       accessorKey: "title",
       header: "Title",
       cell: ({ row }) => (
-        <div className="min-w-[160px]">
-          <p className="font-semibold text-[var(--color-neutral-900)]">
+        <div className="w-[200px] max-w-[260px]">
+          <p
+            className="truncate font-semibold text-[var(--color-neutral-900)]"
+            title={row.original.title || "Untitled Banner"}
+          >
             {row.original.title || "Untitled Banner"}
           </p>
         </div>
@@ -204,25 +207,33 @@ export default function AdminBannersPage() {
       ),
     },
     {
-      accessorKey: "schedule",
-      header: "Schedule",
+      accessorKey: "sortOrder",
+      header: "Sort Order",
+      cell: ({ row }) => (
+        <span className="text-sm font-medium text-[var(--color-neutral-700)]">
+          {row.original.sortOrder ?? 0}
+        </span>
+      ),
+    },
+    {
+      id: "floatingCard",
+      header: "Floating Card",
       cell: ({ row }) => {
-        const starts = formatDateDisplay(row.original.startsAt);
-        const ends = formatDateDisplay(row.original.endsAt);
-
-        if (!starts && !ends) {
+        const { badgeLabel, subtitle, priceText } = row.original;
+        const summary = badgeLabel || subtitle;
+        if (!summary && !priceText) {
           return (
-            <span className="text-xs text-[var(--color-neutral-500)]">
-              Always Active
-            </span>
+            <span className="text-[var(--color-neutral-400)]">—</span>
           );
         }
-
         return (
-          <div className="flex items-center gap-1.5 text-xs text-[var(--color-neutral-600)]">
-            <Calendar className="h-3.5 w-3.5 text-[var(--color-neutral-400)]" />
-            <span>
-              {starts || "Now"} — {ends || "Forever"}
+          <div className="flex w-[160px] max-w-[200px] items-center gap-1.5">
+            <span className="h-1.5 w-1.5 flex-shrink-0 rounded-full bg-[var(--color-success-500)]" />
+            <span
+              className="truncate text-xs text-[var(--color-neutral-700)]"
+              title={[badgeLabel, subtitle, priceText].filter(Boolean).join(" · ")}
+            >
+              {summary || priceText}
             </span>
           </div>
         );
@@ -234,11 +245,53 @@ export default function AdminBannersPage() {
       cell: ({ row }) => (
         <Badge
           variant={row.original.isActive ? "success" : "secondary"}
-          className="text-xs"
+          className="gap-1.5 text-xs"
+          title={
+            row.original.isActive
+              ? "Visible on the storefront"
+              : "Hidden from the storefront"
+          }
         >
+          <span
+            className={`h-1.5 w-1.5 rounded-full ${
+              row.original.isActive
+                ? "bg-[var(--color-success-500)]"
+                : "bg-[var(--color-neutral-400)]"
+            }`}
+          />
           {row.original.isActive ? "Active" : "Inactive"}
         </Badge>
       ),
+    },
+    {
+      accessorKey: "schedule",
+      header: "Schedule",
+      cell: ({ row }) => {
+        const starts = formatDateDisplay(row.original.startsAt);
+        const ends = formatDateDisplay(row.original.endsAt);
+
+        if (!starts && !ends) {
+          return (
+            <span className="text-xs text-[var(--color-neutral-500)]">
+              Always Live
+            </span>
+          );
+        }
+
+        const text =
+          starts && ends
+            ? `${starts} – ${ends}`
+            : starts
+              ? `Starts ${starts}`
+              : `Ends ${ends}`;
+
+        return (
+          <div className="flex items-center gap-1.5 whitespace-nowrap text-xs text-[var(--color-neutral-600)]">
+            <Calendar className="h-3.5 w-3.5 text-[var(--color-neutral-400)]" />
+            <span>{text}</span>
+          </div>
+        );
+      },
     },
     {
       id: "actions",

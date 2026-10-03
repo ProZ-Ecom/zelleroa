@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 import { getWhatsAppStatus } from "@/lib/whatsapp/whatsapp-client";
 import { apiSuccess } from "@/lib/api/api-response";
+import { withApiRoles } from "@/lib/api/api-handler";
 
-export async function GET() {
+async function handleGET() {
   try {
     const statusData = getWhatsAppStatus();
     return apiSuccess(statusData, "WhatsApp status fetched successfully");
@@ -13,3 +14,5 @@ export async function GET() {
     );
   }
 }
+
+export const GET = withApiRoles(["ADMIN", "STAFF"], handleGET);

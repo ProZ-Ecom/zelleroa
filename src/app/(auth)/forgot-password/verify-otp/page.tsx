@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useRef, useState } from "react";
+import { Suspense, useEffect, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -28,6 +28,8 @@ function ForgotPasswordVerifyOtpForm() {
 
   const verifyOtpMutation = useVerifyOtp();
   const resendForgotPasswordOtpMutation = useResendForgotPasswordOtp();
+  // Stays pending until the destination route has rendered.
+  const [isNavigating, startNavigation] = useTransition();
 
   useEffect(() => {
     if (!email) {
@@ -114,7 +116,7 @@ function ForgotPasswordVerifyOtpForm() {
 
   const handleVerify = () => {
     const code = otp.join("");
-    if (!email || code.length !== 6) return;
+    if (!email || code.length !== 6 || isLoading) return;
 
     setInfoMessage("");
     setErrorMessage("");
@@ -129,9 +131,7 @@ function ForgotPasswordVerifyOtpForm() {
           const targetUrl = `/reset-password?token=${encodeURIComponent(
             resetToken
           )}${fromAdmin ? "&from=admin" : ""}`;
-          setTimeout(() => {
-            router.push(targetUrl);
-          }, 800);
+          startNavigation(() => router.push(targetUrl));
         },
         onError: (err: any) => {
           const msg =
@@ -169,7 +169,9 @@ function ForgotPasswordVerifyOtpForm() {
   };
 
   const isLoading =
-    verifyOtpMutation.isPending || resendForgotPasswordOtpMutation.isPending;
+    verifyOtpMutation.isPending ||
+    resendForgotPasswordOtpMutation.isPending ||
+    isNavigating;
 
   return (
     <div className="mx-auto w-full max-w-[480px]">
