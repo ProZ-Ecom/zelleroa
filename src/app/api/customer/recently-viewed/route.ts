@@ -27,7 +27,7 @@ export const GET = createApiHandler(
     },
   },
   {
-    requireAuth: true,
+    requireAuth: true, requiredRole: ["CUSTOMER", "AGENT"],
     querySchema: recentlyViewedQuerySchema,
   }
 );
@@ -47,7 +47,7 @@ export const POST = createApiHandler(
   },
   {
     method: "POST",
-    requireAuth: true,
+    requireAuth: true, requiredRole: ["CUSTOMER", "AGENT"],
     bodySchema: recordRecentlyViewedSchema,
     rateLimit: { limit: 30, windowMs: 60_000 },
   }

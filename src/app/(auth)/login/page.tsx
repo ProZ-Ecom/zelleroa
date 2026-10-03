@@ -8,6 +8,7 @@ import { FormProvider, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { loginSchema, type LoginInput } from "@/lib/validations/auth";
 import { useLogin } from "@/features/auth";
+import { resolvePostLoginTarget } from "@/lib/auth/role-routes";
 import { FormInput } from "@/components/forms/form-input";
 import { FormPasswordInput } from "@/components/forms/FormPasswordInput";
 import { FormSubmitButton } from "@/components/forms/form-submit-button";
@@ -70,8 +71,9 @@ function LoginForm() {
             console.error("NextAuth session sync failed", err);
           }
           const userRole = response?.data?.user?.role;
-          const target =
-            callbackUrl === "/" && userRole === "AGENT" ? "/agent/dashboard" : callbackUrl;
+          // Role decides the landing page; callbackUrl is honoured only when
+          // this role is allowed to open it.
+          const target = resolvePostLoginTarget(userRole, callbackUrl);
           setDestination(target);
           setPhase("redirecting");
           // Full navigation so the fresh auth cookies are picked up by

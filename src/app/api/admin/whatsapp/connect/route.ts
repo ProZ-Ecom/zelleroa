@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 import { initWhatsAppClient, waitForQrCode } from "@/lib/whatsapp/whatsapp-client";
 import { apiSuccess } from "@/lib/api/api-response";
+import { withApiRoles } from "@/lib/api/api-handler";
 
-export async function POST() {
+async function handlePOST() {
   try {
     // Trigger initialization
     initWhatsAppClient(true).catch((err) => {
@@ -19,3 +20,5 @@ export async function POST() {
     );
   }
 }
+
+export const POST = withApiRoles(["ADMIN", "STAFF"], handlePOST);

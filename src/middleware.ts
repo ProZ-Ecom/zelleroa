@@ -1,6 +1,7 @@
 import NextAuth from "next-auth";
 import { NextResponse } from "next/server";
 import { authConfig } from "@/lib/auth/auth.config";
+import { getRoleHome } from "@/lib/auth/role-routes";
 import { captureReferralCookie } from "@/lib/referral/cookie";
 
 const { auth } = NextAuth(authConfig);
@@ -73,79 +74,69 @@ export default auth(async (req) => {
     return out;
   };
 
+  const isStaffRole = userRole === "ADMIN" || userRole === "STAFF";
+
+  const redirectTo = (path: string, search = "") => {
+    const url = req.nextUrl.clone();
+    url.pathname = path;
+    url.search = search;
+    return applyCookies(NextResponse.redirect(url));
+  };
+  const toLogin = () =>
+    redirectTo("/login", `?callbackUrl=${encodeURIComponent(pathname)}`);
+
   if (pathname.startsWith("/admin")) {
-    // /admin or /admin/ direct navigation
     if (pathname === "/admin" || pathname === "/admin/") {
-      const url = req.nextUrl.clone();
-      if (isAuthenticated && (userRole === "ADMIN" || userRole === "STAFF")) {
-        url.pathname = "/admin/dashboard";
-      } else {
-        url.pathname = "/admin/login";
-      }
-      url.search = "";
-      return applyCookies(NextResponse.redirect(url));
+      return redirectTo(isAuthenticated && isStaffRole ? "/admin/dashboard" : "/admin/login");
     }
 
     if (pathname === "/admin/login") {
-      if (isAuthenticated && (userRole === "ADMIN" || userRole === "STAFF")) {
-        const url = req.nextUrl.clone();
-        url.pathname = "/admin/dashboard";
-        url.search = "";
-        return applyCookies(NextResponse.redirect(url));
-      }
+      if (isAuthenticated && isStaffRole) return redirectTo("/admin/dashboard");
+      // A signed-in customer/agent has no business on the admin login screen.
+      if (isAuthenticated && userRole) return redirectTo(getRoleHome(userRole));
       return applyCookies(NextResponse.next());
     }
 
-    if (!isAuthenticated || (userRole !== "ADMIN" && userRole !== "STAFF")) {
-      const url = req.nextUrl.clone();
-      url.pathname = "/admin/login";
-      url.search = "";
-      return applyCookies(NextResponse.redirect(url));
-    }
+    if (!isAuthenticated) return redirectTo("/admin/login");
+    // Signed in, but not as admin/staff: send them to their own dashboard.
+    if (!isStaffRole) return redirectTo(getRoleHome(userRole));
 
     return applyCookies(NextResponse.next());
   }
 
   if (pathname.startsWith("/agent")) {
-    if (!isAuthenticated || userRole !== "AGENT") {
-      const url = req.nextUrl.clone();
-      url.pathname = "/login";
-      url.search = `?callbackUrl=${encodeURIComponent(pathname)}`;
-      return applyCookies(NextResponse.redirect(url));
-    }
+    if (!isAuthenticated) return toLogin();
+    if (userRole !== "AGENT") return redirectTo(getRoleHome(userRole));
     return applyCookies(NextResponse.next());
   }
 
-  // /cart and /checkout intentionally left off this list: guest checkout
-  // means anonymous visitors can shop and place an order without an account.
-  const protectedCustomerRoutes = [
-    "/orders",
-    "/profile",
-    "/wishlist",
-  ];
-  const isProtectedCustomer = protectedCustomerRoutes.some((route) =>
-    pathname === route || pathname.startsWith(`${route}/`)
+  // Customer account area. Admin/staff never see it; agents have their own
+  // dashboard and profile, so only the purchase pages stay open to them.
+  const isAccountArea = ["/account", "/profile"].some(
+    (route) => pathname === route || pathname.startsWith(`${route}/`)
+  );
+  const isPurchaseArea = ["/orders", "/wishlist"].some(
+    (route) => pathname === route || pathname.startsWith(`${route}/`)
   );
 
-  if (isProtectedCustomer && !isAuthenticated) {
-    const url = req.nextUrl.clone();
-    url.pathname = "/login";
-    url.search = `?callbackUrl=${encodeURIComponent(pathname)}`;
-    return applyCookies(NextResponse.redirect(url));
+  if (isAccountArea || isPurchaseArea) {
+    if (!isAuthenticated) return toLogin();
+    if (userRole === "CUSTOMER" || (isPurchaseArea && userRole === "AGENT")) {
+      // Legacy /profile URL lives on as /account/dashboard.
+      if (pathname === "/profile") {
+        return redirectTo("/account/dashboard", req.nextUrl.search);
+      }
+      return applyCookies(NextResponse.next());
+    }
+    if (userRole) return redirectTo(getRoleHome(userRole));
+    // Role unknown (e.g. expired access token, refresh pending): let the page decide.
+    return applyCookies(NextResponse.next());
   }
 
   if ((pathname === "/login" || pathname === "/register") && isAuthenticated) {
-    const url = req.nextUrl.clone();
-    url.search = "";
-    if (userRole === "ADMIN" || userRole === "STAFF") {
-      url.pathname = "/admin/dashboard";
-    } else if (userRole === "AGENT") {
-      url.pathname = "/agent/dashboard";
-    } else {
-      url.pathname = "/";
-    }
-    return applyCookies(NextResponse.redirect(url));
+    return redirectTo(getRoleHome(userRole));
   }
+
 
   return applyCookies(NextResponse.next());
 });

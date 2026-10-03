@@ -61,6 +61,16 @@ const bannerFormSchema = z
       .max(50, "Price text cannot exceed 50 characters")
       .optional()
       .nullable(),
+    // An empty numeric input arrives as "" from the DOM; treat it as 0.
+    sortOrder: z
+      .union([z.number(), z.literal("")])
+      .refine((val) => val === "" || Number.isInteger(val), {
+        message: "Sort order must be a whole number.",
+      })
+      .refine((val) => val === "" || (val >= 0 && val <= 100), {
+        message: "Sort order must be between 0 and 100.",
+      })
+      .optional(),
     isActive: z.boolean().default(true),
     startsAt: z.string().optional().nullable(),
     endsAt: z.string().optional().nullable(),
@@ -120,6 +130,7 @@ export interface BannerFormPayload {
   badgeLabel: string | null;
   subtitle: string | null;
   priceText: string | null;
+  sortOrder: number;
   isActive: boolean;
   startsAt: string | null;
   endsAt: string | null;
@@ -186,6 +197,7 @@ export function BannerForm({
       badgeLabel: initialData?.badgeLabel ?? "",
       subtitle: initialData?.subtitle ?? "",
       priceText: initialData?.priceText ?? "",
+      sortOrder: initialData?.sortOrder ?? 0,
       isActive: initialData?.isActive ?? true,
       startsAt: formatDateForInput(initialData?.startsAt),
       endsAt: formatDateForInput(initialData?.endsAt),
@@ -280,6 +292,7 @@ export function BannerForm({
       badgeLabel: typeConfig.hasCard ? values.badgeLabel?.trim() || null : null,
       subtitle: typeConfig.hasCard ? values.subtitle?.trim() || null : null,
       priceText: typeConfig.hasCard ? values.priceText?.trim() || null : null,
+      sortOrder: values.sortOrder === "" ? 0 : Number(values.sortOrder ?? 0),
       isActive: Boolean(values.isActive),
       startsAt: values.startsAt?.trim()
         ? new Date(values.startsAt).toISOString()
@@ -452,6 +465,19 @@ export function BannerForm({
               onCheckedChange={(checked) =>
                 setValue("isActive", checked, { shouldDirty: true })
               }
+            />
+          </div>
+
+          <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
+            <FormInput
+              name="sortOrder"
+              label="Sort Order"
+              type="number"
+              min={0}
+              max={100}
+              step={1}
+              placeholder="0"
+              description="Lower numbers appear first. Defaults to 0."
             />
           </div>
         </section>

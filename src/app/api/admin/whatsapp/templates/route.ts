@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db/prisma";
 import { apiSuccess, apiError } from "@/lib/api/api-response";
+import { withApiRoles } from "@/lib/api/api-handler";
 
 const INITIAL_TEMPLATES = [
   {
@@ -29,7 +30,7 @@ const INITIAL_TEMPLATES = [
   },
 ];
 
-export async function GET() {
+async function handleGET() {
   try {
     let templates = await db.whatsAppTemplate.findMany({
       where: { is_active: true },
@@ -63,7 +64,7 @@ export async function GET() {
   }
 }
 
-export async function POST(request: NextRequest) {
+async function handlePOST(request: NextRequest) {
   try {
     const body = await request.json();
     const { name, category, message, media_url } = body || {};
@@ -101,3 +102,6 @@ export async function POST(request: NextRequest) {
     );
   }
 }
+
+export const GET = withApiRoles(["ADMIN", "STAFF"], handleGET);
+export const POST = withApiRoles(["ADMIN", "STAFF"], handlePOST);

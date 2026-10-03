@@ -9,6 +9,7 @@ import { LogIn, Search, Heart, ShoppingCart } from "lucide-react";
 import { LOGOS, ICONS, mobileBottomIcons } from "@/constants/storefront";
 import { NavButton } from "@/components/storefront/buttons/NavButton";
 import { IconButton } from "@/components/storefront/buttons/IconButton";
+import { getRoleHome } from "@/lib/auth/role-routes";
 import { useClickOutside } from "@/hooks/useClickOutside";
 import { getInitials } from "@/lib/utils";
 import { useCustomerWishlistCount } from "@/features/customers/hooks/use-customer-wishlist";
@@ -82,6 +83,11 @@ export function Header() {
   const pathname = usePathname();
   const { data: session, status } = useSession();
   const isAuthenticated = status === "authenticated";
+  // Admin/staff manage the store from /admin; they have no customer account,
+  // wishlist or purchase UI, so those entry points are role-aware.
+  const userRole = (session?.user as { role?: string } | undefined)?.role;
+  const isStaffUser = userRole === "ADMIN" || userRole === "STAFF";
+  const accountHref = isAuthenticated ? getRoleHome(userRole) : "/login";
   // `status` is "loading" until /api/auth/session resolves on every page load.
   // Treating that as logged-out would flash the Login button at signed-in users,
   // so the account cell renders a placeholder until the session is known.
@@ -94,7 +100,7 @@ export function Header() {
     return () => clearTimeout(timer);
   }, [status]);
   const isAuthLoading = status === "loading" && !authGraceExpired;
-  const { data: profile } = useCustomerProfile({ enabled: isAuthenticated });
+  const { data: profile } = useCustomerProfile({ enabled: isAuthenticated && !isStaffUser });
 
   // Get user name and initials for authenticated header state
   const userName = profile?.name || session?.user?.name || "";
@@ -109,7 +115,7 @@ export function Header() {
   }, [userName, session?.user?.email]);
 
   // Wishlist requires an account; cart works for guests too (guest-session cookie).
-  const { data: wishlistCount = 0 } = useCustomerWishlistCount({ enabled: isAuthenticated });
+  const { data: wishlistCount = 0 } = useCustomerWishlistCount({ enabled: isAuthenticated && !isStaffUser });
   const { data: cartCountData } = useCustomerCartCount();
   const cartCount =
     typeof cartCountData === "number"
@@ -148,7 +154,7 @@ export function Header() {
         item.alt === "cart" || item.text === "Cart" || item.path === "/cart";
 
       if (isUser) {
-        return isAuthenticated ? "/profile" : "/login";
+        return accountHref;
       }
       if (isWishlist) {
         return isAuthenticated ? "/wishlist" : "/login?callbackUrl=/wishlist";
@@ -159,7 +165,7 @@ export function Header() {
       }
       return item.path || "/";
     },
-    [isAuthenticated]
+    [isAuthenticated, accountHref]
   );
 
   const handleSearchSubmit = (e: React.FormEvent) => {
@@ -317,6 +323,7 @@ export function Header() {
             </form>
 
             {/* Wishlist */}
+            {!isStaffUser && (
             <Link
               href={wishlistHref}
               aria-label="Wishlist"
@@ -329,8 +336,10 @@ export function Header() {
                 </span>
               )}
             </Link>
+            )}
 
             {/* Cart */}
+            {!isStaffUser && (
             <Link
               href="/cart"
               aria-label="Cart"
@@ -343,13 +352,18 @@ export function Header() {
                 </span>
               )}
             </Link>
+            )}
 
             {/* Account */}
             {/* The account cell is the last item in a right-anchored row, so the
                 Login pill (~92px) collapsing to the 26px avatar would drag every
                 icon beside it. A fixed slot keeps the swap contained: siblings
                 never move, whichever state wins. */}
-            <div className="flex min-w-[92px] justify-end">
+            <div
+              className={`flex justify-end ${
+                isAuthLoading || isAuthenticated ? "" : "min-w-[92px]"
+              }`}
+            >
               {isAuthLoading ? (
                 <div
                   className="w-[26px] h-[26px] rounded-full bg-theme-surface-alt animate-pulse"
@@ -370,7 +384,7 @@ export function Header() {
               ) : (
                 <IconButton
                   alt={userName ? `${userName}'s profile` : "Profile"}
-                  href="/profile"
+                  href={accountHref}
                   customIcon={
                     <div className="w-[26px] h-[26px] rounded-full bg-theme-primary text-theme-primary-fg text-[11px] font-bold flex items-center justify-center border border-theme-border-accent shadow-2xs select-none leading-none">
                       {userInitials}
@@ -421,8 +435,8 @@ export function Header() {
         {/* Drawer Panel */}
         <div
           ref={menuRef}
-          className={`fixed top-0 right-0 z-50 h-screen w-72 bg-[var(--brown-600)] border-l border-white/20 shadow-2xl transform transition-all duration-500 ease-in-out flex flex-col ${
-            isOpen ? "translate-x-0" : "translate-x-full"
+          className={`fixed top-0 right-0 z-50 h-screen w-72 bg-[var(--brown-600)] border-l border-white/20 transform transition-all duration-500 ease-in-out flex flex-col ${
+            isOpen ? "translate-x-0 shadow-2xl" : "translate-x-full invisible"
           }`}
         >
           <div className="flex items-center justify-between border-b border-white/20 px-6 py-5 shrink-0">
@@ -496,6 +510,7 @@ export function Header() {
         "
       >
         {mobileBottomIcons.map((item) => {
+          if (isStaffUser && (item.text === "Wishlist" || item.text === "Cart")) return null;
           const isUser =
             item.text === "Account" || item.path === "/profile";
           const targetPath = resolvePath(item);
@@ -542,8 +557,8 @@ export function Header() {
                       </div>
                     }
                     text="Account"
-                    href="/profile"
-                    isActive={pathname === "/profile"}
+                    href={accountHref}
+                    isActive={pathname === accountHref}
                   />
                 )}
               </div>
