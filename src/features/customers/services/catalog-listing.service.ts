@@ -118,7 +118,7 @@ function buildCandidates(
         ? row.items
         : row.items.filter((item) => item.name.toLowerCase().includes(needle));
 
-      const brand = row.product.brand;
+      const brand = row.brand ?? row.product.brand;
       const brandRef =
         brand && brand.isActive && !brand.deleted_at
           ? { id: brand.uuid || String(brand.id), key: brand.slug.toLowerCase(), name: brand.name }
@@ -270,7 +270,9 @@ function resolveFilters(
   };
 }
 
-/** A men's/women's/kids' filter also includes unisex products (matches /api/customer/styles). */
+/**
+ * A men's/women's/kids' filter also includes unisex products (matches /api/customer/styles).
+ */
 function genderMatches(gender: ListingGender | null, selected: Set<ListingGender>): boolean {
   if (selected.size === 0) return true;
   if (!gender) return false;

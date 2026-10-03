@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { optionalEmailField } from "@/lib/validations/email";
 
 const optionalText = (max: number) =>
   z
@@ -14,15 +15,7 @@ export const vendorSchema = z
     name: z.string().trim().min(1, "Vendor name is required").max(150),
     contactPerson: optionalText(120),
     phone: optionalText(20),
-    email: z
-      .string()
-      .trim()
-      .email("Invalid email")
-      .max(150)
-      .optional()
-      .nullable()
-      .or(z.literal(""))
-      .transform((v) => (v ? v : null)),
+    email: optionalEmailField.transform((v) => v ?? null),
     gstin: optionalText(20),
     address: optionalText(500),
     notes: optionalText(500),
@@ -63,12 +56,25 @@ export const purchaseOrderSchema = z
       .optional()
       .nullable()
       .transform((v) => (v ? v : null)),
+    purchaseDate: z
+      .string()
+      .optional()
+      .nullable()
+      .transform((v) => (v ? v : null)),
+    invoiceNumber: optionalText(60),
+    additionalCharges: z.coerce.number().min(0, "Charges cannot be negative").default(0),
     notes: optionalText(500),
     items: z.array(poItemSchema).min(1, "Add at least one item"),
   })
   .strict();
 
 export type PurchaseOrderInput = z.infer<typeof purchaseOrderSchema>;
+
+export const confirmPurchaseSchema = purchaseOrderSchema
+  .extend({ idempotencyKey: z.string().trim().min(8).max(64) })
+  .strict();
+
+export type ConfirmPurchaseInput = z.infer<typeof confirmPurchaseSchema>;
 
 export const purchaseQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1).optional(),

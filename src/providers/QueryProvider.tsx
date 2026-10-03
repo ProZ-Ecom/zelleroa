@@ -2,7 +2,7 @@
 
 import { QueryClient, QueryClientProvider, MutationCache, QueryCache } from "@tanstack/react-query";
 import * as React from "react";
-import { toast } from "@/components/ui/Toast";
+import { toast, getSuccessToastAttempts } from "@/components/ui/Toast";
 import { ApiClientError } from "@/lib/api/api-client";
 
 interface MetaOptions {
@@ -35,13 +35,21 @@ function makeQueryClient() {
       },
     },
     mutationCache: new MutationCache({
-      onSuccess: (_data: any, _variables, _context, mutation) => {
+      onSuccess: (data: any, _variables, _context, mutation) => {
         const meta = mutation.meta as MetaOptions | undefined;
         if (meta?.skipToast) return;
 
-        // Only fire global toast if explicitly configured on mutation meta
-        if (meta?.successMessage && typeof meta.successMessage === "string") {
-          toast.success("Success", meta.successMessage);
+        const message = meta?.successMessage || data?.message;
+        if (message && typeof message === "string") {
+          // The cache-level handler runs before the hook's / caller's own
+          // onSuccess. If one of those shows its own success toast (with different
+          // wording, so content dedupe can't catch it), keep theirs and skip this.
+          const before = getSuccessToastAttempts();
+          setTimeout(() => {
+            if (getSuccessToastAttempts() === before) {
+              toast.success("Success", message);
+            }
+          }, 0);
         }
       },
       onError: (error: any, _variables, _context, mutation) => {

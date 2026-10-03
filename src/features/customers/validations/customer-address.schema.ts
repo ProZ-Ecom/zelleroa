@@ -1,20 +1,10 @@
 import { z } from "zod";
+import { NAME_REGEX, NAME_INVALID_MESSAGE } from "@/lib/validations/name";
+import { mobileStoredOrInputField } from "@/lib/validations/mobile";
 
 export const ADDRESS_TYPE_ENUM = ["shipping", "billing"] as const;
 
-export const indiaPhoneSchema = z
-  .string()
-  .trim()
-  .min(1, "Phone Number is required")
-  .transform((val) => {
-    if (/^[6-9]\d{9}$/.test(val)) {
-      return `+91${val}`;
-    }
-    return val;
-  })
-  .refine((val) => /^\+91[6-9]\d{9}$/.test(val), {
-    message: "Please enter a valid 10-digit Indian phone number (e.g. 9876543210)",
-  });
+export const indiaPhoneSchema = mobileStoredOrInputField;
 
 export const pincodeSchema = z
   .string()
@@ -49,8 +39,9 @@ export const createCustomerAddressSchema = z
     fullName: z
       .string()
       .trim()
-      .min(1, "Full Name is required")
-      .max(150, "Full Name cannot exceed 150 characters"),
+      .min(1, "Full name is required")
+      .max(150, "Full name cannot exceed 150 characters")
+      .regex(NAME_REGEX, NAME_INVALID_MESSAGE),
     phone: indiaPhoneSchema,
     addressLine1: z
       .string()
@@ -113,8 +104,9 @@ export const updateCustomerAddressSchema = z
     fullName: z
       .string()
       .trim()
-      .min(1, "Full Name is required")
-      .max(150, "Full Name cannot exceed 150 characters")
+      .min(1, "Full name cannot be empty")
+      .max(150, "Full name cannot exceed 150 characters")
+      .regex(NAME_REGEX, NAME_INVALID_MESSAGE)
       .optional(),
     phone: indiaPhoneSchema.optional(),
     addressLine1: z

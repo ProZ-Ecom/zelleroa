@@ -45,6 +45,13 @@ type ToastInput =
       duration?: number;
     };
 
+let successToastAttempts = 0;
+
+/** Number of success toasts requested so far (including ones deduped away). */
+export function getSuccessToastAttempts() {
+  return successToastAttempts;
+}
+
 function showToast(toastData: ToastInput) {
   if (typeof window === "undefined") return;
 
@@ -55,6 +62,11 @@ function showToast(toastData: ToastInput) {
       ? "success"
       : toastData.variant;
 
+  if (variant === "success") successToastAttempts++;
+
+  // Deduplicate based on message content to prevent dual toasts from MutationCache & components
+  const content = (toastData.description || toastData.title || "").trim().toLowerCase();
+  const dedupeKey = `${variant}:${content}`;
   const now = Date.now();
   const rawKey = `${variant}:${(toastData.description || toastData.title || "").trim().toLowerCase()}`;
 

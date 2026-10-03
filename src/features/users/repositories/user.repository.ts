@@ -121,6 +121,13 @@ export const userRepository = {
     return user ? formatUser(user) : null;
   },
 
+  async findByPhoneVariants(phones: string[]) {
+    return db.user.findFirst({
+      where: { phone: { in: phones } },
+      select: { id: true },
+    });
+  },
+
   async findByPhone(phone: string) {
     const user = await db.user.findFirst({
       where: { phone },

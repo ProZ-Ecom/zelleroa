@@ -13,10 +13,13 @@ import type {
   PurchaseOrderInput,
   PurchaseActionInput,
   ReceiveInput,
+  ConfirmPurchaseInput,
 } from "../validations/purchase.schema";
+import { recordStockMovement } from "@/features/inventory/services/stock-ledger.service";
 import { getAdminInternalId } from "./vendor.service";
 
 const productSelect = {
+  attribute_value: { select: { value: true } },
   variant: {
     select: {
       variant_name: true,
@@ -79,11 +82,13 @@ function formatItem(i: ItemRow): PurchaseItemResponse {
     productName: productName(i.variant_unit_price),
     variantName: i.variant_unit_price.variant?.variant_name || null,
     colorName: i.variant_unit_price.variant?.color_name ?? null,
+    sizeName: i.variant_unit_price.attribute_value?.value ?? null,
     unitName: i.variant_unit_price.product_units?.name ?? null,
     sku: i.variant_unit_price.sku,
     quantityOrdered: i.quantity_ordered,
     quantityReceived: i.quantity_received,
     unitCost: Number(i.unit_cost),
+    lineTotal: Number(i.unit_cost) * i.quantity_ordered,
   };
 }
 
@@ -94,8 +99,12 @@ function format(po: any): PurchaseOrderResponse {
     status: po.status,
     vendor: { id: po.vendor.uuid, name: po.vendor.name, code: po.vendor.code },
     expectedDate: po.expected_date ? po.expected_date.toISOString().slice(0, 10) : null,
+    purchaseDate: po.purchase_date ? po.purchase_date.toISOString().slice(0, 10) : null,
+    invoiceNumber: po.invoice_number,
     notes: po.notes,
     rejectReason: po.reject_reason,
+    subtotal: Number(po.subtotal),
+    additionalCharges: Number(po.additional_charges),
     totalAmount: Number(po.total_amount),
     itemCount: po._count?.items ?? po.items?.length ?? 0,
     createdAt: po.created_at.toISOString(),
@@ -154,11 +163,77 @@ function totalOf(items: { quantity_ordered: number; unit_cost: number }[]) {
   return items.reduce((sum, i) => sum + i.quantity_ordered * i.unit_cost, 0);
 }
 
+/** Header money + purchase details shared by create and update. */
+function headerData(input: PurchaseOrderInput, items: { quantity_ordered: number; unit_cost: number }[]) {
+  const subtotal = Math.round(totalOf(items) * 100) / 100;
+  const additional = Math.round(input.additionalCharges * 100) / 100;
+  return {
+    expected_date: input.expectedDate ? new Date(input.expectedDate) : null,
+    purchase_date: input.purchaseDate ? new Date(input.purchaseDate) : new Date(),
+    invoice_number: input.invoiceNumber,
+    notes: input.notes,
+    subtotal,
+    additional_charges: additional,
+    total_amount: subtotal + additional,
+  };
+}
+
 async function resolveVendor(vendorUuid: string) {
   const vendor = await db.vendors.findFirst({ where: { uuid: vendorUuid, deleted_at: null } });
   if (!vendor) throw ApiError.notFound("Vendor not found");
   if (!vendor.is_active) throw ApiError.badRequest("Vendor is inactive");
   return vendor;
+}
+
+type Tx = Prisma.TransactionClient;
+
+/** Writes a goods receipt and raises stock (PURCHASE movement) for each line. */
+export async function postReceipt(
+  tx: Tx,
+  po: { id: bigint; po_number: string; invoice_number: string | null },
+  lines: { item: { id: bigint; variant_unit_price_id: bigint; unit_cost: Prisma.Decimal }; quantity: number }[],
+  notes: string | null | undefined,
+  adminId: bigint | null
+) {
+  const receipt = await tx.purchase_receipts.create({
+    data: {
+      purchase_order_id: po.id,
+      receipt_number: `TMP-${crypto.randomUUID().slice(0, 8)}`,
+      notes,
+      received_by: adminId,
+    },
+  });
+  await tx.purchase_receipts.update({
+    where: { id: receipt.id },
+    data: { receipt_number: `GRN-${String(receipt.id).padStart(6, "0")}` },
+  });
+
+  for (const { item, quantity } of lines) {
+    await tx.purchase_receipt_items.create({
+      data: {
+        receipt_id: receipt.id,
+        purchase_order_item_id: item.id,
+        variant_unit_price_id: item.variant_unit_price_id,
+        quantity_received: quantity,
+        unit_cost: item.unit_cost,
+      },
+    });
+    await tx.purchase_order_items.update({
+      where: { id: item.id },
+      data: { quantity_received: { increment: quantity } },
+    });
+    await recordStockMovement(tx, {
+      variantUnitPriceId: item.variant_unit_price_id,
+      movementType: "PURCHASE",
+      direction: "in",
+      quantity,
+      referenceType: "purchase_receipt",
+      referenceId: receipt.id,
+      referenceNumber: po.po_number,
+      reason: `Purchase ${po.po_number}${po.invoice_number ? ` (Invoice ${po.invoice_number})` : ""}`,
+      actorId: adminId,
+    });
+  }
 }
 
 const TRANSITIONS: Record<
@@ -186,6 +261,7 @@ export const purchaseService = {
         ? {
             OR: [
               { po_number: { contains: params.search } },
+              { invoice_number: { contains: params.search } },
               { vendor: { name: { contains: params.search } } },
             ],
           }
@@ -221,9 +297,7 @@ export const purchaseService = {
           uuid,
           po_number: `TMP-${uuid.slice(0, 8)}`,
           vendor_id: vendor.id,
-          expected_date: input.expectedDate ? new Date(input.expectedDate) : null,
-          notes: input.notes,
-          total_amount: totalOf(items),
+          ...headerData(input, items),
           created_by: adminId,
           updated_by: adminId,
           items: { create: items },
@@ -255,9 +329,7 @@ export const purchaseService = {
         where: { id: po.id },
         data: {
           vendor_id: vendor.id,
-          expected_date: input.expectedDate ? new Date(input.expectedDate) : null,
-          notes: input.notes,
-          total_amount: totalOf(items),
+          ...headerData(input, items),
           updated_by: adminId,
           items: { create: items },
         },
@@ -336,55 +408,13 @@ export const purchaseService = {
         }
       }
 
-      const receipt = await tx.purchase_receipts.create({
-        data: {
-          purchase_order_id: po.id,
-          receipt_number: `TMP-${crypto.randomUUID().slice(0, 8)}`,
-          notes: input.notes,
-          received_by: adminId,
-        },
-      });
-      await tx.purchase_receipts.update({
-        where: { id: receipt.id },
-        data: { receipt_number: `GRN-${String(receipt.id).padStart(6, "0")}` },
-      });
-
-      for (const line of lines) {
-        const item = byId.get(line.itemId)!;
-        await tx.purchase_receipt_items.create({
-          data: {
-            receipt_id: receipt.id,
-            purchase_order_item_id: item.id,
-            variant_unit_price_id: item.variant_unit_price_id,
-            quantity_received: line.quantity,
-            unit_cost: item.unit_cost,
-          },
-        });
-        await tx.purchase_order_items.update({
-          where: { id: item.id },
-          data: { quantity_received: { increment: line.quantity } },
-        });
-        await tx.inventory.upsert({
-          where: { variantUnitPriceId: item.variant_unit_price_id },
-          update: { quantity_available: { increment: line.quantity }, updated_by: adminId },
-          create: {
-            variantUnitPriceId: item.variant_unit_price_id,
-            quantity_available: line.quantity,
-            created_by: adminId,
-          },
-        });
-        await tx.inventoryTransaction.create({
-          data: {
-            variant_unit_price_id: item.variant_unit_price_id,
-            type: "in",
-            quantity: line.quantity,
-            referenceType: "purchase_receipt",
-            referenceId: receipt.id,
-            note: `Purchase ${po.po_number}`,
-            created_by: adminId,
-          },
-        });
-      }
+      await postReceipt(
+        tx,
+        po,
+        lines.map((l) => ({ item: byId.get(l.itemId)!, quantity: l.quantity })),
+        input.notes,
+        adminId
+      );
 
       const fresh = await tx.purchase_order_items.findMany({ where: { purchase_order_id: po.id } });
       const complete = fresh.every((i) => i.quantity_received >= i.quantity_ordered);
@@ -403,6 +433,77 @@ export const purchaseService = {
         },
       });
     });
+    return loadDetail(uuid);
+  },
+
+  /**
+   * One-step purchase entry: saves the purchase, its items and a receipt, and
+   * raises stock immediately. Re-submitting the same idempotency key returns
+   * the original purchase without touching stock again.
+   */
+  async confirm(input: ConfirmPurchaseInput, adminEmail?: string | null) {
+    const existing = await db.purchase_orders.findUnique({
+      where: { idempotency_key: input.idempotencyKey },
+      select: { uuid: true },
+    });
+    if (existing) return loadDetail(existing.uuid);
+
+    const vendor = await resolveVendor(input.vendorId);
+    const items = await buildItems(input.items);
+    const adminId = await getAdminInternalId(adminEmail);
+    const uuid = crypto.randomUUID();
+    const now = new Date();
+
+    try {
+      await db.$transaction(async (tx) => {
+        const po = await tx.purchase_orders.create({
+          data: {
+            uuid,
+            po_number: `TMP-${uuid.slice(0, 8)}`,
+            vendor_id: vendor.id,
+            status: "RECEIVED",
+            idempotency_key: input.idempotencyKey,
+            ...headerData(input, items),
+            submitted_at: now,
+            approved_by: adminId,
+            approved_at: now,
+            ordered_at: now,
+            received_at: now,
+            created_by: adminId,
+            updated_by: adminId,
+            items: { create: items },
+          },
+          include: { items: true },
+        });
+        const poNumber = `PO-${String(po.id).padStart(6, "0")}`;
+        await tx.purchase_orders.update({ where: { id: po.id }, data: { po_number: poNumber } });
+        await postReceipt(
+          tx,
+          { id: po.id, po_number: poNumber, invoice_number: po.invoice_number },
+          po.items.map((item) => ({ item, quantity: item.quantity_ordered })),
+          input.notes,
+          adminId
+        );
+        await tx.purchase_order_history.create({
+          data: {
+            purchase_order_id: po.id,
+            to_status: "RECEIVED",
+            note: `Purchase confirmed; ${po.items.reduce((n, i) => n + i.quantity_ordered, 0)} unit(s) added to stock`,
+            changed_by: adminId,
+          },
+        });
+      });
+    } catch (e) {
+      // A concurrent submit with the same key lost the race; its transaction (and stock) rolled back.
+      if ((e as { code?: string }).code === "P2002") {
+        const winner = await db.purchase_orders.findUnique({
+          where: { idempotency_key: input.idempotencyKey },
+          select: { uuid: true },
+        });
+        if (winner) return loadDetail(winner.uuid);
+      }
+      throw e;
+    }
     return loadDetail(uuid);
   },
 
@@ -436,10 +537,13 @@ export const purchaseService = {
         productName(r),
         r.variant?.variant_name,
         r.variant?.color_name,
-        r.product_units?.name,
+        r.attribute_value?.value ?? r.product_units?.name,
       ]
         .filter(Boolean)
         .join(" · "),
+      productName: productName(r),
+      colorName: r.variant?.color_name ?? null,
+      sizeName: r.attribute_value?.value ?? null,
       sku: r.sku,
       stock: r.inventories?.quantity_available ?? 0,
       reorderLevel: r.inventories?.reorderLevel ?? 0,

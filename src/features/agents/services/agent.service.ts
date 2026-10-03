@@ -362,6 +362,9 @@ export const agentService = {
       data.bank_account_number_enc = encryptField(input.accountNumber!);
       data.bank_account_last4 = input.accountNumber!.slice(-4);
       data.bank_ifsc = input.ifsc;
+      // Changed bank details must be re-verified by the admin.
+      data.bank_status = "pending";
+      data.bank_remarks = null;
     }
     await db.$transaction(async (tx) => {
       await tx.agent_profiles.update({ where: { user_id: agentId }, data });
@@ -446,6 +449,39 @@ export const agentService = {
       }),
       meta: { page, limit, total, totalPages: Math.max(1, Math.ceil(total / limit)) },
     };
+  },
+
+  /**
+   * Orders the Sales Partner placed for themselves (they are the buyer). Deliberately a different
+   * query from referral orders (`agent_id` = partner): a self-purchase never carries an agent_id.
+   */
+  async listOwnPurchases(agentRef: string, paging: { page?: number; limit?: number }) {
+    const agentId = await resolveAgentRef(agentRef);
+    if (!agentId) throw ApiError.notFound("Sales Partner not found");
+    const page = Math.max(1, paging.page ?? 1);
+    const limit = Math.min(100, Math.max(1, paging.limit ?? 20));
+    const where: Prisma.OrderWhereInput = { userId: agentId, is_active: true };
+    const [rows, total] = await Promise.all([
+      db.order.findMany({
+        where,
+        select: { uuid: true, orderNumber: true, totalAmount: true, order_status: true, payment_status: true, createdAt: true },
+        orderBy: { createdAt: "desc" },
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+      db.order.count({ where }),
+    ]);
+    return {
+      data: rows.map((o) => ({
+        id: o.uuid ?? o.orderNumber,
+        orderNumber: o.orderNumber,
+        total: Number(o.totalAmount),
+        orderStatus: String(o.order_status),
+        paymentStatus: String(o.payment_status),
+        orderDate: o.createdAt.toISOString(),
+      })),
+      meta: { page, limit, total, totalPages: Math.max(1, Math.ceil(total / limit)) },
+    } satisfies PaginatedResult<OwnPurchaseRow>;
   },
 
   /** One row per order item of orders credited to the agent, with its commission. */
@@ -567,4 +603,13 @@ export interface AgentOrderLine {
   commissionPercentage: number | null;
   commissionAmount: number | null;
   commissionStatus: string | null;
+}
+
+export interface OwnPurchaseRow {
+  id: string;
+  orderNumber: string;
+  total: number;
+  orderStatus: string;
+  paymentStatus: string;
+  orderDate: string;
 }

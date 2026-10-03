@@ -1,4 +1,6 @@
 import { z } from "zod";
+import { NAME_REGEX, NAME_INVALID_MESSAGE } from "@/lib/validations/name";
+import { emailField } from "@/lib/validations/email";
 import { indiaPhoneSchema, pincodeSchema } from "@/features/customers/validations/customer-address.schema";
 
 export const ORDER_STATUS_ENUM = [
@@ -37,12 +39,13 @@ export type CustomerCreateOrderInput = z.infer<typeof customerCreateOrderSchema>
 
 export const guestCreateOrderSchema = z
   .object({
-    email: z.string().trim().toLowerCase().email("Invalid email address"),
+    email: emailField,
     fullName: z
       .string()
       .trim()
       .min(1, "Full name is required")
-      .max(150, "Full name cannot exceed 150 characters"),
+      .max(150, "Full name cannot exceed 150 characters")
+      .regex(NAME_REGEX, NAME_INVALID_MESSAGE),
     phone: indiaPhoneSchema,
     addressLine1: z
       .string()

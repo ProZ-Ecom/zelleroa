@@ -24,23 +24,12 @@ export interface SelectProps
   rightIcon?: React.ReactNode;
   size?: "sm" | "md" | "lg";
   variant?: "default" | "warm" | "ghost";
+  /** Always show the search box. Defaults to on only for lists of 7+ options. */
   searchable?: boolean;
-  align?: "left" | "right";
-  /**
-  /**
-   * Set to false to disable portaling to document.body.
-   * Default is true (overlay dropdown rendered at root to avoid overflow clipping).
-   */
   portal?: boolean;
-  /**
-   * Set to true for in-flow expansion (used specifically in Add Item modal to expand modal height when open).
-   * Default is false (standard overlay dropdown that floats over content).
-   */
+  align?: "left" | "right";
   expandContainer?: boolean;
 }
-
-const useIsomorphicLayoutEffect =
-  typeof window !== "undefined" ? React.useLayoutEffect : React.useEffect;
 
 const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
   (
@@ -61,9 +50,10 @@ const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
       leftIcon,
       rightIcon,
       size = "md",
+      variant = "default",
       searchable,
+      portal = false,
       align = "left",
-      portal = true,
       expandContainer = false,
       ...props
     },
@@ -84,6 +74,7 @@ const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
       },
       [onOpenChange]
     );
+
     const [internalValue, setInternalValue] = React.useState<string>(
       (controlledValue !== undefined
         ? controlledValue
@@ -156,7 +147,7 @@ const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
       });
     }, [portal, align, isSearchable]);
 
-    useIsomorphicLayoutEffect(() => {
+    React.useEffect(() => {
       if (isOpen && portal) {
         updatePosition();
       }
@@ -209,17 +200,19 @@ const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
           window.removeEventListener("resize", handleScrollOrResize);
         }
       };
-    }, [isOpen, portal, updatePosition]);
+    }, [isOpen, portal, updatePosition, setIsOpen]);
+
+    const showSearch = searchable ?? options.length > 6;
 
     // Focus search input when dropdown opens without causing scroll jumps
     React.useEffect(() => {
-      if (isOpen && isSearchable) {
-        const timer = setTimeout(() => {
-          searchInputRef.current?.focus({ preventScroll: true });
-        }, 30);
-        return () => clearTimeout(timer);
+      if (isOpen && showSearch) {
+        const timeout = setTimeout(() => {
+          searchInputRef.current?.focus();
+        }, 50);
+        return () => clearTimeout(timeout);
       }
-    }, [isOpen, isSearchable]);
+    }, [isOpen, showSearch]);
 
     // Keyboard navigation (Escape to close, ArrowDown to open)
     const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -284,34 +277,29 @@ const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
 
     const effectiveRightIcon = rightIcon || icon;
 
-    const renderMenuContent = () => (
+    const menuContent = (
       <div
         ref={menuRef}
         style={portal ? menuStyle : undefined}
         className={cn(
-          "ui-dropdown-menu",
-          expandContainer
-            ? "ui-dropdown-menu-inline"
-            : portal
-            ? isUpward
-              ? "ui-dropdown-menu-up"
-              : ""
-            : "ui-dropdown-menu-floating"
+          portal
+            ? "overflow-hidden rounded-xl border border-theme-border bg-theme-surface shadow-2xl animate-in zoom-in-95 duration-150"
+            : "absolute left-0 right-0 top-full z-[60] mt-1.5 overflow-hidden rounded-xl border border-theme-border bg-theme-surface shadow-lg animate-in zoom-in-95 duration-150 min-w-[160px]"
         )}
         role="listbox"
       >
         {/* Search Input for Long Lists (>= 7 options) */}
-        {isSearchable && (
-          <div className="ui-dropdown-search-wrapper">
+        {showSearch && (
+          <div className="border-b border-theme-border-subtle p-2 bg-theme-surface-alt">
             <div className="relative flex items-center">
-              <Search className="absolute left-2.5 h-3.5 w-3.5 text-neutral-400 pointer-events-none" />
+              <Search className="absolute left-2.5 h-3.5 w-3.5 text-theme-text-muted pointer-events-none" />
               <input
                 ref={searchInputRef}
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search options..."
-                className="ui-dropdown-search-input"
+                className="h-8 w-full rounded-md border border-theme-border bg-theme-surface pl-8 pr-3 text-xs text-theme-text-primary placeholder:text-theme-text-muted outline-none focus:outline-none focus:border-theme-primary focus:ring-1 focus:ring-theme-primary/20"
                 onClick={(e) => e.stopPropagation()}
               />
             </div>
@@ -319,10 +307,10 @@ const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
         )}
 
         {/* Scrollable Options Area */}
-        <div className="ui-dropdown-options-list space-y-0.5">
+        <div className="max-h-56 overflow-y-auto p-1.5 space-y-0.5">
           {filteredOptions.length === 0 ? (
-            <div className="px-3 py-3 text-center text-xs text-neutral-400 font-medium">
-              No matching options
+            <div className="px-3 py-4 text-center text-xs text-theme-text-muted">
+              No matching options found
             </div>
           ) : (
             filteredOptions.map((option) => {
@@ -337,19 +325,22 @@ const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
                   aria-selected={isSelected}
                   onClick={() => handleSelectOption(option)}
                   className={cn(
-                    "ui-dropdown-option",
-                    isSelected && "ui-dropdown-option-selected",
-                    option.disabled && "ui-dropdown-option-disabled"
+                    "flex w-full items-center justify-between rounded-lg px-3 py-2 text-xs sm:text-sm transition-colors cursor-pointer select-none",
+                    isSelected
+                      ? "bg-theme-surface-alt font-bold text-theme-primary"
+                      : "text-theme-text-primary hover:bg-theme-surface-alt hover:text-theme-primary",
+                    option.disabled &&
+                      "cursor-not-allowed opacity-40 hover:bg-transparent pointer-events-none select-none"
                   )}
                 >
                   <div className="flex items-center gap-2 truncate">
                     {option.icon && (
-                      <span className="shrink-0 text-neutral-400">{option.icon}</span>
+                      <span className="shrink-0 text-theme-text-muted">{option.icon}</span>
                     )}
                     <span className="truncate">{option.label}</span>
                   </div>
                   {isSelected && (
-                    <Check className="h-4 w-4 shrink-0 text-neutral-900 ml-2" />
+                    <Check className="h-4 w-4 shrink-0 text-theme-primary" />
                   )}
                 </div>
               );
@@ -362,7 +353,7 @@ const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
     return (
       <div
         ref={containerRef}
-        className="ui-dropdown-wrapper relative"
+        className={cn("ui-dropdown-wrapper relative", className)}
         onKeyDown={handleKeyDown}
       >
         {/* Hidden Native Select for Form Libraries (e.g. react-hook-form) */}
@@ -411,8 +402,7 @@ const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
           className={cn(
             "ui-dropdown-trigger",
             sizeClass,
-            error && "ui-dropdown-trigger-error",
-            className
+            error && "ui-dropdown-trigger-error"
           )}
           aria-haspopup="listbox"
           aria-expanded={isOpen}
@@ -448,13 +438,11 @@ const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
           </div>
         </button>
 
-        {/* Floating overlay by default; In-flow menu when expandContainer is true; Portal if requested */}
+        {/* Floating overlay or Portaled dropdown */}
         {isOpen && (
-          expandContainer
-            ? renderMenuContent()
-            : portal && mounted
-            ? createPortal(renderMenuContent(), document.body)
-            : renderMenuContent()
+          portal && mounted && typeof document !== "undefined"
+            ? createPortal(menuContent, document.body)
+            : menuContent
         )}
 
         {/* Error message */}

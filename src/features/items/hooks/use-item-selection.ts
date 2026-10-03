@@ -51,7 +51,7 @@ function isColorSellable(color: CustomerVariantListItemDto): boolean {
 }
 
 /** The Size to land on within a Color: in stock and default, else in stock. */
-function pickSize(
+export function pickSize(
   color: CustomerVariantListItemDto | null,
   preferredLabel?: string | null
 ): CustomerVariantUnitPriceDto | null {
@@ -71,7 +71,7 @@ function pickSize(
 }
 
 /** The Color to land on: in stock and default, else in stock, else the first. */
-function pickColor(
+export function pickColor(
   colors: CustomerVariantListItemDto[]
 ): CustomerVariantListItemDto | null {
   return colors.find(isColorSellable) ?? colors[0] ?? null;

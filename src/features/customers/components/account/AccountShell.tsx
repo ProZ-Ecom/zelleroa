@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { signOut } from "next-auth/react";
+import { useLogout } from "@/features/auth/hooks/use-auth-mutations";
 import { DashboardTab } from "./DashboardTab";
 import { OrdersTab } from "./OrdersTab";
 import { ProfileDetailsTab } from "./ProfileDetailsTab";
@@ -18,6 +18,7 @@ interface AccountShellProps {
   onTabChange: (tab: string) => void;
 }
 export function AccountShell({ activeTab, onTabChange }: AccountShellProps) {
+  const logout = useLogout("/login");
   const { data: profile, isLoading: profileLoading } = useCustomerProfile();
   const {
     data: ordersResponse,
@@ -57,7 +58,7 @@ export function AccountShell({ activeTab, onTabChange }: AccountShellProps) {
 
   const handleNavClick = (id: string) => {
     if (id === "logout") {
-      signOut({ callbackUrl: "/login" });
+      if (!logout.isPending) logout.mutate();
       return;
     }
     onTabChange(id);

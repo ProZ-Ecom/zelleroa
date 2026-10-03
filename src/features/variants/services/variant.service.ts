@@ -1,4 +1,5 @@
 import crypto from "crypto";
+import { recordOpeningStockPurchase } from "@/features/purchases/services/opening-stock.service";
 import { db } from "@/lib/db/prisma";
 import { ApiError } from "@/lib/api/api-error";
 import { variantRepository } from "../repositories/variant.repository";
@@ -749,6 +750,7 @@ export const variantService = {
     const itemBasePrice = Number(item.base_price ?? 0);
     const createdVariantIds = new Set<bigint>();
     let skipped = 0;
+    const openingStock: { variantUnitPriceId: bigint; quantity: number }[] = [];
 
     // Generating N combinations does several sequential awaited queries each
     // (SKU/slug uniqueness while-loops, inventory rows) - Prisma's 5s default
@@ -878,7 +880,7 @@ export const variantService = {
           await tx.inventory.create({
             data: {
               variantUnitPriceId: unitPrice.id,
-              quantity_available: initialStock,
+              quantity_available: 0,
               quantity_reserved: 0,
               is_active: true,
               created_by: adminId,
@@ -887,16 +889,7 @@ export const variantService = {
           });
 
           if (initialStock > 0) {
-            await tx.inventoryTransaction.create({
-              data: {
-                variant_unit_price_id: unitPrice.id,
-                type: "in",
-                quantity: initialStock,
-                note: "Initial stock from bulk variant generation",
-                created_by: adminId,
-                updated_by: adminId,
-              },
-            });
+            openingStock.push({ variantUnitPriceId: unitPrice.id, quantity: initialStock });
           }
 
           existingSizeValueIds.add(sizeKey ?? "__default__");
@@ -914,6 +907,13 @@ export const variantService = {
           await tx.productVariant.delete({ where: { id: variantId } });
         }
       }
+
+      await recordOpeningStockPurchase(
+        tx,
+        openingStock,
+        adminId,
+        `Opening stock for ${item.name} (variant generation)`
+      );
     }, { timeout: 60000 });
 
     const variants = await Promise.all(

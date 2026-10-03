@@ -41,11 +41,12 @@ import {
   History,
   Building2,
   ClipboardList,
+  SlidersHorizontal,
 } from "lucide-react";
 import { cn, getInitials } from "@/lib/utils";
 import { APP_NAME } from "@/lib/constants";
-import { signOut, useSession } from "next-auth/react";
-import { logoutApi } from "@/features/auth/api/auth.api";
+import { useSession } from "next-auth/react";
+import { useLogout } from "@/features/auth/hooks/use-auth-mutations";
 import { Drawer } from "@/components/common/drawer";
 
 interface SidebarItem {
@@ -90,10 +91,12 @@ const sidebarItems: SidebarItem[] = [
     href: "/admin/dashboard/inventory",
     icon: Warehouse,
     children: [
-      { label: "Stock", href: "/admin/dashboard/inventory/stock", icon: Warehouse },
-      { label: "Stock History", href: "/admin/dashboard/inventory/history", icon: History },
-      { label: "Purchase Orders", href: "/admin/dashboard/purchase-orders", icon: ClipboardList },
+      { label: "Dashboard", href: "/admin/dashboard/inventory", icon: LayoutDashboard },
+      { label: "Current Stock", href: "/admin/dashboard/inventory/stock", icon: Warehouse },
       { label: "Vendors", href: "/admin/dashboard/vendors", icon: Building2 },
+      { label: "Purchases", href: "/admin/dashboard/purchase-orders", icon: ClipboardList },
+      { label: "Stock Movements", href: "/admin/dashboard/inventory/movements", icon: History },
+      { label: "Stock Adjustment", href: "/admin/dashboard/inventory/adjustment", icon: SlidersHorizontal },
     ],
   },
   {
@@ -390,13 +393,10 @@ function SidebarFooter({ collapsed }: { collapsed?: boolean }) {
   const role = (session?.user as { role?: string })?.role;
   const roleLabel = role ? role.charAt(0) + role.slice(1).toLowerCase() : "Administrator";
 
-  const handleLogout = async () => {
-    try {
-      await logoutApi();
-    } catch {
-      // ignore network errors on logout
-    }
-    await signOut({ callbackUrl: "/admin/login" });
+  const logout = useLogout("/admin/login");
+  const handleLogout = () => {
+    if (logout.isPending) return;
+    logout.mutate();
   };
 
   return (
@@ -414,6 +414,7 @@ function SidebarFooter({ collapsed }: { collapsed?: boolean }) {
       )}
       <button
         onClick={handleLogout}
+        disabled={logout.isPending}
         title={collapsed ? "Logout" : undefined}
         className={cn(
           "group flex w-full items-center gap-2.5 rounded-lg py-2 text-sm font-medium text-neutral-600 transition-all duration-200 cursor-pointer hover:bg-white/70 hover:text-secondary-600",

@@ -11,6 +11,7 @@ import { FormTextarea } from "@/components/forms/form-textarea";
 import { FormRichText } from "@/components/forms/form-rich-text";
 import { FormCheckbox } from "@/components/forms/form-checkbox";
 import { FormSubmitButton } from "@/components/forms/form-submit-button";
+import { QuickAddBrandModal } from "@/features/brands/components/QuickAddBrandModal";
 
 // The single Item create/edit form. Both levels the admin calls an "Item" -
 // the sellable Style under a Product ("V Neck T-Shirt") and the admin-only
@@ -143,6 +144,14 @@ function ItemEntityForm({
   const entityLower = entityLabel.toLowerCase();
   const showBrand = Boolean(brandOptions);
   const [codeTouched, setCodeTouched] = React.useState<boolean>(() => Boolean(initialData?.slug));
+  const [isAddBrandOpen, setIsAddBrandOpen] = React.useState(false);
+  // Brands created from this form; kept locally so the Select can show the new
+  // one before the parent's brand list refetches.
+  const [createdBrands, setCreatedBrands] = React.useState<SelectOption[]>([]);
+  const allBrandOptions = React.useMemo(() => {
+    const base = brandOptions ?? [];
+    return [...base, ...createdBrands.filter((c) => !base.some((b) => b.value === c.value))];
+  }, [brandOptions, createdBrands]);
 
   const methods = useForm<ItemEntityFormValues>({
     resolver: zodResolver(pickSchema(showPrice, showBrand)),
@@ -191,10 +200,19 @@ function ItemEntityForm({
             name="brandId"
             label="Brand"
             placeholder="Select brand"
-            options={brandOptions ?? []}
+            options={allBrandOptions}
             description={brandDescription}
+            searchable
             required
-            expandContainer
+            labelAction={
+              <button
+                type="button"
+                onClick={() => setIsAddBrandOpen(true)}
+                className="text-xs font-semibold text-[var(--color-secondary-600)] hover:text-[var(--color-secondary-700)] cursor-pointer"
+              >
+                + Add brand
+              </button>
+            }
           />
         )}
 
@@ -280,6 +298,17 @@ function ItemEntityForm({
           </FormSubmitButton>
         </div>
       </form>
+
+      {showBrand && (
+        <QuickAddBrandModal
+          open={isAddBrandOpen}
+          onClose={() => setIsAddBrandOpen(false)}
+          onCreated={(brand) => {
+            setCreatedBrands((prev) => [...prev, brand]);
+            methods.setValue("brandId", brand.value, { shouldValidate: true, shouldDirty: true });
+          }}
+        />
+      )}
     </FormProvider>
   );
 }

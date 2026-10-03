@@ -73,7 +73,7 @@ model User {
   roleId                                                              BigInt                     @map("role_id") @db.UnsignedBigInt
   cust_id                                                             String?                    @db.VarChar(20)
   name                                                                String                     @db.VarChar(150)
-  email                                                               String?                    @unique(map: "email") @db.VarChar(150)
+  email                                                               String?                    @unique(map: "email") @db.VarChar(254)
   phone                                                               String?                    @unique(map: "phone") @db.VarChar(20)
   password_hash                                                       String?                    @db.VarChar(255)
   avatar                                                              String?                    @db.VarChar(500)
@@ -1317,6 +1317,14 @@ model InventoryTransaction {
   referenceType                                  String?                     @map("reference_type") @db.VarChar(50)
   referenceId                                    BigInt?                     @map("reference_id") @db.UnsignedBigInt
   note                                           String?                     @db.VarChar(255)
+  /// Business meaning of the movement (type above is only its direction).
+  /// Null on rows written before the ledger existed.
+  movement_type                                  stock_movement_type?
+  /// Stock level immediately before/after this movement; null on legacy rows.
+  previous_stock                                 Int?
+  new_stock                                      Int?
+  /// Human-readable source reference, e.g. PO-000012 or the order number.
+  reference_number                               String?                     @db.VarChar(60)
   created_by                                     BigInt?                     @db.UnsignedBigInt
   createdAt                                      DateTime                    @default(now()) @map("created_at") @db.Timestamp(0)
   updated_at                                     DateTime                    @default(now()) @db.Timestamp(0)
@@ -1329,6 +1337,8 @@ model InventoryTransaction {
   @@index([updated_by], map: "fk_inventory_transactions_updated_by")
   @@index([created_by], map: "fk_invtx_user")
   @@index([variant_unit_price_id], map: "idx_invtx_variant_unit_price")
+  @@index([movement_type, createdAt], map: "idx_invtx_movement_type")
+  @@index([createdAt], map: "idx_invtx_created")
   @@map("inventory_transactions")
 }
 
@@ -1630,7 +1640,7 @@ model Company {
   uuid                              String   @unique(map: "idx_companies_uuid") @default("UUID()") @db.VarChar(255)
   companyName                       String   @map("company_name") @db.VarChar(200)
   logo                              String?  @db.VarChar(500)
-  email                             String?  @db.VarChar(150)
+  email                             String?  @db.VarChar(254)
   phone                             String?  @db.VarChar(20)
   address                           String?  @db.Text
   city                              String?  @db.VarChar(100)
@@ -1657,7 +1667,7 @@ model bulk_order_enquiries {
   id                                           BigInt                      @id @default(autoincrement()) @db.UnsignedBigInt
   uuid                                         String                      @unique(map: "idx_bulk_order_enquiries_uuid") @default("UUID()") @db.VarChar(255)
   name                                         String                      @db.VarChar(150)
-  email                                        String                      @db.VarChar(150)
+  email                                        String                      @db.VarChar(254)
   phone                                        String                      @db.VarChar(20)
   company_name                                 String?                     @db.VarChar(150)
   product_interest                             String?                     @db.VarChar(255)
@@ -1681,7 +1691,7 @@ model contact_messages {
   id                                       BigInt                  @id @default(autoincrement()) @db.UnsignedBigInt
   uuid                                     String                  @unique(map: "idx_contact_messages_uuid") @default("UUID()") @db.VarChar(255)
   name                                     String                  @db.VarChar(150)
-  email                                    String                  @db.VarChar(150)
+  email                                    String                  @db.VarChar(254)
   phone                                    String?                 @db.VarChar(20)
   subject                                  String?                 @db.VarChar(200)
   message                                  String                  @db.Text
@@ -1855,7 +1865,7 @@ model login_logs {
 
 model newsletter_subscribers {
   id                                             BigInt   @id @default(autoincrement()) @db.UnsignedBigInt
-  email                                          String   @unique(map: "email") @db.VarChar(150)
+  email                                          String   @unique(map: "email") @db.VarChar(254)
   is_active                                      Boolean  @default(true)
   subscribed_at                                  DateTime @default(now()) @db.Timestamp(0)
   created_at                                     DateTime @default(now()) @db.Timestamp(0)
@@ -2903,6 +2913,14 @@ enum banners_media_type {
   video
 }
 
+enum stock_movement_type {
+  PURCHASE
+  SALE
+  RETURN
+  REPLACEMENT
+  ADJUSTMENT
+}
+
 enum inventory_transactions_type {
   in
   out
@@ -3235,6 +3253,13 @@ enum commission_payouts_status {
   cancelled
 }
 
+enum agent_verification_status {
+  not_submitted
+  pending
+  verified
+  rejected
+}
+
 enum commission_payouts_method {
   upi
   bank_transfer
@@ -3254,6 +3279,35 @@ model agent_profiles {
   bank_account_number_enc String?                    @db.VarChar(500)
   bank_account_last4      String?                    @db.VarChar(4)
   bank_ifsc               String?                    @db.VarChar(15)
+  // Personal / address (name, email, phone and photo live on `users`)
+  alt_phone               String?                    @db.VarChar(20)
+  dob                     DateTime?                  @db.Date
+  gender                  String?                    @db.VarChar(20)
+  addr_line1              String?                    @db.VarChar(200)
+  addr_line2              String?                    @db.VarChar(200)
+  addr_area               String?                    @db.VarChar(150)
+  addr_city               String?                    @db.VarChar(100)
+  addr_district           String?                    @db.VarChar(100)
+  addr_state              String?                    @db.VarChar(100)
+  addr_pincode            String?                    @db.VarChar(10)
+  addr_country            String?                    @db.VarChar(100)
+  // KYC: numbers AES-256-GCM encrypted, documents kept in private storage (never under /document)
+  aadhaar_enc             String?                    @db.VarChar(500)
+  aadhaar_last4           String?                    @db.VarChar(4)
+  aadhaar_doc             String?                    @db.VarChar(255)
+  pan_enc                 String?                    @db.VarChar(500)
+  pan_last4               String?                    @db.VarChar(4)
+  pan_doc                 String?                    @db.VarChar(255)
+  kyc_status              agent_verification_status  @default(not_submitted)
+  kyc_remarks             String?                    @db.VarChar(255)
+  kyc_reviewed_at         DateTime?                  @db.Timestamp(0)
+  kyc_reviewed_by         BigInt?                    @db.UnsignedBigInt
+  bank_branch             String?                    @db.VarChar(150)
+  bank_proof_doc          String?                    @db.VarChar(255)
+  bank_status             agent_verification_status  @default(not_submitted)
+  bank_remarks            String?                    @db.VarChar(255)
+  bank_reviewed_at        DateTime?                  @db.Timestamp(0)
+  bank_reviewed_by        BigInt?                    @db.UnsignedBigInt
   created_at              DateTime                   @default(now()) @db.Timestamp(0)
   updated_at              DateTime                   @default(now()) @updatedAt @db.Timestamp(0)
   created_by              BigInt?                    @db.UnsignedBigInt
@@ -3393,7 +3447,7 @@ model vendors {
   name            String            @db.VarChar(150)
   contact_person  String?           @db.VarChar(120)
   phone           String?           @db.VarChar(20)
-  email           String?           @db.VarChar(150)
+  email           String?           @db.VarChar(254)
   gstin           String?           @db.VarChar(20)
   address         String?           @db.VarChar(500)
   notes           String?           @db.VarChar(500)
@@ -3409,32 +3463,41 @@ model vendors {
 }
 
 model purchase_orders {
-  id            BigInt                   @id @default(autoincrement()) @db.UnsignedBigInt
-  uuid          String                   @unique(map: "uq_po_uuid") @db.VarChar(64)
-  po_number     String                   @unique(map: "uq_po_number") @db.VarChar(30)
-  vendor_id     BigInt                   @db.UnsignedBigInt
-  status        purchase_orders_status   @default(DRAFT)
-  expected_date DateTime?                @db.Date
-  notes         String?                  @db.VarChar(500)
-  reject_reason String?                  @db.VarChar(255)
-  total_amount  Decimal                  @default(0.00) @db.Decimal(12, 2)
-  submitted_at  DateTime?                @db.Timestamp(0)
-  approved_by   BigInt?                  @db.UnsignedBigInt
-  approved_at   DateTime?                @db.Timestamp(0)
-  ordered_at    DateTime?                @db.Timestamp(0)
-  received_at   DateTime?                @db.Timestamp(0)
-  cancelled_at  DateTime?                @db.Timestamp(0)
-  created_at    DateTime                 @default(now()) @db.Timestamp(0)
-  updated_at    DateTime                 @default(now()) @updatedAt @db.Timestamp(0)
-  created_by    BigInt?                  @db.UnsignedBigInt
-  updated_by    BigInt?                  @db.UnsignedBigInt
-  vendor        vendors                  @relation(fields: [vendor_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_po_vendor")
-  items         purchase_order_items[]
-  receipts      purchase_receipts[]
-  history       purchase_order_history[]
+  id                 BigInt                   @id @default(autoincrement()) @db.UnsignedBigInt
+  uuid               String                   @unique(map: "uq_po_uuid") @db.VarChar(64)
+  po_number          String                   @unique(map: "uq_po_number") @db.VarChar(30)
+  vendor_id          BigInt                   @db.UnsignedBigInt
+  status             purchase_orders_status   @default(DRAFT)
+  expected_date      DateTime?                @db.Date
+  /// Date the goods were bought (vendor invoice date), not when the record was keyed in.
+  purchase_date      DateTime?                @db.Date
+  invoice_number     String?                  @db.VarChar(60)
+  /// Client-generated key of a one-step confirmed purchase; blocks duplicate stock addition.
+  idempotency_key    String?                  @unique(map: "uq_po_idempotency_key") @db.VarChar(64)
+  notes              String?                  @db.VarChar(500)
+  reject_reason      String?                  @db.VarChar(255)
+  subtotal           Decimal                  @default(0.00) @db.Decimal(12, 2)
+  /// Freight, packing, etc. total_amount = subtotal + additional_charges.
+  additional_charges Decimal                  @default(0.00) @db.Decimal(12, 2)
+  total_amount       Decimal                  @default(0.00) @db.Decimal(12, 2)
+  submitted_at       DateTime?                @db.Timestamp(0)
+  approved_by        BigInt?                  @db.UnsignedBigInt
+  approved_at        DateTime?                @db.Timestamp(0)
+  ordered_at         DateTime?                @db.Timestamp(0)
+  received_at        DateTime?                @db.Timestamp(0)
+  cancelled_at       DateTime?                @db.Timestamp(0)
+  created_at         DateTime                 @default(now()) @db.Timestamp(0)
+  updated_at         DateTime                 @default(now()) @updatedAt @db.Timestamp(0)
+  created_by         BigInt?                  @db.UnsignedBigInt
+  updated_by         BigInt?                  @db.UnsignedBigInt
+  vendor             vendors                  @relation(fields: [vendor_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_po_vendor")
+  items              purchase_order_items[]
+  receipts           purchase_receipts[]
+  history            purchase_order_history[]
 
   @@index([vendor_id], map: "idx_po_vendor")
   @@index([status], map: "idx_po_status")
+  @@index([purchase_date], map: "idx_po_purchase_date")
 }
 
 model purchase_order_items {

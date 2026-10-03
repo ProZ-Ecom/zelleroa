@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import type { ColumnDef } from "@tanstack/react-table";
-import { Plus, Pencil, Trash2 } from "lucide-react";
+import Link from "next/link";
+import { Plus, Pencil, Trash2, Eye, Power } from "lucide-react";
 import { DataTable } from "@/components/admin/data-table/DataTable";
 import { AdminPageHeader, AdminContent } from "@/components/admin/AdminPageHeader";
 import { AdminTableSkeleton } from "@/components/admin/AdminTableSkeleton";
@@ -23,6 +24,7 @@ export default function VendorsPage() {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [editing, setEditing] = useState<VendorResponse | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [toggling, setToggling] = useState<VendorResponse | null>(null);
 
   const { data, isLoading, error, refetch } = useVendors({
     page,
@@ -38,7 +40,12 @@ export default function VendorsPage() {
       header: "Vendor",
       cell: ({ row }) => (
         <div>
-          <p className="font-semibold text-[var(--color-neutral-900)]">{row.original.name}</p>
+          <Link
+            href={`/admin/dashboard/vendors/${row.original.id}`}
+            className="font-semibold text-[var(--color-neutral-900)] hover:underline"
+          >
+            {row.original.name}
+          </Link>
           <p className="text-xs text-[var(--color-neutral-500)]">{row.original.code}</p>
         </div>
       ),
@@ -74,7 +81,22 @@ export default function VendorsPage() {
       header: "Actions",
       cell: ({ row }) => (
         <div className="flex items-center justify-center gap-1.5">
-          <Button variant="ghost" size="icon" onClick={() => setEditing(row.original)}>
+          <Link href={`/admin/dashboard/vendors/${row.original.id}`}>
+            <Button variant="ghost" size="icon" title="View vendor">
+              <Eye className="h-4 w-4 text-[var(--color-neutral-500)]" />
+            </Button>
+          </Link>
+          <Button
+            variant="ghost"
+            size="icon"
+            title={row.original.isActive ? "Disable vendor" : "Enable vendor"}
+            onClick={() => setToggling(row.original)}
+          >
+            <Power
+              className={`h-4 w-4 ${row.original.isActive ? "text-[var(--color-neutral-500)]" : "text-green-600"}`}
+            />
+          </Button>
+          <Button variant="ghost" size="icon" title="Edit vendor" onClick={() => setEditing(row.original)}>
             <Pencil className="h-4 w-4 text-[var(--color-neutral-500)]" />
           </Button>
           <Button variant="ghost" size="icon" onClick={() => setDeleteId(row.original.id)}>
@@ -169,6 +191,27 @@ export default function VendorsPage() {
           />
         )}
       </FormModal>
+
+      <ConfirmDialog
+        open={!!toggling}
+        onClose={() => setToggling(null)}
+        onConfirm={() => {
+          if (toggling)
+            update.mutate(
+              { uuid: toggling.id, data: { isActive: !toggling.isActive } },
+              { onSuccess: () => setToggling(null) }
+            );
+        }}
+        title={toggling?.isActive ? "Disable Vendor" : "Enable Vendor"}
+        description={
+          toggling?.isActive
+            ? `${toggling.name} will no longer be selectable for new purchases. Past purchases are kept.`
+            : `${toggling?.name ?? "This vendor"} will be available for new purchases again.`
+        }
+        confirmText={toggling?.isActive ? "Disable" : "Enable"}
+        variant={toggling?.isActive ? "destructive" : "default"}
+        isLoading={update.isPending}
+      />
 
       <ConfirmDialog
         open={!!deleteId}

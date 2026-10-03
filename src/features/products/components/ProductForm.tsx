@@ -336,6 +336,7 @@ function ProductForm({
             options={GENDER_OPTIONS}
             required
           />
+
         </div>
 
         <div className="flex justify-end pt-4">

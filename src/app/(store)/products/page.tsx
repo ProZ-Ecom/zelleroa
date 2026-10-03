@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect, useRef, Suspense } from "react";
+import { Suspense, useState, useMemo, useEffect, useRef } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Sparkles, ChevronRight, SlidersHorizontal, Loader2 } from "lucide-react";

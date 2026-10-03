@@ -64,9 +64,14 @@ export default function PurchaseOrdersPage() {
       ),
     },
     {
-      accessorKey: "expectedDate",
-      header: "Expected",
-      cell: ({ row }) => <span className="text-sm">{row.original.expectedDate ?? "—"}</span>,
+      accessorKey: "invoiceNumber",
+      header: "Invoice",
+      cell: ({ row }) => <span className="text-sm">{row.original.invoiceNumber ?? "—"}</span>,
+    },
+    {
+      accessorKey: "purchaseDate",
+      header: "Purchase date",
+      cell: ({ row }) => <span className="text-sm">{row.original.purchaseDate ?? "—"}</span>,
     },
     {
       accessorKey: "status",
@@ -136,13 +141,22 @@ export default function PurchaseOrdersPage() {
                 ))}
               </select>
             </div>
+            <div className="flex gap-3">
             <Button
+              variant="outline"
               onClick={() => router.push("/admin/dashboard/purchase-orders/new")}
+              className="h-11 rounded-xl px-5 text-sm font-semibold"
+            >
+              New Purchase Order (draft)
+            </Button>
+            <Button
+              onClick={() => router.push("/admin/dashboard/purchase-orders/confirm")}
               className="h-11 rounded-xl bg-[var(--color-secondary-600)] px-5 text-sm font-semibold text-white hover:bg-[var(--color-secondary-700)]"
             >
               <Plus className="mr-2 h-4 w-4" />
-              New Purchase Order
+              Create Purchase
             </Button>
+            </div>
           </div>
 
           <div className="mt-6 flex-1 min-h-0 overflow-hidden flex flex-col">

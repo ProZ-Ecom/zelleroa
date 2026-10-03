@@ -25,6 +25,10 @@ const sellableUnitPriceWhere = {
   base_price: { gt: 0 },
 } satisfies Prisma.VariantUnitPriceWhereInput;
 
+const listingBrandSelect = {
+  select: { id: true, uuid: true, name: true, slug: true, isActive: true, deleted_at: true },
+} as const;
+
 const listingStyleSelect = {
   id: true,
   uuid: true,
@@ -33,15 +37,15 @@ const listingStyleSelect = {
   description: true,
   is_featured: true,
   createdAt: true,
+  // The Item's own brand; `product.brand` is only the legacy fallback.
+  brand: listingBrandSelect,
   product: {
     select: {
       id: true,
       name: true,
       gender: true,
       categoryId: true,
-      brand: {
-        select: { id: true, uuid: true, name: true, slug: true, isActive: true, deleted_at: true },
-      },
+      brand: listingBrandSelect,
     },
   },
   images: {

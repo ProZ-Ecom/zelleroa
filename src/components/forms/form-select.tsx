@@ -11,8 +11,12 @@ interface FormSelectProps {
   placeholder?: string;
   description?: string;
   required?: boolean;
+  searchable?: boolean;
   expandContainer?: boolean;
   portal?: boolean;
+  align?: "left" | "right";
+  /** Small action shown on the label row, e.g. "+ Add brand". */
+  labelAction?: React.ReactNode;
 }
 
 function FormSelect({
@@ -22,8 +26,11 @@ function FormSelect({
   placeholder,
   description,
   required,
+  searchable,
   expandContainer,
   portal,
+  align,
+  labelAction,
 }: FormSelectProps) {
   const { control, formState } = useFormContext();
 
@@ -31,36 +38,32 @@ function FormSelect({
     <Controller
       name={name}
       control={control}
-      render={({ field, fieldState, formState }) => {
-        const hasError =
-          (fieldState.isTouched || formState.isSubmitted) &&
-          Boolean(fieldState.error);
-        const errorMessage = hasError ? fieldState.error?.message : undefined;
-
-        return (
-          <div className="space-y-2">
-            {label && (
+      render={({ field, fieldState }) => (
+        <div className="space-y-2">
+          {label && (
+            <div className="flex items-center justify-between gap-2">
               <Label htmlFor={name}>
                 {label}
-                {required && (
-                  <span className="text-error-600 font-bold ml-1">*</span>
-                )}
+                {required && <span className="text-error-600 font-bold ml-1">*</span>}
               </Label>
-            )}
-            <Select
-              {...field}
-              options={options}
-              placeholder={placeholder}
-              error={errorMessage}
-              expandContainer={expandContainer}
-              portal={portal}
-            />
-            {description && !hasError && (
-              <p className="text-xs text-muted-foreground">{description}</p>
-            )}
-          </div>
-        );
-      }}
+              {labelAction}
+            </div>
+          )}
+          <Select
+            {...field}
+            options={options}
+            placeholder={placeholder}
+            searchable={searchable}
+            expandContainer={expandContainer}
+            portal={portal}
+            align={align}
+            error={fieldState.error?.message}
+          />
+          {description && !fieldState.error && (
+            <p className="text-xs text-muted-foreground">{description}</p>
+          )}
+        </div>
+      )}
     />
   );
 }

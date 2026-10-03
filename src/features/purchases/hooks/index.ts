@@ -27,6 +27,14 @@ export function useVendors(params?: GetVendorsParams, options?: { enabled?: bool
   });
 }
 
+export function useVendor(uuid: string | null) {
+  return useQuery({
+    queryKey: vendorKeys.detail(uuid ?? ""),
+    queryFn: () => api.getVendor(uuid!),
+    enabled: !!uuid,
+  });
+}
+
 export function useVendorMutations() {
   const qc = useQueryClient();
   const done = (msg: string) => () => {
@@ -93,6 +101,14 @@ export function usePurchaseMutations() {
       onSuccess: () => {
         refresh();
         toast.success("Purchase order created");
+      },
+      onError,
+    }),
+    confirm: useMutation({
+      mutationFn: (data: Record<string, unknown>) => api.confirmPurchase(data),
+      onSuccess: () => {
+        refresh();
+        toast.success("Purchase confirmed, stock updated");
       },
       onError,
     }),

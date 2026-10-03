@@ -54,6 +54,7 @@ export function ItemDetailClient({ itemId }: { itemId: string }) {
         <ItemView
           item={item}
           eyebrow={item.styleName}
+          brandName={item.brand?.name}
           returnUrl={`/items/${item.id}`}
         />
       </div>

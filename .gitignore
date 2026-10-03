@@ -59,3 +59,8 @@ next-env.d.ts
 .claude/
 .kiro/
 *.md
+/.agents
+/.claude
+/.kiro
+# KYC documents (private, served only through authenticated API routes)
+/private-uploads

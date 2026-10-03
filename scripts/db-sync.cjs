@@ -106,10 +106,10 @@ async function run() {
 
       if (line.startsWith('@@')) continue;
 
-      // Parse column line
       const parts = line.split(/\s+/);
       const fieldName = parts[0];
       const fieldType = parts[1];
+      if (!fieldName || !fieldType) continue;
 
       // If field type is another model (relation)
       if (line.includes('@relation(')) {

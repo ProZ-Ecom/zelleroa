@@ -5,6 +5,7 @@ import { Star } from "lucide-react";
 import { ProductImage } from "@/components/common/ProductImage";
 import { formatPrice } from "@/lib/utils";
 import { ItemQuickAdd } from "./ItemQuickAdd";
+import { ItemWishlistButton } from "./ItemWishlistButton";
 import { itemHref } from "../../utils/style-default-item";
 import type { ListingItemCardDto } from "../../types/catalog-listing.types";
 
@@ -91,7 +92,8 @@ export function ItemCard(props: ItemCardProps | CompactItemCardProps) {
   const extraColours = item.colors.length - MAX_SWATCHES;
 
   return (
-    <div className="group flex flex-col overflow-hidden rounded-2xl border border-theme-border bg-theme-surface shadow-2xs transition-shadow hover:shadow-md">
+    <div className="group relative flex flex-col overflow-hidden rounded-2xl border border-theme-border bg-theme-surface shadow-2xs transition-shadow hover:shadow-md">
+    <ItemWishlistButton itemId={item.id} className="absolute right-2.5 top-2.5 z-10" />
     <Link
       href={itemHref(item.id)}
       onClick={onClick}

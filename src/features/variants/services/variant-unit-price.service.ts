@@ -1,4 +1,6 @@
 import crypto from "crypto";
+import { setStockLevel } from "@/features/inventory/services/stock-ledger.service";
+import { recordOpeningStockPurchase } from "@/features/purchases/services/opening-stock.service";
 import { ApiError } from "@/lib/api/api-error";
 import { db } from "@/lib/db/prisma";
 import { variantRepository } from "../repositories/variant.repository";
@@ -227,34 +229,24 @@ export const variantUnitPriceService = {
     const stock = data.stock ?? (archived ? 0 : undefined);
 
     if (stock !== undefined) {
-      await db.inventory.upsert({
-        where: { variantUnitPriceId: created.id },
-        create: {
-          variantUnitPriceId: created.id,
-          quantity_available: stock,
-          quantity_reserved: 0,
-          is_active: true,
-          created_by: adminId,
-          updated_by: adminId,
-        },
-        update: {
-          quantity_available: stock,
-          updated_by: adminId,
-        },
+      await db.$transaction(async (tx) => {
+        // Zero (or a revived row's stale level) is just a reset; real opening
+        // stock goes through a purchase order so purchase data matches stock.
+        if (stock === 0 || archived) {
+          await setStockLevel(tx, {
+            variantUnitPriceId: created.id,
+            target: 0,
+            reason: "Opening stock",
+            actorId: adminId,
+          });
+        }
+        await recordOpeningStockPurchase(
+          tx,
+          [{ variantUnitPriceId: created.id, quantity: stock }],
+          adminId,
+          `Opening stock for ${created.sku}`
+        );
       });
-
-      if (stock !== 0) {
-        await db.inventoryTransaction.create({
-          data: {
-            variant_unit_price_id: created.id,
-            type: "in",
-            quantity: stock,
-            note: "Initial stock on create",
-            created_by: adminId,
-            updated_by: adminId,
-          },
-        });
-      }
     }
 
     const withDetails = await variantUnitPriceRepository.findByUuid(created.uuid);

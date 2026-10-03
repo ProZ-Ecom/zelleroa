@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
+import { EMAIL_MAX_LENGTH, emailField } from "@/lib/validations/email";
+import { getMobileError } from "@/lib/validations/mobile";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
@@ -240,8 +242,9 @@ export default function CheckoutPage() {
       setAddressFormError("Full name is required");
       return;
     }
-    if (!/^[6-9]\d{9}$/.test(newAddressForm.phone.replace(/\D/g, "").slice(-10))) {
-      setAddressFormError("Please enter a valid 10-digit Indian phone number");
+    const addressPhoneError = getMobileError(newAddressForm.phone);
+    if (addressPhoneError) {
+      setAddressFormError(addressPhoneError);
       return;
     }
     if (!newAddressForm.addressLine1.trim()) {
@@ -329,16 +332,18 @@ export default function CheckoutPage() {
 
   // Place Order Handler (guest)
   const handlePlaceGuestOrder = async () => {
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(guestEmail.trim())) {
-      setCheckoutError("Please enter a valid email address to receive your order confirmation.");
+    const guestEmailResult = emailField.safeParse(guestEmail);
+    if (!guestEmailResult.success) {
+      setCheckoutError(guestEmailResult.error.issues[0].message);
       return;
     }
     if (!newAddressForm.fullName.trim()) {
       setCheckoutError("Full name is required.");
       return;
     }
-    if (!/^[6-9]\d{9}$/.test(newAddressForm.phone.replace(/\D/g, "").slice(-10))) {
-      setCheckoutError("Please enter a valid 10-digit Indian phone number.");
+    const checkoutPhoneError = getMobileError(newAddressForm.phone);
+    if (checkoutPhoneError) {
+      setCheckoutError(checkoutPhoneError);
       return;
     }
     if (!newAddressForm.addressLine1.trim()) {
@@ -360,7 +365,7 @@ export default function CheckoutPage() {
         : `+91${newAddressForm.phone.replace(/\D/g, "").slice(-10)}`;
 
       const order = await createGuestOrderMutation.mutateAsync({
-        email: guestEmail.trim(),
+        email: guestEmailResult.data,
         fullName: newAddressForm.fullName.trim(),
         phone: cleanPhone,
         addressLine1: newAddressForm.addressLine1.trim(),
@@ -652,6 +657,7 @@ export default function CheckoutPage() {
                     </label>
                     <input
                       type="email"
+                      maxLength={EMAIL_MAX_LENGTH}
                       required
                       placeholder="e.g. you@example.com"
                       value={guestEmail}

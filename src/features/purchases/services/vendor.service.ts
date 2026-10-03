@@ -88,7 +88,23 @@ export const vendorService = {
   },
 
   async get(uuid: string) {
-    return format(await findLiveByUuid(uuid));
+    const vendor = await findLiveByUuid(uuid);
+    // Cancelled and rejected orders never brought goods in, so they don't count as purchases.
+    const agg = await db.purchase_orders.aggregate({
+      where: { vendor_id: vendor.id, status: { notIn: ["CANCELLED", "REJECTED"] } },
+      _count: { _all: true },
+      _sum: { total_amount: true },
+      _max: { purchase_date: true, created_at: true },
+    });
+    const last = agg._max.purchase_date ?? agg._max.created_at;
+    return {
+      ...format(vendor),
+      stats: {
+        totalPurchases: agg._count._all,
+        totalPurchaseAmount: Number(agg._sum.total_amount ?? 0),
+        lastPurchaseDate: last ? last.toISOString() : null,
+      },
+    };
   },
 
   async create(input: VendorInput, adminEmail?: string | null) {

@@ -83,7 +83,7 @@ function ReceiveModal({
                     <td className="px-3 py-2">
                       <p className="font-medium">{i.productName}</p>
                       <p className="text-xs text-neutral-500">
-                        {[i.variantName, i.colorName, i.unitName].filter(Boolean).join(" · ")} · {i.sku}
+                        {[i.variantName, i.colorName, i.sizeName ?? i.unitName].filter(Boolean).join(" · ")} · {i.sku}
                       </p>
                     </td>
                     <td className="px-3 py-2">{remaining}</td>
@@ -213,7 +213,7 @@ export default function PurchaseOrderDetailPage() {
                   <th className="px-4 py-3">Product</th>
                   <th className="px-4 py-3">Ordered</th>
                   <th className="px-4 py-3">Received</th>
-                  <th className="px-4 py-3">Unit cost</th>
+                  <th className="px-4 py-3">Purchase price</th>
                   <th className="px-4 py-3 text-right">Line total</th>
                 </tr>
               </thead>
@@ -223,7 +223,7 @@ export default function PurchaseOrderDetailPage() {
                     <td className="px-4 py-3">
                       <p className="font-medium">{i.productName}</p>
                       <p className="text-xs text-neutral-500">
-                        {[i.variantName, i.colorName, i.unitName].filter(Boolean).join(" · ")} · {i.sku}
+                        {[i.variantName, i.colorName, i.sizeName ?? i.unitName].filter(Boolean).join(" · ")} · {i.sku}
                       </p>
                     </td>
                     <td className="px-4 py-3">{i.quantityOrdered}</td>
@@ -241,7 +241,19 @@ export default function PurchaseOrderDetailPage() {
               </tbody>
               <tfoot>
                 <tr className="border-t border-neutral-200 bg-neutral-50">
-                  <td colSpan={4} className="px-4 py-3 text-right font-medium">
+                  <td colSpan={4} className="px-4 py-2 text-right font-medium">
+                    Subtotal
+                  </td>
+                  <td className="px-4 py-2 text-right">₹{po.subtotal.toFixed(2)}</td>
+                </tr>
+                <tr className="bg-neutral-50">
+                  <td colSpan={4} className="px-4 py-2 text-right font-medium">
+                    Additional charges
+                  </td>
+                  <td className="px-4 py-2 text-right">₹{po.additionalCharges.toFixed(2)}</td>
+                </tr>
+                <tr className="border-t border-neutral-200 bg-neutral-50">
+                  <td colSpan={4} className="px-4 py-3 text-right font-semibold">
                     Total
                   </td>
                   <td className="px-4 py-3 text-right font-semibold">₹{po.totalAmount.toFixed(2)}</td>
@@ -279,6 +291,8 @@ export default function PurchaseOrderDetailPage() {
           <div className="rounded-2xl bg-white p-5 text-sm">
             <h3 className="mb-3 font-semibold">Details</h3>
             <dl className="space-y-2">
+              <div className="flex justify-between"><dt className="text-neutral-500">Invoice no.</dt><dd>{po.invoiceNumber ?? "—"}</dd></div>
+              <div className="flex justify-between"><dt className="text-neutral-500">Purchase date</dt><dd>{po.purchaseDate ?? "—"}</dd></div>
               <div className="flex justify-between"><dt className="text-neutral-500">Created</dt><dd>{fmt(po.createdAt)}</dd></div>
               <div className="flex justify-between"><dt className="text-neutral-500">Expected</dt><dd>{po.expectedDate ?? "—"}</dd></div>
               <div className="flex justify-between"><dt className="text-neutral-500">Approved</dt><dd>{po.approvedAt ? fmt(po.approvedAt) : "—"}</dd></div>
