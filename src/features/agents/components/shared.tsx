@@ -280,12 +280,13 @@ export function FilterForm({
         <div key={f.name} className="flex min-w-[9rem] flex-1 flex-col gap-1 text-xs font-medium text-neutral-600 sm:flex-none">
           <span>{f.label}</span>
           {f.type === "select" ? (
-            <div className="w-36">
+            <div className="w-44">
               <Select
-                size="sm"
+                className="h-10 rounded-xl"
                 name={f.name}
                 defaultValue={values[f.name] ?? ""}
                 searchable={false}
+                portal={true}
                 options={[
                   { value: "", label: "All" },
                   ...(f.options ?? []),

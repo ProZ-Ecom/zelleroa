@@ -157,8 +157,8 @@ export const itemService = {
     const adminId = await getAdminInternalId(adminEmail);
 
     const style = await styleRepository.findByUuid(styleUuid);
-    if (!style || !style.isActive || style.deleted_at !== null) {
-      throw ApiError.notFound("Style not found or inactive");
+    if (!style || style.deleted_at !== null) {
+      throw ApiError.notFound("Style not found");
     }
 
     // Duplicate checks look at active items only - a soft-deleted item stays
@@ -203,8 +203,8 @@ export const itemService = {
 
   async getAdminItems(styleUuid: string, params: GetAdminItemsParams = {}) {
     const style = await styleRepository.findByUuid(styleUuid);
-    if (!style || !style.isActive || style.deleted_at !== null) {
-      throw ApiError.notFound("Style not found or inactive");
+    if (!style || style.deleted_at !== null) {
+      throw ApiError.notFound("Style not found");
     }
 
     const result = await itemRepository.findAllByStyleId(style.id, params);
@@ -216,8 +216,8 @@ export const itemService = {
 
   async getAdminItemByUuid(styleUuid: string, itemUuid: string): Promise<AdminItemResponse> {
     const style = await styleRepository.findByUuid(styleUuid);
-    if (!style || !style.isActive || style.deleted_at !== null) {
-      throw ApiError.notFound("Style not found or inactive");
+    if (!style || style.deleted_at !== null) {
+      throw ApiError.notFound("Style not found");
     }
 
     const item = await itemRepository.findByUuid(itemUuid);
@@ -243,8 +243,8 @@ export const itemService = {
     adminEmail?: string
   ): Promise<AdminItemResponse> {
     const style = await styleRepository.findByUuid(styleUuid);
-    if (!style || !style.isActive || style.deleted_at !== null) {
-      throw ApiError.notFound("Style not found or inactive");
+    if (!style || style.deleted_at !== null) {
+      throw ApiError.notFound("Style not found");
     }
 
     const existing = await itemRepository.findByUuid(itemUuid);
@@ -299,8 +299,8 @@ export const itemService = {
    */
   async resolveDefaultItemUuid(styleUuid: string): Promise<string> {
     const style = await styleRepository.findByUuid(styleUuid);
-    if (!style || !style.isActive || style.deleted_at !== null) {
-      throw ApiError.notFound("Style not found or inactive");
+    if (!style || style.deleted_at !== null) {
+      throw ApiError.notFound("Style not found");
     }
 
     const result = await itemRepository.findAllByStyleId(style.id, { pageSize: 1 });
@@ -313,8 +313,8 @@ export const itemService = {
 
   async deleteAdminItem(styleUuid: string, itemUuid: string, adminEmail?: string) {
     const style = await styleRepository.findByUuid(styleUuid);
-    if (!style || !style.isActive || style.deleted_at !== null) {
-      throw ApiError.notFound("Style not found or inactive");
+    if (!style || style.deleted_at !== null) {
+      throw ApiError.notFound("Style not found");
     }
 
     const existing = await itemRepository.findByUuid(itemUuid);

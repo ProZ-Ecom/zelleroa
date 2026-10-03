@@ -27,8 +27,9 @@ export interface SelectProps
   searchable?: boolean;
   align?: "left" | "right";
   /**
-   * Set to true to portal the menu to document.body (useful for table footers/toolbars).
-   * Default is false (standard overlay popup dropdown).
+  /**
+   * Set to false to disable portaling to document.body.
+   * Default is true (overlay dropdown rendered at root to avoid overflow clipping).
    */
   portal?: boolean;
   /**
@@ -37,6 +38,9 @@ export interface SelectProps
    */
   expandContainer?: boolean;
 }
+
+const useIsomorphicLayoutEffect =
+  typeof window !== "undefined" ? React.useLayoutEffect : React.useEffect;
 
 const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
   (
@@ -59,7 +63,7 @@ const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
       size = "md",
       searchable,
       align = "left",
-      portal = false,
+      portal = true,
       expandContainer = false,
       ...props
     },
@@ -108,30 +112,55 @@ const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
       }
     }, [controlledValue]);
 
+    const isSearchable =
+      searchable !== undefined ? searchable : options.length > 6;
+
     // Position calculation for Portaled Menu only
     const updatePosition = React.useCallback(() => {
       if (!portal || !triggerRef.current) return;
       const rect = triggerRef.current.getBoundingClientRect();
       const spaceBelow = window.innerHeight - rect.bottom;
       const spaceAbove = rect.top;
-      const menuHeight = 240;
+      const menuHeight = 260;
       const openUp = spaceBelow < menuHeight && spaceAbove > spaceBelow;
 
       setIsUpward(openUp);
 
-      const computedLeft = align === "right" ? rect.right - Math.max(rect.width, 160) : rect.left;
+      const minMenuWidth = Math.max(rect.width, isSearchable ? 200 : 160);
+      let computedLeft = align === "right" ? rect.right - minMenuWidth : rect.left;
+
+      // Ensure dropdown stays inside viewport horizontally
+      if (typeof window !== "undefined") {
+        if (computedLeft + minMenuWidth > window.innerWidth - 8) {
+          computedLeft = window.innerWidth - minMenuWidth - 8;
+        }
+        if (computedLeft < 8) {
+          computedLeft = 8;
+        }
+      }
+
+      const maxAvailableHeight = openUp
+        ? Math.max(120, spaceAbove - 16)
+        : Math.max(120, spaceBelow - 16);
 
       setMenuStyle({
         position: "fixed",
-        left: `${Math.max(8, computedLeft)}px`,
+        left: `${computedLeft}px`,
         width: `${rect.width}px`,
-        minWidth: `${Math.max(rect.width, 160)}px`,
+        minWidth: `${minMenuWidth}px`,
         maxWidth: "calc(100vw - 16px)",
         top: openUp ? "auto" : `${rect.bottom + 4}px`,
         bottom: openUp ? `${window.innerHeight - rect.top + 4}px` : "auto",
+        maxHeight: `${Math.min(320, maxAvailableHeight)}px`,
         zIndex: 99999,
       });
-    }, [portal, align]);
+    }, [portal, align, isSearchable]);
+
+    useIsomorphicLayoutEffect(() => {
+      if (isOpen && portal) {
+        updatePosition();
+      }
+    }, [isOpen, portal, updatePosition]);
 
     // Handle outside click & repositioning
     React.useEffect(() => {
@@ -182,15 +211,12 @@ const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
       };
     }, [isOpen, portal, updatePosition]);
 
-    // Focus search input when dropdown opens
-    const isSearchable =
-      searchable !== undefined ? searchable : options.length > 6;
-
+    // Focus search input when dropdown opens without causing scroll jumps
     React.useEffect(() => {
       if (isOpen && isSearchable) {
         const timer = setTimeout(() => {
-          searchInputRef.current?.focus();
-        }, 40);
+          searchInputRef.current?.focus({ preventScroll: true });
+        }, 30);
         return () => clearTimeout(timer);
       }
     }, [isOpen, isSearchable]);

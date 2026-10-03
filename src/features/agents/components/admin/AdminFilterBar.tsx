@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAgentOptions } from "../../hooks/use-admin-agents";
 import { fieldCls } from "../shared";
 import { Select } from "@/components/ui/select";
@@ -23,6 +23,10 @@ export function AdminFilterBar({ fields, values, onApply }: Props) {
   const [draft, setDraft] = useState<Record<string, string>>(values);
   const { data: agents } = useAgentOptions();
 
+  useEffect(() => {
+    setDraft(values);
+  }, [values]);
+
   const set = (name: string, value: string) => setDraft((d) => ({ ...d, [name]: value }));
 
   return (
@@ -34,15 +38,16 @@ export function AdminFilterBar({ fields, values, onApply }: Props) {
       }}
     >
       {fields.map((f) => (
-        <div key={f.name} className="flex min-w-[9rem] flex-1 flex-col gap-1 text-xs font-medium text-neutral-600 sm:flex-none">
+        <div key={f.name} className="flex min-w-[10rem] flex-1 flex-col gap-1 text-xs font-medium text-neutral-600 sm:flex-none">
           <span>{f.label}</span>
           {f.type === "select" || f.type === "agent" ? (
-            <div className="w-40">
+            <div className="w-52">
               <Select
-                size="sm"
+                className="h-10 rounded-xl"
                 value={draft[f.name] ?? ""}
                 onValueChange={(val) => set(f.name, val)}
                 searchable={f.type === "agent"}
+                portal={true}
                 options={[
                   { value: "", label: "All" },
                   ...(f.type === "agent"

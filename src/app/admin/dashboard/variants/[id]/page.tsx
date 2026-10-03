@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, Suspense } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useParams, useSearchParams, useRouter } from "next/navigation";
@@ -72,7 +72,7 @@ function renderColorBadge(colorName?: string | null, colorHex?: string | null) {
   );
 }
 
-export default function AdminVariantDetailsPage() {
+function AdminVariantDetailsContent() {
   const params = useParams<{ id: string }>();
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -910,3 +910,12 @@ export default function AdminVariantDetailsPage() {
     </div>
   );
 }
+
+export default function AdminVariantDetailsPage() {
+  return (
+    <Suspense fallback={<AdminDetailSkeleton />}>
+      <AdminVariantDetailsContent />
+    </Suspense>
+  );
+}
+

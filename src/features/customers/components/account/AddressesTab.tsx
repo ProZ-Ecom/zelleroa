@@ -14,11 +14,15 @@ import {
 } from "../../validations/customer-address.schema";
 import type { CustomerAddressResponse } from "../../types/customer-address.types";
 import { CustomDropdown } from "./CustomDropdown";
+import { usePincodeLookup } from "@/features/addresses/hooks/use-pincode-lookup";
+import { Select } from "@/components/ui/select";
+
+
 
 const LABEL_OPTIONS = [
   { value: "home", label: "Home" },
   { value: "work", label: "Work / Office" },
-  { value: "parents", label: "Parents / Family"},
+  { value: "parents", label: "Parents / Family" },
   { value: "other", label: "Other" },
 ];
 
@@ -106,6 +110,16 @@ export function AddressesTab() {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
+  const {
+    isLoading: isPincodeLoading,
+    lookupError: pincodeLookupError,
+    postOffices,
+    selectedPostOffice,
+    setSelectedPostOffice,
+    triggerLookup: triggerPincodeLookup,
+    resetLookup: resetPincodeLookup,
+  } = usePincodeLookup();
+
   const [formData, setFormData] = useState<AddressFormData>({
     label: "home",
     fullName: "",
@@ -114,12 +128,66 @@ export function AddressesTab() {
     addressLine2: "",
     landmark: "",
     city: "",
-    state: "Tamil Nadu",
+    state: "",
     pincode: "",
     country: "India",
     addressType: "shipping",
     isDefault: false,
   });
+
+  const handlePincodeChange = (val: string) => {
+    const cleanPin = val.replace(/\D/g, "").slice(0, 6);
+    setFormData((prev) => ({
+      ...prev,
+      pincode: cleanPin,
+      // If pincode is changed or removed (< 6 digits), clear city and state immediately
+      ...(cleanPin.length !== 6 ? { city: "", state: "" } : {}),
+    }));
+
+    if (editingId) {
+      setDirtyFields((prev) => new Set(prev).add("pincode").add("city").add("state"));
+    }
+
+    if (fieldErrors.pincode || fieldErrors.city || fieldErrors.state) {
+      setFieldErrors((prev) => {
+        const next = { ...prev };
+        delete next.pincode;
+        if (cleanPin.length === 6) {
+          delete next.city;
+          delete next.state;
+        }
+        return next;
+      });
+    }
+
+    if (cleanPin.length === 6) {
+      triggerPincodeLookup(cleanPin, {
+        onSuccess: ({ city, state }) => {
+          setFormData((prev) => ({
+            ...prev,
+            city,
+            state,
+          }));
+          setFieldErrors((prev) => {
+            const next = { ...prev };
+            delete next.city;
+            delete next.state;
+            return next;
+          });
+        },
+        onClear: () => {
+          setFormData((prev) => ({
+            ...prev,
+            city: "",
+            state: "",
+          }));
+        },
+      });
+    } else {
+      resetPincodeLookup();
+    }
+  };
+
 
   // Handle clicking outside custom dropdown
   useEffect(() => {
@@ -131,6 +199,91 @@ export function AddressesTab() {
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
+
+  const validateForm = (data: AddressFormData): Record<string, string> => {
+    const errors: Record<string, string> = {};
+
+    if (!data.fullName || !data.fullName.trim()) {
+      errors.fullName = "Full Name is required";
+    } else if (data.fullName.trim().length > 150) {
+      errors.fullName = "Full Name cannot exceed 150 characters";
+    }
+
+    const cleanPhone = (data.phone || "").trim().replace(/\D/g, "");
+    if (!data.phone || !data.phone.trim()) {
+      errors.phone = "Phone Number is required";
+    } else if (cleanPhone.length !== 10 || !/^[6-9]\d{9}$/.test(cleanPhone)) {
+      errors.phone = "Please enter a valid 10-digit Indian phone number";
+    }
+
+    if (!data.addressLine1 || !data.addressLine1.trim()) {
+      errors.addressLine1 = "Address Line 1 is required";
+    } else if (data.addressLine1.trim().length > 255) {
+      errors.addressLine1 = "Address Line 1 cannot exceed 255 characters";
+    }
+
+    const cleanPincode = (data.pincode || "").trim().replace(/\D/g, "");
+    if (!data.pincode || !data.pincode.trim()) {
+      errors.pincode = "PIN Code is required";
+    } else if (cleanPincode.length !== 6 || !/^\d{6}$/.test(cleanPincode)) {
+      errors.pincode = "Please enter a valid 6-digit PIN code";
+    }
+
+    if (!data.city || !data.city.trim()) {
+      errors.city = "City is required";
+    } else if (data.city.trim().length > 100) {
+      errors.city = "City cannot exceed 100 characters";
+    }
+
+    if (!data.state || !data.state.trim()) {
+      errors.state = "State is required";
+    } else if (data.state.trim().length > 100) {
+      errors.state = "State cannot exceed 100 characters";
+    }
+
+    return errors;
+  };
+
+  const handleBlur = (field: keyof AddressFormData) => {
+    const val = typeof formData[field] === "string" ? (formData[field] as string).trim() : "";
+    let error: string | null = null;
+
+    if (field === "fullName") {
+      if (!val) error = "Full Name is required";
+      else if (val.length > 150) error = "Full Name cannot exceed 150 characters";
+    } else if (field === "phone") {
+      const clean = val.replace(/\D/g, "");
+      if (!val) error = "Phone Number is required";
+      else if (clean.length !== 10 || !/^[6-9]\d{9}$/.test(clean)) {
+        error = "Please enter a valid 10-digit Indian phone number";
+      }
+    } else if (field === "addressLine1") {
+      if (!val) error = "Address Line 1 is required";
+      else if (val.length > 255) error = "Address Line 1 cannot exceed 255 characters";
+    } else if (field === "pincode") {
+      const clean = val.replace(/\D/g, "");
+      if (!val) error = "PIN Code is required";
+      else if (clean.length !== 6 || !/^\d{6}$/.test(clean)) {
+        error = "Please enter a valid 6-digit PIN code";
+      }
+    } else if (field === "city") {
+      if (!val) error = "City is required";
+      else if (val.length > 100) error = "City cannot exceed 100 characters";
+    } else if (field === "state") {
+      if (!val) error = "State is required";
+      else if (val.length > 100) error = "State cannot exceed 100 characters";
+    }
+
+    setFieldErrors((prev) => {
+      const next = { ...prev };
+      if (error) {
+        next[field] = error;
+      } else {
+        delete next[field];
+      }
+      return next;
+    });
+  };
 
   const handleFieldChange = (field: keyof AddressFormData, value: string | boolean) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
@@ -158,7 +311,7 @@ export function AddressesTab() {
       addressLine2: address.addressLine2 || "",
       landmark: address.landmark || "",
       city: address.city || "",
-      state: address.state || "Tamil Nadu",
+      state: address.state || "",
       pincode: address.pincode || "",
       country: address.country || "India",
       addressType: (address.addressType as "shipping" | "billing") || "shipping",
@@ -171,6 +324,10 @@ export function AddressesTab() {
     setFieldErrors({});
     setServerError(null);
     setIsAdding(true);
+
+    if (address.pincode && address.pincode.replace(/\D/g, "").length === 6) {
+      triggerPincodeLookup(address.pincode);
+    }
   };
 
   const handleCancel = () => {
@@ -180,6 +337,7 @@ export function AddressesTab() {
     setFieldErrors({});
     setServerError(null);
     setIsDropdownOpen(false);
+    resetPincodeLookup();
     setFormData({
       label: "home",
       fullName: "",
@@ -188,7 +346,7 @@ export function AddressesTab() {
       addressLine2: "",
       landmark: "",
       city: "",
-      state: "Tamil Nadu",
+      state: "",
       pincode: "",
       country: "India",
       addressType: "shipping",
@@ -196,14 +354,23 @@ export function AddressesTab() {
     });
   };
 
+
   const isSubmitting = createMutation.isPending || updateMutation.isPending;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (isSubmitting) return;
 
-    setFieldErrors({});
     setServerError(null);
+
+    // Validate all required fields simultaneously with equal priority
+    const formValidationErrors = validateForm(formData);
+    if (Object.keys(formValidationErrors).length > 0) {
+      setFieldErrors(formValidationErrors);
+      return;
+    }
+
+    setFieldErrors({});
 
     if (editingId) {
       // EDIT MODE: If no fields were touched, exit gracefully
@@ -263,7 +430,7 @@ export function AddressesTab() {
         addressLine2: formData.addressLine2.trim() || undefined,
         landmark: formData.landmark.trim() || undefined,
         city: formData.city.trim(),
-        state: formData.state.trim() || "Tamil Nadu",
+        state: formData.state.trim(),
         pincode: formData.pincode.trim(),
         country: formData.country || "India",
         addressType: formData.addressType || "shipping",
@@ -370,11 +537,10 @@ export function AddressesTab() {
                 type="button"
                 disabled={isSubmitting}
                 onClick={() => handleFieldChange("addressType", "shipping")}
-                className={`px-3.5 py-1.5 text-xs font-semibold uppercase tracking-wider rounded-lg transition-all cursor-pointer disabled:opacity-50 ${
-                  formData.addressType === "shipping"
+                className={`px-3.5 py-1.5 text-xs font-semibold uppercase tracking-wider rounded-lg transition-all cursor-pointer disabled:opacity-50 ${formData.addressType === "shipping"
                     ? "bg-theme-secondary text-theme-secondary-fg shadow-xs"
                     : "text-theme-text-muted hover:text-theme-text-primary"
-                }`}
+                  }`}
               >
                 Shipping
               </button>
@@ -382,11 +548,10 @@ export function AddressesTab() {
                 type="button"
                 disabled={isSubmitting}
                 onClick={() => handleFieldChange("addressType", "billing")}
-                className={`px-3.5 py-1.5 text-xs font-semibold uppercase tracking-wider rounded-lg transition-all cursor-pointer disabled:opacity-50 ${
-                  formData.addressType === "billing"
+                className={`px-3.5 py-1.5 text-xs font-semibold uppercase tracking-wider rounded-lg transition-all cursor-pointer disabled:opacity-50 ${formData.addressType === "billing"
                     ? "bg-theme-secondary text-theme-secondary-fg shadow-xs"
                     : "text-theme-text-muted hover:text-theme-text-primary"
-                }`}
+                  }`}
               >
                 Billing
               </button>
@@ -402,142 +567,275 @@ export function AddressesTab() {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {/* Full Name */}
-            <div className="flex flex-col gap-1">
+            <div className="flex flex-col gap-1.5">
+              <label className="text-xs font-semibold text-theme-text-primary flex items-center justify-between">
+                <span>
+                  Full Name <span className="text-red-500 font-bold">*</span>
+                </span>
+              </label>
               <input
                 type="text"
                 disabled={isSubmitting}
-                placeholder="Full Name (e.g. Ashok Kumar) *"
+                placeholder="Enter your full name"
                 value={formData.fullName}
                 onChange={(e) => handleFieldChange("fullName", e.target.value)}
-                className={`border rounded-lg px-3.5 py-2.5 text-xs text-theme-text-primary bg-theme-surface-warm focus:border-theme-primary transition-colors disabled:opacity-50 ${
-                  fieldErrors.fullName ? "border-red-500 bg-red-50/20" : "border-theme-border-input"
+                onBlur={() => handleBlur("fullName")}
+                className={`border rounded-lg px-3.5 py-2.5 text-xs text-theme-text-primary bg-theme-surface-warm transition-colors outline-none disabled:opacity-50 ${
+                  fieldErrors.fullName
+                    ? "border-red-500 bg-red-50/20 focus:border-red-500 focus:ring-1 focus:ring-red-500/50 ring-1 ring-red-500/40"
+                    : "border-theme-border-input focus:border-theme-primary"
                 }`}
               />
               {fieldErrors.fullName && (
-                <span className="text-xs text-red-500 font-medium">{fieldErrors.fullName}</span>
+                <span className="text-xs text-red-500 font-medium animate-in fade-in duration-150">
+                  {fieldErrors.fullName}
+                </span>
               )}
             </div>
 
             {/* Phone Number */}
-            <div className="flex flex-col gap-1">
+            <div className="flex flex-col gap-1.5">
+              <label className="text-xs font-semibold text-theme-text-primary flex items-center justify-between">
+                <span>
+                  Phone Number <span className="text-red-500 font-bold">*</span>
+                </span>
+              </label>
               <input
                 type="tel"
                 disabled={isSubmitting}
-                placeholder="Phone (10-digit, e.g. 9876543210) *"
+                maxLength={10}
+                placeholder="10-digit mobile number"
                 value={formData.phone}
-                onChange={(e) => handleFieldChange("phone", e.target.value)}
-                className={`border rounded-lg px-3.5 py-2.5 text-xs text-theme-text-primary bg-theme-surface-warm focus:border-theme-primary transition-colors disabled:opacity-50 ${
-                  fieldErrors.phone ? "border-red-500 bg-red-50/20" : "border-theme-border-input"
+                onChange={(e) => handleFieldChange("phone", e.target.value.replace(/\D/g, ""))}
+                onBlur={() => handleBlur("phone")}
+                className={`border rounded-lg px-3.5 py-2.5 text-xs text-theme-text-primary bg-theme-surface-warm transition-colors outline-none disabled:opacity-50 ${
+                  fieldErrors.phone
+                    ? "border-red-500 bg-red-50/20 focus:border-red-500 focus:ring-1 focus:ring-red-500/50 ring-1 ring-red-500/40"
+                    : "border-theme-border-input focus:border-theme-primary"
                 }`}
               />
               {fieldErrors.phone && (
-                <span className="text-xs text-red-500 font-medium">{fieldErrors.phone}</span>
-              )}
-            </div>
-
-            {/* Custom Dropdown for Address Label */}
-            <CustomDropdown
-              options={LABEL_OPTIONS}
-              value={formData.label}
-              onChange={(val) => handleFieldChange("label", val)}
-              disabled={isSubmitting}
-            />
-
-            {/* PIN Code */}
-            <div className="flex flex-col gap-1">
-              <input
-                type="text"
-                disabled={isSubmitting}
-                placeholder="PIN Code (6 digits, e.g. 637001) *"
-                value={formData.pincode}
-                onChange={(e) => handleFieldChange("pincode", e.target.value)}
-                className={`border rounded-lg px-3.5 py-2.5 text-xs text-theme-text-primary bg-theme-surface-warm focus:border-theme-primary transition-colors disabled:opacity-50 ${
-                  fieldErrors.pincode ? "border-red-500 bg-red-50/20" : "border-theme-border-input"
-                }`}
-              />
-              {fieldErrors.pincode && (
-                <span className="text-xs text-red-500 font-medium">{fieldErrors.pincode}</span>
+                <span className="text-xs text-red-500 font-medium animate-in fade-in duration-150">
+                  {fieldErrors.phone}
+                </span>
               )}
             </div>
 
             {/* Address Line 1 */}
-            <div className="flex flex-col gap-1 sm:col-span-2">
+            <div className="flex flex-col gap-1.5 sm:col-span-2">
+              <label className="text-xs font-semibold text-theme-text-primary flex items-center justify-between">
+                <span>
+                  Address Line 1 <span className="text-red-500 font-bold">*</span>
+                </span>
+              </label>
               <input
                 type="text"
                 disabled={isSubmitting}
-                placeholder="Address Line 1 (Door no., Building, Street) *"
+                placeholder="Flat, House No., Building, Street"
                 value={formData.addressLine1}
                 onChange={(e) => handleFieldChange("addressLine1", e.target.value)}
-                className={`border rounded-lg px-3.5 py-2.5 text-xs text-theme-text-primary bg-theme-surface-warm focus:border-theme-primary transition-colors disabled:opacity-50 ${
-                  fieldErrors.addressLine1 ? "border-red-500 bg-red-50/20" : "border-theme-border-input"
+                onBlur={() => handleBlur("addressLine1")}
+                className={`border rounded-lg px-3.5 py-2.5 text-xs text-theme-text-primary bg-theme-surface-warm transition-colors outline-none disabled:opacity-50 ${
+                  fieldErrors.addressLine1
+                    ? "border-red-500 bg-red-50/20 focus:border-red-500 focus:ring-1 focus:ring-red-500/50 ring-1 ring-red-500/40"
+                    : "border-theme-border-input focus:border-theme-primary"
                 }`}
               />
               {fieldErrors.addressLine1 && (
-                <span className="text-xs text-red-500 font-medium">{fieldErrors.addressLine1}</span>
+                <span className="text-xs text-red-500 font-medium animate-in fade-in duration-150">
+                  {fieldErrors.addressLine1}
+                </span>
               )}
             </div>
 
             {/* Address Line 2 */}
-            <div className="flex flex-col gap-1 sm:col-span-2">
+            <div className="flex flex-col gap-1.5 sm:col-span-2">
+              <label className="text-xs font-semibold text-theme-text-primary flex items-center justify-between">
+                <span>
+                  Address Line 2 <span className="text-theme-text-muted font-normal text-[11px]">(Optional)</span>
+                </span>
+              </label>
               <input
                 type="text"
                 disabled={isSubmitting}
-                placeholder="Address Line 2 (Area, Colony, Sector)"
+                placeholder="Area, Colony, Sector"
                 value={formData.addressLine2}
                 onChange={(e) => handleFieldChange("addressLine2", e.target.value)}
-                className={`border rounded-lg px-3.5 py-2.5 text-xs text-theme-text-primary bg-theme-surface-warm focus:border-theme-primary transition-colors disabled:opacity-50 ${
-                  fieldErrors.addressLine2 ? "border-red-500 bg-red-50/20" : "border-theme-border-input"
+                onBlur={() => handleBlur("addressLine2")}
+                className={`border rounded-lg px-3.5 py-2.5 text-xs text-theme-text-primary bg-theme-surface-warm transition-colors outline-none disabled:opacity-50 ${
+                  fieldErrors.addressLine2
+                    ? "border-red-500 bg-red-50/20 focus:border-red-500 focus:ring-1 focus:ring-red-500/50 ring-1 ring-red-500/40"
+                    : "border-theme-border-input focus:border-theme-primary"
                 }`}
               />
               {fieldErrors.addressLine2 && (
-                <span className="text-xs text-red-500 font-medium">{fieldErrors.addressLine2}</span>
+                <span className="text-xs text-red-500 font-medium animate-in fade-in duration-150">
+                  {fieldErrors.addressLine2}
+                </span>
               )}
             </div>
 
             {/* Landmark */}
-            <div className="flex flex-col gap-1 sm:col-span-2">
+            <div className="flex flex-col gap-1.5 sm:col-span-2">
+              <label className="text-xs font-semibold text-theme-text-primary flex items-center justify-between">
+                <span>
+                  Landmark <span className="text-theme-text-muted font-normal text-[11px]">(Optional)</span>
+                </span>
+              </label>
               <input
                 type="text"
                 disabled={isSubmitting}
-                placeholder="Landmark (Optional, e.g. Near Bus Stand)"
+                placeholder="e.g. Near Bus Stand, opposite Temple"
                 value={formData.landmark}
                 onChange={(e) => handleFieldChange("landmark", e.target.value)}
                 className="border border-theme-border-input rounded-lg px-3.5 py-2.5 text-xs text-theme-text-primary bg-theme-surface-warm focus:border-theme-primary transition-colors disabled:opacity-50"
               />
             </div>
 
-            {/* City */}
-            <div className="flex flex-col gap-1">
+            {/* PIN Code */}
+            <div className="flex flex-col gap-1.5 sm:col-span-2">
+              <label className="text-xs font-semibold text-theme-text-primary flex items-center justify-between">
+                <span>
+                  PIN Code (6 digits) <span className="text-red-500 font-bold">*</span>
+                </span>
+                {isPincodeLoading && (
+                  <span className="text-[11px] text-theme-primary flex items-center gap-1 font-medium">
+                    <svg className="animate-spin h-3 w-3 text-current" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Checking postal directory...
+                  </span>
+                )}
+              </label>
+              <div className="relative">
+                <input
+                  type="text"
+                  disabled={isSubmitting}
+                  maxLength={6}
+                  placeholder="e.g. 607106"
+                  value={formData.pincode}
+                  onChange={(e) => handlePincodeChange(e.target.value)}
+                  onBlur={() => handleBlur("pincode")}
+                  className={`w-full border rounded-lg px-3.5 py-2.5 text-xs text-theme-text-primary bg-theme-surface-warm transition-colors outline-none disabled:opacity-50 ${
+                    fieldErrors.pincode || pincodeLookupError
+                      ? "border-red-500 bg-red-50/20 focus:border-red-500 focus:ring-1 focus:ring-red-500/50 ring-1 ring-red-500/40"
+                      : "border-theme-border-input focus:border-theme-primary"
+                  }`}
+                />
+                {isPincodeLoading && (
+                  <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
+                    <svg className="animate-spin h-4 w-4 text-theme-primary" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                  </div>
+                )}
+              </div>
+              {fieldErrors.pincode ? (
+                <span className="text-xs text-red-500 font-medium animate-in fade-in duration-150">
+                  {fieldErrors.pincode}
+                </span>
+              ) : pincodeLookupError ? (
+                <span className="text-xs text-red-500 font-medium animate-in fade-in duration-150">
+                  {pincodeLookupError}
+                </span>
+              ) : null}
+            </div>
+
+            {/* Post Office Dropdown (Admin Select Component) */}
+            {postOffices.length > 0 && (
+              <div className="flex flex-col gap-1.5 sm:col-span-2">
+                <label className="text-xs font-semibold text-theme-text-primary flex items-center justify-between">
+                  <span>
+                    Select Post Office / Locality ({postOffices.length} found)
+                  </span>
+                </label>
+                <Select
+                  options={postOffices.map((po) => ({
+                    value: po.value,
+                    label: `${po.label}${po.description ? ` (${po.description})` : ""}`,
+                  }))}
+                  value={selectedPostOffice}
+                  onValueChange={(val) => {
+                    setSelectedPostOffice(val);
+                    handleFieldChange("addressLine2", val || formData.addressLine2);
+                  }}
+                  placeholder="-- Choose your nearest Post Office / Area --"
+                  disabled={isSubmitting}
+                />
+              </div>
+            )}
+
+            {/* City (Auto-filled, ReadOnly, Normal Background) */}
+            <div className="flex flex-col gap-1.5">
+              <label className="text-xs font-semibold text-theme-text-primary flex items-center justify-between">
+                <span>
+                  City / District <span className="text-red-500 font-bold">*</span>
+                </span>
+                <span className="text-[10px] text-theme-text-muted font-normal">Auto-filled</span>
+              </label>
               <input
                 type="text"
-                disabled={isSubmitting}
-                placeholder="City *"
+                readOnly
+                tabIndex={-1}
+                placeholder={isPincodeLoading ? "Fetching city..." : "Auto-filled from PIN Code"}
                 value={formData.city}
-                onChange={(e) => handleFieldChange("city", e.target.value)}
-                className={`border rounded-lg px-3.5 py-2.5 text-xs text-theme-text-primary bg-theme-surface-warm focus:border-theme-primary transition-colors disabled:opacity-50 ${
-                  fieldErrors.city ? "border-red-500 bg-red-50/20" : "border-theme-border-input"
+                className={`border rounded-lg px-3.5 py-2.5 text-xs text-theme-text-primary bg-theme-surface-warm transition-colors outline-none cursor-default select-none shadow-none ${
+                  fieldErrors.city
+                    ? "border-red-500 bg-red-50/20 ring-1 ring-red-500/40"
+                    : "border-theme-border-input"
                 }`}
               />
               {fieldErrors.city && (
-                <span className="text-xs text-red-500 font-medium">{fieldErrors.city}</span>
+                <span className="text-xs text-red-500 font-medium animate-in fade-in duration-150">
+                  {fieldErrors.city}
+                </span>
               )}
             </div>
 
-            {/* State */}
-            <div className="flex flex-col gap-1">
+            {/* State (Auto-filled, ReadOnly, Normal Background) */}
+            <div className="flex flex-col gap-1.5">
+              <label className="text-xs font-semibold text-theme-text-primary flex items-center justify-between">
+                <span>
+                  State <span className="text-red-500 font-bold">*</span>
+                </span>
+                <span className="text-[10px] text-theme-text-muted font-normal">Auto-filled</span>
+              </label>
               <input
                 type="text"
-                disabled={isSubmitting}
-                placeholder="State *"
+                readOnly
+                tabIndex={-1}
+                placeholder={isPincodeLoading ? "Fetching state..." : "Auto-filled from PIN Code"}
                 value={formData.state}
-                onChange={(e) => handleFieldChange("state", e.target.value)}
-                className={`border rounded-lg px-3.5 py-2.5 text-xs text-theme-text-primary bg-theme-surface-warm focus:border-theme-primary transition-colors disabled:opacity-50 ${
-                  fieldErrors.state ? "border-red-500 bg-red-50/20" : "border-theme-border-input"
+                className={`border rounded-lg px-3.5 py-2.5 text-xs text-theme-text-primary bg-theme-surface-warm transition-colors outline-none cursor-default select-none shadow-none ${
+                  fieldErrors.state
+                    ? "border-red-500 bg-red-50/20 ring-1 ring-red-500/40"
+                    : "border-theme-border-input"
                 }`}
               />
               {fieldErrors.state && (
-                <span className="text-xs text-red-500 font-medium">{fieldErrors.state}</span>
+                <span className="text-xs text-red-500 font-medium animate-in fade-in duration-150">
+                  {fieldErrors.state}
+                </span>
               )}
+            </div>
+
+
+
+            {/* Custom Dropdown for Address Label */}
+            <div className="flex flex-col gap-1.5">
+              <label className="text-xs font-semibold text-theme-text-primary flex items-center justify-between">
+                <span>
+                  Address Label <span className="text-theme-text-muted font-normal text-[11px]">(Optional)</span>
+                </span>
+              </label>
+              <CustomDropdown
+                options={LABEL_OPTIONS}
+                value={formData.label}
+                onChange={(val) => handleFieldChange("label", val)}
+                disabled={isSubmitting}
+              />
             </div>
 
             {/* Set as Default Checkbox */}
@@ -573,8 +871,8 @@ export function AddressesTab() {
                   ? "Updating..."
                   : "Saving..."
                 : editingId
-                ? "Update Address"
-                : "Save Address"}
+                  ? "Update Address"
+                  : "Save Address"}
             </button>
             <button
               type="button"
@@ -616,11 +914,10 @@ export function AddressesTab() {
                     <span className="text-xs font-semibold uppercase tracking-wider text-theme-primary">
                       {labelUpper}
                     </span>
-                    <span className={`text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full ${
-                      isBilling
+                    <span className={`text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full ${isBilling
                         ? "bg-purple-100 text-purple-700"
                         : "bg-blue-100 text-blue-700"
-                    }`}>
+                      }`}>
                       {a.addressType || "shipping"}
                     </span>
                     {a.isDefault && (

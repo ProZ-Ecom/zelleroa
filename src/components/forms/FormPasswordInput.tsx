@@ -24,74 +24,79 @@ function FormPasswordInput({
   required,
   ...props
 }: FormPasswordInputProps) {
-  const { control } = useFormContext();
+  const { control, formState } = useFormContext();
   const [showPassword, setShowPassword] = React.useState(false);
 
   return (
     <Controller
       name={name}
       control={control}
-      render={({ field, fieldState }) => (
-        <div className="space-y-1.5">
-          {label && (
-            <Label htmlFor={name}>
-              {label}
-              {(required) && (
-                <span className="text-error-600 font-bold ml-1">*</span>
-              )}
-            </Label>
-          )}
+      render={({ field, fieldState, formState }) => {
+        const hasError =
+          (fieldState.isTouched || formState.isSubmitted) &&
+          Boolean(fieldState.error);
+        const errorMessage = hasError ? fieldState.error?.message : undefined;
 
-          <div className="relative">
-            {leftIcon && (
-              <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
-                {leftIcon}
-              </div>
+        return (
+          <div className="space-y-1.5">
+            {label && (
+              <Label htmlFor={name}>
+                {label}
+                {required && (
+                  <span className="text-error-600 font-bold ml-1">*</span>
+                )}
+              </Label>
             )}
 
-            <input
-              id={name}
-              {...field}
-              {...props}
-              type={showPassword ? "text" : "password"}
-              className={cn(
-                "flex h-10 w-full rounded-lg border bg-white px-3 py-2 pr-10 text-sm outline-none transition-all duration-200",
-                "focus:outline-none focus:border-secondary-600 focus:ring-2 focus:ring-secondary-600/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-secondary-600/20",
-                leftIcon && "pl-10",
-                "placeholder:text-neutral-400 text-neutral-900",
-                fieldState.error
-                  ? "border-error-600 focus:border-error-600 focus:ring-error-600/20 focus-visible:border-error-600 focus-visible:ring-error-600/20"
-                  : "border-neutral-200 hover:border-neutral-300",
-                className
+            <div className="relative">
+              {leftIcon && (
+                <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+                  {leftIcon}
+                </div>
               )}
-            />
 
-            <button
-              type="button"
-              onClick={() => setShowPassword(!showPassword)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400"
-            >
-              {showPassword ? (
-                <Eye className="h-4 w-4" />
-              ) : (
-                <EyeOff className="h-4 w-4" />
-              )}
-            </button>
+              <input
+                id={name}
+                {...field}
+                {...props}
+                type={showPassword ? "text" : "password"}
+                className={cn(
+                  "flex h-10 w-full rounded-lg border bg-white px-3 py-2 pr-10 text-sm outline-none transition-all duration-200",
+                  "focus:outline-none focus:border-secondary-600 focus:ring-2 focus:ring-secondary-600/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-secondary-600/20",
+                  leftIcon && "pl-10",
+                  "placeholder:text-neutral-400 text-neutral-900",
+                  hasError
+                    ? "border-error-600 focus:border-error-600 focus:ring-error-600/20 focus-visible:border-error-600 focus-visible:ring-error-600/20"
+                    : "border-neutral-200 hover:border-neutral-300",
+                  className
+                )}
+              />
+
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400"
+              >
+                {showPassword ? (
+                  <Eye className="h-4 w-4" />
+                ) : (
+                  <EyeOff className="h-4 w-4" />
+                )}
+              </button>
+            </div>
+
+            {hasError && (
+              <p className="mt-1 text-xs text-red-500 font-medium">
+                {errorMessage}
+              </p>
+            )}
+
+            {!hasError && helperText && (
+              <p className="text-sm text-gray-500">{helperText}</p>
+            )}
           </div>
-
-          {fieldState.error && (
-            <p className="mt-1 text-xs text-red-500 font-medium">
-              {fieldState.error.message}
-            </p>
-          )}
-
-          {!fieldState.error && helperText && (
-            <p className="text-sm text-gray-500">
-              {helperText}
-            </p>
-          )}
-        </div>
-      )}
+        );
+      }}
     />
   );
 }

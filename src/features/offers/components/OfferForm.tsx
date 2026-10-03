@@ -55,7 +55,7 @@ function buildDefaults(offer?: OfferListItem | null): CreateOfferSchemaInput {
       code: "",
       level: "product",
       type: "percentage",
-      value: 0,
+      value: "" as unknown as number,
       buyQuantity: null,
       getQuantity: null,
       minQuantity: 1,
@@ -107,6 +107,7 @@ export function OfferForm({
     resolver: zodResolver(createOfferSchema) as any,
     defaultValues: buildDefaults(initialData),
     mode: "onBlur",
+    reValidateMode: "onBlur",
   });
 
   const { control, setValue, formState } = methods;
@@ -181,9 +182,11 @@ export function OfferForm({
   const showMaxDiscount = type === "percentage" || type === "flat";
 
   const targetError =
-    level === "product"
-      ? (formState.errors.productIds?.message as string | undefined)
-      : (formState.errors.itemIds?.message as string | undefined);
+    formState.isSubmitted
+      ? level === "product"
+        ? (formState.errors.productIds?.message as string | undefined)
+        : (formState.errors.itemIds?.message as string | undefined)
+      : undefined;
 
   return (
     <FormProvider {...methods}>
@@ -269,11 +272,17 @@ export function OfferForm({
             onProductChange={setProductFilterId}
             selectedProductIds={productIds}
             onSelectedProductIdsChange={(ids) =>
-              setValue("productIds", ids, { shouldValidate: true })
+              setValue("productIds", ids, {
+                shouldValidate: formState.isSubmitted,
+                shouldDirty: true,
+              })
             }
             selectedItemIds={itemIds}
             onSelectedItemIdsChange={(ids) =>
-              setValue("itemIds", ids, { shouldValidate: true })
+              setValue("itemIds", ids, {
+                shouldValidate: formState.isSubmitted,
+                shouldDirty: true,
+              })
             }
             preloadedItems={initialData?.items}
             preloadedProducts={initialData?.products}

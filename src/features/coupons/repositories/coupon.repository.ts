@@ -3,6 +3,11 @@ import { Prisma } from "@/generated/prisma";
 import type { GetCouponsParams, CouponListItem } from "../types";
 
 function toCouponListItem(coupon: Record<string, unknown>): CouponListItem {
+  const count =
+    (coupon._count as { coupon_usage?: number } | undefined)?.coupon_usage ??
+    coupon.usedCount ??
+    0;
+
   return {
     id: Number(coupon.id),
     code: coupon.code as string,
@@ -10,8 +15,8 @@ function toCouponListItem(coupon: Record<string, unknown>): CouponListItem {
     value: Number(coupon.value),
     minOrderAmount: coupon.minOrderAmount != null ? Number(coupon.minOrderAmount) : null,
     maxDiscount: (coupon.maxDiscount ?? coupon.max_discount_amount) != null ? Number(coupon.maxDiscount ?? coupon.max_discount_amount) : null,
-    usageLimit: (coupon.usageLimit ?? coupon.usage_limit) as number | null,
-    usedCount: (coupon.usedCount ?? 0) as number,
+    usageLimit: (coupon.usageLimit ?? coupon.usage_limit) != null ? Number(coupon.usageLimit ?? coupon.usage_limit) : null,
+    usedCount: Number(count) || 0,
     isActive: Boolean(coupon.isActive),
     startsAt: ((coupon.startsAt ?? coupon.valid_from) as Date | null) ?? null,
     expiresAt: ((coupon.expiresAt ?? coupon.valid_to) as Date | null) ?? null,
@@ -42,6 +47,11 @@ export const couponRepository = {
     const [data, total] = await Promise.all([
       db.coupon.findMany({
         where,
+        include: {
+          _count: {
+            select: { coupon_usage: true },
+          },
+        },
         orderBy: { createdAt: "desc" },
         skip: (page - 1) * limit,
         take: limit,
@@ -61,12 +71,26 @@ export const couponRepository = {
   },
 
   async findById(id: number | bigint) {
-    const coupon = await db.coupon.findUnique({ where: { id: BigInt(id) } });
+    const coupon = await db.coupon.findUnique({
+      where: { id: BigInt(id) },
+      include: {
+        _count: {
+          select: { coupon_usage: true },
+        },
+      },
+    });
     return coupon ? toCouponListItem(coupon as unknown as Record<string, unknown>) : null;
   },
 
   async findByCode(code: string) {
-    const coupon = await db.coupon.findUnique({ where: { code } });
+    const coupon = await db.coupon.findUnique({
+      where: { code },
+      include: {
+        _count: {
+          select: { coupon_usage: true },
+        },
+      },
+    });
     return coupon ? toCouponListItem(coupon as unknown as Record<string, unknown>) : null;
   },
 

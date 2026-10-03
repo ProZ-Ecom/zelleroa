@@ -25,33 +25,42 @@ function FormSelect({
   expandContainer,
   portal,
 }: FormSelectProps) {
-  const { control } = useFormContext();
+  const { control, formState } = useFormContext();
 
   return (
     <Controller
       name={name}
       control={control}
-      render={({ field, fieldState }) => (
-        <div className="space-y-2">
-          {label && (
-            <Label htmlFor={name}>
-              {label}
-              {required && <span className="text-error-600 font-bold ml-1">*</span>}
-            </Label>
-          )}
-          <Select
-            {...field}
-            options={options}
-            placeholder={placeholder}
-            error={fieldState.error?.message}
-            expandContainer={expandContainer}
-            portal={portal}
-          />
-          {description && !fieldState.error && (
-            <p className="text-xs text-muted-foreground">{description}</p>
-          )}
-        </div>
-      )}
+      render={({ field, fieldState, formState }) => {
+        const hasError =
+          (fieldState.isTouched || formState.isSubmitted) &&
+          Boolean(fieldState.error);
+        const errorMessage = hasError ? fieldState.error?.message : undefined;
+
+        return (
+          <div className="space-y-2">
+            {label && (
+              <Label htmlFor={name}>
+                {label}
+                {required && (
+                  <span className="text-error-600 font-bold ml-1">*</span>
+                )}
+              </Label>
+            )}
+            <Select
+              {...field}
+              options={options}
+              placeholder={placeholder}
+              error={errorMessage}
+              expandContainer={expandContainer}
+              portal={portal}
+            />
+            {description && !hasError && (
+              <p className="text-xs text-muted-foreground">{description}</p>
+            )}
+          </div>
+        );
+      }}
     />
   );
 }

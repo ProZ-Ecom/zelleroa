@@ -105,6 +105,11 @@ export const styleRepository = {
 
     const where: Prisma.StyleWhereInput = {
       deleted_at: null,
+      product: {
+        deleted_at: null,
+        ...(params.productId ? { uuid: params.productId } : {}),
+        ...(params.categoryId ? { categoryId: BigInt(params.categoryId) } : {}),
+      },
     };
 
     if (typeof params.isActive === "boolean") {
@@ -113,14 +118,6 @@ export const styleRepository = {
 
     if (params.search) {
       where.name = { contains: params.search };
-    }
-
-    if (params.productId) {
-      where.product = { uuid: params.productId };
-    }
-
-    if (params.categoryId) {
-      where.product = { ...(where.product as object), categoryId: BigInt(params.categoryId) };
     }
 
     const [data, total] = await Promise.all([

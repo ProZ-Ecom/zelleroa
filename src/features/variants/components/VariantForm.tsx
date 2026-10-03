@@ -17,25 +17,31 @@ import type { SizeChartGender } from "@/features/size-charts/types";
 // Item-level fields only. Unit + price combinations (sku, unit, base price)
 // are managed separately per (unit) via VariantUnitPriceList, since one item
 // can now be sold in multiple sizes at different prices.
-const variantFormSchema = z.object({
-  productId: z
-    .string()
-    .uuid("Invalid Product UUID format")
-    .optional(),
-  variantName: z
-    .string()
-    .trim()
-    .optional(),
-  slug: z
-    .string({ message: "Item code is required" })
-    .trim()
-    .min(1, "Item code cannot be empty")
-    .max(255, "Item code cannot exceed 255 characters"),
-  priceAdjustment: z.number().optional(),
-  isFeatured: z.boolean(),
-  isActive: z.boolean(),
-  attributeValueIds: z.array(z.string().uuid()).optional(),
-});
+export const createVariantFormSchema = (fixedProductId?: string) =>
+  z.object({
+    productId: fixedProductId
+      ? z.string().optional()
+      : z
+          .string({ message: "Please select a product" })
+          .trim()
+          .min(1, "Please select a product")
+          .uuid("Please select a valid product"),
+    variantName: z
+      .string()
+      .trim()
+      .optional(),
+    slug: z
+      .string({ message: "Item code is required" })
+      .trim()
+      .min(1, "Item code cannot be empty")
+      .max(255, "Item code cannot exceed 255 characters"),
+    priceAdjustment: z.number().optional(),
+    isFeatured: z.boolean(),
+    isActive: z.boolean(),
+    attributeValueIds: z.array(z.string().uuid("Invalid attribute value format")).optional(),
+  });
+
+export const variantFormSchema = createVariantFormSchema();
 
 export type VariantFormValues = z.infer<typeof variantFormSchema>;
 
@@ -128,9 +134,14 @@ function VariantForm({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [showInfo]);
 
+  const schema = useMemo(
+    () => createVariantFormSchema(fixedProductId),
+    [fixedProductId]
+  );
+
   const methods = useForm<VariantFormValues>({
-    resolver: zodResolver(variantFormSchema),
-    mode: "onChange",
+    resolver: zodResolver(schema),
+    mode: "onTouched",
     reValidateMode: "onChange",
     defaultValues: {
       productId: fixedProductId || initialData?.productId || "",
