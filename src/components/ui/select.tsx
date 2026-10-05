@@ -103,60 +103,30 @@ const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
       }
     }, [controlledValue]);
 
-    const listRef = React.useRef<HTMLDivElement>(null);
-    const [listPos, setListPos] = React.useState<{
-      left: number;
-      width: number;
-      top?: number;
-      bottom?: number;
-      maxHeight: number;
-    } | null>(null);
+    const isSearchable =
+      searchable !== undefined ? searchable : options.length > 6;
 
-    // The list is portalled to <body> so scrollable/overflow-hidden parents
-    // (e.g. modal bodies) can't clip it; position it from the trigger's rect.
-    React.useLayoutEffect(() => {
-      if (!isOpen) {
-        setListPos(null);
-        return;
-      }
-      function update() {
-        const el = containerRef.current;
-        if (!el) return;
-        const rect = el.getBoundingClientRect();
-        const gap = 6;
-        const below = window.innerHeight - rect.bottom - gap - 8;
-        const above = rect.top - gap - 8;
-        const openUp = below < 220 && above > below;
-        const space = openUp ? above : below;
-        setListPos({
-          left: rect.left,
-          width: rect.width,
-          maxHeight: Math.max(160, Math.min(space, 360)),
-          ...(openUp
-            ? { bottom: window.innerHeight - rect.top + gap }
-            : { top: rect.bottom + gap }),
-        });
-      }
-      update();
-      window.addEventListener("resize", update);
-      window.addEventListener("scroll", update, true);
-      return () => {
-        window.removeEventListener("resize", update);
-        window.removeEventListener("scroll", update, true);
-      };
-    }, [isOpen]);
+    // Position calculation for Portaled Menu only
+    const updatePosition = React.useCallback(() => {
+      if (!portal || !triggerRef.current) return;
+      const rect = triggerRef.current.getBoundingClientRect();
+      const spaceBelow = window.innerHeight - rect.bottom;
+      const spaceAbove = rect.top;
+      const menuHeight = 260;
+      const openUp = spaceBelow < menuHeight && spaceAbove > spaceBelow;
 
-    // Handle outside click
-    React.useEffect(() => {
-      function handleClickOutside(event: MouseEvent) {
-        const target = event.target as Node;
-        if (
-          containerRef.current &&
-          !containerRef.current.contains(target) &&
-          !listRef.current?.contains(target)
-        ) {
-          setIsOpen(false);
-          setSearchQuery("");
+      setIsUpward(openUp);
+
+      const minMenuWidth = Math.max(rect.width, isSearchable ? 200 : 160);
+      let computedLeft = align === "right" ? rect.right - minMenuWidth : rect.left;
+
+      // Ensure dropdown stays inside viewport horizontally
+      if (typeof window !== "undefined") {
+        if (computedLeft + minMenuWidth > window.innerWidth - 8) {
+          computedLeft = window.innerWidth - minMenuWidth - 8;
+        }
+        if (computedLeft < 8) {
+          computedLeft = 8;
         }
       }
 
@@ -468,84 +438,11 @@ const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
           </div>
         </button>
 
-        {/* Custom Dropdown List - Scrollable and Contained */}
-        {isOpen && listPos && createPortal(
-          <div
-            ref={listRef}
-            style={{
-              position: "fixed",
-              left: listPos.left,
-              width: listPos.width,
-              top: listPos.top,
-              bottom: listPos.bottom,
-            }}
-            className="z-[10000] overflow-hidden rounded-xl border border-theme-border bg-theme-surface shadow-lg animate-in zoom-in-95 duration-150 min-w-[160px]"
-            role="listbox"
-          >
-            {/* Search Input for Long Lists (>= 7 options) */}
-            {showSearch && (
-              <div className="border-b border-theme-border-subtle p-2 bg-theme-surface-alt">
-                <div className="relative flex items-center">
-                  <Search className="absolute left-2.5 h-3.5 w-3.5 text-theme-text-muted pointer-events-none" />
-                  <input
-                    ref={searchInputRef}
-                    type="text"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Search options..."
-                    className="h-8 w-full rounded-md border border-theme-border bg-theme-surface pl-8 pr-3 text-xs text-theme-text-primary placeholder:text-theme-text-muted outline-none focus:outline-none focus:border-theme-primary focus:ring-1 focus:ring-theme-primary/20"
-                    onClick={(e) => e.stopPropagation()}
-                  />
-                </div>
-              </div>
-            )}
-
-            {/* Scrollable Options Area */}
-            <div
-              className="overflow-y-auto p-1.5 space-y-0.5"
-              style={{ maxHeight: Math.max(120, listPos.maxHeight - (showSearch ? 52 : 0)) }}
-            >
-              {filteredOptions.length === 0 ? (
-                <div className="px-3 py-4 text-center text-xs text-theme-text-muted">
-                  No matching options found
-                </div>
-              ) : (
-                filteredOptions.map((option) => {
-                  const isSelected =
-                    String(option.value) === String(internalValue) &&
-                    option.value !== "";
-
-                  return (
-                    <div
-                      key={option.value}
-                      role="option"
-                      aria-selected={isSelected}
-                      onClick={() => handleSelectOption(option)}
-                      className={cn(
-                        "flex w-full items-center justify-between rounded-lg px-3 py-2 text-xs sm:text-sm transition-colors cursor-pointer select-none",
-                        isSelected
-                          ? "bg-theme-surface-alt font-bold text-theme-primary"
-                          : "text-theme-text-primary hover:bg-theme-surface-alt hover:text-theme-primary",
-                        option.disabled &&
-                          "cursor-not-allowed opacity-40 hover:bg-transparent pointer-events-none select-none"
-                      )}
-                    >
-                      <div className="flex items-center gap-2 truncate">
-                        {option.icon && (
-                          <span className="shrink-0 text-theme-text-muted">{option.icon}</span>
-                        )}
-                        <span className="truncate">{option.label}</span>
-                      </div>
-                      {isSelected && (
-                        <Check className="h-4 w-4 shrink-0 text-theme-primary" />
-                      )}
-                    </div>
-                  );
-                })
-              )}
-            </div>
-          </div>,
-          document.body
+        {/* Floating overlay or Portaled dropdown */}
+        {isOpen && (
+          portal && mounted && typeof document !== "undefined"
+            ? createPortal(menuContent, document.body)
+            : menuContent
         )}
 
         {/* Error message */}
