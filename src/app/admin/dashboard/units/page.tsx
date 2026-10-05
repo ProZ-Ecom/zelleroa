@@ -189,7 +189,7 @@ export default function AdminUnitsPage() {
 
             <Button
               onClick={() => setIsCreateOpen(true)}
-              className="h-11 rounded-xl bg-[var(--color-secondary-600)] px-5 text-sm font-semibold text-white hover:bg-[var(--color-secondary-700)]"
+              className="h-11 rounded-xl bg-[var(--color-primary-500)] px-5 text-sm font-semibold text-white hover:bg-[var(--color-primary-600)]"
             >
               <Plus className="mr-2 h-4 w-4" />
               Add Unit

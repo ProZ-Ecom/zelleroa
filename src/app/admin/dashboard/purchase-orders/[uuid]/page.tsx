@@ -18,7 +18,7 @@ import { PurchaseStatusBadge } from "@/features/purchases/components/PurchaseSta
 import type { PurchaseOrderResponse } from "@/features/purchases/types";
 
 const primaryBtn =
-  "h-10 rounded-xl bg-[var(--color-secondary-600)] px-4 text-sm font-semibold text-white hover:bg-[var(--color-secondary-700)]";
+  "h-10 rounded-xl bg-[var(--color-primary-500)] px-4 text-sm font-semibold text-white hover:bg-[var(--color-primary-600)]";
 
 function fmt(d: string) {
   return new Date(d).toLocaleString();

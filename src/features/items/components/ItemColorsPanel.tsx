@@ -526,7 +526,7 @@ function ItemColorsPanel({
             type="button"
             onClick={handleApply}
             disabled={isBusy || selected.size === 0}
-            className="h-10 cursor-pointer rounded-xl bg-[var(--color-secondary-600)] px-5 text-sm font-semibold text-white hover:bg-[var(--color-secondary-700)]"
+            className="h-10 cursor-pointer rounded-xl bg-[var(--color-primary-500)] px-5 text-sm font-semibold text-white hover:bg-[var(--color-primary-600)]"
           >
             {isBusy ? (
               <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />

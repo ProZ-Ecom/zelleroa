@@ -78,7 +78,7 @@ export function HsnCodeForm({
         <div className="flex justify-end pt-4">
           <FormSubmitButton
             isLoading={isLoading}
-            className="h-11 rounded-xl bg-[var(--color-secondary-600)] px-6 text-sm font-semibold text-white hover:bg-[var(--color-secondary-700)]"
+            className="h-11 rounded-xl bg-[var(--color-primary-500)] px-6 text-sm font-semibold text-white hover:bg-[var(--color-primary-600)]"
           >
             {submitLabel}
           </FormSubmitButton>

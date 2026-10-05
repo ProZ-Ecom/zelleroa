@@ -26,7 +26,7 @@ function Dropdown({ trigger, children, align = "right", className }: DropdownPro
 
   return (
     <div ref={ref} className="relative inline-block">
-      <div onClick={() => setOpen(!open)}>{trigger}</div>
+      <div className="cursor-pointer" onClick={() => setOpen(!open)}>{trigger}</div>
       {open && (
         <div
           className={cn(

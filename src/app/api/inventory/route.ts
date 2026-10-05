@@ -17,7 +17,7 @@ export const GET = createApiHandler({
     const result = await inventoryService.getInventory(query);
     return apiSuccess(result);
   },
-});
+}, { requireAuth: true, requiredRole: ["ADMIN", "STAFF"] });
 
 export const POST = createApiHandler({
   POST: async (_request, context) => {

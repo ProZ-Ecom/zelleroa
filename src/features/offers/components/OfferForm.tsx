@@ -446,7 +446,7 @@ export function OfferForm({
           </Button>
           <FormSubmitButton
             isLoading={isLoading}
-            className="rounded-xl bg-[var(--color-secondary-600)] px-6 font-semibold text-white hover:bg-[var(--color-secondary-700)]"
+            className="rounded-xl bg-[var(--color-primary-500)] px-6 font-semibold text-white hover:bg-[var(--color-primary-600)]"
           >
             {submitLabel}
           </FormSubmitButton>

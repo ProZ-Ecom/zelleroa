@@ -1769,7 +1769,7 @@ export default function AdminProductDetailsPage() {
                     setIsAddVariantOpen(false);
                     setNewlyCreatedVariant(null);
                   }}
-                  className="h-10 rounded-xl bg-[var(--color-secondary-600)] px-5 text-sm font-semibold text-white hover:bg-[var(--color-secondary-700)] cursor-pointer"
+                  className="h-10 rounded-xl bg-[var(--color-primary-500)] px-5 text-sm font-semibold text-white hover:bg-[var(--color-primary-600)] cursor-pointer"
                 >
                   Save & Activate
                 </Button>
@@ -1798,7 +1798,7 @@ export default function AdminProductDetailsPage() {
                 onClick={() => setEditVariantTab("details")}
                 className={`px-4 py-2.5 text-sm font-semibold border-b-2 transition-colors cursor-pointer ${
                   editVariantTab === "details"
-                    ? "border-[var(--color-secondary-600)] text-[var(--color-secondary-600)]"
+                    ? "border-[var(--color-primary-500)] text-[var(--color-primary-500)]"
                     : "border-transparent text-[var(--color-neutral-500)] hover:text-[var(--color-neutral-800)]"
                 }`}
               >
@@ -1809,7 +1809,7 @@ export default function AdminProductDetailsPage() {
                 onClick={() => setEditVariantTab("pricing")}
                 className={`px-4 py-2.5 text-sm font-semibold border-b-2 transition-colors cursor-pointer ${
                   editVariantTab === "pricing"
-                    ? "border-[var(--color-secondary-600)] text-[var(--color-secondary-600)]"
+                    ? "border-[var(--color-primary-500)] text-[var(--color-primary-500)]"
                     : "border-transparent text-[var(--color-neutral-500)] hover:text-[var(--color-neutral-800)]"
                 }`}
               >
@@ -2125,7 +2125,7 @@ export default function AdminProductDetailsPage() {
           <button
             type="button"
             onClick={() => setIsAddBrandOpen(true)}
-            className="text-xs font-semibold text-[var(--color-secondary-600)] hover:text-[var(--color-secondary-700)] cursor-pointer"
+            className="text-xs font-semibold text-[var(--color-primary-500)] hover:text-[var(--color-primary-600)] cursor-pointer"
           >
             + Add brand
           </button>

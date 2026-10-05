@@ -328,7 +328,7 @@ export function StaffFormModal({
           <Button
             type="submit"
             disabled={isSubmitting}
-            className="min-w-[120px] bg-[var(--color-secondary-600)] text-white hover:bg-[var(--color-secondary-700)]"
+            className="min-w-[120px] bg-[var(--color-primary-500)] text-white hover:bg-[var(--color-primary-600)]"
           >
             {isSubmitting ? (
               <div className="flex items-center gap-2">

@@ -784,7 +784,7 @@ function VariantUnitPriceList({
                   size="sm"
                   onClick={handleSave}
                   disabled={isBusy}
-                  className="bg-[var(--color-secondary-600)] text-white hover:bg-[var(--color-secondary-700)]"
+                  className="bg-[var(--color-primary-500)] text-white hover:bg-[var(--color-primary-600)]"
                 >
                   {isBusy ? (
                     <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" />

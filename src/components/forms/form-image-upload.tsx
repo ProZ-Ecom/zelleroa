@@ -176,7 +176,7 @@ function FormImageUpload({
               <button
                 type="button"
                 onClick={() => setShowInfo((prev) => !prev)}
-                className="text-neutral-400 hover:text-[var(--color-secondary-600)] transition-colors focus:outline-none cursor-pointer rounded-full p-0.5"
+                className="text-neutral-400 hover:text-[var(--color-primary-500)] transition-colors focus:outline-none cursor-pointer rounded-full p-0.5"
                 title="Click for more information"
                 aria-label="Information"
               >
@@ -187,7 +187,7 @@ function FormImageUpload({
                 <div className="absolute left-0 top-full mt-1.5 z-50 w-72 sm:w-80 rounded-xl bg-white border border-neutral-200/90 p-3 text-xs text-neutral-700 shadow-xl shadow-neutral-900/10 animate-in fade-in zoom-in-95 duration-150">
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex items-start gap-2">
-                      <Info className="h-4 w-4 text-[var(--color-secondary-600)] shrink-0 mt-0.5" />
+                      <Info className="h-4 w-4 text-[var(--color-primary-500)] shrink-0 mt-0.5" />
                       <p className="leading-relaxed text-[var(--color-neutral-800)]">{infoMessage}</p>
                     </div>
                     <button

@@ -54,12 +54,12 @@ export default function AdminCategoriesPage() {
       id: "image",
       header: "Image",
       cell: ({ row }) => (
-        <div className="h-11 w-11 overflow-hidden rounded-lg bg-[var(--color-neutral-100)]">
+        <div className="h-12 w-12 overflow-hidden rounded-xl bg-[var(--color-neutral-100)] ring-1 ring-black/5 shadow-sm transition-transform duration-200 group-hover:scale-105">
           <Image
             src={row.original.icon ? getImageUrl(row.original.icon) : "/images/category_img.png"}
             alt={row.original.name}
-            width={44}
-            height={44}
+            width={48}
+            height={48}
             className="h-full w-full object-cover"
           />
         </div>
@@ -76,14 +76,18 @@ export default function AdminCategoriesPage() {
       accessorKey: "slug",
       header: "Category Code",
       cell: ({ row }) => (
-        <span className="text-[var(--color-neutral-500)]">{row.original.slug}</span>
+        <span className="inline-flex items-center rounded-full bg-[var(--color-neutral-100)] px-2.5 py-1 font-mono text-xs font-medium uppercase tracking-wide text-[var(--color-neutral-600)] ring-1 ring-inset ring-black/5">
+          {row.original.slug}
+        </span>
       ),
     },
     {
       accessorKey: "sortOrder",
       header: "Sort Order",
       cell: ({ row }) => (
-        <span className="text-[var(--color-neutral-700)]">{row.original.sortOrder}</span>
+        <span className="inline-flex h-7 min-w-7 items-center justify-center rounded-lg bg-[var(--color-neutral-50)] px-2 text-sm font-semibold tabular-nums text-[var(--color-neutral-700)] ring-1 ring-inset ring-black/5">
+          {row.original.sortOrder}
+        </span>
       ),
     },
     {
@@ -94,6 +98,8 @@ export default function AdminCategoriesPage() {
           <Button
             variant="ghost"
             size="icon"
+            aria-label="Edit category"
+            className="rounded-xl hover:bg-[var(--color-neutral-100)]"
             onClick={() => {
               setSelectedCategory(row.original);
               setIsEditOpen(true);
@@ -101,7 +107,13 @@ export default function AdminCategoriesPage() {
           >
             <Pencil className="h-4 w-4 text-[var(--color-neutral-500)]" />
           </Button>
-          <Button variant="ghost" size="icon" onClick={() => setDeleteId(row.original.id)}>
+          <Button
+            variant="ghost"
+            size="icon"
+            aria-label="Delete category"
+            className="rounded-xl hover:bg-red-50"
+            onClick={() => setDeleteId(row.original.id)}
+          >
             <Trash2 className="h-4 w-4 text-[var(--color-error-600)]" />
           </Button>
         </div>
@@ -136,7 +148,7 @@ export default function AdminCategoriesPage() {
             <Button
               type="button"
               onClick={() => setIsCreateOpen(true)}
-              className="h-11 rounded-xl bg-[var(--color-secondary-600)] px-5 text-sm font-semibold text-white hover:bg-[var(--color-secondary-700)]"
+              className="h-11 rounded-xl bg-gradient-to-b from-[var(--color-primary-400)] to-[var(--color-primary-600)] px-5 text-sm font-semibold text-white shadow-[0_6px_16px_-6px_rgba(37,99,235,0.45),inset_0_1px_0_rgba(255,255,255,0.18)] transition-all hover:-translate-y-px hover:shadow-[0_10px_20px_-8px_rgba(37,99,235,0.5),inset_0_1px_0_rgba(255,255,255,0.18)] active:translate-y-0"
             >
               <Plus className="mr-2 h-4 w-4" />
               Add Category
