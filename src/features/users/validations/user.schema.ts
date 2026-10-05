@@ -21,7 +21,7 @@ export type GetUsersQueryInput = z.infer<typeof getUsersQuerySchema>;
 /* --------------------------- Mobile Validation -------------------------- */
 
 // Admin edit forms round-trip stored "+91..." values, so create/update accept them.
-const indiaPhoneSchema = mobileStoredOrInputField;
+export const indiaPhoneSchema = mobileStoredOrInputField;
 
 /* --------------------------- Create User Schema ------------------------- */
 

@@ -56,10 +56,10 @@ function makeQueryClient() {
         const meta = mutation.meta as MetaOptions | undefined;
         if (meta?.skipToast) return;
 
-        const backendMessage = error?.message || meta?.errorMessage || "An unexpected error occurred";
-
-        // Preserve exact backend message (e.g. "Invalid email or password")
-        toast.error("Error", backendMessage);
+        // Only fire global error toast if explicitly requested via meta
+        if (meta?.errorMessage) {
+          toast.error("Error", error?.message || meta.errorMessage);
+        }
       },
     }),
     queryCache: new QueryCache({

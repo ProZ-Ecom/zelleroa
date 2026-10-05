@@ -19,7 +19,11 @@ import type {
  * Delivery charge for the customer's chosen address - must match what
  * orderService.createCustomerOrder charges once the payment is verified.
  */
-async function resolveShippingCharge(userId: number | bigint, shippingAddressId?: string) {
+async function resolveShippingCharge(
+  userId: number | bigint,
+  shippingAddressId?: string,
+  deliveryMethod?: string
+) {
   if (!shippingAddressId) {
     throw ApiError.badRequest("Please select a delivery address before paying.");
   }
@@ -39,7 +43,7 @@ async function resolveShippingCharge(userId: number | bigint, shippingAddressId?
   if (!address) {
     throw ApiError.badRequest("Shipping address not found or does not belong to customer");
   }
-  return getShippingCharge(address.state);
+  return getShippingCharge(address.state, deliveryMethod);
 }
 
 export const razorpayService = {
@@ -69,7 +73,11 @@ export const razorpayService = {
       }
 
       const payableBeforeShipping = cart.total;
-      const shippingCharge = await resolveShippingCharge(userId, input.shippingAddressId);
+      const shippingCharge = await resolveShippingCharge(
+        userId,
+        input.shippingAddressId,
+        input.deliveryMethod
+      );
       const payableAmount = payableBeforeShipping + shippingCharge;
       if (payableAmount <= 0) {
         throw ApiError.badRequest("Invalid cart payable amount.");
@@ -241,6 +249,7 @@ export const razorpayService = {
         shippingAddressId: input.shippingAddressId,
         billingAddressId: input.billingAddressId || input.shippingAddressId,
         notes: input.notes,
+        deliveryMethod: input.deliveryMethod,
         paymentMethod: "CARD",
         paymentDetails: {
           gateway: "RAZORPAY",
@@ -508,7 +517,12 @@ export const razorpayService = {
    */
   async initiateRedirectPayment(
     sessionUserId: string,
-    input: { shippingAddressId: string; billingAddressId?: string; notes?: string },
+    input: {
+      shippingAddressId: string;
+      billingAddressId?: string;
+      notes?: string;
+      deliveryMethod?: "standard" | "express";
+    },
     request?: NextRequest
   ): Promise<{ paymentUrl: string; token: string }> {
     const user = await userRepository.findById(sessionUserId);
@@ -524,7 +538,11 @@ export const razorpayService = {
       throw ApiError.badRequest("Your cart is empty. Please add items before checking out.");
 
     const payableBeforeShipping = cart.total;
-    const shippingCharge = await resolveShippingCharge(userId, input.shippingAddressId);
+    const shippingCharge = await resolveShippingCharge(
+      userId,
+      input.shippingAddressId,
+      input.deliveryMethod
+    );
     const payableAmount = payableBeforeShipping + shippingCharge;
     if (payableAmount <= 0) throw ApiError.badRequest("Invalid cart amount.");
 
@@ -542,6 +560,7 @@ export const razorpayService = {
           userId: String(userId),
           checkoutType: "redirect",
           shippingAddressId: input.shippingAddressId,
+          deliveryMethod: input.deliveryMethod || "standard",
         },
       });
     } catch (err: any) {
@@ -557,6 +576,9 @@ export const razorpayService = {
     // this browser's cookies, so the referral active right now must be frozen
     // onto the token and carried through to order creation at verify time.
     const referral = await referralService.resolveForOrder(BigInt(userId), request);
+    const encodedNotes = input.deliveryMethod === "express"
+      ? `[DELIVERY:express] ${input.notes || ""}`.trim()
+      : input.notes;
 
     await paymentRepository.createPaymentToken({
       token,
@@ -564,7 +586,7 @@ export const razorpayService = {
       internalOrderRef: "cart",
       shippingAddressId: input.shippingAddressId,
       billingAddressId: input.billingAddressId,
-      notes: input.notes,
+      notes: encodedNotes,
       referralCode: referral?.referralCode ?? null,
       amount: payableAmount,
       currency: "INR",
@@ -631,13 +653,19 @@ export const razorpayService = {
       : null;
     const validReferral = referral && referral.id !== tokenData.userId ? referral : null;
 
+    const rawNotes = tokenData.notes || "";
+    const isExpress = rawNotes.includes("[DELIVERY:express]");
+    const cleanNotes = rawNotes.replace(/\[DELIVERY:(express|standard)\]\s*/g, "").trim() || undefined;
+    const deliveryMethod: "standard" | "express" = isExpress ? "express" : "standard";
+
     // 5. Create internal order — only now, after verified payment
     const createdOrder = await orderService.createCustomerOrder(
       sessionUserId,
       {
         shippingAddressId: tokenData.shippingAddressId,
         billingAddressId: tokenData.billingAddressId || tokenData.shippingAddressId,
-        notes: tokenData.notes || undefined,
+        notes: cleanNotes,
+        deliveryMethod,
         paymentMethod: "CARD",
         paymentDetails: {
           gateway: "RAZORPAY",

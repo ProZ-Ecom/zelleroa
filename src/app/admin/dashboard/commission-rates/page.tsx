@@ -5,6 +5,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Loader2, Trash2 } from "lucide-react";
 import { apiClient } from "@/lib/api/api-client";
 import { toast } from "@/components/ui/Toast";
+import { Select } from "@/components/ui/select";
 import { PageContainer } from "@/components/admin/PageContainer";
 import { errorMessage, useAdminObject } from "@/features/agents/hooks/use-admin-agents";
 import { Panel, SimpleTable, StatusBadge, TableSkeleton, dateOnly, fieldCls } from "@/features/agents/components/shared";
@@ -107,33 +108,38 @@ export default function CommissionRatesPage() {
           <Panel title="Add or update a rate">
             <form onSubmit={saveRate} className="flex flex-col gap-3 p-4 sm:p-5" noValidate>
               {formError && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{formError}</p>}
-              <label className="flex flex-col gap-1 text-xs font-medium text-neutral-600">
-                Applies to
-                <select
-                  className={fieldCls}
+              <div className="flex flex-col gap-1 text-xs font-medium text-neutral-600">
+                <span>Applies to</span>
+                <Select
                   value={scope}
-                  onChange={(e) => {
-                    setScope(e.target.value as typeof scope);
+                  onValueChange={(val) => {
+                    setScope(val as typeof scope);
                     setTargetId("");
                   }}
-                >
-                  <option value="category">A category</option>
-                  <option value="product">A single product</option>
-                  <option value="global">Everything (default rate)</option>
-                </select>
-              </label>
+                  searchable={false}
+                  options={[
+                    { value: "category", label: "A category" },
+                    { value: "product", label: "A single product" },
+                    { value: "global", label: "Everything (default rate)" },
+                  ]}
+                />
+              </div>
               {scope !== "global" && (
-                <label className="flex flex-col gap-1 text-xs font-medium text-neutral-600">
-                  {scope === "category" ? "Category" : "Product"}
-                  <select className={fieldCls} value={targetId} onChange={(e) => setTargetId(e.target.value)}>
-                    <option value="">Select…</option>
-                    {(scope === "category" ? targets.data?.categories : targets.data?.products)?.map((t) => (
-                      <option key={t.id} value={t.id}>
-                        {t.name}
-                      </option>
-                    ))}
-                  </select>
-                </label>
+                <div className="flex flex-col gap-1 text-xs font-medium text-neutral-600">
+                  <span>{scope === "category" ? "Category" : "Product"}</span>
+                  <Select
+                    value={targetId}
+                    placeholder={`Select ${scope === "category" ? "category" : "product"}…`}
+                    onValueChange={(val) => setTargetId(val)}
+                    options={[
+                      { value: "", label: "Select…" },
+                      ...((scope === "category" ? targets.data?.categories : targets.data?.products) ?? []).map((t) => ({
+                        value: t.id,
+                        label: t.name,
+                      })),
+                    ]}
+                  />
+                </div>
               )}
               <label className="flex flex-col gap-1 text-xs font-medium text-neutral-600">
                 Commission %

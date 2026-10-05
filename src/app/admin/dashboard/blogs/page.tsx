@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { toast } from "@/components/ui/Toast";
 import { useBlogs, useCreateBlog, useUpdateBlog, useDeleteBlog } from "@/features/blogs/hooks";
 import { DataTable } from "@/components/admin/data-table/DataTable";
 import { AdminPageHeader, AdminContent } from "@/components/admin/AdminPageHeader";
@@ -11,6 +12,7 @@ import { AdminTableSkeleton } from "@/components/admin/AdminTableSkeleton";
 import { ErrorState } from "@/components/ui/error-state";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Select } from "@/components/ui/select";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { FormModal } from "@/components/common/FormModal";
 import { Plus, Pencil, Trash2 } from "lucide-react";
@@ -45,6 +47,7 @@ export default function AdminBlogsPage() {
     register,
     handleSubmit,
     watch,
+    setValue,
     reset,
     formState: { errors },
   } = useForm<CreateBlogSchemaInput>({
@@ -78,24 +81,25 @@ export default function AdminBlogsPage() {
     }
   }, [editingBlog, reset]);
 
-  const onSubmit = (formData: CreateBlogSchemaInput) => {
+  const onSubmit = async (formData: CreateBlogSchemaInput) => {
     if (editingBlog) {
-      updateMutation.mutate(
-        { id: editingBlog.id, data: formData },
-        {
-          onSuccess: () => {
-            setModalOpen(false);
-            setEditingBlog(null);
-          },
-        }
-      );
+      try {
+        await updateMutation.mutateAsync({ id: editingBlog.id, data: formData });
+        toast.success("Blog updated", `"${formData.title}" was saved successfully.`);
+        setModalOpen(false);
+        setEditingBlog(null);
+      } catch (err: any) {
+        toast.error("Failed to update blog", err?.message || "Please try again.");
+      }
     } else {
-      createMutation.mutate(formData, {
-        onSuccess: () => {
-          setModalOpen(false);
-          reset();
-        },
-      });
+      try {
+        await createMutation.mutateAsync(formData);
+        toast.success("Blog created", `"${formData.title}" was created successfully.`);
+        setModalOpen(false);
+        reset();
+      } catch (err: any) {
+        toast.error("Failed to create blog", err?.message || "Please try again.");
+      }
     }
   };
 
@@ -284,14 +288,16 @@ export default function AdminBlogsPage() {
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
-            <select
-              {...register("status")}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
-            >
-              <option value="DRAFT">Draft</option>
-              <option value="PUBLISHED">Published</option>
-              <option value="ARCHIVED">Archived</option>
-            </select>
+            <Select
+              value={watch("status")}
+              onValueChange={(val) => setValue("status", val as "DRAFT" | "PUBLISHED" | "ARCHIVED", { shouldValidate: true })}
+              searchable={false}
+              options={[
+                { value: "DRAFT", label: "Draft" },
+                { value: "PUBLISHED", label: "Published" },
+                { value: "ARCHIVED", label: "Archived" },
+              ]}
+            />
           </div>
 
           <div>
@@ -318,11 +324,15 @@ export default function AdminBlogsPage() {
       <ConfirmDialog
         open={!!deleteId}
         onClose={() => setDeleteId(null)}
-        onConfirm={() => {
+        onConfirm={async () => {
           if (deleteId) {
-            deleteMutation.mutate(deleteId, {
-              onSuccess: () => setDeleteId(null),
-            });
+            try {
+              await deleteMutation.mutateAsync(deleteId);
+              toast.success("Blog deleted", "The blog post was removed successfully.");
+              setDeleteId(null);
+            } catch (err: any) {
+              toast.error("Failed to delete blog", err?.message || "Please try again.");
+            }
           }
         }}
         title="Delete Blog"

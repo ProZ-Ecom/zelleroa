@@ -43,8 +43,8 @@ async function getAdminInternalId(email?: string): Promise<bigint | null> {
 
 async function validateProductAndVariant(productUuid: string, variantUuid: string) {
   const product = await productRepository.findByUuid(productUuid);
-  if (!product || !product.isActive || product.deleted_at !== null) {
-    throw ApiError.notFound("Product not found or inactive");
+  if (!product || product.deleted_at !== null) {
+    throw ApiError.notFound("Product not found");
   }
 
   const variant = await variantRepository.findByUuid(variantUuid);

@@ -168,8 +168,14 @@ async function fetchApi<T>(
   try {
     data = await response.json();
   } catch {
+    const statusMsg =
+      response.status === 404
+        ? "Resource not found (404). It may have been deleted or the page is outdated."
+        : response.status >= 500
+        ? "Internal server error. Please check server logs."
+        : "Invalid response from server.";
     throw new ApiClientError(
-      "Invalid response from server.",
+      statusMsg,
       response.status
     );
   }

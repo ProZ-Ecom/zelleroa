@@ -9,8 +9,9 @@ export const indiaPhoneSchema = mobileStoredOrInputField;
 export const pincodeSchema = z
   .string()
   .trim()
+  .min(1, "PIN Code is required")
   .refine((val) => /^\d{6}$/.test(val), {
-    message: "PIN code must be a valid 6-digit Indian postal code (e.g. 637001)",
+    message: "Please enter a valid 6-digit PIN code (e.g. 637001)",
   });
 
 const countrySchema = z
@@ -31,7 +32,7 @@ export const createCustomerAddressSchema = z
       .nullable(),
     addressType: z
       .enum(ADDRESS_TYPE_ENUM, {
-        message: "addressType must be either 'shipping' or 'billing'",
+        message: "Address Type must be either 'shipping' or 'billing'",
       })
       .default("shipping")
       .optional(),
@@ -45,12 +46,12 @@ export const createCustomerAddressSchema = z
     addressLine1: z
       .string()
       .trim()
-      .min(1, "Address line 1 is required")
-      .max(255, "Address line 1 cannot exceed 255 characters"),
+      .min(1, "Address Line 1 is required")
+      .max(255, "Address Line 1 cannot exceed 255 characters"),
     addressLine2: z
       .string()
       .trim()
-      .max(255, "Address line 2 cannot exceed 255 characters")
+      .max(255, "Address Line 2 cannot exceed 255 characters")
       .optional()
       .nullable(),
     landmark: z
@@ -97,7 +98,7 @@ export const updateCustomerAddressSchema = z
       .nullable(),
     addressType: z
       .enum(ADDRESS_TYPE_ENUM, {
-        message: "addressType must be either 'shipping' or 'billing'",
+        message: "Address Type must be either 'shipping' or 'billing'",
       })
       .optional(),
     fullName: z
@@ -111,13 +112,13 @@ export const updateCustomerAddressSchema = z
     addressLine1: z
       .string()
       .trim()
-      .min(1, "Address line 1 cannot be empty")
-      .max(255, "Address line 1 cannot exceed 255 characters")
+      .min(1, "Address Line 1 is required")
+      .max(255, "Address Line 1 cannot exceed 255 characters")
       .optional(),
     addressLine2: z
       .string()
       .trim()
-      .max(255, "Address line 2 cannot exceed 255 characters")
+      .max(255, "Address Line 2 cannot exceed 255 characters")
       .optional()
       .nullable(),
     landmark: z
@@ -129,13 +130,13 @@ export const updateCustomerAddressSchema = z
     city: z
       .string()
       .trim()
-      .min(1, "City cannot be empty")
+      .min(1, "City is required")
       .max(100, "City cannot exceed 100 characters")
       .optional(),
     state: z
       .string()
       .trim()
-      .min(1, "State cannot be empty")
+      .min(1, "State is required")
       .max(100, "State cannot exceed 100 characters")
       .optional(),
     pincode: pincodeSchema.optional(),

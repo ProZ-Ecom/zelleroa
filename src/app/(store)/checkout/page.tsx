@@ -46,6 +46,10 @@ import {
   DELIVERY_ESTIMATE,
   FREE_DELIVERY_STATE,
   OTHER_STATE_DELIVERY_CHARGE,
+  STANDARD_DELIVERY_CHARGE,
+  EXPRESS_DELIVERY_CHARGE,
+  STANDARD_DELIVERY_ESTIMATE,
+  EXPRESS_DELIVERY_ESTIMATE,
   getShippingCharge,
   isFreeDeliveryState,
 } from "@/features/orders/shipping";
@@ -112,6 +116,7 @@ export default function CheckoutPage() {
 
   // Selected state
   const [selectedAddressId, setSelectedAddressId] = useState<string>("");
+  const [deliveryMethod, setDeliveryMethod] = useState<"standard" | "express">("standard");
   const [paymentMethod, setPaymentMethod] = useState<"CARD" | "UPI" | "COD">(
     "CARD"
   );
@@ -160,13 +165,13 @@ export default function CheckoutPage() {
   // Pricing calculations
   const items = cart?.items || [];
   const subtotal = Number(cart?.subtotal || 0);
-  // Delivery is priced by destination state: guests by the form, customers by the chosen address.
+  // Delivery is priced by chosen delivery method (Standard = ₹49, Express = ₹99)
   const deliveryState = isGuest
     ? newAddressForm.state
     : addresses.find((a) => a.id === effectiveAddressId)?.state;
   const hasDeliveryState = !!deliveryState?.trim();
-  const isFreeDelivery = isFreeDeliveryState(deliveryState);
-  const shippingCharge = hasDeliveryState ? getShippingCharge(deliveryState) : 0;
+  const isFreeDelivery = false;
+  const shippingCharge = getShippingCharge(deliveryState, deliveryMethod);
   const grandTotal = subtotal + shippingCharge;
 
   // Authentication gate
@@ -312,6 +317,7 @@ export default function CheckoutPage() {
         shippingAddressId: shippingId,
         billingAddressId: shippingId,
         notes: orderNotes.trim() || undefined,
+        deliveryMethod,
       });
 
       // Redirect browser to payment app
@@ -370,6 +376,7 @@ export default function CheckoutPage() {
         pincode: newAddressForm.pincode.trim(),
         notes: orderNotes.trim() || undefined,
         paymentMethod: "COD",
+        deliveryMethod,
       });
 
       const orderId = (order as any)?.id;
@@ -417,6 +424,7 @@ export default function CheckoutPage() {
           shippingAddressId: effectiveAddressId,
           paymentMethod: "COD",
           notes: orderNotes.trim() || undefined,
+          deliveryMethod,
           paymentDetails: {
             method: "COD",
             status: "pending",
@@ -804,31 +812,105 @@ export default function CheckoutPage() {
               </h2>
             </div>
 
-            <div className="rounded-xl border border-theme-primary bg-theme-surface-alt/70 shadow-xs ring-1 ring-theme-primary p-4">
-              <div className="flex items-center justify-between mb-1.5">
-                <span className="text-xs font-bold text-theme-text-primary">
-                  Standard Delivery
-                </span>
-                <span className="text-xs font-extrabold text-theme-primary">
-                  {!hasDeliveryState
-                    ? "—"
-                    : isFreeDelivery
-                      ? "FREE"
-                      : formatPrice(OTHER_STATE_DELIVERY_CHARGE)}
-                </span>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+              {/* Standard Delivery Option */}
+              <div
+                role="button"
+                tabIndex={0}
+                onClick={() => setDeliveryMethod("standard")}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    setDeliveryMethod("standard");
+                  }
+                }}
+                className={`relative rounded-xl border p-4 text-left cursor-pointer transition-all duration-200 focus:outline-none select-none ${
+                  deliveryMethod === "standard"
+                    ? "border-theme-primary bg-theme-surface-alt/70 shadow-xs ring-2 ring-theme-primary/30"
+                    : "border-theme-border bg-theme-surface hover:border-theme-border-strong hover:bg-theme-surface-alt/40"
+                }`}
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <div
+                      className={`h-4 w-4 rounded-full border flex items-center justify-center transition-colors ${
+                        deliveryMethod === "standard"
+                          ? "border-theme-primary bg-theme-primary"
+                          : "border-theme-border-strong bg-white"
+                      }`}
+                    >
+                      {deliveryMethod === "standard" && (
+                        <div className="h-1.5 w-1.5 rounded-full bg-white" />
+                      )}
+                    </div>
+                    <span className="text-xs font-bold text-theme-text-primary">
+                      Standard Delivery
+                    </span>
+                  </div>
+                  <span className="text-xs font-extrabold text-theme-primary">
+                    {formatPrice(STANDARD_DELIVERY_CHARGE)}
+                  </span>
+                </div>
+                <p className="text-[11px] text-theme-text-subtle flex items-center gap-1 mb-1">
+                  <Clock className="h-3 w-3 text-theme-secondary shrink-0" />
+                  <span>Estimated: {STANDARD_DELIVERY_ESTIMATE}</span>
+                </p>
+                <p className="text-[11px] text-theme-text-muted">
+                  Standard doorstep delivery across India.
+                </p>
               </div>
-              <p className="text-[11px] text-theme-text-subtle flex items-center gap-1">
-                <Clock className="h-3 w-3" />
-                Estimated: {DELIVERY_ESTIMATE}
-              </p>
-              <p className="mt-2 text-[11px] text-theme-text-muted">
-                Free delivery within {FREE_DELIVERY_STATE}. {formatPrice(OTHER_STATE_DELIVERY_CHARGE)} for all other states.
-              </p>
-              {hasDeliveryState && isFreeDelivery && (
-                <span className="mt-2 inline-block rounded bg-theme-status-del-bg px-2 py-0.5 text-[10px] font-bold text-theme-status-del-fg">
-                  Free Delivery in {FREE_DELIVERY_STATE}!
-                </span>
-              )}
+
+              {/* Express Delivery Option */}
+              <div
+                role="button"
+                tabIndex={0}
+                onClick={() => setDeliveryMethod("express")}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    setDeliveryMethod("express");
+                  }
+                }}
+                className={`relative rounded-xl border p-4 text-left cursor-pointer transition-all duration-200 focus:outline-none select-none ${
+                  deliveryMethod === "express"
+                    ? "border-theme-primary bg-theme-surface-alt/70 shadow-xs ring-2 ring-theme-primary/30"
+                    : "border-theme-border bg-theme-surface hover:border-theme-border-strong hover:bg-theme-surface-alt/40"
+                }`}
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <div
+                      className={`h-4 w-4 rounded-full border flex items-center justify-center transition-colors ${
+                        deliveryMethod === "express"
+                          ? "border-theme-primary bg-theme-primary"
+                          : "border-theme-border-strong bg-white"
+                      }`}
+                    >
+                      {deliveryMethod === "express" && (
+                        <div className="h-1.5 w-1.5 rounded-full bg-white" />
+                      )}
+                    </div>
+                    <span className="text-xs font-bold text-theme-text-primary">
+                      Express Delivery
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[9px] font-extrabold uppercase px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 border border-amber-200">
+                      Fastest
+                    </span>
+                    <span className="text-xs font-extrabold text-theme-primary">
+                      {formatPrice(EXPRESS_DELIVERY_CHARGE)}
+                    </span>
+                  </div>
+                </div>
+                <p className="text-[11px] text-theme-text-subtle flex items-center gap-1 mb-1">
+                  <Clock className="h-3 w-3 text-amber-600 shrink-0" />
+                  <span>Estimated: {EXPRESS_DELIVERY_ESTIMATE}</span>
+                </p>
+                <p className="text-[11px] text-theme-text-muted">
+                  Priority express delivery directly to your doorstep.
+                </p>
+              </div>
             </div>
           </div>
 
@@ -1032,20 +1114,15 @@ export default function CheckoutPage() {
                 </div>
 
                 <div className="flex justify-between text-theme-text-subtle items-center">
-                  <span>Shipping & Handling</span>
-                  {!hasDeliveryState ? (
-                    <span className="text-[11px] text-theme-text-muted">
-                      Select an address
+                  <div className="flex items-center gap-1.5">
+                    <span>Shipping & Handling</span>
+                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-theme-surface-alt border border-theme-border text-theme-text-muted">
+                      {deliveryMethod === "express" ? "Express" : "Standard"}
                     </span>
-                  ) : shippingCharge === 0 ? (
-                    <span className="rounded bg-theme-status-del-bg px-2 py-0.5 text-[10px] font-bold text-theme-status-del-fg">
-                      FREE
-                    </span>
-                  ) : (
-                    <span className="font-semibold text-theme-text-primary">
-                      {formatPrice(shippingCharge)}
-                    </span>
-                  )}
+                  </div>
+                  <span className="font-semibold text-theme-text-primary">
+                    {formatPrice(shippingCharge)}
+                  </span>
                 </div>
 
                 <div className="border-t border-theme-border pt-3 flex justify-between items-baseline">

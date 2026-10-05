@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Inbox } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Select } from "@/components/ui/select";
 import { COMMISSION_STATUS_LABELS, PAYOUT_STATUS_LABELS } from "../constants";
 
 const STATUS_STYLES: Record<string, string> = {
@@ -276,21 +277,27 @@ export function FilterForm({
   return (
     <form method="get" action={action} className="flex flex-wrap items-end gap-3 px-4 py-3 sm:px-5">
       {fields.map((f) => (
-        <label key={f.name} className="flex min-w-[9rem] flex-1 flex-col gap-1 text-xs font-medium text-neutral-600 sm:flex-none">
-          {f.label}
+        <div key={f.name} className="flex min-w-[9rem] flex-1 flex-col gap-1 text-xs font-medium text-neutral-600 sm:flex-none">
+          <span>{f.label}</span>
           {f.type === "select" ? (
-            <select name={f.name} defaultValue={values[f.name] ?? ""} className={fieldCls}>
-              <option value="">All</option>
-              {f.options?.map((o) => (
-                <option key={o.value} value={o.value}>
-                  {o.label}
-                </option>
-              ))}
-            </select>
+            <div className="w-44">
+              <Select
+                className="h-10 rounded-xl"
+                name={f.name}
+                defaultValue={values[f.name] ?? ""}
+                searchable={false}
+                portal={true}
+                options={[
+                  { value: "", label: "All" },
+                  ...(f.options ?? []),
+                ]}
+                aria-label={f.label}
+              />
+            </div>
           ) : (
             <input type={f.type ?? "text"} name={f.name} defaultValue={values[f.name] ?? ""} className={fieldCls} />
           )}
-        </label>
+        </div>
       ))}
       <div className="flex gap-2">
         <button type="submit" className="h-10 rounded-xl bg-neutral-900 px-4 text-sm font-semibold text-white hover:bg-neutral-800">

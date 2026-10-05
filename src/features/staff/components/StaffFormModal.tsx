@@ -19,6 +19,7 @@ const staffSchema = z.object({
     .string({ message: "Name is required" })
     .trim()
     .min(1, "Name is required")
+    .regex(/^[a-zA-Z\s]+$/, "Name can only contain alphabetic characters and spaces")
     .max(150, "Name cannot exceed 150 characters"),
   email: emailField,
   phone: z
@@ -177,8 +178,28 @@ export function StaffFormModal({
         });
         onClose();
       }
-    } catch {
-      // Error is handled by mutation toast
+    } catch (err: any) {
+      const responseData = err?.response?.data;
+      if (responseData?.errors && Array.isArray(responseData.errors)) {
+        for (const item of responseData.errors) {
+          const field = item.field || item.path?.[0];
+          if (field && ["name", "email", "phone", "password"].includes(field)) {
+            setError(field as keyof StaffFormValues, {
+              type: "server",
+              message: item.message,
+            });
+          }
+        }
+      } else if (responseData?.error || err?.message) {
+        const errorMsg = responseData?.error || err?.message || "";
+        if (/email/i.test(errorMsg)) {
+          setError("email", { type: "server", message: errorMsg });
+        } else if (/phone/i.test(errorMsg)) {
+          setError("phone", { type: "server", message: errorMsg });
+        } else if (/name/i.test(errorMsg)) {
+          setError("name", { type: "server", message: errorMsg });
+        }
+      }
     }
   };
 

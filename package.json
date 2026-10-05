@@ -11,10 +11,12 @@
     "db:push": "node scripts/db-sync.cjs",
     "db:sync": "node scripts/db-sync.cjs",
     "db:migrate": "prisma migrate dev",
-    "db:seed": "node --experimental-strip-types prisma/seed.ts",
+    "db:seed": "node --experimental-strip-types scripts/seed-all-zellora.ts",
+    "db:seed:basic": "node --experimental-strip-types prisma/seed.ts",
     "db:seed:orders": "node --experimental-strip-types scripts/seed-test-orders.ts",
     "db:seed:categories": "node --experimental-strip-types scripts/seed-zellora-categories.ts",
     "db:studio": "prisma studio",
+    "db:clear-data": "node --experimental-strip-types scripts/clear-store-data.ts",
     "db:retire-deleted": "node --experimental-strip-types scripts/retire-deleted-unique-values.ts"
   },
   "dependencies": {

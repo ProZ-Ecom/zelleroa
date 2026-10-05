@@ -4,6 +4,7 @@ import React, { useState, useMemo } from "react";
 import { FormModal } from "@/components/common/FormModal";
 import { CategoryForm } from "@/features/categories/components/CategoryForm";
 import Image from "next/image";
+import { toast } from "@/components/ui/Toast";
 import {
   useCategories,
   useDeleteCategory,
@@ -164,11 +165,16 @@ export default function AdminCategoriesPage() {
       <ConfirmDialog
         open={!!deleteId}
         onClose={() => setDeleteId(null)}
-        onConfirm={() => {
+        onConfirm={async () => {
           if (deleteId) {
-            deleteMutation.mutate(deleteId, {
-              onSuccess: () => setDeleteId(null),
-            });
+            try {
+              await deleteMutation.mutateAsync(deleteId);
+              toast.success("Category deleted", "The category was removed successfully.");
+              setDeleteId(null);
+              refetch();
+            } catch (err: any) {
+              toast.error("Failed to delete category", err?.message || "Please try again.");
+            }
           }
         }}
         title="Delete Category"
@@ -188,19 +194,23 @@ export default function AdminCategoriesPage() {
           isLoading={createMutation.isPending}
           submitLabel="Create Category"
           onSubmit={async (data) => {
-            const payload = {
-              name: data.name,
-              slug: data.slug,
-              description: data.description,
-              icon: data.image,
-              sortOrder: Number(data.sortOrder),
-              parentId: null,
-            };
+            try {
+              const payload = {
+                name: data.name,
+                slug: data.slug,
+                description: data.description,
+                icon: data.image,
+                sortOrder: Number(data.sortOrder),
+                parentId: null,
+              };
 
-            await createMutation.mutateAsync(payload);
-
-            setIsCreateOpen(false);
-            refetch();
+              await createMutation.mutateAsync(payload);
+              toast.success("Category created", `"${data.name}" was added successfully.`);
+              setIsCreateOpen(false);
+              refetch();
+            } catch (err: any) {
+              toast.error("Failed to create category", err?.message || "Please try again.");
+            }
           }}
         />
       </FormModal>
@@ -228,23 +238,27 @@ export default function AdminCategoriesPage() {
             isLoading={updateMutation.isPending}
             submitLabel="Update Category"
             onSubmit={async (data) => {
-              const payload = {
-                name: data.name,
-                slug: data.slug,
-                description: data.description,
-                icon: data.image,
-                sortOrder: Number(data.sortOrder),
-                parentId: null,
-              };
+              try {
+                const payload = {
+                  name: data.name,
+                  slug: data.slug,
+                  description: data.description,
+                  icon: data.image,
+                  sortOrder: Number(data.sortOrder),
+                  parentId: null,
+                };
 
-              await updateMutation.mutateAsync({
-                id: selectedCategory.id,
-                data: payload,
-              });
-
-              setIsEditOpen(false);
-              setSelectedCategory(null);
-              refetch();
+                await updateMutation.mutateAsync({
+                  id: selectedCategory.id,
+                  data: payload,
+                });
+                toast.success("Category updated", `"${data.name}" was saved successfully.`);
+                setIsEditOpen(false);
+                setSelectedCategory(null);
+                refetch();
+              } catch (err: any) {
+                toast.error("Failed to update category", err?.message || "Please try again.");
+              }
             }}
           />
         )}

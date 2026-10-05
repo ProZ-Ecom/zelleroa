@@ -20,27 +20,34 @@ function FormRichText({ name, label, description, placeholder, required }: FormR
     <Controller
       name={name}
       control={control}
-      render={({ field, fieldState }) => (
-        <div className="space-y-2">
-          {label && (
-            <Label htmlFor={name}>
-              {label}
-              {required && <span className="text-error-600 font-bold ml-1">*</span>}
-            </Label>
-          )}
-          <RichTextEditor
-            id={name}
-            value={field.value ?? ""}
-            onChange={field.onChange}
-            onBlur={field.onBlur}
-            placeholder={placeholder}
-            error={fieldState.error?.message}
-          />
-          {description && !fieldState.error && (
-            <p className="text-xs text-muted-foreground">{description}</p>
-          )}
-        </div>
-      )}
+      render={({ field, fieldState, formState }) => {
+        const hasError =
+          (fieldState.isTouched || formState.isSubmitted) &&
+          Boolean(fieldState.error);
+        const errorMessage = hasError ? fieldState.error?.message : undefined;
+
+        return (
+          <div className="space-y-2">
+            {label && (
+              <Label htmlFor={name}>
+                {label}
+                {required && <span className="text-error-600 font-bold ml-1">*</span>}
+              </Label>
+            )}
+            <RichTextEditor
+              id={name}
+              value={field.value ?? ""}
+              onChange={field.onChange}
+              onBlur={field.onBlur}
+              placeholder={placeholder}
+              error={errorMessage}
+            />
+            {description && !hasError && (
+              <p className="text-xs text-muted-foreground">{description}</p>
+            )}
+          </div>
+        );
+      }}
     />
   );
 }

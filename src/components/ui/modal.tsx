@@ -48,7 +48,7 @@ function Modal({ open, isOpen, onClose, children, title, description, className 
       {/* Modal Dialog Card */}
       <div
         className={cn(
-          "relative z-10 w-full max-w-md rounded-2xl border border-neutral-200 bg-white p-6 shadow-2xl animate-in zoom-in-95 duration-200 my-auto",
+          "relative z-10 w-full max-w-md rounded-2xl border border-neutral-200 bg-white p-6 shadow-2xl animate-in zoom-in-95 duration-200 transition-all duration-200 ease-out my-auto",
           className
         )}
         onClick={(e) => e.stopPropagation()}

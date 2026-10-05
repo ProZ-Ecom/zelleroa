@@ -62,11 +62,13 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
             className={cn(
               "w-full border border-theme-border bg-theme-surface text-theme-text-primary placeholder:text-theme-text-muted transition-all outline-none",
               sizeClasses[size],
-              "focus:outline-none focus:border-theme-primary focus:ring-2 focus:ring-theme-primary/20 hover:border-theme-border-accent",
+              "focus:outline-none hover:border-theme-border-accent",
+              error
+                ? "border-red-500 focus:border-red-500 focus:ring-2 focus:ring-red-500/20 ring-1 ring-red-500/20"
+                : "focus:border-theme-primary focus:ring-2 focus:ring-theme-primary/20",
               leftIcon && "pl-10",
               inputPrefix && "pl-20",
               (rightIcon || isPassword) && "pr-11",
-              error && "border-theme-status-can-fg focus:border-theme-status-can-fg focus:ring-theme-status-can-fg/20",
               className
             )}
             {...props}

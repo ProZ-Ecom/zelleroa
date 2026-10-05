@@ -31,6 +31,7 @@ export const customerCreateOrderSchema = z
     paymentMethod: z.enum(["CARD", "COD", "UPI"]).default("CARD").optional(),
     paymentDetails: z.record(z.string(), z.any()).optional(),
     couponCode: z.string().trim().max(50).optional(),
+    deliveryMethod: z.enum(["standard", "express"]).default("standard").optional(),
   })
   .strict();
 
@@ -60,6 +61,7 @@ export const guestCreateOrderSchema = z
     paymentMethod: z.enum(["COD"]).default("COD").optional(),
     paymentDetails: z.record(z.string(), z.any()).optional(),
     couponCode: z.string().trim().max(50).optional(),
+    deliveryMethod: z.enum(["standard", "express"]).default("standard").optional(),
   })
   .strict();
 

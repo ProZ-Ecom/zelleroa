@@ -63,7 +63,14 @@ const offerBaseSchema = z.object({
   code: optionalText(50),
   level: z.enum(OFFER_LEVELS, { message: "Select an offer level" }),
   type: z.enum(OFFER_TYPES, { message: "Select an offer type" }),
-  value: z.coerce.number().min(0, "Discount value cannot be negative"),
+  value: z
+    .union([z.number(), z.string(), z.null(), z.undefined()])
+    .optional()
+    .transform((v) => {
+      if (v === "" || v === null || v === undefined) return null;
+      const n = typeof v === "string" ? Number(v) : v;
+      return Number.isFinite(n) ? n : null;
+    }),
   buyQuantity: optionalNumber,
   getQuantity: optionalNumber,
   minQuantity: z.coerce
@@ -129,14 +136,19 @@ function applyOfferRules<T extends Partial<OfferBaseShape>>(
 
   // Offer type rules
   if (type === "percentage") {
-    if (value !== undefined && value <= 0) {
+    if (value == null) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["value"],
+        message: "Discount percentage is required",
+      });
+    } else if (value <= 0) {
       ctx.addIssue({
         code: "custom",
         path: ["value"],
         message: "Discount percentage must be greater than 0",
       });
-    }
-    if (value !== undefined && value > 100) {
+    } else if (value > 100) {
       ctx.addIssue({
         code: "custom",
         path: ["value"],
@@ -145,15 +157,26 @@ function applyOfferRules<T extends Partial<OfferBaseShape>>(
     }
   }
 
-  if ((type === "flat" || type === "special_price") && value !== undefined && value <= 0) {
-    ctx.addIssue({
-      code: "custom",
-      path: ["value"],
-      message:
-        type === "flat"
-          ? "Discount amount must be greater than 0"
-          : "Special offer price must be greater than 0",
-    });
+  if (type === "flat" || type === "special_price") {
+    if (value == null) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["value"],
+        message:
+          type === "flat"
+            ? "Discount amount is required"
+            : "Special offer price is required",
+      });
+    } else if (value <= 0) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["value"],
+        message:
+          type === "flat"
+            ? "Discount amount must be greater than 0"
+            : "Special offer price must be greater than 0",
+      });
+    }
   }
 
   if (type === "bxgy") {

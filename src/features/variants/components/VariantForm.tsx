@@ -9,6 +9,7 @@ import type { UnitOption } from "../types";
 import { FormSelect } from "@/components/forms/form-select";
 import { FormCheckbox } from "@/components/forms/form-checkbox";
 import { FormSubmitButton } from "@/components/forms/form-submit-button";
+import { Select } from "@/components/ui/select";
 import { useConfiguredAttributesForProduct } from "@/features/attributes/hooks/use-attributes";
 import { useSizeChart } from "@/features/size-charts/hooks/use-size-chart";
 import type { SizeChartGender } from "@/features/size-charts/types";
@@ -16,25 +17,31 @@ import type { SizeChartGender } from "@/features/size-charts/types";
 // Item-level fields only. Unit + price combinations (sku, unit, base price)
 // are managed separately per (unit) via VariantUnitPriceList, since one item
 // can now be sold in multiple sizes at different prices.
-const variantFormSchema = z.object({
-  productId: z
-    .string()
-    .uuid("Invalid Product UUID format")
-    .optional(),
-  variantName: z
-    .string()
-    .trim()
-    .optional(),
-  slug: z
-    .string({ message: "Item code is required" })
-    .trim()
-    .min(1, "Item code cannot be empty")
-    .max(255, "Item code cannot exceed 255 characters"),
-  priceAdjustment: z.number().optional(),
-  isFeatured: z.boolean(),
-  isActive: z.boolean(),
-  attributeValueIds: z.array(z.string().uuid()).optional(),
-});
+export const createVariantFormSchema = (fixedProductId?: string) =>
+  z.object({
+    productId: fixedProductId
+      ? z.string().optional()
+      : z
+          .string({ message: "Please select a product" })
+          .trim()
+          .min(1, "Please select a product")
+          .uuid("Please select a valid product"),
+    variantName: z
+      .string()
+      .trim()
+      .optional(),
+    slug: z
+      .string({ message: "Item code is required" })
+      .trim()
+      .min(1, "Item code cannot be empty")
+      .max(255, "Item code cannot exceed 255 characters"),
+    priceAdjustment: z.number().optional(),
+    isFeatured: z.boolean(),
+    isActive: z.boolean(),
+    attributeValueIds: z.array(z.string().uuid("Invalid attribute value format")).optional(),
+  });
+
+export const variantFormSchema = createVariantFormSchema();
 
 export type VariantFormValues = z.infer<typeof variantFormSchema>;
 
@@ -127,9 +134,14 @@ function VariantForm({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [showInfo]);
 
+  const schema = useMemo(
+    () => createVariantFormSchema(fixedProductId),
+    [fixedProductId]
+  );
+
   const methods = useForm<VariantFormValues>({
-    resolver: zodResolver(variantFormSchema),
-    mode: "onChange",
+    resolver: zodResolver(schema),
+    mode: "onSubmit",
     reValidateMode: "onChange",
     defaultValues: {
       productId: fixedProductId || initialData?.productId || "",
@@ -297,6 +309,7 @@ function VariantForm({
             placeholder="Select product"
             options={productOptions}
             required
+            expandContainer
           />
         )}
 
@@ -347,20 +360,23 @@ function VariantForm({
                             title={selectedValue?.colorHex || undefined}
                           />
                         )}
-                        <select
-                          value={selectedValueId}
-                          onChange={(e) =>
-                            handleAttributeValueChange(valueIdsForAttribute, e.target.value)
-                          }
-                          className="w-full h-10 rounded-lg border border-neutral-200 bg-white px-3 text-sm text-neutral-900 outline-none focus:border-secondary-600 focus:ring-2 focus:ring-secondary-600/20"
-                        >
-                          <option value="">Select {attribute.name}</option>
-                          {attribute.values.map((value) => (
-                            <option key={value.id} value={value.id}>
-                              {value.value}
-                            </option>
-                          ))}
-                        </select>
+                        <div className="w-full">
+                          <Select
+                            value={selectedValueId}
+                            onValueChange={(val) =>
+                              handleAttributeValueChange(valueIdsForAttribute, val)
+                            }
+                            placeholder={`Select ${attribute.name}`}
+                            options={[
+                              { value: "", label: `Select ${attribute.name}` },
+                              ...attribute.values.map((value) => ({
+                                value: value.id,
+                                label: value.value,
+                              })),
+                            ]}
+                            expandContainer
+                          />
+                        </div>
                       </div>
                     </div>
                   );

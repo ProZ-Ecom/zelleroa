@@ -25,6 +25,7 @@ import {
 import { StyleForm, type StyleFormValues } from "@/features/styles/components";
 import type { AdminStyleResponse } from "@/features/styles/types";
 import { toast } from "@/components/ui/Toast";
+import { cn } from "@/lib/utils";
 
 export default function AdminStylesPage() {
   const [search, setSearch] = useState("");
@@ -35,6 +36,7 @@ export default function AdminStylesPage() {
 
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [addProductUuid, setAddProductUuid] = useState("");
+  const [isProductSelectOpen, setIsProductSelectOpen] = useState(false);
   const [editingStyle, setEditingStyle] = useState<AdminStyleResponse | null>(null);
   const [deletingStyle, setDeletingStyle] = useState<AdminStyleResponse | null>(null);
 
@@ -265,22 +267,39 @@ export default function AdminStylesPage() {
         onClose={() => {
           setIsAddOpen(false);
           setAddProductUuid("");
+          setIsProductSelectOpen(false);
         }}
         title="Add Item"
         description="Create a new sellable Item under a Product"
         size="lg"
+        className={cn(
+          "transition-all duration-300 ease-out",
+          isProductSelectOpen && !addProductUuid && "min-h-[480px]"
+        )}
+        bodyClassName={cn(
+          "transition-all duration-300 ease-out",
+          isProductSelectOpen && !addProductUuid && "min-h-[380px] overflow-visible"
+        )}
       >
-        <div className="space-y-4">
+        <div
+          className={cn(
+            "space-y-4 transition-all duration-300",
+            isProductSelectOpen && !addProductUuid && "min-h-[340px]"
+          )}
+        >
           <div>
             <label className="block text-xs font-semibold text-[var(--color-neutral-800)] mb-1.5">
               Product <span className="text-red-500">*</span>
             </label>
             <Select
               value={addProductUuid}
-              onChange={(e) => setAddProductUuid(e.target.value)}
+              onValueChange={(val) => {
+                setAddProductUuid(val);
+                setIsProductSelectOpen(false);
+              }}
+              onOpenChange={setIsProductSelectOpen}
               options={productOptions}
               placeholder="Select a product"
-              className="h-10 rounded-lg"
             />
           </div>
 

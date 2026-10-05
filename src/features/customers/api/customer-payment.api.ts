@@ -58,6 +58,7 @@ export const customerPaymentApi = {
     shippingAddressId: string;
     billingAddressId?: string;
     notes?: string;
+    deliveryMethod?: "standard" | "express";
   }): Promise<InitiateRedirectResult> {
     const response = await apiClient.post<InitiateRedirectResult>(
       "/api/payment/initiate-redirect",

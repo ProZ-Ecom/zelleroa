@@ -151,8 +151,8 @@ export default function AdminStaffPage() {
               Active
             </span>
           ) : (
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-neutral-100 px-2.5 py-1 text-xs font-semibold text-neutral-600 border border-neutral-200">
-              <span className="h-1.5 w-1.5 rounded-full bg-neutral-400" />
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-red-50 px-2.5 py-1 text-xs font-semibold text-red-700 border border-red-200">
+              <span className="h-1.5 w-1.5 rounded-full bg-red-500" />
               Inactive
             </span>
           );
@@ -198,6 +198,12 @@ export default function AdminStaffPage() {
 
   return (
     <div className="flex flex-1 min-h-0 flex-col">
+      <AdminBreadcrumb
+        items={[
+          { label: "Team & Access", href: "/admin/dashboard/users" },
+          { label: "Staff" },
+        ]}
+      />
 
       <AdminPageHeader
         title="Staff Management"

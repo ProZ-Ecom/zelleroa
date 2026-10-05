@@ -7,6 +7,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Plus } from "lucide-react";
 import { apiClient } from "@/lib/api/api-client";
 import { toast } from "@/components/ui/Toast";
+import { Select } from "@/components/ui/select";
 import { PageContainer } from "@/components/admin/PageContainer";
 import type { AgentDto } from "@/features/agents/services/agent.service";
 import { errorMessage, useAdminList } from "@/features/agents/hooks/use-admin-agents";
@@ -62,21 +63,26 @@ export default function AdminAgentsPage() {
               Search
               <input className={fieldCls} value={draftSearch} onChange={(e) => setDraftSearch(e.target.value)} placeholder="Name, email, phone or AGT001" />
             </label>
-            <label className="flex min-w-[9rem] flex-1 flex-col gap-1 text-xs font-medium text-neutral-600 sm:flex-none">
-              Status
-              <select
-                className={fieldCls}
-                value={status}
-                onChange={(e) => {
-                  setStatus(e.target.value);
-                  setPage(1);
-                }}
-              >
-                <option value="">All</option>
-                <option value="active">Active</option>
-                <option value="inactive">Inactive</option>
-              </select>
-            </label>
+            <div className="flex min-w-[9rem] flex-1 flex-col gap-1 text-xs font-medium text-neutral-600 sm:flex-none">
+              <span>Status</span>
+              <div className="w-36">
+                <Select
+                  size="sm"
+                  value={status}
+                  onValueChange={(val) => {
+                    setStatus(val);
+                    setPage(1);
+                  }}
+                  searchable={false}
+                  options={[
+                    { value: "", label: "All Statuses" },
+                    { value: "active", label: "Active" },
+                    { value: "inactive", label: "Inactive" },
+                  ]}
+                  aria-label="Filter by status"
+                />
+              </div>
+            </div>
             <button type="submit" className="h-10 rounded-xl bg-neutral-900 px-4 text-sm font-semibold text-white hover:bg-neutral-800">
               Search
             </button>

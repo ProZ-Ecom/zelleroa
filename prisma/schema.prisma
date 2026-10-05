@@ -3140,8 +3140,6 @@ enum products_gender {
   women
   kids
   unisex
-  /// Not applicable - electronics etc. Shown under every audience filter like unisex.
-  na
 }
 
 model variant_price_history {

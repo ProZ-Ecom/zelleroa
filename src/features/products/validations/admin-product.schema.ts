@@ -3,7 +3,7 @@ import { z } from "zod";
 export const vegTypeEnum = z.enum(["veg", "nonveg", "vegan", "na"]);
 export type VegType = z.infer<typeof vegTypeEnum>;
 
-export const productGenderEnum = z.enum(["men", "women", "kids", "unisex", "na"]);
+export const productGenderEnum = z.enum(["men", "women", "kids", "unisex"]);
 export type ProductGender = z.infer<typeof productGenderEnum>;
 
 export const createAdminProductSchema = z
