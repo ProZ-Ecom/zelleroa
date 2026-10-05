@@ -69,7 +69,7 @@ export default function InventoryDashboardPage() {
               <Settings2 className="mr-2 h-4 w-4" /> Low-stock threshold
             </Button>
             <Link href="/admin/dashboard/inventory/adjustment">
-              <Button className="h-11 rounded-xl bg-[var(--color-secondary-600)] text-white hover:bg-[var(--color-secondary-700)]">
+              <Button className="h-11 rounded-xl bg-[var(--color-primary-500)] text-white hover:bg-[var(--color-primary-600)]">
                 Adjust stock
               </Button>
             </Link>
@@ -210,7 +210,7 @@ export default function InventoryDashboardPage() {
             <Button
               type="submit"
               isLoading={updateThreshold.isPending}
-              className="rounded-xl bg-[var(--color-secondary-600)] text-white"
+              className="rounded-xl bg-[var(--color-primary-500)] text-white"
             >
               Save
             </Button>

@@ -629,8 +629,27 @@ export const orderRepository = {
     }>;
   }): Promise<OrderDetailResponse> {
     return db.$transaction(async (tx) => {
-      const orderNumber = await generateUniqueOrderNumber(tx);
       const now = new Date();
+
+      // 0. Claim the cart atomically. Two concurrent submits (double-click, two
+      // tabs, retry) both read the same active cart; only the one that flips it
+      // to "converted" may go on to create an order. The loser updates 0 rows.
+      const claimedCart = await tx.cart.updateMany({
+        where: { id: params.cartId, status: "active" },
+        data: {
+          status: "converted",
+          last_activity_at: now,
+          updatedAt: now,
+          updated_by: params.userId,
+        },
+      });
+      if (claimedCart.count !== 1) {
+        throw ApiError.conflict(
+          "This order has already been placed or your cart changed. Please check your orders."
+        );
+      }
+
+      const orderNumber = await generateUniqueOrderNumber(tx);
 
       // 1. Create Order
       const createdOrder = await tx.order.create({
@@ -781,17 +800,7 @@ export const orderRepository = {
         },
       });
 
-      // 5. Convert Cart & Deactivate Items
-      await tx.cart.update({
-        where: { id: params.cartId },
-        data: {
-          status: "converted",
-          last_activity_at: now,
-          updatedAt: now,
-          updated_by: params.userId,
-        },
-      });
-
+      // 5. Deactivate cart items (the cart itself was claimed in step 0)
       await tx.cartItem.updateMany({
         where: {
           cartId: params.cartId,
@@ -1367,12 +1376,21 @@ export const orderRepository = {
     status: string;
     note?: string;
     changedBy: bigint;
+    /** When set, the update only applies if the order is still in this status. */
+    expectedStatus?: string;
   }): Promise<OrderDetailResponse> {
     return db.$transaction(async (tx) => {
       const now = new Date();
 
-      await tx.order.update({
-        where: { id: params.orderId },
+      // Conditional update = atomic claim: a concurrent transition that got
+      // there first updates 0 rows here, before any history/commission write.
+      const claimed = await tx.order.updateMany({
+        where: {
+          id: params.orderId,
+          ...(params.expectedStatus
+            ? { order_status: params.expectedStatus as any }
+            : {}),
+        },
         data: {
           order_status: params.status as any,
           ...(params.status === "delivered" ? { delivered_at: now } : {}),
@@ -1380,6 +1398,11 @@ export const orderRepository = {
           updated_by: params.changedBy,
         },
       });
+      if (claimed.count !== 1) {
+        throw ApiError.conflict(
+          "Order status has changed. Please refresh and try again."
+        );
+      }
       await syncCommissionsWithOrderStatus(tx, params.orderId, params.status, { id: params.changedBy, role: "USER" });
 
       await tx.order_status_history.create({

@@ -185,7 +185,7 @@ export function PurchaseOrderForm({ initial, isLoading, submitLabel, mode = "dra
               searchRef.current?.focus();
               setShowResults(true);
             }}
-            className="inline-flex items-center gap-1 text-sm font-medium text-[var(--color-secondary-700)] hover:underline"
+            className="inline-flex items-center gap-1 text-sm font-medium text-[var(--color-primary-600)] hover:underline"
           >
             <Plus className="h-4 w-4" /> Add Item
           </button>
@@ -348,7 +348,7 @@ export function PurchaseOrderForm({ initial, isLoading, submitLabel, mode = "dra
         <Button
           type="submit"
           isLoading={isLoading}
-          className="h-11 rounded-xl bg-[var(--color-secondary-600)] px-6 text-sm font-semibold text-white hover:bg-[var(--color-secondary-700)]"
+          className="h-11 rounded-xl bg-[var(--color-primary-500)] px-6 text-sm font-semibold text-white hover:bg-[var(--color-primary-600)]"
         >
           <Plus className="mr-2 h-4 w-4" />
           {submitLabel}

@@ -235,7 +235,7 @@ export function FaqForm({
               <div className="flex items-end pb-1">
                 <div className="flex items-center gap-2.5 rounded-xl border border-theme-border bg-theme-surface-muted px-3 py-2.5">
                   <span className="flex h-7 w-7 items-center justify-center rounded-md bg-[var(--color-secondary-100)]">
-                    <IconPreview className="h-4 w-4 text-[var(--color-secondary-600)]" />
+                    <IconPreview className="h-4 w-4 text-[var(--color-primary-500)]" />
                   </span>
                   <span className="text-xs text-theme-text-muted">
                     Preview

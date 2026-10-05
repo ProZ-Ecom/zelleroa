@@ -46,20 +46,24 @@ type HandlerFn = (
 function parseSearchParams(
   searchParams: URLSearchParams,
   schema?: ZodSchema
-): Record<string, unknown> {
+): { data: Record<string, unknown> } | { errors: string[] } {
   const raw: Record<string, string> = {};
   searchParams.forEach((value, key) => {
     raw[key] = value;
   });
 
-  if (schema) {
-    const result = schema.safeParse(raw);
-    if (result.success) {
-      return result.data as Record<string, unknown>;
-    }
-  }
+  if (!schema) return { data: raw };
 
-  return raw;
+  const result = schema.safeParse(raw);
+  if (result.success) {
+    return { data: result.data as Record<string, unknown> };
+  }
+  // Never hand unvalidated query values to a handler that expects parsed ones.
+  return {
+    errors: result.error.issues.map(
+      (issue) => `${issue.path.join(".")}: ${issue.message}`
+    ),
+  };
 }
 
 export function createApiHandler(
@@ -177,7 +181,11 @@ export function createApiHandler(
     };
 
     if (options.querySchema) {
-      context.query = parseSearchParams(searchParams, options.querySchema);
+      const parsedQuery = parseSearchParams(searchParams, options.querySchema);
+      if ("errors" in parsedQuery) {
+        return apiValidationError(parsedQuery.errors);
+      }
+      context.query = parsedQuery.data;
     }
 
     if (

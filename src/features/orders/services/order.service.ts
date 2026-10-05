@@ -11,6 +11,7 @@ import { generateAccessToken, generateRefreshToken } from "@/lib/auth/jwt";
 import { referralService, type ReferralAgent } from "@/features/agents/services/referral.service";
 import { orderRepository } from "../repositories/order.repository";
 import { getShippingCharge } from "../shipping";
+import { assertMobileVerifiedForOrder } from "../lib/mobile-verification";
 import type {
   OrderDetailResponse,
   OrderListItemResponse,
@@ -50,7 +51,13 @@ export const orderService = {
      * through instead. `undefined` (the default) means "resolve from the
      * request cookie as normal"; `null` explicitly means "no referral".
      */
-    referralOverride?: ReferralAgent | null
+    referralOverride?: ReferralAgent | null,
+    /**
+     * Set ONLY by server-side code that has itself verified a gateway payment
+     * signature. The client-supplied `paymentDetails` is never trusted to mark
+     * an order paid.
+     */
+    options: { gatewayPaymentVerified?: boolean; expectedPaidAmount?: number } = {}
   ): Promise<OrderDetailResponse> {
     const user = await userRepository.findById(sessionUserId);
     if (!user || !user.internalId) {
@@ -61,6 +68,8 @@ export const orderService = {
     }
 
     const userId = user.internalId;
+
+    await assertMobileVerifiedForOrder(userId);
 
     // 1. Find active cart with active cart items
     const cart = await db.cart.findFirst({
@@ -322,7 +331,7 @@ export const orderService = {
     const paymentMethod = input.paymentMethod || "CARD";
     const isOnlinePayment = paymentMethod === "CARD" || paymentMethod === "UPI" || (paymentMethod as string) === "ONLINE" || (paymentMethod as string) === "RAZORPAY";
     // If explicitly verified through Razorpay, mark paid and confirmed; if COD, confirm order with payment pending; otherwise pending.
-    const isVerifiedPaid = input.paymentDetails?.isPaid === true || (!isOnlinePayment && input.paymentDetails?.isSimulated === true);
+    const isVerifiedPaid = options.gatewayPaymentVerified === true && isOnlinePayment;
     const paymentStatus: "paid" | "pending" = isVerifiedPaid ? "paid" : "pending";
     const orderStatus: "confirmed" | "pending" = paymentMethod === "COD" || isVerifiedPaid ? "confirmed" : "pending";
 
@@ -333,6 +342,21 @@ export const orderService = {
     const deliveryMethod = input.deliveryMethod || "standard";
     const shippingCharge = getShippingCharge(shippingAddress.state, deliveryMethod);
     const totalAmount = payableBeforeShipping + shippingCharge;
+
+    // A verified gateway payment is only valid for the amount that was charged.
+    // If the cart or prices changed after the payment started, do not create a
+    // "paid" order for a different total.
+    if (
+      options.expectedPaidAmount !== undefined &&
+      Math.abs(totalAmount - options.expectedPaidAmount) > 0.01
+    ) {
+      console.error(
+        `[order] paid amount mismatch for user ${userId}: charged ${options.expectedPaidAmount}, order total ${totalAmount}`
+      );
+      throw ApiError.conflict(
+        "Your cart total changed after the payment was started. Please contact support with your payment reference for a refund or reorder."
+      );
+    }
 
     // Commission attribution is per ORDER: whichever valid agent referral code is active
     // right now gets this order. The customer's earlier orders/agents are never consulted.
@@ -733,6 +757,7 @@ export const orderService = {
       status: newStatus,
       note: input?.note,
       changedBy: adminUser.internalId,
+      expectedStatus: expectedCurrentStatus,
     });
 
     return {

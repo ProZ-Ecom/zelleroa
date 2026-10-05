@@ -11,6 +11,8 @@ import { NavButton } from "@/components/storefront/buttons/NavButton";
 import { IconButton } from "@/components/storefront/buttons/IconButton";
 import { getRoleHome } from "@/lib/auth/role-routes";
 import { useClickOutside } from "@/hooks/useClickOutside";
+import { useRecentSearches } from "@/hooks/use-recent-searches";
+import { SearchDropdown } from "@/components/storefront/search/SearchDropdown";
 import { getInitials } from "@/lib/utils";
 import { useCustomerWishlistCount } from "@/features/customers/hooks/use-customer-wishlist";
 import { useCustomerCartCount } from "@/features/customers/hooks/use-customer-cart";
@@ -78,6 +80,14 @@ export function Header({
   const [isSearchOpen, setIsSearchOpen] = React.useState(false);
   const [searchQuery, setSearchQuery] = React.useState("");
   const searchInputRef = React.useRef<HTMLInputElement>(null);
+  const [showSearchDropdown, setShowSearchDropdown] = React.useState(false);
+  const searchWrapRef =React.useRef<HTMLDivElement>(null);
+  const {
+    recent: recentSearches,
+    add: addRecentSearch,
+    remove: removeRecentSearch,
+    clear: clearRecentSearches,
+  } = useRecentSearches();
   const [openNavId, setOpenNavId] = React.useState<string | null>(null);
   const megaMenuCloseTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const cancelMegaMenuClose = React.useCallback(() => {
@@ -154,6 +164,10 @@ export function Header({
   useClickOutside([menuRef, buttonRef], () => {
     setIsOpen(false);
   });
+  useClickOutside([searchWrapRef], () => {
+    setShowSearchDropdown(false);
+    if (!searchQuery.trim()) setIsSearchOpen(false);
+  });
 
   React.useEffect(() => {
     if (!openNavId) return;
@@ -188,12 +202,18 @@ export function Header({
     [isAuthenticated, accountHref]
   );
 
-  const handleSearchSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    const trimmed = searchQuery.trim();
+  const runSearch = (term: string) => {
+    const trimmed = term.trim();
     if (!trimmed) return;
+    addRecentSearch(trimmed);
+    setSearchQuery(trimmed);
     router.push(`/products?search=${encodeURIComponent(trimmed)}`);
     setIsSearchOpen(false);
+  };
+
+  const handleSearchSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    runSearch(searchQuery);
   };
 
   React.useEffect(() => {
@@ -314,12 +334,21 @@ export function Header({
         <div className="flex items-center gap-2 sm:gap-3 md:gap-5">
           <div className="hidden lg:flex items-center gap-5">
             {/* Inline search */}
+            <div ref={searchWrapRef} className="relative">
             <form onSubmit={handleSearchSubmit} className="relative flex items-center">
               <input
                 ref={searchInputRef}
                 type="text"
                 value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+                onChange={(e) => {
+                  setSearchQuery(e.target.value);
+                  setShowSearchDropdown(true);
+                }}
+                onFocus={() => setShowSearchDropdown(true)}
+                onKeyDown={(e) => {
+                  if (e.key === "Escape") setShowSearchDropdown(false);
+                }}
+                autoComplete="off"
                 onBlur={() => {
                   if (!searchQuery.trim()) setIsSearchOpen(false);
                 }}
@@ -341,6 +370,23 @@ export function Header({
                 <Search className="h-[18px] w-[18px]" strokeWidth={1.75} />
               </button>
             </form>
+
+            {isSearchOpen && showSearchDropdown && (
+              <SearchDropdown
+                query={searchQuery}
+                recent={recentSearches}
+                onSearch={runSearch}
+                onProductOpen={(term) => {
+                  addRecentSearch(term);
+                  setShowSearchDropdown(false);
+                  setIsSearchOpen(false);
+                }}
+                onRemoveRecent={removeRecentSearch}
+                onClearRecent={clearRecentSearches}
+                className="absolute right-0 top-full mt-2 w-80 xl:w-96 z-50"
+              />
+            )}
+            </div>
 
             {/* Wishlist */}
             {!isStaffUser && (

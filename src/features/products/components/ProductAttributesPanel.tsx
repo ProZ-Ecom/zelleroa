@@ -149,7 +149,7 @@ function ProductAttributesPanel({ productUuid }: ProductAttributesPanelProps) {
           type="button"
           onClick={() => save(false)}
           disabled={!isDirty || setAttributesMutation.isPending}
-          className="h-10 rounded-xl bg-[var(--color-secondary-600)] px-5 text-sm font-semibold text-white hover:bg-[var(--color-secondary-700)] cursor-pointer"
+          className="h-10 rounded-xl bg-[var(--color-primary-500)] px-5 text-sm font-semibold text-white hover:bg-[var(--color-primary-600)] cursor-pointer"
         >
           {setAttributesMutation.isPending ? (
             <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" />

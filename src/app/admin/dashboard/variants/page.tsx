@@ -492,7 +492,7 @@ export default function AdminVariantsPage() {
                   type="button"
                   onClick={() => setViewMode("table")}
                   className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${viewMode === "table"
-                      ? "bg-[var(--color-secondary-600)] text-white shadow-xs"
+                      ? "bg-[var(--color-primary-500)] text-white shadow-xs"
                       : "text-neutral-600 hover:text-neutral-900"
                     }`}
                   title="Table List View"
@@ -505,7 +505,7 @@ export default function AdminVariantsPage() {
                   type="button"
                   onClick={() => setViewMode("cards")}
                   className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${viewMode === "cards"
-                      ? "bg-[var(--color-secondary-600)] text-white shadow-xs"
+                      ? "bg-[var(--color-primary-500)] text-white shadow-xs"
                       : "text-neutral-600 hover:text-neutral-900"
                     }`}
                   title="Storefront Customer Card View"
@@ -521,7 +521,7 @@ export default function AdminVariantsPage() {
                   setCreatedVariant(null);
                   setIsCreateOpen(true);
                 }}
-                className="h-11 rounded-xl bg-[var(--color-secondary-600)] px-5 text-sm font-semibold text-white hover:bg-[var(--color-secondary-700)] cursor-pointer"
+                className="h-11 rounded-xl bg-[var(--color-primary-500)] px-5 text-sm font-semibold text-white hover:bg-[var(--color-primary-600)] cursor-pointer"
               >
                 <Plus className="mr-2 h-4 w-4" />
                 Add Variant
@@ -566,7 +566,7 @@ export default function AdminVariantsPage() {
                         setCreatedVariant(null);
                         setIsCreateOpen(true);
                       }}
-                      className="mt-5 rounded-xl bg-[var(--color-secondary-600)] text-xs font-semibold text-white"
+                      className="mt-5 rounded-xl bg-[var(--color-primary-500)] text-xs font-semibold text-white"
                     >
                       <Plus className="mr-1.5 h-3.5 w-3.5" />
                       Add Variant
@@ -693,7 +693,7 @@ export default function AdminVariantsPage() {
         <div className="mb-6 flex items-center justify-center gap-2 sm:gap-3 border-b border-[var(--color-neutral-200)] pb-4">
           <div
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${createStep === 1
-                ? "bg-[var(--color-secondary-600)] text-white shadow"
+                ? "bg-[var(--color-primary-500)] text-white shadow"
                 : "bg-[var(--color-success-100)] text-[var(--color-success-700)]"
               }`}
           >
@@ -709,7 +709,7 @@ export default function AdminVariantsPage() {
 
           <div
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${createStep === 2
-                ? "bg-[var(--color-secondary-600)] text-white shadow"
+                ? "bg-[var(--color-primary-500)] text-white shadow"
                 : createStep > 2
                   ? "bg-[var(--color-success-100)] text-[var(--color-success-700)]"
                   : "bg-[var(--color-neutral-100)] text-[var(--color-neutral-500)]"
@@ -727,7 +727,7 @@ export default function AdminVariantsPage() {
 
           <div
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${createStep === 3
-                ? "bg-[var(--color-secondary-600)] text-white shadow"
+                ? "bg-[var(--color-primary-500)] text-white shadow"
                 : createStep > 3
                   ? "bg-[var(--color-success-100)] text-[var(--color-success-700)]"
                   : "bg-[var(--color-neutral-100)] text-[var(--color-neutral-500)]"
@@ -745,7 +745,7 @@ export default function AdminVariantsPage() {
 
           <div
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${createStep === 4
-                ? "bg-[var(--color-secondary-600)] text-white shadow"
+                ? "bg-[var(--color-primary-500)] text-white shadow"
                 : "bg-[var(--color-neutral-100)] text-[var(--color-neutral-500)]"
               }`}
           >
@@ -833,7 +833,7 @@ export default function AdminVariantsPage() {
                       }
                       setCreateStep(3);
                     }}
-                    className="h-10 rounded-xl bg-[var(--color-secondary-600)] px-5 text-sm font-semibold text-white hover:bg-[var(--color-secondary-700)] cursor-pointer"
+                    className="h-10 rounded-xl bg-[var(--color-primary-500)] px-5 text-sm font-semibold text-white hover:bg-[var(--color-primary-600)] cursor-pointer"
                   >
                     Next: Upload Images
                   </Button>
@@ -899,12 +899,12 @@ export default function AdminVariantsPage() {
                 }}
                 className="rounded-xl text-xs font-semibold"
               >
-                <Sparkles className="mr-1.5 h-3.5 w-3.5 text-[var(--color-secondary-600)]" />
+                <Sparkles className="mr-1.5 h-3.5 w-3.5 text-[var(--color-primary-500)]" />
                 Full Customer Preview
               </Button>
               <Button
                 onClick={handleCloseCreateModal}
-                className="rounded-xl bg-[var(--color-secondary-600)] px-6 text-xs font-semibold text-white hover:bg-[var(--color-secondary-700)]"
+                className="rounded-xl bg-[var(--color-primary-500)] px-6 text-xs font-semibold text-white hover:bg-[var(--color-primary-600)]"
               >
                 Done
               </Button>
@@ -934,7 +934,7 @@ export default function AdminVariantsPage() {
                 onClick={() => setEditTab("details")}
                 disabled={updateMutation.isPending}
                 className={`flex items-center gap-2 px-4 py-2.5 text-sm font-semibold border-b-2 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${editTab === "details"
-                    ? "border-[var(--color-secondary-600)] text-[var(--color-secondary-600)]"
+                    ? "border-[var(--color-primary-500)] text-[var(--color-primary-500)]"
                     : "border-transparent text-[var(--color-neutral-500)] hover:text-[var(--color-neutral-800)]"
                   }`}
               >
@@ -947,7 +947,7 @@ export default function AdminVariantsPage() {
                 onClick={() => setEditTab("pricing")}
                 disabled={updateMutation.isPending}
                 className={`flex items-center gap-2 px-4 py-2.5 text-sm font-semibold border-b-2 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${editTab === "pricing"
-                    ? "border-[var(--color-secondary-600)] text-[var(--color-secondary-600)]"
+                    ? "border-[var(--color-primary-500)] text-[var(--color-primary-500)]"
                     : "border-transparent text-[var(--color-neutral-500)] hover:text-[var(--color-neutral-800)]"
                   }`}
               >
@@ -960,7 +960,7 @@ export default function AdminVariantsPage() {
                 onClick={() => setEditTab("images")}
                 disabled={updateMutation.isPending}
                 className={`flex items-center gap-2 px-4 py-2.5 text-sm font-semibold border-b-2 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${editTab === "images"
-                    ? "border-[var(--color-secondary-600)] text-[var(--color-secondary-600)]"
+                    ? "border-[var(--color-primary-500)] text-[var(--color-primary-500)]"
                     : "border-transparent text-[var(--color-neutral-500)] hover:text-[var(--color-neutral-800)]"
                   }`}
               >

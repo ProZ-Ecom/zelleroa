@@ -169,7 +169,7 @@ export default function AdminStyleDetailsPage() {
           <div className="flex justify-end">
             <Button
               onClick={() => setIsAddItemOpen(true)}
-              className="h-9 rounded-lg bg-[var(--color-secondary-600)] px-4 text-xs font-semibold text-white hover:bg-[var(--color-secondary-700)]"
+              className="h-9 rounded-lg bg-[var(--color-primary-500)] px-4 text-xs font-semibold text-white hover:bg-[var(--color-primary-600)]"
             >
               <Plus className="mr-1.5 h-3.5 w-3.5" />
               Add Model

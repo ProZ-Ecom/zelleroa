@@ -16,7 +16,7 @@ export const GET = createApiHandler(
       return apiSuccess(result.data, "Coupons fetched successfully", 200, result.meta);
     },
   },
-  { querySchema: getCouponsQuerySchema }
+  { querySchema: getCouponsQuerySchema, requireAuth: true, requiredRole: ["ADMIN", "STAFF"] }
 );
 
 export const POST = createApiHandler(

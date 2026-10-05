@@ -42,6 +42,7 @@ import {
   Building2,
   ClipboardList,
   SlidersHorizontal,
+  Store,
 } from "lucide-react";
 import { cn, getInitials } from "@/lib/utils";
 import { APP_NAME } from "@/lib/constants";
@@ -363,7 +364,7 @@ function SidebarNavigation({
   }, [isStaff]);
 
   return (
-    <nav className="flex-1 space-y-0.5 overflow-y-auto overflow-x-hidden scrollbar-hide px-3 pb-4">
+    <nav className="relative flex-1 space-y-0.5 overflow-y-auto overflow-x-hidden scrollbar-hide px-3 pt-2 pb-6 [mask-image:linear-gradient(to_bottom,black_calc(100%-24px),transparent)]">
       {navigationItems.map((item) => (
         <div key={item.href}>
           {item.section &&
@@ -399,10 +400,13 @@ function SidebarFooter({ collapsed }: { collapsed?: boolean }) {
     logout.mutate();
   };
 
+  const actionBase =
+    "group flex items-center justify-center gap-2 rounded-lg py-2 text-xs font-medium text-neutral-600 transition-all duration-200 hover:bg-white hover:text-secondary-600 hover:shadow-sm";
+
   return (
-    <div className="border-t border-neutral-300/70 p-3">
+    <div className="border-t border-neutral-300/70 bg-secondary-100/80 p-3">
       {!collapsed && (
-        <div className="mb-2 flex items-center gap-2.5 rounded-xl bg-white/70 px-2.5 py-2.5 shadow-sm ring-1 ring-black/[0.04]">
+        <div className="mb-2 flex items-center gap-2.5 rounded-xl bg-white px-2.5 py-2 shadow-sm ring-1 ring-black/[0.04]">
           <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-secondary-600 text-xs font-semibold text-white ring-2 ring-white">
             {getInitials(name)}
           </div>
@@ -412,18 +416,27 @@ function SidebarFooter({ collapsed }: { collapsed?: boolean }) {
           </div>
         </div>
       )}
-      <button
-        onClick={handleLogout}
-        disabled={logout.isPending}
-        title={collapsed ? "Logout" : undefined}
-        className={cn(
-          "group flex w-full items-center gap-2.5 rounded-lg py-2 text-sm font-medium text-neutral-600 transition-all duration-200 cursor-pointer hover:bg-white/70 hover:text-secondary-600",
-          collapsed ? "justify-center px-0" : "pl-2 pr-3"
-        )}
-      >
-        <LogOut className="h-4 w-4 flex-shrink-0 transition-transform duration-200 group-hover:-translate-x-0.5" />
-        {!collapsed && "Logout"}
-      </button>
+      <div className={cn("gap-1", collapsed ? "flex flex-col" : "grid grid-cols-2")}>
+        <Link
+          href="/"
+          target="_blank"
+          rel="noopener noreferrer"
+          title="View Store"
+          className={actionBase}
+        >
+          <Store className="h-4 w-4 flex-shrink-0" />
+          {!collapsed && "View Store"}
+        </Link>
+        <button
+          onClick={handleLogout}
+          disabled={logout.isPending}
+          title="Logout"
+          className={cn(actionBase, "cursor-pointer hover:text-red-600 disabled:opacity-60")}
+        >
+          <LogOut className="h-4 w-4 flex-shrink-0 transition-transform duration-200 group-hover:-translate-x-0.5" />
+          {!collapsed && "Logout"}
+        </button>
+      </div>
     </div>
   );
 }

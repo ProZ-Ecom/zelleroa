@@ -1,11 +1,12 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
-import { getDashboardStats, type DashboardStats } from "../api/get-stats";
+import { useQuery, keepPreviousData } from "@tanstack/react-query";
+import { getDashboardStats, type DashboardStats, type DashboardRange } from "../api/get-stats";
 
-export function useDashboardStats() {
+export function useDashboardStats(range: DashboardRange = 7) {
   return useQuery<DashboardStats>({
-    queryKey: ["dashboard", "stats"],
-    queryFn: getDashboardStats,
+    queryKey: ["dashboard", "stats", range],
+    queryFn: () => getDashboardStats(range),
+    placeholderData: keepPreviousData,
   });
 }

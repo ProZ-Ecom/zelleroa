@@ -27,6 +27,9 @@ const schema = z.discriminatedUnion("action", [
 
 function isLocal(request: NextRequest) {
   if (process.env.NODE_ENV === "production") return false;
+  // The Host header is client-controlled, so a hostname check alone is not a
+  // safe gate on a shared dev/staging server: require an explicit opt-in too.
+  if (process.env.ENABLE_DEV_PASSWORD_ROUTE !== "true") return false;
   const host = (request.headers.get("host") ?? "").split(":")[0];
   return host === "localhost" || host === "127.0.0.1" || host === "[::1]";
 }

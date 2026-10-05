@@ -80,7 +80,7 @@ export function Footer() {
                   </Link>
                 </li>
               ))}
-              <li className="italic text-xs pt-1">Coming Soon: Electronics &amp; Home</li>
+              <li className="italic text-xs pt-1">Coming Soon: Home Living</li>
             </ul>
           </div>
 

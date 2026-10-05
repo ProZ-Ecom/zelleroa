@@ -1,6 +1,6 @@
 "use client";
 
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { customerReviewsApi } from "../api/customer-reviews.api";
 import type { CreateReviewInput } from "../validations/review.schema";
 import type { ReviewResponse } from "../types/review.types";
@@ -10,6 +10,19 @@ interface UseSubmitCustomerReviewOptions {
   productId?: string | null;
   onSuccess?: (data: ReviewResponse) => void;
   onError?: (error: any) => void;
+}
+
+export function useReviewEligibility(params: {
+  variantId?: string | null;
+  productId?: string | null;
+}) {
+  const target = params.variantId || params.productId;
+  return useQuery({
+    queryKey: ["reviews", "eligibility", params.variantId ?? null, params.productId ?? null],
+    queryFn: () => customerReviewsApi.getEligibility(params),
+    enabled: Boolean(target),
+    staleTime: 1000 * 30,
+  });
 }
 
 export function useSubmitCustomerReview(options?: UseSubmitCustomerReviewOptions) {

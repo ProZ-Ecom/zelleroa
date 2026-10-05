@@ -52,7 +52,7 @@ export default function AdminHeaderMenuPage() {
         return (
           <div className="flex flex-wrap items-center gap-1.5">
             {count > 0 && (
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-[var(--color-secondary-50)] px-3 py-1 text-xs font-medium text-[var(--color-secondary-700)]">
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-[var(--color-secondary-50)] px-3 py-1 text-xs font-medium text-[var(--color-primary-600)]">
                 <FolderTree className="h-3.5 w-3.5" />
                 {count > 1 ? `${count} Categories` : "Category"}
               </span>
@@ -154,7 +154,7 @@ export default function AdminHeaderMenuPage() {
             <Button
               type="button"
               onClick={() => setIsCreateOpen(true)}
-              className="h-11 rounded-xl bg-[var(--color-secondary-600)] px-5 text-sm font-semibold text-white hover:bg-[var(--color-secondary-700)]"
+              className="h-11 rounded-xl bg-[var(--color-primary-500)] px-5 text-sm font-semibold text-white hover:bg-[var(--color-primary-600)]"
             >
               <Plus className="mr-2 h-4 w-4" />
               Add Menu Item

@@ -28,6 +28,11 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { formatPrice } from "@/lib/utils";
+import {
+  MOBILE_VERIFICATION_PATH,
+  MOBILE_VERIFICATION_REQUIRED_CODE,
+  MOBILE_VERIFICATION_REQUIRED_MESSAGE,
+} from "@/lib/constants/mobile-verification";
 import { formatMeasurementLabel } from "@/features/variants/utils/measurement.util";
 import { useCustomerCart } from "@/features/customers/hooks/use-customer-cart";
 import { useQueryClient } from "@tanstack/react-query";
@@ -53,6 +58,7 @@ import {
   getShippingCharge,
   isFreeDeliveryState,
 } from "@/features/orders/shipping";
+import { usePincodeLookup } from "@/features/addresses/hooks/use-pincode-lookup";
 import type { CustomerAddressResponse } from "@/features/customers/types/customer-address.types";
 
 
@@ -121,7 +127,23 @@ export default function CheckoutPage() {
     "CARD"
   );
   const [orderNotes, setOrderNotes] = useState<string>("");
-  const [checkoutError, setCheckoutError] = useState<string | null>(null);
+  const [checkoutError, setCheckoutErrorState] = useState<string | null>(null);
+  const [mobileVerificationRequired, setMobileVerificationRequired] = useState(false);
+
+  // Clearing/setting a plain message resets the verification prompt; the
+  // backend's MOBILE_VERIFICATION_REQUIRED code turns it on (see reportOrderError).
+  const setCheckoutError = (message: string | null) => {
+    setMobileVerificationRequired(false);
+    setCheckoutErrorState(message);
+  };
+  const reportOrderError = (err: any, fallback: string) => {
+    if (err?.code === MOBILE_VERIFICATION_REQUIRED_CODE) {
+      setCheckoutErrorState(err.message || MOBILE_VERIFICATION_REQUIRED_MESSAGE);
+      setMobileVerificationRequired(true);
+      return;
+    }
+    setCheckoutError(err?.message || fallback);
+  };
 
   // Redirect payment in-flight guard
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
@@ -145,6 +167,21 @@ export default function CheckoutPage() {
     isDefault: true,
   });
   const [addressFormError, setAddressFormError] = useState<string | null>(null);
+  const {
+    isLoading: isPincodeLoading,
+    lookupError: pincodeLookupError,
+    triggerLookup: triggerPincodeLookup,
+  } = usePincodeLookup();
+
+  // Auto-fill city and state from the PIN code; user can still edit them afterwards.
+  const handlePincodeChange = (value: string) => {
+    const pincode = value.replace(/\D/g, "").slice(0, 6);
+    setNewAddressForm((prev) => ({ ...prev, pincode }));
+    void triggerPincodeLookup(pincode, {
+      onSuccess: ({ city, state }) =>
+        setNewAddressForm((prev) => ({ ...prev, city, state })),
+    });
+  };
 
   // Online payment stays a logged-in-only convenience for now; guests are COD only.
   useEffect(() => {
@@ -324,8 +361,9 @@ export default function CheckoutPage() {
       window.location.href = result.paymentUrl;
     } catch (err: any) {
       setIsProcessingPayment(false);
-      setCheckoutError(
-        err.message || "Failed to initiate payment. Please check your details and try again."
+      reportOrderError(
+        err,
+        "Failed to initiate payment. Please check your details and try again."
       );
     }
   };
@@ -393,8 +431,9 @@ export default function CheckoutPage() {
       router.push(`/checkout/success${params.toString() ? `?${params.toString()}` : ""}`);
     } catch (err: any) {
       setIsOrderPlaced(false);
-      setCheckoutError(
-        err.message || "Failed to place your order. Please check your details and try again."
+      reportOrderError(
+        err,
+        "Failed to place your order. Please check your details and try again."
       );
     }
   };
@@ -453,8 +492,9 @@ export default function CheckoutPage() {
         router.push(`/checkout/success${params.toString() ? `?${params.toString()}` : ""}`);
       } catch (err: any) {
         setIsOrderPlaced(false);
-        setCheckoutError(
-          err.message || "Failed to place COD order. Please check details and try again."
+        reportOrderError(
+          err,
+          "Failed to place COD order. Please check details and try again."
         );
       }
       return;
@@ -507,6 +547,18 @@ export default function CheckoutPage() {
           <div className="flex-1">
             <p className="font-semibold">Unable to complete checkout</p>
             <p className="text-xs mt-0.5">{checkoutError}</p>
+            {mobileVerificationRequired && (
+              <Link
+                href={
+                  isGuest
+                    ? "/login?callbackUrl=/checkout"
+                    : `${MOBILE_VERIFICATION_PATH}?callbackUrl=/checkout`
+                }
+                className="mt-2 inline-block text-xs font-bold underline"
+              >
+                {isGuest ? "Log in to continue" : "Verify mobile number"}
+              </Link>
+            )}
           </div>
         </div>
       )}
@@ -749,22 +801,45 @@ export default function CheckoutPage() {
 
                   <div>
                     <label className="block text-xs font-semibold text-theme-text-secondary mb-1">
-                      PIN Code (6 digits) *
+                      State *
                     </label>
                     <input
                       type="text"
                       required
-                      maxLength={6}
-                      placeholder="e.g. 636001"
-                      value={newAddressForm.pincode}
+                      placeholder="e.g. Tamil Nadu"
+                      value={newAddressForm.state}
                       onChange={(e) =>
                         setNewAddressForm((prev) => ({
                           ...prev,
-                          pincode: e.target.value,
+                          state: e.target.value,
                         }))
                       }
                       className="w-full min-h-[44px] rounded-xl border border-theme-border-input bg-white px-3 text-xs text-theme-text-primary placeholder:text-theme-text-muted focus:border-theme-primary focus:outline-none"
                     />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-theme-text-secondary mb-1">
+                      PIN Code (6 digits) *
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        required
+                        maxLength={6}
+                        placeholder="e.g. 636001"
+                        value={newAddressForm.pincode}
+                        onChange={(e) => handlePincodeChange(e.target.value)}
+                        className="w-full min-h-[44px] rounded-xl border border-theme-border-input bg-white px-3 text-xs text-theme-text-primary placeholder:text-theme-text-muted focus:border-theme-primary focus:outline-none"
+                      />
+                      {isPincodeLoading && (
+                        <Loader2 className="absolute right-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 animate-spin text-theme-text-muted" />
+                      )}
+                    </div>
+                    {pincodeLookupError && (
+                      <p className="mt-1 text-[11px] text-red-600">{pincodeLookupError}</p>
+                    )}
                   </div>
                 </div>
 

@@ -90,7 +90,7 @@ export function VariantCard({
     : resolveFallbackImage(variant.productName || variant.variantName);
 
   return (
-    <div className="group relative flex flex-col justify-between rounded-2xl border border-[var(--color-neutral-200)] bg-white p-3 sm:p-4 shadow-xs transition-all duration-300 hover:border-[var(--color-secondary-600)] hover:shadow-xl hover:-translate-y-1">
+    <div className="group relative flex flex-col justify-between rounded-2xl border border-[var(--color-neutral-200)] bg-white p-3 sm:p-4 shadow-xs transition-all duration-300 hover:border-[var(--color-primary-500)] hover:shadow-xl hover:-translate-y-1">
       {/* Top Media Container */}
       <div className="relative aspect-square w-full overflow-hidden rounded-xl bg-cream-100 border border-cream-border">
         {displayImage ? (
@@ -202,7 +202,7 @@ export function VariantCard({
                 onClick={() => onPreview(variant)}
                 title="Storefront Customer Preview"
               >
-                <Sparkles className="h-4 w-4 text-[var(--color-secondary-600)]" />
+                <Sparkles className="h-4 w-4 text-[var(--color-primary-500)]" />
               </Button>
             )}
 
@@ -284,7 +284,7 @@ export function VariantCard({
               title="View Variant Details"
             >
               <h3
-                className="text-xs sm:text-sm font-bold text-[var(--brown-900)] leading-snug line-clamp-2 uppercase group-hover/link:text-[var(--color-secondary-700)] transition-colors"
+                className="text-xs sm:text-sm font-bold text-[var(--brown-900)] leading-snug line-clamp-2 uppercase group-hover/link:text-[var(--color-primary-600)] transition-colors"
                 title={variant.variantName}
               >
                 {variant.variantName}
@@ -292,7 +292,7 @@ export function VariantCard({
             </Link>
           ) : (
             <h3
-              className="text-xs sm:text-sm font-bold text-[var(--brown-900)] leading-snug line-clamp-2 uppercase group-hover:text-[var(--color-secondary-700)] transition-colors"
+              className="text-xs sm:text-sm font-bold text-[var(--brown-900)] leading-snug line-clamp-2 uppercase group-hover:text-[var(--color-primary-600)] transition-colors"
               title={variant.variantName}
             >
               {variant.variantName}
@@ -335,7 +335,7 @@ export function VariantCard({
           <button
             type="button"
             onClick={() => onPreview ? onPreview(variant) : undefined}
-            className="rounded-lg bg-[var(--color-secondary-600)] px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider text-white shadow-2xs transition-transform duration-200 hover:bg-[var(--color-secondary-700)] active:scale-95 flex items-center gap-1 cursor-pointer"
+            className="rounded-lg bg-[var(--color-primary-500)] px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider text-white shadow-2xs transition-transform duration-200 hover:bg-[var(--color-primary-600)] active:scale-95 flex items-center gap-1 cursor-pointer"
             title="Preview Customer View"
           >
             <Sparkles className="h-3 w-3" />
