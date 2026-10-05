@@ -7,7 +7,7 @@ import { useSearchParams } from "next/navigation";
 import { FormProvider, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { loginSchema, type LoginInput } from "@/lib/validations/auth";
-import { useLogin } from "@/features/auth";
+import { useLogin, useLoginCooldown, ACCOUNT_BLOCKED_MESSAGE, ACCOUNT_BLOCKED_TITLE } from "@/features/auth";
 import { resolvePostLoginTarget } from "@/lib/auth/role-routes";
 import { FormInput } from "@/components/forms/form-input";
 import { FormPasswordInput } from "@/components/forms/FormPasswordInput";
@@ -24,6 +24,7 @@ function LoginForm() {
   const [phase, setPhase] = useState<"idle" | "signing-in" | "redirecting">("idle");
   const [redirectSlow, setRedirectSlow] = useState(false);
   const [destination, setDestination] = useState<string | null>(null);
+  const cooldown = useLoginCooldown();
   const busy = phase !== "idle" || loginMutation.isPending;
 
   // If navigation hasn't completed after a while, tell the user rather than
@@ -45,7 +46,7 @@ function LoginForm() {
   });
 
   const onSubmit = (data: LoginInput) => {
-    if (busy) return;
+    if (busy || cooldown.coolingDown) return;
     setPhase("signing-in");
     loginMutation.mutate(
       {
@@ -82,6 +83,7 @@ function LoginForm() {
         },
         onError: (error) => {
           setPhase("idle");
+          cooldown.startFromError(error);
           methods.setError("root", {
             message: error instanceof Error ? error.message : "Login failed. Please try again.",
           });
@@ -121,7 +123,14 @@ function LoginForm() {
           {methods.formState.errors.root?.message && (
             <div className="flex items-center gap-2 rounded-lg border border-error-200 bg-error-50 p-3 text-sm text-error-600">
               <AlertCircle className="h-4 w-4 shrink-0" />
-              {methods.formState.errors.root.message}
+              {methods.formState.errors.root.message === ACCOUNT_BLOCKED_MESSAGE ? (
+                <div>
+                  <p className="font-semibold">{ACCOUNT_BLOCKED_TITLE}</p>
+                  <p>{ACCOUNT_BLOCKED_MESSAGE}</p>
+                </div>
+              ) : (
+                methods.formState.errors.root.message
+              )}
             </div>
           )}
 
@@ -156,7 +165,7 @@ function LoginForm() {
 
           <FormSubmitButton
             size="xl"
-            disabled={busy}
+            disabled={busy || cooldown.coolingDown}
             className="mt-2 h-12 md:h-14 w-full rounded-lg bg-secondary-600 text-sm text-white hover:bg-secondary-700 cursor-pointer disabled:opacity-50"
           >
             {busy ? (
@@ -165,7 +174,7 @@ function LoginForm() {
                 {phase === "redirecting" ? "Signed in..." : "Signing in..."}
               </span>
             ) : (
-              "Sign In"
+              cooldown.coolingDown ? `Try again in ${cooldown.label}` : "Sign In"
             )}
           </FormSubmitButton>
         </form>

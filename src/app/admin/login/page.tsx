@@ -16,13 +16,14 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Spinner } from "@/components/ui/spinner";
 
 import { loginSchema, type LoginInput } from "@/lib/validations/auth";
-import { useLogin } from "@/features/auth";
+import { useLogin, useLoginCooldown, ACCOUNT_BLOCKED_MESSAGE, ACCOUNT_BLOCKED_TITLE } from "@/features/auth";
 
 function AdminLoginForm() {
   const [rememberMe, setRememberMe] = useState(false);
   const loginMutation = useLogin();
   const [phase, setPhase] = useState<"idle" | "signing-in" | "redirecting">("idle");
   const [redirectSlow, setRedirectSlow] = useState(false);
+  const cooldown = useLoginCooldown();
   const busy = phase !== "idle" || loginMutation.isPending;
 
   useEffect(() => {
@@ -42,7 +43,7 @@ function AdminLoginForm() {
   });
 
   const onSubmit = (data: LoginInput) => {
-    if (busy) return;
+    if (busy || cooldown.coolingDown) return;
     setPhase("signing-in");
     loginMutation.mutate(
       {
@@ -82,6 +83,7 @@ function AdminLoginForm() {
         },
         onError: (err: any) => {
           setPhase("idle");
+          cooldown.startFromError(err);
           methods.setError("root", {
             type: "server",
             message:
@@ -109,7 +111,14 @@ function AdminLoginForm() {
           {methods.formState.errors.root?.message && (
             <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-600">
               <AlertCircle className="h-4 w-4 shrink-0" />
-              {methods.formState.errors.root.message}
+              {methods.formState.errors.root.message === ACCOUNT_BLOCKED_MESSAGE ? (
+                <div>
+                  <p className="font-semibold">{ACCOUNT_BLOCKED_TITLE}</p>
+                  <p>{ACCOUNT_BLOCKED_MESSAGE}</p>
+                </div>
+              ) : (
+                methods.formState.errors.root.message
+              )}
             </div>
           )}
 
@@ -150,7 +159,7 @@ function AdminLoginForm() {
 
           <FormSubmitButton
             size="xl"
-            disabled={busy}
+            disabled={busy || cooldown.coolingDown}
             className="mt-2 h-10 w-full rounded-lg bg-secondary-600 text-sm text-white transition-all hover:bg-secondary-700 cursor-pointer disabled:opacity-50"
           >
             {busy ? (
@@ -159,7 +168,7 @@ function AdminLoginForm() {
                 {phase === "redirecting" ? "Loading dashboard..." : "Signing in..."}
               </span>
             ) : (
-              "Sign In to Admin"
+              cooldown.coolingDown ? `Try again in ${cooldown.label}` : "Sign In to Admin"
             )}
           </FormSubmitButton>
         </form>

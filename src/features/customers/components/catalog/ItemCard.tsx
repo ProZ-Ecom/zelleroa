@@ -92,14 +92,14 @@ export function ItemCard(props: ItemCardProps | CompactItemCardProps) {
   const extraColours = item.colors.length - MAX_SWATCHES;
 
   return (
-    <div className="group relative flex flex-col overflow-hidden rounded-2xl border border-theme-border bg-theme-surface shadow-2xs transition-shadow hover:shadow-md">
-    <ItemWishlistButton itemId={item.id} className="absolute right-2.5 top-2.5 z-10" />
+    <div className="group relative flex flex-col overflow-hidden rounded-xl border border-theme-border bg-theme-surface shadow-2xs transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md">
+    <ItemWishlistButton itemId={item.id} className="absolute right-2 top-2 z-10" />
     <Link
       href={itemHref(item.id)}
       onClick={onClick}
       className="flex flex-1 flex-col focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-theme-primary"
     >
-      <div className="relative aspect-square w-full overflow-hidden bg-theme-surface-alt">
+      <div className="relative aspect-[5/4] w-full overflow-hidden bg-theme-surface-alt">
         <ProductImage
           src={item.image}
           alt={item.selectedColor ? `${item.name} in ${item.selectedColor.name}` : item.name}
@@ -110,39 +110,39 @@ export function ItemCard(props: ItemCardProps | CompactItemCardProps) {
           }`}
         />
 
-        <div className="absolute left-2.5 top-2.5 flex flex-col items-start gap-1.5">
+        <div className="absolute left-2 top-2 flex flex-col items-start gap-1">
           {item.discountPercent > 0 && (
-            <span className="rounded-md bg-theme-secondary px-2 py-0.5 text-[11px] font-extrabold text-theme-secondary-fg">
+            <span className="rounded bg-theme-secondary px-1.5 py-0.5 text-[10px] font-extrabold text-theme-secondary-fg">
               {item.discountPercent}% OFF
             </span>
           )}
           {item.isNew && (
-            <span className="rounded-md bg-theme-primary px-2 py-0.5 text-[11px] font-bold text-theme-primary-fg">
+            <span className="rounded bg-theme-primary px-1.5 py-0.5 text-[10px] font-bold text-theme-primary-fg">
               New
             </span>
           )}
         </div>
 
         {isOut && (
-          <span className="absolute inset-x-0 bottom-0 bg-theme-text-primary/75 py-1.5 text-center text-[11px] font-bold uppercase tracking-wider text-white">
+          <span className="absolute inset-x-0 bottom-0 bg-theme-text-primary/75 py-1 text-center text-[10px] font-bold uppercase tracking-wider text-white">
             Out of stock
           </span>
         )}
       </div>
 
-      <div className="flex flex-1 flex-col gap-1.5 p-3 sm:p-3.5">
+      <div className="flex flex-1 flex-col gap-1 p-2.5 sm:p-3">
         {(item.brand || item.styleName) && (
-          <span className="text-[11px] font-bold uppercase tracking-wide text-theme-text-muted line-clamp-1">
+          <span className="text-[10px] font-semibold uppercase tracking-wide text-theme-text-muted line-clamp-1">
             {item.brand?.name ?? item.styleName}
           </span>
         )}
-        <h3 className="text-sm font-bold text-theme-text-primary line-clamp-2 leading-snug">
+        <h3 className="text-[13px] font-semibold text-theme-text-primary line-clamp-2 leading-snug sm:text-sm">
           {item.name}
         </h3>
 
         {item.rating && (
           <div className="flex items-center gap-1 text-xs text-theme-text-subtle">
-            <span className="inline-flex items-center gap-0.5 rounded bg-theme-status-del-fg px-1.5 py-0.5 text-[11px] font-bold text-white">
+            <span className="inline-flex items-center gap-0.5 rounded bg-theme-status-del-fg px-1 py-px text-[10px] font-bold text-white">
               {item.rating.average.toFixed(1)}
               <Star className="h-2.5 w-2.5 fill-current" aria-hidden />
             </span>
@@ -151,7 +151,7 @@ export function ItemCard(props: ItemCardProps | CompactItemCardProps) {
         )}
 
         <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
-          <span className="text-base font-extrabold text-theme-text-primary">
+          <span className="text-[15px] font-extrabold text-theme-text-primary">
             {item.hasPriceRange && <span className="text-xs font-semibold text-theme-text-muted">From </span>}
             {formatPrice(item.price)}
           </span>
@@ -172,7 +172,7 @@ export function ItemCard(props: ItemCardProps | CompactItemCardProps) {
                   <span
                     key={colour.name}
                     title={colour.name}
-                    className={`h-3.5 w-3.5 rounded-full border ${
+                    className={`h-3 w-3 rounded-full border ${
                       isSelected
                         ? "border-theme-text-primary ring-1 ring-theme-text-primary ring-offset-1"
                         : "border-theme-border-input"
@@ -189,13 +189,15 @@ export function ItemCard(props: ItemCardProps | CompactItemCardProps) {
           </div>
         )}
 
-        <div className="mt-auto pt-1">
-          <StockBadge status={item.stockStatus} />
-        </div>
+        {item.stockStatus === "low_stock" && (
+          <div className="mt-auto pt-0.5">
+            <StockBadge status={item.stockStatus} />
+          </div>
+        )}
       </div>
     </Link>
     {!isOut && (
-      <div className="px-3 pb-3 sm:px-3.5 sm:pb-3.5">
+      <div className="px-2.5 pb-2.5 sm:px-3 sm:pb-3">
         <ItemQuickAdd itemId={item.id} />
       </div>
     )}

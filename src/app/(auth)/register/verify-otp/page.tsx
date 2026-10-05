@@ -233,7 +233,11 @@ function RegisterVerifyOtpForm() {
       <div className="w-full rounded-2xl border border-neutral-200 bg-white px-5 py-7 shadow-sm sm:px-8 sm:py-10">
         {/* Logo */}
         <div className="mb-6 flex justify-center">
-          <span className="flex h-16 w-16 items-center justify-center rounded-xl bg-secondary-900 p-2 shadow-sm sm:h-[4.5rem] sm:w-[4.5rem]">
+          <Link
+            href="/"
+            aria-label="Go to home page"
+            className="flex h-16 w-16 items-center justify-center rounded-xl bg-secondary-900 p-2 shadow-sm sm:h-[4.5rem] sm:w-[4.5rem]"
+          >
             <Image
               src="/logo-mark.png"
               alt="Zellora"
@@ -242,7 +246,7 @@ function RegisterVerifyOtpForm() {
               className="h-full w-full object-contain"
               priority
             />
-          </span>
+          </Link>
         </div>
 
         {/* Heading */}

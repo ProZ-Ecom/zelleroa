@@ -10,6 +10,8 @@ import { WishlistTab } from "./WishlistTab";
 import { WalletTab } from "./WalletTab";
 import { SettingsTab } from "./SettingsTab";
 import { useCustomerProfile } from "../../hooks/use-customer-profile";
+import { calculateCustomerCompletion } from "../../lib/profile-completion";
+import { ProfileAvatarRing } from "@/components/ui/ProfileAvatarRing";
 import { useCustomerOrders } from "../../hooks/use-customer-orders";
 import { useCustomerWishlist } from "../../hooks/use-customer-wishlist";
 
@@ -34,6 +36,7 @@ export function AccountShell({ activeTab, onTabChange }: AccountShellProps) {
   const userName = profile?.name || "Customer";
   const userPhone = profile?.phone || "";
   const userInitials = userName ? userName.slice(0, 2).toUpperCase() : "CU";
+  const completionPercent = profile ? calculateCustomerCompletion(profile).percent : 0;
 
   const navItems = [
     { id: "dashboard", label: "Dashboard" },
@@ -92,9 +95,11 @@ export function AccountShell({ activeTab, onTabChange }: AccountShellProps) {
             </>
           ) : (
             <>
-              <div className="w-11 h-11 rounded-full bg-theme-primary flex items-center justify-center font-bold text-sm text-theme-secondary-light flex-shrink-0">
-                {userInitials}
-              </div>
+              <ProfileAvatarRing percent={completionPercent} size={52}>
+                <div className="w-full h-full bg-theme-primary flex items-center justify-center font-bold text-sm text-theme-secondary-light">
+                  {userInitials}
+                </div>
+              </ProfileAvatarRing>
               <div className="min-w-0">
                 <div className="font-semibold text-sm text-theme-text-primary truncate">
                   {userName}
@@ -151,9 +156,11 @@ export function AccountShell({ activeTab, onTabChange }: AccountShellProps) {
               </>
             ) : (
               <>
-                <div className="w-13 h-13 rounded-full bg-theme-primary flex items-center justify-center font-bold text-base text-theme-secondary-light flex-shrink-0">
-                  {userInitials}
-                </div>
+                <ProfileAvatarRing percent={completionPercent} size={60}>
+                  <div className="w-full h-full bg-theme-primary flex items-center justify-center font-bold text-base text-theme-secondary-light">
+                    {userInitials}
+                  </div>
+                </ProfileAvatarRing>
                 <div className="min-w-0">
                   <div className="font-semibold text-sm text-theme-text-primary truncate">
                     {userName}

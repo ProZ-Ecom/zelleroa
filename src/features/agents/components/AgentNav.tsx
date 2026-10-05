@@ -23,6 +23,7 @@ import {
 import { cn } from "@/lib/utils";
 import { APP_NAME } from "@/lib/constants";
 import { useLogout } from "@/features/auth/hooks/use-auth-mutations";
+import { ProfileAvatarRing } from "@/components/ui/ProfileAvatarRing";
 
 type NavItem = { href: string; label: string; icon: LucideIcon };
 
@@ -40,7 +41,15 @@ const LINKS: NavItem[] = [
 
 const STORAGE_KEY = "agent-sidebar-collapsed";
 
-export function AgentShell({ name, children }: { name: string; children: ReactNode }) {
+export function AgentShell({
+  name,
+  completionPercent,
+  children,
+}: {
+  name: string;
+  completionPercent: number;
+  children: ReactNode;
+}) {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -133,9 +142,11 @@ export function AgentShell({ name, children }: { name: string; children: ReactNo
 
       <div className="shrink-0 border-t border-neutral-800 p-3">
         <div className={cn("flex items-center gap-3 rounded-lg px-2 py-2", compact && "justify-center px-0")}>
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-neutral-700 text-sm font-bold text-white">
-            {initial}
-          </span>
+          <ProfileAvatarRing percent={completionPercent} size={44} hideBadge={compact}>
+            <span className="flex h-full w-full items-center justify-center bg-neutral-700 text-sm font-bold text-white">
+              {initial}
+            </span>
+          </ProfileAvatarRing>
           {!compact && (
             <div className="min-w-0 flex-1">
               <p className="truncate text-sm font-medium text-white">{name}</p>
@@ -209,7 +220,9 @@ export function AgentShell({ name, children }: { name: string; children: ReactNo
           <h1 className="min-w-0 flex-1 truncate text-base font-semibold text-neutral-900">{current?.label ?? "Sales Partner Portal"}</h1>
           <div className="flex items-center gap-2">
             <span className="hidden text-sm text-neutral-600 sm:inline">{name}</span>
-            <span className="flex h-9 w-9 items-center justify-center rounded-full bg-neutral-900 text-sm font-bold text-white">{initial}</span>
+            <ProfileAvatarRing percent={completionPercent} size={44}>
+              <span className="flex h-full w-full items-center justify-center bg-neutral-900 text-sm font-bold text-white">{initial}</span>
+            </ProfileAvatarRing>
           </div>
         </header>
         <main className="flex w-full flex-1 flex-col gap-5 px-4 py-5 sm:px-6 sm:py-6">{children}</main>

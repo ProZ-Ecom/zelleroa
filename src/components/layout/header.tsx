@@ -15,6 +15,8 @@ import { getInitials } from "@/lib/utils";
 import { useCustomerWishlistCount } from "@/features/customers/hooks/use-customer-wishlist";
 import { useCustomerCartCount } from "@/features/customers/hooks/use-customer-cart";
 import { useCustomerProfile } from "@/features/customers/hooks/use-customer-profile";
+import { calculateCustomerCompletion } from "@/features/customers/lib/profile-completion";
+import { ProfileAvatarRing } from "@/components/ui/ProfileAvatarRing";
 import { useHeaderMenu } from "@/features/header-menu/hooks";
 import { categoryHref } from "@/features/customers/utils/catalog-listing-query";
 import type { CategoryTreeNode } from "@/features/categories/types";
@@ -386,9 +388,17 @@ export function Header() {
                   alt={userName ? `${userName}'s profile` : "Profile"}
                   href={accountHref}
                   customIcon={
-                    <div className="w-[26px] h-[26px] rounded-full bg-theme-primary text-theme-primary-fg text-[11px] font-bold flex items-center justify-center border border-theme-border-accent shadow-2xs select-none leading-none">
-                      {userInitials}
-                    </div>
+                    userRole === "CUSTOMER" && profile ? (
+                      <ProfileAvatarRing percent={calculateCustomerCompletion(profile).percent} size={36}>
+                        <div className="w-full h-full bg-theme-primary text-theme-primary-fg text-[11px] font-bold flex items-center justify-center select-none leading-none">
+                          {userInitials}
+                        </div>
+                      </ProfileAvatarRing>
+                    ) : (
+                      <div className="w-[26px] h-[26px] rounded-full bg-theme-primary text-theme-primary-fg text-[11px] font-bold flex items-center justify-center border border-theme-border-accent shadow-2xs select-none leading-none">
+                        {userInitials}
+                      </div>
+                    )
                   }
                 />
               )}

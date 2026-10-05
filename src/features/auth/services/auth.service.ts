@@ -1,26 +1,14 @@
-import bcrypt from "bcryptjs";
 import { signIn, signOut } from "next-auth/react";
 import { ApiError } from "@/lib/api/api-error";
 import { generateAccessToken, generateRefreshToken, verifyRefreshToken } from "@/lib/auth/jwt";
 import { userRepository } from "@/features/users/repositories/user.repository";
 import { apiClient } from "@/lib/api/api-client";
 import type { LoginInput, RegisterInput } from "@/lib/validations/auth";
+import { verifyCredentialsWithProtection } from "./login-protection.service";
 
 export const authService = {
   async authenticateUser(data: LoginInput) {
-    const user = await userRepository.findByEmail(data.email);
-    if (!user || !user.password_hash) {
-      throw ApiError.unauthorized("Invalid email or password");
-    }
-
-    if (user.status !== "active") {
-      throw ApiError.forbidden("Your account is inactive or blocked");
-    }
-
-    const isPasswordValid = await bcrypt.compare(data.password, user.password_hash);
-    if (!isPasswordValid) {
-      throw ApiError.unauthorized("Invalid email or password");
-    }
+    const user = await verifyCredentialsWithProtection(data.email, data.password);
 
     const userUuid = user.uuid || user.id.toString();
     const userRole = user.roleName || user.role?.name || "CUSTOMER";

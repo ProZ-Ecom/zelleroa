@@ -56,11 +56,11 @@ export function CustomerProductGrid({
 
   const gridColsClass =
     columns === 4
-      ? "grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-5"
-      : "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 3xl:grid-cols-5";
+      ? "grid-cols-2 md:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-5"
+      : "grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5";
 
   return (
-    <div className={`grid ${gridColsClass} gap-5 sm:gap-6`}>
+    <div className={`grid ${gridColsClass} gap-3 sm:gap-4 lg:gap-5`}>
       {hasStyles
         ? styles!.map((style) => <CustomerStyleCard key={style.id} style={style} />)
         : hasVariants

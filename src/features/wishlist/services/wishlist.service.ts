@@ -15,7 +15,7 @@ async function resolveInternalUser(sessionUserId: string) {
     throw ApiError.unauthorized("User not found or unauthorized");
   }
   if (!user.isActive || user.is_active === false) {
-    throw ApiError.forbidden("Your account is inactive or blocked. Please contact support.");
+    throw ApiError.accountBlocked("Your account is inactive or blocked. Please contact support.");
   }
   return user;
 }

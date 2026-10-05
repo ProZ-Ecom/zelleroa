@@ -57,7 +57,7 @@ export const orderService = {
       throw ApiError.unauthorized("User not found");
     }
     if (!user.isActive || user.is_active === false) {
-      throw ApiError.forbidden("Your account is inactive or blocked. Please contact support.");
+      throw ApiError.accountBlocked("Your account is inactive or blocked. Please contact support.");
     }
 
     const userId = user.internalId;
@@ -416,7 +416,7 @@ export const orderService = {
         );
       }
       if (!shadowUser.isActive) {
-        throw ApiError.forbidden("This account is inactive or blocked. Please contact support.");
+        throw ApiError.accountBlocked("This account is inactive or blocked. Please contact support.");
       }
     } else {
       await db.user.create({
@@ -485,7 +485,7 @@ export const orderService = {
       throw ApiError.unauthorized("User not found");
     }
     if (!user.isActive || user.is_active === false) {
-      throw ApiError.forbidden("Your account is inactive or blocked. Please contact support.");
+      throw ApiError.accountBlocked("Your account is inactive or blocked. Please contact support.");
     }
 
     return orderRepository.findCustomerOrders(user.internalId, query);
@@ -500,7 +500,7 @@ export const orderService = {
       throw ApiError.unauthorized("User not found");
     }
     if (!user.isActive || user.is_active === false) {
-      throw ApiError.forbidden("Your account is inactive or blocked. Please contact support.");
+      throw ApiError.accountBlocked("Your account is inactive or blocked. Please contact support.");
     }
 
     const order = await orderRepository.findCustomerOrderByUuid(
