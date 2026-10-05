@@ -3,7 +3,6 @@
 import { useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { signOut } from "next-auth/react";
 import {
   LayoutDashboard,
   LogOut,
@@ -13,7 +12,9 @@ import {
   Percent,
   Package,
   ShoppingBag,
-  Settings,
+  ReceiptText,
+  ShoppingCart,
+  UserRound,
   Users,
   Wallet,
   X,
@@ -21,18 +22,20 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { APP_NAME } from "@/lib/constants";
-import { logoutApi } from "@/features/auth/api/auth.api";
+import { useLogout } from "@/features/auth/hooks/use-auth-mutations";
 
 type NavItem = { href: string; label: string; icon: LucideIcon };
 
 const LINKS: NavItem[] = [
   { href: "/agent/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/agent/profile", label: "My Profile", icon: UserRound },
+  { href: "/products", label: "Purchase Products", icon: Package },
+  { href: "/cart", label: "My Cart", icon: ShoppingCart },
+  { href: "/orders", label: "My Orders", icon: ReceiptText },
   { href: "/agent/customers", label: "Customers", icon: Users },
-  { href: "/products", label: "Products", icon: Package },
-  { href: "/agent/orders", label: "Orders", icon: ShoppingBag },
+  { href: "/agent/orders", label: "Referral Orders", icon: ShoppingBag },
   { href: "/agent/commissions", label: "Commissions", icon: Percent },
-  { href: "/agent/payouts", label: "Payouts", icon: Wallet },
-  { href: "/agent/profile", label: "Settings", icon: Settings },
+  { href: "/agent/payouts", label: "Payout History", icon: Wallet },
 ];
 
 const STORAGE_KEY = "agent-sidebar-collapsed";
@@ -65,13 +68,10 @@ export function AgentShell({ name, children }: { name: string; children: ReactNo
     });
   };
 
-  const handleLogout = async () => {
-    try {
-      await logoutApi();
-    } catch {
-      // ignore network errors on logout
-    }
-    await signOut({ callbackUrl: "/login" });
+  const logout = useLogout("/login");
+  const handleLogout = () => {
+    if (logout.isPending) return;
+    logout.mutate();
   };
 
   const initial = name.trim().charAt(0).toUpperCase() || "A";
@@ -146,6 +146,7 @@ export function AgentShell({ name, children }: { name: string; children: ReactNo
         <button
           type="button"
           onClick={handleLogout}
+          disabled={logout.isPending}
           title={compact ? "Sign out" : undefined}
           className={cn(
             "mt-1 flex min-h-[40px] w-full items-center gap-3 rounded-lg px-3 text-sm font-medium text-neutral-400 transition-colors hover:bg-red-500/10 hover:text-red-400",

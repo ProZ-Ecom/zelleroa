@@ -11,6 +11,9 @@ interface FormSelectProps {
   placeholder?: string;
   description?: string;
   required?: boolean;
+  searchable?: boolean;
+  /** Small action shown on the label row, e.g. "+ Add brand". */
+  labelAction?: React.ReactNode;
 }
 
 function FormSelect({
@@ -20,6 +23,8 @@ function FormSelect({
   placeholder,
   description,
   required,
+  searchable,
+  labelAction,
 }: FormSelectProps) {
   const { control } = useFormContext();
 
@@ -30,15 +35,19 @@ function FormSelect({
       render={({ field, fieldState }) => (
         <div className="space-y-2">
           {label && (
-            <Label htmlFor={name}>
-              {label}
-              {required && <span className="text-error-600 font-bold ml-1">*</span>}
-            </Label>
+            <div className="flex items-center justify-between gap-2">
+              <Label htmlFor={name}>
+                {label}
+                {required && <span className="text-error-600 font-bold ml-1">*</span>}
+              </Label>
+              {labelAction}
+            </div>
           )}
           <Select
             {...field}
             options={options}
             placeholder={placeholder}
+            searchable={searchable}
             error={fieldState.error?.message}
           />
           {description && !fieldState.error && (

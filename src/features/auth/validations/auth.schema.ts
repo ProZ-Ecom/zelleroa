@@ -1,13 +1,18 @@
 import { z } from "zod";
+import { emailField } from "@/lib/validations/email";
+import { getMobileError } from "@/lib/validations/mobile";
 
 export const sendEmailOtpSchema = z
   .object({
-    email: z
-      .string({ message: "Email is required" })
+    email: emailField,
+    phone: z
+      .string()
       .trim()
-      .min(1, "Email is required")
-      .email("Please enter a valid email address")
-      .transform((val) => val.toLowerCase()),
+      .superRefine((v, ctx) => {
+        const message = v === "" ? null : getMobileError(v);
+        if (message) ctx.addIssue({ code: "custom", message });
+      })
+      .optional(),
   })
   .strict();
 
@@ -18,12 +23,7 @@ export type ResendRegisterOtpInput = z.infer<typeof resendRegisterOtpSchema>;
 
 export const verifyEmailOtpSchema = z
   .object({
-    email: z
-      .string({ message: "Email is required" })
-      .trim()
-      .min(1, "Email is required")
-      .email("Please enter a valid email address")
-      .transform((val) => val.toLowerCase()),
+    email: emailField,
     otp: z
       .string({ message: "OTP is required" })
       .trim()
@@ -35,14 +35,12 @@ export const verifyEmailOtpSchema = z
 export type VerifyEmailOtpInput = z.infer<typeof verifyEmailOtpSchema>;
 
 export const loginSchema = z.object({
-  email: z
-    .string()
-    .min(1, "Email is required")
-    .email("Please enter a valid email address"),
+  email: emailField,
   password: z
     .string()
     .min(1, "Password is required")
-    .min(6, "Password must be at least 6 characters"),
+    .min(6, "Password must be at least 6 characters")
+    .max(100, "Password cannot exceed 100 characters"),
 });
 
 export type LoginInput = z.infer<typeof loginSchema>;
@@ -55,12 +53,7 @@ export type RefreshTokenInput = z.infer<typeof refreshTokenSchema>;
 
 export const forgotPasswordSchema = z
   .object({
-    email: z
-      .string({ message: "Email is required" })
-      .trim()
-      .min(1, "Email is required")
-      .email("Please enter a valid email address")
-      .transform((val) => val.toLowerCase()),
+    email: emailField,
   })
   .strict();
 
@@ -73,12 +66,7 @@ export type ResendForgotPasswordOtpInput = z.infer<
 
 export const verifyOtpSchema = z
   .object({
-    email: z
-      .string({ message: "Email is required" })
-      .trim()
-      .min(1, "Email is required")
-      .email("Please enter a valid email address")
-      .transform((val) => val.toLowerCase()),
+    email: emailField,
     otp: z
       .string({ message: "OTP is required" })
       .trim()
@@ -101,6 +89,7 @@ export const resetPasswordSchema = z
       .string()
       .min(1, "Password is required")
       .min(8, "Password must be at least 8 characters")
+      .max(100, "Password cannot exceed 100 characters")
       .regex(
         /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/,
         "Password must contain at least one uppercase letter, one lowercase letter, and one number"

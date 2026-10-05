@@ -4,6 +4,7 @@ import * as React from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import { emailField } from "@/lib/validations/email";
 import { FormModal } from "@/components/common/FormModal";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/Switch";
@@ -20,11 +21,7 @@ const staffSchema = z.object({
     .min(1, "Name is required")
     .regex(/^[a-zA-Z\s]+$/, "Name can only contain alphabetic characters and spaces")
     .max(150, "Name cannot exceed 150 characters"),
-  email: z
-    .string({ message: "Email is required" })
-    .trim()
-    .email("Invalid email format")
-    .max(150, "Email cannot exceed 150 characters"),
+  email: emailField,
   phone: z
     .string({ message: "Phone number is required" })
     .trim()

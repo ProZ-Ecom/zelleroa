@@ -1,8 +1,7 @@
 "use client";
 
-import { useState, Suspense } from "react";
+import { useState, useEffect, Suspense } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { signIn } from "next-auth/react";
 import { FormProvider, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -20,9 +19,17 @@ import { loginSchema, type LoginInput } from "@/lib/validations/auth";
 import { useLogin } from "@/features/auth";
 
 function AdminLoginForm() {
-  const router = useRouter();
   const [rememberMe, setRememberMe] = useState(false);
   const loginMutation = useLogin();
+  const [phase, setPhase] = useState<"idle" | "signing-in" | "redirecting">("idle");
+  const [redirectSlow, setRedirectSlow] = useState(false);
+  const busy = phase !== "idle" || loginMutation.isPending;
+
+  useEffect(() => {
+    if (phase !== "redirecting") return;
+    const t = setTimeout(() => setRedirectSlow(true), 15000);
+    return () => clearTimeout(t);
+  }, [phase]);
 
   const methods = useForm<LoginInput>({
     resolver: zodResolver(loginSchema),
@@ -35,6 +42,8 @@ function AdminLoginForm() {
   });
 
   const onSubmit = (data: LoginInput) => {
+    if (busy) return;
+    setPhase("signing-in");
     loginMutation.mutate(
       {
         email: data.email.trim(),
@@ -44,6 +53,7 @@ function AdminLoginForm() {
         onSuccess: async (response) => {
           const userRole = response.data?.user?.role;
           if (userRole !== "ADMIN" && userRole !== "STAFF") {
+            setPhase("idle");
             methods.setError("root", {
               type: "manual",
               message: "Access denied. You are not authorized to access the Admin portal.",
@@ -51,20 +61,27 @@ function AdminLoginForm() {
             return;
           }
 
+          // Keep the loader up through session sync and the page navigation.
+          setPhase("redirecting");
           try {
-            await signIn("credentials", {
-              email: data.email.trim(),
-              password: data.password,
-              redirect: false,
-            });
+            // Bounded wait: a stalled NextAuth request must not block the redirect.
+            await Promise.race([
+              signIn("credentials", {
+                email: data.email.trim(),
+                password: data.password,
+                redirect: false,
+              }),
+              new Promise((resolve) => setTimeout(resolve, 4000)),
+            ]);
           } catch {
             // Cookie auth is primary
           }
 
-          router.push("/admin/dashboard");
-          router.refresh();
+          // Full navigation so middleware sees the fresh auth cookies.
+          window.location.assign("/admin/dashboard");
         },
         onError: (err: any) => {
+          setPhase("idle");
           methods.setError("root", {
             type: "server",
             message:
@@ -133,17 +150,45 @@ function AdminLoginForm() {
 
           <FormSubmitButton
             size="xl"
-            disabled={loginMutation.isPending}
+            disabled={busy}
             className="mt-2 h-10 w-full rounded-lg bg-secondary-600 text-sm text-white transition-all hover:bg-secondary-700 cursor-pointer disabled:opacity-50"
           >
-            {loginMutation.isPending ? (
-              <Spinner size="sm" className="text-white" />
+            {busy ? (
+              <span className="flex items-center gap-2">
+                <Spinner size="sm" className="text-white" />
+                {phase === "redirecting" ? "Loading dashboard..." : "Signing in..."}
+              </span>
             ) : (
               "Sign In to Admin"
             )}
           </FormSubmitButton>
         </form>
       </FormProvider>
+
+      {phase === "redirecting" && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-4 bg-white/95 px-6 text-center"
+        >
+          <Spinner size="lg" />
+          {redirectSlow ? (
+            <>
+              <p className="text-sm text-neutral-700">
+                You&apos;re signed in, but this is taking longer than usual.
+              </p>
+              <a
+                href="/admin/dashboard"
+                className="text-sm font-medium text-secondary-600 hover:underline"
+              >
+                Continue manually
+              </a>
+            </>
+          ) : (
+            <p className="text-sm text-neutral-700">Login successful. Loading dashboard...</p>
+          )}
+        </div>
+      )}
     </AuthFormLayout>
   );
 }

@@ -1,4 +1,6 @@
 import { z } from "zod";
+import { optionalEmailField } from "@/lib/validations/email";
+import { mobileStoredOrInputField } from "@/lib/validations/mobile";
 
 const emptyStringToNull = (val: unknown) => {
   if (typeof val === "string" && val.trim() === "") return null;
@@ -7,21 +9,7 @@ const emptyStringToNull = (val: unknown) => {
 
 export const indiaPhoneSchema = z.preprocess(
   emptyStringToNull,
-  z
-    .string()
-    .trim()
-    .transform((val) => {
-      if (/^[6-9]\d{9}$/.test(val)) {
-        return `+91${val}`;
-      }
-      return val;
-    })
-    .refine((val) => /^\+91[6-9]\d{9}$/.test(val), {
-      message:
-        "Phone number must be a valid 10-digit Indian number starting with +91 (e.g. +919876543210)",
-    })
-    .nullable()
-    .optional()
+  mobileStoredOrInputField.nullable().optional()
 );
 
 export const pincodeSchema = z.preprocess(
@@ -36,16 +24,7 @@ export const pincodeSchema = z.preprocess(
     .optional()
 );
 
-export const emailSchema = z.preprocess(
-  emptyStringToNull,
-  z
-    .string()
-    .trim()
-    .email("Invalid email address")
-    .max(150, "Email cannot exceed 150 characters")
-    .nullable()
-    .optional()
-);
+export const emailSchema = optionalEmailField;
 
 export const updateCompanySchema = z
   .object({

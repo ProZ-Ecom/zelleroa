@@ -1,9 +1,9 @@
 "use client";
 
 import AuthFormLayout from "@/components/auth/AuthFormLayout";
-import { Suspense } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { signIn } from "next-auth/react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { FormProvider, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { loginSchema, type LoginInput } from "@/lib/validations/auth";
@@ -17,10 +17,21 @@ import Link from "next/link";
 import { Checkbox } from "@/components/ui/checkbox";
 
 function LoginForm() {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const callbackUrl = searchParams.get("callbackUrl") || "/";
   const loginMutation = useLogin();
+  const [phase, setPhase] = useState<"idle" | "signing-in" | "redirecting">("idle");
+  const [redirectSlow, setRedirectSlow] = useState(false);
+  const [destination, setDestination] = useState<string | null>(null);
+  const busy = phase !== "idle" || loginMutation.isPending;
+
+  // If navigation hasn't completed after a while, tell the user rather than
+  // leaving an indefinite spinner.
+  useEffect(() => {
+    if (phase !== "redirecting") return;
+    const t = setTimeout(() => setRedirectSlow(true), 12000);
+    return () => clearTimeout(t);
+  }, [phase]);
 
   const methods = useForm<LoginInput>({
     resolver: zodResolver(loginSchema),
@@ -33,6 +44,8 @@ function LoginForm() {
   });
 
   const onSubmit = (data: LoginInput) => {
+    if (busy) return;
+    setPhase("signing-in");
     loginMutation.mutate(
       {
         email: data.email.trim(),
@@ -41,16 +54,35 @@ function LoginForm() {
       {
         onSuccess: async (response) => {
           // Sync NextAuth session and redirect
-          await signIn("credentials", {
-            email: data.email.trim(),
-            password: data.password,
-            redirect: false,
-          });
+          // The API login already set the auth cookies, so a NextAuth sync
+          // failure must not block the redirect.
+          try {
+            // Bounded wait: a stalled NextAuth request must not block the redirect.
+            await Promise.race([
+              signIn("credentials", {
+                email: data.email.trim(),
+                password: data.password,
+                redirect: false,
+              }),
+              new Promise((resolve) => setTimeout(resolve, 4000)),
+            ]);
+          } catch (err) {
+            console.error("NextAuth session sync failed", err);
+          }
           const userRole = response?.data?.user?.role;
-          const destination =
+          const target =
             callbackUrl === "/" && userRole === "AGENT" ? "/agent/dashboard" : callbackUrl;
-          router.push(destination);
-          router.refresh();
+          setDestination(target);
+          setPhase("redirecting");
+          // Full navigation so the fresh auth cookies are picked up by
+          // middleware and server components; soft navigation can stall here.
+          window.location.assign(target);
+        },
+        onError: (error) => {
+          setPhase("idle");
+          methods.setError("root", {
+            message: error instanceof Error ? error.message : "Login failed. Please try again.",
+          });
         },
       }
     );
@@ -122,13 +154,47 @@ function LoginForm() {
 
           <FormSubmitButton
             size="xl"
-            disabled={loginMutation.isPending}
+            disabled={busy}
             className="mt-2 h-12 md:h-14 w-full rounded-lg bg-secondary-600 text-sm text-white hover:bg-secondary-700 cursor-pointer disabled:opacity-50"
           >
-            {loginMutation.isPending ? <Spinner size="sm" className="text-white" /> : "Sign In"}
+            {busy ? (
+              <span className="flex items-center gap-2">
+                <Spinner size="sm" className="text-white" />
+                {phase === "redirecting" ? "Signed in..." : "Signing in..."}
+              </span>
+            ) : (
+              "Sign In"
+            )}
           </FormSubmitButton>
         </form>
       </FormProvider>
+
+      {phase === "redirecting" && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-4 bg-white/95 px-6 text-center"
+        >
+          <Spinner size="lg" />
+          {redirectSlow ? (
+            <>
+              <p className="text-sm text-neutral-700">
+                You&apos;re signed in, but this is taking longer than usual.
+              </p>
+              <a
+                href={destination ?? "/"}
+                className="text-sm font-medium text-secondary-600 hover:underline"
+              >
+                Continue manually
+              </a>
+            </>
+          ) : (
+            <p className="text-sm text-neutral-700">
+              Login successful. Loading {destination?.includes("dashboard") ? "dashboard" : "your account"}...
+            </p>
+          )}
+        </div>
+      )}
     </AuthFormLayout>
   );
 }

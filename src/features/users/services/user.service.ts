@@ -6,6 +6,11 @@ import { ApiError } from "@/lib/api/api-error";
 import { userRepository } from "../repositories/user.repository";
 import { otpRepository } from "@/features/auth/repositories/otp.repository";
 import { verifyEmailVerificationToken } from "@/lib/auth/jwt";
+import {
+  normalizeIndianMobile,
+  mobileLookupVariants,
+  PHONE_ALREADY_REGISTERED_MESSAGE,
+} from "@/lib/phone";
 import type { GetUserParams, CreateUserInput, UpdateUserInput } from "../types";
 import type { RegisterInput } from "../validations/user.schema";
 
@@ -52,7 +57,8 @@ export const userService = {
   async registerUserWithToken(data: RegisterInput, request?: NextRequest) {
     const registrationEmail = data.email.toLowerCase().trim();
     const name = (data.fullName || data.name || "").trim();
-    const phone = (data.mobileNumber || data.phone || "").trim();
+    const rawPhone = (data.mobileNumber || data.phone || "").trim();
+    const phone = rawPhone ? normalizeIndianMobile(rawPhone) ?? rawPhone : "";
 
     if (!data.emailVerificationToken) {
       throw ApiError.badRequest("Email verification is required");
@@ -67,7 +73,8 @@ export const userService = {
     }
 
     // 3. Perform atomic registration & single-use token consumption in a transaction
-    return db.$transaction(async (tx) => {
+    try {
+    return await db.$transaction(async (tx) => {
       // Check token record in DB for single-use state
       const tokenRecord = await otpRepository.findValidUnusedVerificationTokenRecord(
         registrationEmail,
@@ -86,16 +93,16 @@ export const userService = {
         where: { email: registrationEmail },
       });
       if (existingUser) {
-        throw ApiError.conflict("An account with this email address already exists");
+        throw ApiError.conflict("This email address is already registered. Please login instead.");
       }
 
       // Check duplicate phone
       if (phone) {
         const existingPhone = await tx.user.findFirst({
-          where: { phone },
+          where: { phone: { in: mobileLookupVariants(phone) } },
         });
         if (existingPhone) {
-          throw ApiError.conflict("An account with this phone number already exists");
+          throw ApiError.conflict(PHONE_ALREADY_REGISTERED_MESSAGE);
         }
       }
 
@@ -143,6 +150,19 @@ export const userService = {
         phone: newUser.phone,
       };
     });
+    } catch (error) {
+      // Concurrent registration lost the race on a unique column
+      const e = error as { code?: string; meta?: { target?: unknown } };
+      if (e?.code === "P2002") {
+        const target = String(e.meta?.target ?? "");
+        throw ApiError.conflict(
+          target.includes("phone")
+            ? PHONE_ALREADY_REGISTERED_MESSAGE
+            : "This email address is already registered. Please login instead."
+        );
+      }
+      throw error;
+    }
   },
 
   async updateUser(id: string | number | bigint, data: UpdateUserInput) {

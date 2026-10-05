@@ -1,5 +1,5 @@
 import crypto from "crypto";
-import { recordStockMovement } from "@/features/inventory/services/stock-ledger.service";
+import { recordOpeningStockPurchase } from "@/features/purchases/services/opening-stock.service";
 import { db } from "@/lib/db/prisma";
 import { ApiError } from "@/lib/api/api-error";
 import { variantRepository } from "../repositories/variant.repository";
@@ -750,6 +750,7 @@ export const variantService = {
     const itemBasePrice = Number(item.base_price ?? 0);
     const createdVariantIds = new Set<bigint>();
     let skipped = 0;
+    const openingStock: { variantUnitPriceId: bigint; quantity: number }[] = [];
 
     // Generating N combinations does several sequential awaited queries each
     // (SKU/slug uniqueness while-loops, inventory rows) - Prisma's 5s default
@@ -888,14 +889,7 @@ export const variantService = {
           });
 
           if (initialStock > 0) {
-            await recordStockMovement(tx, {
-              variantUnitPriceId: unitPrice.id,
-              movementType: "ADJUSTMENT",
-              direction: "in",
-              quantity: initialStock,
-              reason: "Opening stock (bulk variant generation)",
-              actorId: adminId,
-            });
+            openingStock.push({ variantUnitPriceId: unitPrice.id, quantity: initialStock });
           }
 
           existingSizeValueIds.add(sizeKey ?? "__default__");
@@ -913,6 +907,13 @@ export const variantService = {
           await tx.productVariant.delete({ where: { id: variantId } });
         }
       }
+
+      await recordOpeningStockPurchase(
+        tx,
+        openingStock,
+        adminId,
+        `Opening stock for ${item.name} (variant generation)`
+      );
     }, { timeout: 60000 });
 
     const variants = await Promise.all(

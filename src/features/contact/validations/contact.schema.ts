@@ -1,4 +1,6 @@
 import { z } from "zod";
+import { NAME_REGEX, NAME_INVALID_MESSAGE } from "@/lib/validations/name";
+import { emailField } from "@/lib/validations/email";
 
 export const createContactSchema = z
   .object({
@@ -6,17 +8,9 @@ export const createContactSchema = z
       .string({ message: "Name is required" })
       .trim()
       .min(1, "Name is required")
-      .max(150, "Name cannot exceed 150 characters"),
-    email: z
-      .string({ message: "Email is required" })
-      .trim()
-      .min(1, "Email is required")
-      .email("Please enter a valid email address")
-      .regex(
-        /^[^\s@]+@[^\s@]+\.[a-zA-Z]{2,}$/,
-        "Please enter a valid email address with a valid domain (e.g. name@example.com)"
-      )
-      .max(150, "Email cannot exceed 150 characters"),
+      .max(150, "Name cannot exceed 150 characters")
+      .regex(NAME_REGEX, NAME_INVALID_MESSAGE),
+    email: emailField,
     phone: z
       .string({ message: "Phone is required" })
       .trim()

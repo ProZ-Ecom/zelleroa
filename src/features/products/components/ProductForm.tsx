@@ -29,7 +29,7 @@ const productFormSchema = z.object({
   hsnCodeId: z
     .string()
     .min(1, "Please select an HSN code"),
-  gender: z.enum(["men", "women", "kids", "unisex"], {
+  gender: z.enum(["men", "women", "kids", "unisex", "na"], {
     message: "Please select a gender / audience",
   }),
 });
@@ -41,6 +41,8 @@ const GENDER_OPTIONS = [
   { value: "men", label: "Men" },
   { value: "women", label: "Women" },
   { value: "kids", label: "Kids" },
+  // Electronics etc. - no audience, no size chart; still listed under every storefront audience filter.
+  { value: "na", label: "Not applicable" },
 ];
 
 export interface ProductOption {
@@ -336,6 +338,7 @@ function ProductForm({
             options={GENDER_OPTIONS}
             required
           />
+
         </div>
 
         <div className="flex justify-end pt-4">

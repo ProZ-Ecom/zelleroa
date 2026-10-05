@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { EMAIL_MAX_LENGTH } from "@/lib/validations/email";
 import { createPortal } from "react-dom";
 import { useSession } from "next-auth/react";
 import {
@@ -326,6 +327,7 @@ export function ContactFormModal({ open, onClose }: ContactFormModalProps) {
                     <input
                       id="contact-email"
                       type="email"
+                      maxLength={EMAIL_MAX_LENGTH}
                       placeholder="e.g. name@example.com"
                       value={formData.email}
                       onChange={(e) => handleChange("email", e.target.value)}

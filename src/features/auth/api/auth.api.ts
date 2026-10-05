@@ -42,6 +42,7 @@ export async function registerApi(data: RegisterInput) {
 export async function sendEmailOtpApi(data: SendEmailOtpInput) {
   return apiClient.post<null>("/api/auth/send-email-otp", {
     email: data.email.trim(),
+    ...(data.phone ? { phone: data.phone.trim() } : {}),
   });
 }
 

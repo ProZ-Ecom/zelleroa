@@ -152,7 +152,7 @@ export interface CustomerProductDetailDto {
     name: string;
   } | null;
   image: string | null;
-  gender: "men" | "women" | "kids" | "unisex" | null;
+  gender: "men" | "women" | "kids" | "unisex" | "na" | null;
   items: CustomerItemDto[];
 }
 
@@ -246,7 +246,7 @@ export interface CustomerItemDetailDto extends CustomerStyleItemDto {
   product: {
     id: string;
     name: string;
-    gender: "men" | "women" | "kids" | "unisex" | null;
+    gender: "men" | "women" | "kids" | "unisex" | "na" | null;
   };
   brand: { id: string; name: string } | null;
   category: { id: string; name: string } | null;
@@ -267,7 +267,7 @@ export interface CustomerStyleDetailDto {
   product: {
     id: string;
     name: string;
-    gender: "men" | "women" | "kids" | "unisex" | null;
+    gender: "men" | "women" | "kids" | "unisex" | "na" | null;
   };
   brand: { id: string; name: string } | null;
   category: { id: string; name: string } | null;

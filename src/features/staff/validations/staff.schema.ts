@@ -1,4 +1,6 @@
 import { z } from "zod";
+import { NAME_REGEX, NAME_INVALID_MESSAGE } from "@/lib/validations/name";
+import { emailField } from "@/lib/validations/email";
 
 export const createStaffSchema = z
   .object({
@@ -6,14 +8,9 @@ export const createStaffSchema = z
       .string({ message: "Name is required" })
       .trim()
       .min(1, "Name is required")
-      .regex(/^[a-zA-Z\s]+$/, "Name can only contain alphabetic characters and spaces")
-      .max(150, "Name cannot exceed 150 characters"),
-    email: z
-      .string({ message: "Email is required" })
-      .trim()
-      .email("Invalid email format")
-      .max(150, "Email cannot exceed 150 characters")
-      .transform((val) => val.toLowerCase()),
+      .max(150, "Name cannot exceed 150 characters")
+      .regex(NAME_REGEX, NAME_INVALID_MESSAGE),
+    email: emailField,
     phone: z
       .string()
       .trim()
@@ -37,16 +34,10 @@ export const updateStaffSchema = z
       .string()
       .trim()
       .min(1, "Name cannot be empty")
-      .regex(/^[a-zA-Z\s]+$/, "Name can only contain alphabetic characters and spaces")
       .max(150, "Name cannot exceed 150 characters")
+      .regex(NAME_REGEX, NAME_INVALID_MESSAGE)
       .optional(),
-    email: z
-      .string()
-      .trim()
-      .email("Invalid email format")
-      .max(150, "Email cannot exceed 150 characters")
-      .transform((val) => val.toLowerCase())
-      .optional(),
+    email: emailField.optional(),
     phone: z
       .string()
       .trim()
@@ -101,14 +92,9 @@ export const updateStaffProfileSchema = z
       .trim()
       .min(1, "Name cannot be empty")
       .max(150, "Name cannot exceed 150 characters")
+      .regex(NAME_REGEX, NAME_INVALID_MESSAGE)
       .optional(),
-    email: z
-      .string()
-      .trim()
-      .email("Invalid email format")
-      .max(150, "Email cannot exceed 150 characters")
-      .transform((val) => val.toLowerCase())
-      .optional(),
+    email: emailField.optional(),
     phone: z
       .string()
       .trim()

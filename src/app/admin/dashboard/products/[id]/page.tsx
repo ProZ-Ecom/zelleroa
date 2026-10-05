@@ -45,6 +45,7 @@ import {
 import { useUpdateProduct } from "@/features/products/hooks/use-product-mutations";
 import { useCategories } from "@/features/categories/hooks";
 import { useBrands } from "@/features/brands/hooks";
+import { QuickAddBrandModal } from "@/features/brands/components/QuickAddBrandModal";
 import { useHsnCodes } from "@/features/hsn-codes/hooks";
 import { useUnits } from "@/features/units/hooks";
 import { ProductPriceEditModal } from "@/features/products/components/ProductPriceEditModal";
@@ -216,6 +217,10 @@ export default function AdminProductDetailsPage() {
   const [isAddItemOpen, setIsAddItemOpen] = React.useState(false);
   const [isPickBrandOpen, setIsPickBrandOpen] = React.useState(false);
   const [pickedBrandId, setPickedBrandId] = React.useState("");
+  const [isAddBrandOpen, setIsAddBrandOpen] = React.useState(false);
+  const [createdBrandOptions, setCreatedBrandOptions] = React.useState<
+    { value: string; label: string; slug?: string }[]
+  >([]);
   const [newlyCreatedItem, setNewlyCreatedItem] = React.useState<AdminItemResponse | null>(null);
   const [editingItem, setEditingItem] = React.useState<AdminItemResponse | null>(null);
   const [deletingItem, setDeletingItem] = React.useState<AdminItemResponse | null>(null);
@@ -346,7 +351,7 @@ export default function AdminProductDetailsPage() {
   );
   const { data: brandsData } = useBrands(
     { limit: 100 },
-    { enabled: isEditProductOpen }
+    { enabled: isEditProductOpen || isAddItemOpen || Boolean(editingItem) || isPickBrandOpen }
   );
   const { data: hsnData } = useHsnCodes(
     { pageSize: 100 },
@@ -553,6 +558,37 @@ export default function AdminProductDetailsPage() {
     () => (brandsData?.data ?? []).map((b: any) => ({ value: b.uuid || b.id, label: b.name, slug: b.slug })),
     [brandsData]
   );
+
+  // Brand lives on the parent Item (style), not the Model, so a brand picked in
+  // the Model form is saved onto the selected Item.
+  const syncSelectedStyleBrand = async (brandId?: string) => {
+    const style = styles.find((s) => s.id === selectedStyleUuid);
+    if (!style || !brandId || style.brandId === brandId) return;
+    await updateStyleMutation.mutateAsync({
+      productUuid: canonicalProductId,
+      styleUuid: style.id,
+      data: {
+        brandId,
+        name: style.name,
+        slug: style.slug,
+        sku: style.sku || null,
+        shortDescription: style.shortDescription || null,
+        description: style.description || null,
+        ingredients: style.ingredients || null,
+        isReadyToMix: style.isReadyToMix ?? false,
+        cookingRecipe: style.cookingRecipe || null,
+        shelfLife: style.shelfLife || null,
+        vegType: style.vegType || "na",
+        basePrice: style.basePrice ?? 0,
+        isFeatured: style.isFeatured,
+        isDefault: style.isDefault,
+        isActive: style.isActive,
+      },
+    });
+  };
+
+  const selectedStyleBrandId =
+    styles.find((s) => s.id === selectedStyleUuid)?.brandId || product?.brandId || "";
   const hsnOptions = React.useMemo(
     () =>
       (hsnData?.data ?? []).map((h: any) => ({
@@ -2071,11 +2107,22 @@ export default function AdminProductDetailsPage() {
       >
         <div className="space-y-4">
           <Select
-            options={brandOptions}
+            options={[
+              ...brandOptions,
+              ...createdBrandOptions.filter((c) => !brandOptions.some((b) => b.value === c.value)),
+            ]}
             value={pickedBrandId}
             onValueChange={setPickedBrandId}
             placeholder="Select a brand"
+            searchable
           />
+          <button
+            type="button"
+            onClick={() => setIsAddBrandOpen(true)}
+            className="text-xs font-semibold text-[var(--color-secondary-600)] hover:text-[var(--color-secondary-700)] cursor-pointer"
+          >
+            + Add brand
+          </button>
           <div className="flex justify-end gap-2">
             <Button
               type="button"
@@ -2099,6 +2146,15 @@ export default function AdminProductDetailsPage() {
         </div>
       </FormModal>
 
+      <QuickAddBrandModal
+        open={isAddBrandOpen}
+        onClose={() => setIsAddBrandOpen(false)}
+        onCreated={(brand) => {
+          setCreatedBrandOptions((prev) => [...prev, brand]);
+          setPickedBrandId(brand.value);
+        }}
+      />
+
       {/* 15. Add Item Modal (admin-only sub-variant under the selected Style).
            Two steps like the "Add Variant" flow: create the Item,
            then immediately pick which attribute values (Color, Size, etc.)
@@ -2120,10 +2176,12 @@ export default function AdminProductDetailsPage() {
         {!newlyCreatedItem ? (
           selectedStyleUuid && (
             <ItemForm
+              brandOptions={brandOptions}
               isLoading={createItemMutation.isPending}
               submitLabel="Next: Attribute Values"
               onSubmit={async (formData: ItemFormValues) => {
                 try {
+                  await syncSelectedStyleBrand(formData.brandId);
                   const res = await createItemMutation.mutateAsync({
                     productUuid: canonicalProductId,
                     styleUuid: selectedStyleUuid,
@@ -2187,7 +2245,9 @@ export default function AdminProductDetailsPage() {
         {editingItem && (
           <ItemForm
             isEditing
+            brandOptions={brandOptions}
             initialData={{
+              brandId: selectedStyleBrandId,
               name: editingItem.name,
               slug: editingItem.slug,
               sku: editingItem.sku || "",
@@ -2203,6 +2263,7 @@ export default function AdminProductDetailsPage() {
             onSubmit={async (formData: ItemFormValues) => {
               if (!editingItem || !selectedStyleUuid) return;
               try {
+                await syncSelectedStyleBrand(formData.brandId);
                 await updateItemMutation.mutateAsync({
                   productUuid: canonicalProductId,
                   styleUuid: selectedStyleUuid,

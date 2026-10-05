@@ -1,17 +1,8 @@
 import { z } from "zod";
+import { NAME_REGEX, NAME_INVALID_MESSAGE } from "@/lib/validations/name";
+import { mobileStoredOrInputField } from "@/lib/validations/mobile";
 
-const indiaPhoneSchema = z
-  .string()
-  .trim()
-  .transform((val) => {
-    if (/^[6-9]\d{9}$/.test(val)) {
-      return `+91${val}`;
-    }
-    return val;
-  })
-  .refine((val) => /^\+91[6-9]\d{9}$/.test(val), {
-    message: "WhatsApp number must be a valid 10-digit Indian number starting with +91 (e.g. +919876543810)",
-  });
+const indiaPhoneSchema = mobileStoredOrInputField;
 
 export const updateCustomerProfileSchema = z
   .object({
@@ -20,6 +11,7 @@ export const updateCustomerProfileSchema = z
       .trim()
       .min(1, "Name cannot be empty")
       .max(255, "Name cannot exceed 255 characters")
+      .regex(NAME_REGEX, NAME_INVALID_MESSAGE)
       .optional(),
     dob: z
       .string()

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { optionalEmailField } from "@/lib/validations/email";
 
 const optionalText = (max: number) =>
   z
@@ -14,15 +15,7 @@ export const vendorSchema = z
     name: z.string().trim().min(1, "Vendor name is required").max(150),
     contactPerson: optionalText(120),
     phone: optionalText(20),
-    email: z
-      .string()
-      .trim()
-      .email("Invalid email")
-      .max(150)
-      .optional()
-      .nullable()
-      .or(z.literal(""))
-      .transform((v) => (v ? v : null)),
+    email: optionalEmailField.transform((v) => v ?? null),
     gstin: optionalText(20),
     address: optionalText(500),
     notes: optionalText(500),

@@ -597,7 +597,7 @@ export const catalogRepository = {
     // Filter by audience - a men's/women's/kids' filter also includes unisex
     // products, since those are designed to fit anyone.
     if (params.gender) {
-      where.gender = params.gender === "unisex" ? "unisex" : { in: [params.gender, "unisex"] };
+      where.gender = params.gender === "unisex" ? "unisex" : { in: [params.gender, "unisex", "na"] };
     }
 
     // Variant-level filters (inStock, price range) - vegType lives on Item now.
@@ -823,7 +823,7 @@ export const catalogRepository = {
     if (params.gender) {
       where.product = {
         ...productWhere(),
-        gender: params.gender === "unisex" ? "unisex" : { in: [params.gender, "unisex"] },
+        gender: params.gender === "unisex" ? "unisex" : { in: [params.gender, "unisex", "na"] },
       };
     }
 
@@ -1591,7 +1591,7 @@ export const catalogRepository = {
           ...itemStyleWhere(),
           product: {
             ...itemStyleProductWhere(),
-            gender: params.gender === "unisex" ? "unisex" : { in: [params.gender, "unisex"] },
+            gender: params.gender === "unisex" ? "unisex" : { in: [params.gender, "unisex", "na"] },
           },
         },
       };
