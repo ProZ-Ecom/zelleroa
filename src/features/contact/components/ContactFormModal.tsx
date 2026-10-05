@@ -365,6 +365,7 @@ export function ContactFormModal({ open, onClose }: ContactFormModalProps) {
                       id="contact-phone"
                       type="tel"
                       placeholder="e.g. 9876543210"
+                      maxLength={15}
                       value={formData.phone}
                       onChange={(e) => handleChange("phone", e.target.value)}
                       disabled={submitContactMutation.isPending}
@@ -399,7 +400,7 @@ export function ContactFormModal({ open, onClose }: ContactFormModalProps) {
                     <input
                       id="contact-subject"
                       type="text"
-                      placeholder="e.g. Order Inquiry / Bulk Snacks"
+                      placeholder="e.g. Order Inquiry / Bulk Order"
                       value={formData.subject}
                       onChange={(e) => handleChange("subject", e.target.value)}
                       disabled={submitContactMutation.isPending}

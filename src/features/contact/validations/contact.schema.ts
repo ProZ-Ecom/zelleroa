@@ -5,27 +5,33 @@ export const createContactSchema = z
     name: z
       .string({ message: "Name is required" })
       .trim()
-      .min(1, "Name cannot be empty")
+      .min(1, "Name is required")
       .max(150, "Name cannot exceed 150 characters"),
     email: z
       .string({ message: "Email is required" })
       .trim()
-      .email("Invalid email address")
+      .min(1, "Email is required")
+      .email("Please enter a valid email address")
+      .regex(
+        /^[^\s@]+@[^\s@]+\.[a-zA-Z]{2,}$/,
+        "Please enter a valid email address with a valid domain (e.g. name@example.com)"
+      )
       .max(150, "Email cannot exceed 150 characters"),
     phone: z
       .string({ message: "Phone is required" })
       .trim()
-      .min(5, "Phone number must be at least 5 digits")
+      .min(1, "Phone is required")
+      .regex(/^\+?[0-9]{10,15}$/, "Please enter a valid phone number (10 to 15 digits)")
       .max(20, "Phone number cannot exceed 20 characters"),
     subject: z
       .string({ message: "Subject is required" })
       .trim()
-      .min(1, "Subject cannot be empty")
+      .min(1, "Subject is required")
       .max(200, "Subject cannot exceed 200 characters"),
     message: z
       .string({ message: "Message is required" })
       .trim()
-      .min(1, "Message cannot be empty"),
+      .min(1, "Message is required"),
   })
   .strict();
 

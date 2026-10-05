@@ -139,7 +139,6 @@ export function ItemView({ item, returnUrl, eyebrow, brandName, className }: Ite
       },
       {
         onSuccess: () => toast.success(`${item.name} added to cart`),
-        onError: () => toast.error("Could not add this item to your cart"),
       }
     );
   };

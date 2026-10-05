@@ -290,6 +290,19 @@ export function BannerForm({
     });
   };
 
+  const handleFormError = (errors: Record<string, any>) => {
+    const firstKey = Object.keys(errors)[0];
+    if (firstKey && typeof document !== "undefined") {
+      const el =
+        document.querySelector(`[name="${firstKey}"]`) ||
+        document.getElementById(firstKey);
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "center" });
+        if ("focus" in el) (el as HTMLElement).focus();
+      }
+    }
+  };
+
   const hasType = Boolean(selectedPositionId);
   const imageSpec = typeConfig.image;
   // `formState.errors` (not `isValid`) drives every field's highlighted
@@ -305,7 +318,7 @@ export function BannerForm({
   return (
     <FormProvider {...methods}>
       <form
-        onSubmit={methods.handleSubmit(handleFormSubmit)}
+        onSubmit={methods.handleSubmit(handleFormSubmit, handleFormError)}
         className="space-y-5"
         noValidate
       >

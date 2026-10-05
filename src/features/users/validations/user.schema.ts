@@ -14,7 +14,7 @@ export type GetUsersQueryInput = z.infer<typeof getUsersQuerySchema>;
 
 /* --------------------------- Mobile Validation -------------------------- */
 
-const indiaPhoneSchema = z
+export const indiaPhoneSchema = z
   .string({ message: "Mobile number is required" })
   .trim()
   .transform((val) => {

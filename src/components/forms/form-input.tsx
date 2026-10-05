@@ -39,7 +39,7 @@ function FormInput({
   required,
   ...props
 }: FormInputProps) {
-  const { control } = useFormContext();
+  const { control, formState } = useFormContext();
   const [showInfo, setShowInfo] = React.useState(false);
   const infoRef = React.useRef<HTMLDivElement>(null);
   const isSlugField =
@@ -60,102 +60,109 @@ function FormInput({
     <Controller
       name={name}
       control={control}
-      render={({ field, fieldState }) => (
-        <div className="pt-0 mb-3">
-          {label && (
-            <div className="flex items-center gap-1.5 mb-1.5">
-              <Label htmlFor={name} className="flex items-center gap-1">
-                {label}
-                {required && (
-                  <span className="text-error-600 font-bold ml-1">*</span>
-                )}
-              </Label>
-              {infoMessage && (
-                <div className="relative inline-flex items-center" ref={infoRef}>
-                  <button
-                    type="button"
-                    onClick={() => setShowInfo((prev) => !prev)}
-                    className="text-neutral-400 hover:text-[var(--color-secondary-600)] transition-colors focus:outline-none cursor-pointer rounded-full p-0.5"
-                    title="Click for more information"
-                    aria-label="Information"
-                  >
-                    <Info className="h-3.5 w-3.5" />
-                  </button>
+      render={({ field, fieldState }) => {
+        const hasError = Boolean(
+          (fieldState.isTouched || formState.isSubmitted) && fieldState.error?.message
+        );
+        const errorMessage = hasError ? fieldState.error?.message : undefined;
 
-                  {showInfo && (
-                    <div className="absolute right-0 top-full mt-1.5 z-50 w-72 sm:w-80 rounded-xl bg-white border border-neutral-200/90 p-3 text-xs text-neutral-700 shadow-xl shadow-neutral-900/10 animate-in fade-in zoom-in-95 duration-150">
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="flex items-start gap-2">
-                          <Info className="h-4 w-4 text-[var(--color-secondary-600)] shrink-0 mt-0.5" />
-                          <p className="leading-relaxed text-[var(--color-neutral-800)]">{infoMessage}</p>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => setShowInfo(false)}
-                          className="text-neutral-400 hover:text-neutral-700 font-bold text-sm leading-none ml-1 p-0.5 cursor-pointer"
-                        >
-                          ×
-                        </button>
-                      </div>
-                    </div>
+        return (
+          <div className="pt-0 mb-3">
+            {label && (
+              <div className="flex items-center gap-1.5 mb-1.5">
+                <Label htmlFor={name} className="flex items-center gap-1">
+                  {label}
+                  {required && (
+                    <span className="text-red-500 font-bold ml-1">*</span>
                   )}
-                </div>
-              )}
-            </div>
-          )}
-          <Input
-            id={name}
-            {...props}
-            value={field.value ?? ""}
-            onChange={(e) => {
-              if (props.type === "number") {
-                const value =
-                  e.target.value === "" ? "" : Number(e.target.value);
+                </Label>
+                {infoMessage && (
+                  <div className="relative inline-flex items-center" ref={infoRef}>
+                    <button
+                      type="button"
+                      onClick={() => setShowInfo((prev) => !prev)}
+                      className="text-neutral-400 hover:text-[var(--color-secondary-600)] transition-colors focus:outline-none cursor-pointer rounded-full p-0.5"
+                      title="Click for more information"
+                      aria-label="Information"
+                    >
+                      <Info className="h-3.5 w-3.5" />
+                    </button>
+
+                    {showInfo && (
+                      <div className="absolute right-0 top-full mt-1.5 z-50 w-72 sm:w-80 rounded-xl bg-white border border-neutral-200/90 p-3 text-xs text-neutral-700 shadow-xl shadow-neutral-900/10 animate-in fade-in zoom-in-95 duration-150">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex items-start gap-2">
+                            <Info className="h-4 w-4 text-[var(--color-secondary-600)] shrink-0 mt-0.5" />
+                            <p className="leading-relaxed text-[var(--color-neutral-800)]">{infoMessage}</p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setShowInfo(false)}
+                            className="text-neutral-400 hover:text-neutral-700 font-bold text-sm leading-none ml-1 p-0.5 cursor-pointer"
+                          >
+                            ×
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+            <Input
+              id={name}
+              {...props}
+              value={field.value ?? ""}
+              onChange={(e) => {
+                if (props.type === "number") {
+                  const value =
+                    e.target.value === "" ? "" : Number(e.target.value);
+                  field.onChange(value);
+                  return;
+                }
+
+                let value = e.target.value;
+                if (isSlugField) {
+                  value = formatSlug(value);
+                }
+
                 field.onChange(value);
-                return;
-              }
+              }}
+              onPaste={(e) => {
+                if (isSlugField) {
+                  e.preventDefault();
+                  const pastedText = e.clipboardData.getData("text");
+                  const formatted = formatSlug(pastedText);
 
-              let value = e.target.value;
-              if (isSlugField) {
-                value = formatSlug(value);
-              }
+                  const input = e.currentTarget;
+                  const start = input.selectionStart ?? 0;
+                  const end = input.selectionEnd ?? 0;
+                  const currentValue = String(field.value || "");
+                  const nextValue = formatSlug(
+                    currentValue.slice(0, start) +
+                      formatted +
+                      currentValue.slice(end)
+                  );
 
-              field.onChange(value);
-            }}
-            onPaste={(e) => {
-              if (isSlugField) {
-                e.preventDefault();
-                const pastedText = e.clipboardData.getData("text");
-                const formatted = formatSlug(pastedText);
-
-                const input = e.currentTarget;
-                const start = input.selectionStart ?? 0;
-                const end = input.selectionEnd ?? 0;
-                const currentValue = String(field.value || "");
-                const nextValue = formatSlug(
-                  currentValue.slice(0, start) +
-                    formatted +
-                    currentValue.slice(end)
-                );
-
-                field.onChange(nextValue);
-              }
-              props.onPaste?.(e);
-            }}
-            onBlur={field.onBlur}
-            name={field.name}
-            ref={field.ref}
-            className={className}
-            leftIcon={leftIcon}
-            rightIcon={rightIcon}
-            inputPrefix={inputPrefix}
-            error={fieldState.error?.message}
-          />
-          {description && !fieldState.error && (
-            <p className="text-xs text-muted-foreground">{description}</p>
-          )}
-        </div>
-      )}
+                  field.onChange(nextValue);
+                }
+                props.onPaste?.(e);
+              }}
+              onBlur={field.onBlur}
+              name={field.name}
+              ref={field.ref}
+              className={className}
+              leftIcon={leftIcon}
+              rightIcon={rightIcon}
+              inputPrefix={inputPrefix}
+              error={errorMessage}
+            />
+            {description && !errorMessage && (
+              <p className="text-xs text-muted-foreground">{description}</p>
+            )}
+          </div>
+        );
+      }}
     />
   );
 }

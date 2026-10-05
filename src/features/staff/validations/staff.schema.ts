@@ -6,6 +6,7 @@ export const createStaffSchema = z
       .string({ message: "Name is required" })
       .trim()
       .min(1, "Name is required")
+      .regex(/^[a-zA-Z\s]+$/, "Name can only contain alphabetic characters and spaces")
       .max(150, "Name cannot exceed 150 characters"),
     email: z
       .string({ message: "Email is required" })
@@ -36,6 +37,7 @@ export const updateStaffSchema = z
       .string()
       .trim()
       .min(1, "Name cannot be empty")
+      .regex(/^[a-zA-Z\s]+$/, "Name can only contain alphabetic characters and spaces")
       .max(150, "Name cannot exceed 150 characters")
       .optional(),
     email: z

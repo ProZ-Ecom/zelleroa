@@ -2144,7 +2144,6 @@ export default function AdminProductDetailsPage() {
                     setSelectedItemUuid(created.id);
                     setNewlyCreatedItem(created);
                   }
-                  toast.success("Model created", `"${formData.name}" is ready for Colors & Sizes.`);
                 } catch (err: any) {
                   console.error("Failed to create item", err);
                   toast.error("Failed to create model", err?.message || "Please try again.");

@@ -370,9 +370,15 @@ export function OfferForm({
             type="number"
             min={0}
             max={1000}
+            step={1}
             label="Priority"
             required
             description="Higher wins when two offers of the same level compete."
+            onKeyDown={(e) => {
+              if (["e", "E", "+", "-", "."].includes(e.key)) {
+                e.preventDefault();
+              }
+            }}
           />
         </section>
 

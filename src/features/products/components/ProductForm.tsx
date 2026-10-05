@@ -204,7 +204,7 @@ function ProductForm({
           <FormInput
             name="name"
             label="Product Name"
-            placeholder="e.g. Banana Chips"
+            placeholder="e.g. Anarkali Suit / Floral Summer Dress"
             required
           />
 
@@ -240,7 +240,7 @@ function ProductForm({
                     <div className="flex items-start gap-2">
                       <Info className="h-4 w-4 text-[var(--color-secondary-600)] shrink-0 mt-0.5" />
                       <p className="leading-relaxed text-[var(--color-neutral-800)]">
-                        Enter product code (special characters allowed, e.g. BANANA_CHIPS). Category code prefix is automatically applied.
+                        Enter product code (special characters allowed, e.g. ANARKALI_SUIT). Category code prefix is automatically applied.
                       </p>
                     </div>
                     <button
@@ -288,7 +288,7 @@ function ProductForm({
               type="text"
               value={extraSlug}
               onChange={(e) => handleExtraSlugChange(e.target.value)}
-              placeholder="e.g. BANANA_CHIPS"
+              placeholder="e.g. ANARKALI_SUIT"
               className="flex-1 min-w-0 px-3 py-2 text-sm text-neutral-900 bg-transparent outline-none font-mono placeholder:text-neutral-400 placeholder:font-sans uppercase"
             />
           </div>

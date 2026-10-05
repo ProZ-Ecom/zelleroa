@@ -38,9 +38,9 @@ function getPackSizeLabel(pack: CustomerVariantUnitPriceDto): string {
 const RATING_DESCRIPTIONS: Record<number, { label: string; text: string }> = {
   1: { label: "Disappointed", text: "Poor quality or not as expected" },
   2: { label: "Not Satisfied", text: "Could have been much better" },
-  3: { label: "Average", text: "Decent taste, met basic expectations" },
-  4: { label: "Very Good", text: "Really tasty, fresh, and enjoyable" },
-  5: { label: "Loved it!", text: "Outstanding crunch, authentic aroma, exceptional quality!" },
+  3: { label: "Average", text: "Decent quality, met basic expectations" },
+  4: { label: "Very Good", text: "Really good quality, comfortable, and well made" },
+  5: { label: "Loved it!", text: "Outstanding quality, authentic styling, exceptional craftsmanship!" },
 };
 
 export function WriteReviewModal({
@@ -168,7 +168,7 @@ export function WriteReviewModal({
               Customer Feedback
             </span>
             <h3 className="font-serif text-2xl font-bold text-[#2B1B17] tracking-tight">
-              Review This Snack
+              Review This Product
             </h3>
             <p className="text-xs sm:text-sm text-stone-600 mt-1 truncate">
               {targetName}
@@ -199,7 +199,7 @@ export function WriteReviewModal({
                   Sign In to Share Your Review
                 </h4>
                 <p className="text-xs sm:text-sm text-stone-600 max-w-sm mx-auto leading-relaxed">
-                  Join our community of authentic South Indian snack connoisseurs. It only takes a few seconds to sign in!
+                  Join our community to share your thoughts. It only takes a few seconds to sign in!
                 </p>
               </div>
               <button

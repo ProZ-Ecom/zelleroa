@@ -164,7 +164,6 @@ export default function AdminOffersPage() {
     setFormError(null);
     try {
       await createMutation.mutateAsync(formData as Record<string, unknown>);
-      toast.success("Offer created", `"${formData.name}" is ready.`);
       setIsCreateOpen(false);
     } catch (err) {
       setFormError(errorMessage(err, "Could not create the offer."));
@@ -179,7 +178,6 @@ export default function AdminOffersPage() {
         id: editingOffer.id,
         data: formData as Record<string, unknown>,
       });
-      toast.success("Offer updated", `"${formData.name}" has been saved.`);
       setEditingOffer(null);
     } catch (err) {
       setFormError(errorMessage(err, "Could not update the offer."));

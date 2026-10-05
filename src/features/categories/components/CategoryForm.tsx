@@ -128,6 +128,17 @@ function CategoryForm({
             max="100"
             step="1"
             placeholder="0"
+            onFocus={() => {
+              if (methods.getValues("sortOrder") === 0) {
+                methods.setValue("sortOrder", "" as any);
+              }
+            }}
+            onBlur={() => {
+              const val = methods.getValues("sortOrder") as unknown;
+              if (val === "" || val === undefined || val === null) {
+                methods.setValue("sortOrder", 0 as any);
+              }
+            }}
         />
 
         <div className="flex justify-end pt-4">

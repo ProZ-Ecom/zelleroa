@@ -24,7 +24,11 @@ const headerMenuFormSchema = z
     label: z.string().trim().min(1, "Label is required").max(150),
     categoryIds: z.array(z.string()).default([]),
     link: z.string().trim().max(500).optional().nullable(),
-    gender: z.enum(["men", "women", "kids", "unisex"]).optional().nullable(),
+    gender: z
+      .enum(["men", "women", "kids", "unisex"])
+      .optional()
+      .nullable()
+      .or(z.literal("")),
     sortOrder: z.union([z.number(), z.literal("")]).default(0),
     isActive: z.boolean().default(true),
   })
@@ -97,7 +101,7 @@ export function HeaderMenuForm({
 
   const methods = useForm<HeaderMenuFormData>({
     resolver: zodResolver(headerMenuFormSchema) as any,
-    mode: "onChange",
+    mode: "onSubmit",
     reValidateMode: "onChange",
     defaultValues: {
       label: initialData?.label ?? "",

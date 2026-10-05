@@ -19,8 +19,10 @@ import type { SizeChartGender } from "@/features/size-charts/types";
 const variantFormSchema = z.object({
   productId: z
     .string()
-    .uuid("Invalid Product UUID format")
-    .optional(),
+    .optional()
+    .refine((val) => !val || /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val), {
+      message: "Please select a product",
+    }),
   variantName: z
     .string()
     .trim()
@@ -129,7 +131,7 @@ function VariantForm({
 
   const methods = useForm<VariantFormValues>({
     resolver: zodResolver(variantFormSchema),
-    mode: "onChange",
+    mode: "onSubmit",
     reValidateMode: "onChange",
     defaultValues: {
       productId: fixedProductId || initialData?.productId || "",

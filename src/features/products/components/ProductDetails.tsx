@@ -415,9 +415,13 @@ function ProductDetails({ product }: ProductDetailsProps) {
     if (addToWishlist.isPending || removeFromWishlist.isPending) return;
 
     if (isInWishlist) {
-      removeFromWishlist.mutate(selectedUnitPrice.id);
+      removeFromWishlist.mutate(selectedUnitPrice.id, {
+        onSuccess: () => toast.success("Item removed from your Wishlist"),
+      });
     } else {
-      addToWishlist.mutate(selectedUnitPrice.id);
+      addToWishlist.mutate(selectedUnitPrice.id, {
+        onSuccess: () => toast.success("Item added to your Wishlist"),
+      });
     }
   };
 
