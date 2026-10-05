@@ -2104,6 +2104,7 @@ export default function AdminProductDetailsPage() {
         title="Select Brand"
         description={`This product has no Brand yet. Pick one to continue adding items to "${product.name}".`}
         size="sm"
+        bodyClassName="overflow-visible min-h-[220px]"
       >
         <div className="space-y-4">
           <Select

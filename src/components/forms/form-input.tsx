@@ -60,7 +60,7 @@ function FormInput({
     <Controller
       name={name}
       control={control}
-      render={({ field, fieldState }) => {
+      render={({ field, fieldState, formState }) => {
         const hasError = Boolean(
           (fieldState.isTouched || formState.isSubmitted) && fieldState.error?.message
         );
@@ -73,7 +73,7 @@ function FormInput({
                 <Label htmlFor={name} className="flex items-center gap-1">
                   {label}
                   {required && (
-                    <span className="text-red-500 font-bold ml-1">*</span>
+                    <span className="text-error-600 font-bold ml-1">*</span>
                   )}
                 </Label>
                 {infoMessage && (

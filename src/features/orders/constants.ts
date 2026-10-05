@@ -1,4 +1,9 @@
-import { DELIVERY_ESTIMATE, OTHER_STATE_DELIVERY_CHARGE } from "./shipping";
+import {
+  STANDARD_DELIVERY_CHARGE,
+  EXPRESS_DELIVERY_CHARGE,
+  STANDARD_DELIVERY_ESTIMATE,
+  EXPRESS_DELIVERY_ESTIMATE,
+} from "./shipping";
 import type {
   DeliveryMethod,
   PaymentMethod,
@@ -6,10 +11,20 @@ import type {
 
 export const DELIVERY_OPTIONS: Record<
   DeliveryMethod,
-  { label: string; cost: number; description: string }
+  { label: string; cost: number; description: string; estimate: string }
 > = {
-  standard: { label: "Standard Delivery", cost: OTHER_STATE_DELIVERY_CHARGE, description: DELIVERY_ESTIMATE },
-  express: { label: "Express Delivery", cost: OTHER_STATE_DELIVERY_CHARGE, description: DELIVERY_ESTIMATE },
+  standard: {
+    label: "Standard Delivery",
+    cost: STANDARD_DELIVERY_CHARGE,
+    description: "Standard doorstep delivery across India",
+    estimate: STANDARD_DELIVERY_ESTIMATE,
+  },
+  express: {
+    label: "Express Delivery",
+    cost: EXPRESS_DELIVERY_CHARGE,
+    description: "Priority fast express delivery",
+    estimate: EXPRESS_DELIVERY_ESTIMATE,
+  },
 };
 
 export const PAYMENT_METHOD_OPTIONS: {

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { toast } from "@/components/ui/Toast";
 import {
   useHsnCodes,
   useCreateHsnCode,
@@ -194,12 +195,17 @@ export default function AdminHsnCodesPage() {
           isLoading={createMutation.isPending}
           submitLabel="Create HSN Code"
           onSubmit={async (formData) => {
-            await createMutation.mutateAsync({
-              code: formData.code,
-              description: formData.description || null,
-              gstRateId: formData.gstRateId,
-            });
-            setIsCreateOpen(false);
+            try {
+              await createMutation.mutateAsync({
+                code: formData.code,
+                description: formData.description || null,
+                gstRateId: formData.gstRateId,
+              });
+              toast.success("HSN Code created", `HSN Code "${formData.code}" was added successfully.`);
+              setIsCreateOpen(false);
+            } catch (err: any) {
+              toast.error("Failed to create HSN code", err?.message || "Please try again.");
+            }
           }}
         />
       </FormModal>
@@ -224,18 +230,22 @@ export default function AdminHsnCodesPage() {
             isLoading={updateMutation.isPending}
             submitLabel="Update HSN Code"
             onSubmit={async (formData) => {
-              await updateMutation.mutateAsync({
-                uuid: selectedHsn.id,
-                data: {
-                  code: formData.code,
-                  description: formData.description || null,
-                  gstRateId: formData.gstRateId,
-                },
-              });
-
-              setIsEditOpen(false);
-              setSelectedHsn(null);
-              refetch();
+              try {
+                await updateMutation.mutateAsync({
+                  uuid: selectedHsn.id,
+                  data: {
+                    code: formData.code,
+                    description: formData.description || null,
+                    gstRateId: formData.gstRateId,
+                  },
+                });
+                toast.success("HSN Code updated", `HSN Code "${formData.code}" was saved successfully.`);
+                setIsEditOpen(false);
+                setSelectedHsn(null);
+                refetch();
+              } catch (err: any) {
+                toast.error("Failed to update HSN code", err?.message || "Please try again.");
+              }
             }}
           />
         )}
@@ -244,11 +254,15 @@ export default function AdminHsnCodesPage() {
       <ConfirmDialog
         open={!!deleteId}
         onClose={() => setDeleteId(null)}
-        onConfirm={() => {
+        onConfirm={async () => {
           if (deleteId) {
-            deleteMutation.mutate(deleteId, {
-              onSuccess: () => setDeleteId(null),
-            });
+            try {
+              await deleteMutation.mutateAsync(deleteId);
+              toast.success("HSN Code deleted", "The HSN code was removed successfully.");
+              setDeleteId(null);
+            } catch (err: any) {
+              toast.error("Failed to delete HSN code", err?.message || "Please try again.");
+            }
           }
         }}
         title="Delete HSN Code"
