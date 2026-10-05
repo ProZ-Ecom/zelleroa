@@ -11,6 +11,15 @@ const brandUuid = z
   .min(1, "Brand is required")
   .uuid("Invalid Brand UUID format");
 
+// YYYY-MM-DD; the New Arrival badge stops after this day. Empty/null = no expiry.
+const newArrivalUntil = z
+  .string()
+  .trim()
+  .regex(/^\d{4}-\d{2}-\d{2}$/, "Use YYYY-MM-DD")
+  .optional()
+  .nullable()
+  .or(z.literal("").transform(() => null));
+
 export const createAdminStyleSchema = z
   .object({
     brandId: brandUuid,
@@ -44,6 +53,8 @@ export const createAdminStyleSchema = z
     vegType: vegTypeEnum.optional(),
     basePrice: z.coerce.number().min(0, "Base price cannot be negative").optional().default(0),
     isFeatured: z.boolean().optional().default(false),
+    isNewArrival: z.boolean().optional().default(false),
+    newArrivalUntil: newArrivalUntil,
     isDefault: z.boolean().optional().default(false),
     isActive: z.boolean().optional().default(false),
     outOfStock: z.boolean().optional().default(false),
@@ -89,6 +100,8 @@ export const updateAdminStyleSchema = z
     vegType: vegTypeEnum.optional(),
     basePrice: z.coerce.number().min(0, "Base price cannot be negative").optional(),
     isFeatured: z.boolean().optional(),
+    isNewArrival: z.boolean().optional(),
+    newArrivalUntil: newArrivalUntil,
     isDefault: z.boolean().optional(),
     isActive: z.boolean().optional(),
     outOfStock: z.boolean().optional(),

@@ -94,7 +94,9 @@ model User {
   updated_by                                                          BigInt?                    @db.UnsignedBigInt
   is_blocked                                                          BigInt?
   blocked_at                                                          DateTime?                  @default(now()) @db.Timestamp(0)
-  referral_code                                                       String?                    @unique(map: "users_referral_code") @db.VarChar(30)
+  /// Mandatory admin-entered reason, set when a customer / sales partner is blocked; cleared on unblock.
+  block_reason                                                        String?                    @db.VarChar(500)
+  referral_code                                                      String?                    @unique(map: "users_referral_code") @db.VarChar(30)
   referred_at                                                         DateTime?                  @db.Timestamp(0)
   agent_orders                                                        Order[]                    @relation("OrderAgent")
   agent_profile                                                       agent_profiles?
@@ -496,6 +498,8 @@ model Style {
   veg_type                       products_veg_type @default(na)
   base_price                     Decimal           @default(0.00) @db.Decimal(10, 2)
   is_featured                    Boolean           @default(false)
+  is_new_arrival                 Boolean           @default(false) @map("is_new_arrival")
+  new_arrival_until              DateTime?         @map("new_arrival_until") @db.Date
   is_default                     Boolean           @default(false)
   isActive                       Boolean           @default(true) @map("is_active")
   out_of_stock                   Boolean           @default(false) @map("out_of_stock")

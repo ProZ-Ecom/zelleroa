@@ -35,6 +35,8 @@ function formatAdminStyleResponse(item: {
   veg_type: string;
   base_price: Prisma.Decimal | number;
   is_featured: boolean;
+  is_new_arrival: boolean;
+  new_arrival_until: Date | null;
   is_default: boolean;
   isActive: boolean;
   out_of_stock: boolean;
@@ -74,6 +76,8 @@ function formatAdminStyleResponse(item: {
     vegType: (item.veg_type as AdminStyleResponse["vegType"]) || "na",
     basePrice: Number(item.base_price ?? 0),
     isFeatured: Boolean(item.is_featured),
+    isNewArrival: Boolean(item.is_new_arrival),
+    newArrivalUntil: item.new_arrival_until ? item.new_arrival_until.toISOString().slice(0, 10) : null,
     isDefault: Boolean(item.is_default),
     isActive: Boolean(item.isActive),
     outOfStock: Boolean(item.out_of_stock),
@@ -140,6 +144,8 @@ export const styleService = {
       veg_type: (data.vegType as Prisma.StyleUncheckedCreateInput["veg_type"]) ?? "na",
       base_price: data.basePrice ?? 0,
       is_featured: data.isFeatured ?? false,
+      is_new_arrival: data.isNewArrival ?? false,
+      new_arrival_until: data.isNewArrival && data.newArrivalUntil ? new Date(data.newArrivalUntil) : null,
       is_default: isDefault,
       isActive: data.isActive ?? false,
       out_of_stock: data.outOfStock ?? false,
@@ -219,6 +225,14 @@ export const styleService = {
     }
     if (data.basePrice !== undefined) updateData.base_price = data.basePrice;
     if (data.isFeatured !== undefined) updateData.is_featured = data.isFeatured;
+    if (data.isNewArrival !== undefined) {
+      updateData.is_new_arrival = data.isNewArrival;
+      // Unticking the flag also drops the expiry so a later re-tick starts clean.
+      if (!data.isNewArrival) updateData.new_arrival_until = null;
+    }
+    if (data.newArrivalUntil !== undefined && data.isNewArrival !== false) {
+      updateData.new_arrival_until = data.newArrivalUntil ? new Date(data.newArrivalUntil) : null;
+    }
     if (data.isDefault !== undefined) updateData.is_default = data.isDefault;
     if (typeof data.isActive === "boolean") updateData.isActive = data.isActive;
     if (typeof data.outOfStock === "boolean") updateData.out_of_stock = data.outOfStock;

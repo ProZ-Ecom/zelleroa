@@ -30,6 +30,8 @@ const adminCustomerInclude = Prisma.validator<Prisma.customer_profilesInclude>()
       status: true,
       is_active: true,
       is_blocked: true,
+      block_reason: true,
+      blocked_at: true,
       email_verified_at: true,
       phone_verified_at: true,
       last_login_at: true,
@@ -72,6 +74,8 @@ export function formatAdminCustomer(
     status: user.status,
     isActive: Boolean(user.is_active),
     isBlocked,
+    blockReason: isBlocked ? user.block_reason ?? null : null,
+    blockedAt: isBlocked ? user.blocked_at ?? null : null,
     emailVerified: user.email_verified_at !== null,
     phoneVerified: user.phone_verified_at !== null,
     lastLoginAt: user.last_login_at ?? null,
@@ -374,7 +378,8 @@ export const adminCustomerRepository = {
   async updateCustomerStatus(
     uuid: string,
     isActive: boolean,
-    adminUserId?: bigint | number
+    adminUserId?: bigint | number,
+    blockReason?: string
   ): Promise<AdminCustomerDetailDto | null> {
     const user = await this.findCustomerUserByUuid(uuid);
     if (!user) return null;
@@ -391,6 +396,7 @@ export const adminCustomerRepository = {
           status: newStatus,
           is_blocked: isBlocked,
           blocked_at: blockedAt,
+          block_reason: isActive ? null : blockReason ?? null,
           updatedAt: new Date(),
           ...(adminUserId ? { updated_by: BigInt(adminUserId) } : {}),
         },
@@ -440,6 +446,8 @@ export const adminCustomerRepository = {
       status: user.status,
       isActive: Boolean(user.is_active),
       isBlocked,
+      blockReason: isBlocked ? user.block_reason ?? null : null,
+      blockedAt: isBlocked ? user.blocked_at ?? null : null,
       emailVerified: user.email_verified_at !== null,
       phoneVerified: user.phone_verified_at !== null,
       lastLoginAt: user.last_login_at ?? null,

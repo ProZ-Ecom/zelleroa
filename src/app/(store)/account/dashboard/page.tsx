@@ -1,6 +1,6 @@
 "use client";
 
-import React, { Suspense } from "react";
+import React, { Suspense, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { AccountShell } from "@/features/customers/components/account";
@@ -57,12 +57,19 @@ function ProfileContent() {
 
   const currentTab = searchParams.get("tab") || "dashboard";
 
+  const unauthenticated = status === "unauthenticated" || (status !== "loading" && !session);
+
+  useEffect(() => {
+    if (unauthenticated) {
+      router.push("/login?callbackUrl=/account/dashboard");
+    }
+  }, [unauthenticated, router]);
+
   if (status === "loading") {
     return <AccountPageSkeleton />;
   }
 
-  if (status === "unauthenticated" || !session) {
-    router.push("/login?callbackUrl=/account/dashboard");
+  if (unauthenticated) {
     return null;
   }
 

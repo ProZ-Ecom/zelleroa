@@ -110,6 +110,8 @@ const agentUserSelect = {
   phone: true,
   status: true,
   is_active: true,
+  block_reason: true,
+  blocked_at: true,
   createdAt: true,
   last_login_at: true,
   referral_code: true,
@@ -121,13 +123,16 @@ type AgentUser = Prisma.UserGetPayload<{ select: typeof agentUserSelect }>;
 function formatAgent(u: AgentUser, summary?: AgentSummary & { openPayouts: number }) {
   const code = u.agent_profile?.agent_code ?? null;
   const referralCode = u.referral_code ?? code;
+  const isActive = u.is_active && u.status === "active";
   return {
     id: u.uuid ?? String(u.id),
     agentCode: code,
     name: u.name,
     email: u.email,
     phone: u.phone,
-    isActive: u.is_active && u.status === "active",
+    isActive,
+    blockReason: isActive ? null : u.block_reason ?? null,
+    blockedAt: isActive ? null : u.blocked_at?.toISOString() ?? null,
     notes: u.agent_profile?.notes ?? null,
     referralCode,
     referralLink: referralCode ? buildReferralLink(referralCode) : null,
@@ -237,6 +242,8 @@ export const agentService = {
       if (input.isActive !== undefined) {
         data.is_active = input.isActive;
         data.status = input.isActive ? "active" : "inactive";
+        data.block_reason = input.isActive ? null : input.blockReason ?? null;
+        data.blocked_at = input.isActive ? null : new Date();
       }
       await tx.user.update({ where: { id: agentId }, data });
 
@@ -257,7 +264,11 @@ export const agentService = {
         fromStatus: before ? (before.is_active ? "active" : "inactive") : null,
         toStatus: input.isActive === undefined ? null : input.isActive ? "active" : "inactive",
         actor,
-        metadata: { fields: Object.keys(input).filter((k) => k !== "password"), passwordReset: Boolean(input.password) },
+        metadata: {
+          fields: Object.keys(input).filter((k) => k !== "password"),
+          passwordReset: Boolean(input.password),
+          ...(input.isActive === false ? { blockReason: input.blockReason } : {}),
+        },
       });
     });
     return this.getAgentDetail(String(agentId));
@@ -455,32 +466,55 @@ export const agentService = {
    * Orders the Sales Partner placed for themselves (they are the buyer). Deliberately a different
    * query from referral orders (`agent_id` = partner): a self-purchase never carries an agent_id.
    */
-  async listOwnPurchases(agentRef: string, paging: { page?: number; limit?: number }) {
+  async listOwnPurchases(
+    agentRef: string,
+    paging: { page?: number; limit?: number; orderStatus?: string; dateFrom?: string; dateTo?: string }
+  ) {
     const agentId = await resolveAgentRef(agentRef);
     if (!agentId) throw ApiError.notFound("Sales Partner not found");
     const page = Math.max(1, paging.page ?? 1);
     const limit = Math.min(100, Math.max(1, paging.limit ?? 20));
     const where: Prisma.OrderWhereInput = { userId: agentId, is_active: true };
-    const [rows, total] = await Promise.all([
+    if (paging.orderStatus) where.order_status = paging.orderStatus as Prisma.OrderWhereInput["order_status"];
+    const from = paging.dateFrom ? startOfDay(paging.dateFrom) : null;
+    const to = paging.dateTo ? endOfDay(paging.dateTo) : null;
+    if (from || to) where.createdAt = { ...(from ? { gte: from } : {}), ...(to ? { lte: to } : {}) };
+    const [rows, total, spend] = await Promise.all([
       db.order.findMany({
         where,
-        select: { uuid: true, orderNumber: true, totalAmount: true, order_status: true, payment_status: true, createdAt: true },
+        select: {
+          uuid: true,
+          orderNumber: true,
+          subtotal: true,
+          totalAmount: true,
+          order_status: true,
+          payment_status: true,
+          createdAt: true,
+          items: {
+            where: { is_active: true },
+            select: { id: true, product_name_snapshot: true, quantity: true, total_price: true },
+          },
+        },
         orderBy: { createdAt: "desc" },
         skip: (page - 1) * limit,
         take: limit,
       }),
       db.order.count({ where }),
+      db.order.aggregate({ where, _sum: { totalAmount: true } }),
     ]);
     return {
       data: rows.map((o) => ({
         id: o.uuid ?? o.orderNumber,
         orderNumber: o.orderNumber,
+        subtotal: Number(o.subtotal),
+        itemCount: o.items.reduce((n, i) => n + i.quantity, 0),
+        items: o.items.map((i) => ({ productName: i.product_name_snapshot, quantity: i.quantity, amount: Number(i.total_price) })),
         total: Number(o.totalAmount),
         orderStatus: String(o.order_status),
         paymentStatus: String(o.payment_status),
         orderDate: o.createdAt.toISOString(),
       })),
-      meta: { page, limit, total, totalPages: Math.max(1, Math.ceil(total / limit)) },
+      meta: { page, limit, total, totalPages: Math.max(1, Math.ceil(total / limit)), totalSpend: round2(Number(spend._sum.totalAmount ?? 0)) },
     } satisfies PaginatedResult<OwnPurchaseRow>;
   },
 
@@ -608,6 +642,9 @@ export interface AgentOrderLine {
 export interface OwnPurchaseRow {
   id: string;
   orderNumber: string;
+  subtotal: number;
+  itemCount: number;
+  items: { productName: string; quantity: number; amount: number }[];
   total: number;
   orderStatus: string;
   paymentStatus: string;

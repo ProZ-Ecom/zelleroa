@@ -25,8 +25,6 @@ interface StyleFormProps {
   onSubmit: (data: StyleFormValues) => Promise<void>;
   isLoading?: boolean;
   submitLabel?: string;
-  /** Brand pre-selected on a new Item - normally the parent Product's brand. */
-  defaultBrandId?: string | null;
 }
 
 function StyleForm({
@@ -35,7 +33,6 @@ function StyleForm({
   onSubmit,
   isLoading = false,
   submitLabel = "Save Item",
-  defaultBrandId,
 }: StyleFormProps) {
   // Same active-brand list (and cache entry) the Product form uses.
   const { data: brandsData, isLoading: isLoadingBrands } = useBrands({ limit: 100 });
@@ -44,17 +41,9 @@ function StyleForm({
     [brandsData]
   );
 
-  const formInitialData = React.useMemo(
-    () =>
-      !initialData?.brandId && defaultBrandId
-        ? { ...initialData, brandId: defaultBrandId }
-        : initialData,
-    [initialData, defaultBrandId]
-  );
-
   return (
     <ItemEntityForm
-      initialData={formInitialData}
+      initialData={initialData}
       brandOptions={brandOptions}
       brandDescription={
         !isLoadingBrands && brandOptions.length === 0

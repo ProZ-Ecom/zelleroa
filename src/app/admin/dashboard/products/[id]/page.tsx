@@ -1965,7 +1965,6 @@ export default function AdminProductDetailsPage() {
         size="lg"
       >
         <StyleForm
-          defaultBrandId={product.brandId}
           isLoading={createStyleMutation.isPending}
           submitLabel="Create Item"
           onSubmit={async (formData: StyleFormValues) => {
@@ -1986,6 +1985,8 @@ export default function AdminProductDetailsPage() {
                   vegType: "na",
                   basePrice: formData.basePrice ?? 0,
                   isFeatured: formData.isFeatured,
+                  isNewArrival: formData.isNewArrival ?? false,
+                  newArrivalUntil: formData.isNewArrival ? formData.newArrivalUntil || null : null,
                   isDefault: formData.isDefault ?? false,
                   isActive: formData.isActive,
                 },
@@ -2025,6 +2026,8 @@ export default function AdminProductDetailsPage() {
               cookingRecipe: editingStyle.cookingRecipe || "",
               basePrice: editingStyle.basePrice ?? 0,
               isFeatured: editingStyle.isFeatured,
+              isNewArrival: editingStyle.isNewArrival,
+              newArrivalUntil: editingStyle.newArrivalUntil ?? "",
               isDefault: editingStyle.isDefault,
               isActive: editingStyle.isActive,
             }}
@@ -2050,6 +2053,8 @@ export default function AdminProductDetailsPage() {
                     vegType: editingStyle.vegType || "na",
                     basePrice: formData.basePrice ?? 0,
                     isFeatured: formData.isFeatured,
+                    isNewArrival: formData.isNewArrival ?? false,
+                    newArrivalUntil: formData.isNewArrival ? formData.newArrivalUntil || null : null,
                     isDefault: formData.isDefault ?? false,
                     isActive: formData.isActive,
                   },

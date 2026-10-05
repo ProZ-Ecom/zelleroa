@@ -27,17 +27,35 @@ import { ProfileAvatarRing } from "@/components/ui/ProfileAvatarRing";
 
 type NavItem = { href: string; label: string; icon: LucideIcon };
 
-const LINKS: NavItem[] = [
-  { href: "/agent/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/agent/profile", label: "My Profile", icon: UserRound },
-  { href: "/products", label: "Purchase Products", icon: Package },
-  { href: "/cart", label: "My Cart", icon: ShoppingCart },
-  { href: "/orders", label: "My Orders", icon: ReceiptText },
-  { href: "/agent/customers", label: "Customers", icon: Users },
-  { href: "/agent/orders", label: "Referral Orders", icon: ShoppingBag },
-  { href: "/agent/commissions", label: "Commissions", icon: Percent },
-  { href: "/agent/payouts", label: "Payout History", icon: Wallet },
+const GROUPS: { title: string; items: NavItem[] }[] = [
+  {
+    title: "Overview",
+    items: [{ href: "/agent/dashboard", label: "Dashboard", icon: LayoutDashboard }],
+  },
+  {
+    title: "Sales Partner (Referrals)",
+    items: [
+      { href: "/agent/customers", label: "Customers", icon: Users },
+      { href: "/agent/orders", label: "Referral Orders", icon: ShoppingBag },
+      { href: "/agent/commissions", label: "Commissions", icon: Percent },
+      { href: "/agent/payouts", label: "Payout History", icon: Wallet },
+    ],
+  },
+  {
+    title: "My Shopping (Personal)",
+    items: [
+      { href: "/products", label: "Purchase Products", icon: Package },
+      { href: "/cart", label: "My Cart", icon: ShoppingCart },
+      { href: "/orders", label: "My Orders", icon: ReceiptText },
+    ],
+  },
+  {
+    title: "Account",
+    items: [{ href: "/agent/profile", label: "My Profile", icon: UserRound }],
+  },
 ];
+
+const LINKS: NavItem[] = GROUPS.flatMap((g) => g.items);
 
 const STORAGE_KEY = "agent-sidebar-collapsed";
 
@@ -113,31 +131,35 @@ export function AgentShell({
       </div>
 
       <nav className="flex-1 overflow-y-auto px-3 py-4" aria-label="Sales Partner navigation">
-        {!compact && <p className="mb-2 px-3 text-[11px] font-semibold uppercase tracking-wider text-neutral-500">Menu</p>}
-        <ul className="flex flex-col gap-1">
-          {LINKS.map((l) => {
-            const active = l === current;
-            const Icon = l.icon;
-            return (
-              <li key={l.href}>
-                <Link
-                  href={l.href}
-                  title={compact ? l.label : undefined}
-                  aria-current={active ? "page" : undefined}
-                  className={cn(
-                    "group relative flex min-h-[42px] items-center gap-3 rounded-lg px-3 text-sm font-medium transition-colors",
-                    compact && "justify-center px-0",
-                    active ? "bg-white/10 text-white" : "text-neutral-400 hover:bg-white/5 hover:text-white"
-                  )}
-                >
-                  {active && <span className="absolute left-0 top-2 bottom-2 w-1 rounded-r bg-white" />}
-                  <Icon className="h-[18px] w-[18px] shrink-0" />
-                  {!compact && <span className="truncate">{l.label}</span>}
-                </Link>
-              </li>
-            );
-          })}
-        </ul>
+        {GROUPS.map((g, gi) => (
+          <div key={g.title} className={cn(gi > 0 && (compact ? "mt-3 border-t border-neutral-800 pt-3" : "mt-5"))}>
+            {!compact && <p className="mb-2 px-3 text-[11px] font-semibold uppercase tracking-wider text-neutral-500">{g.title}</p>}
+            <ul className="flex flex-col gap-1">
+              {g.items.map((l) => {
+                const active = l === current;
+                const Icon = l.icon;
+                return (
+                  <li key={l.href}>
+                    <Link
+                      href={l.href}
+                      title={compact ? l.label : undefined}
+                      aria-current={active ? "page" : undefined}
+                      className={cn(
+                        "group relative flex min-h-[42px] items-center gap-3 rounded-lg px-3 text-sm font-medium transition-colors",
+                        compact && "justify-center px-0",
+                        active ? "bg-white/10 text-white" : "text-neutral-400 hover:bg-white/5 hover:text-white"
+                      )}
+                    >
+                      {active && <span className="absolute left-0 top-2 bottom-2 w-1 rounded-r bg-white" />}
+                      <Icon className="h-[18px] w-[18px] shrink-0" />
+                      {!compact && <span className="truncate">{l.label}</span>}
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        ))}
       </nav>
 
       <div className="shrink-0 border-t border-neutral-800 p-3">

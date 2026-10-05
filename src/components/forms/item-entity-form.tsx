@@ -46,6 +46,10 @@ export const itemEntityFormSchema = z.object({
     .number({ message: "Base price is required" })
     .min(0, "Base price cannot be negative"),
   isFeatured: z.boolean(),
+  // Storefront "New" badge. Set by hand so a bulk upload doesn't flag everything.
+  isNewArrival: z.boolean().optional(),
+  // YYYY-MM-DD; blank = no expiry.
+  newArrivalUntil: z.string().optional(),
   isDefault: z.boolean().optional(),
   isActive: z.boolean(),
 });
@@ -132,6 +136,8 @@ function buildDefaults(initialData?: Partial<ItemEntityFormValues>): ItemEntityF
     description: initialData?.description || "",
     basePrice: initialData?.basePrice ?? 0,
     isFeatured: initialData?.isFeatured ?? false,
+    isNewArrival: initialData?.isNewArrival ?? false,
+    newArrivalUntil: initialData?.newArrivalUntil ?? "",
     isDefault: initialData?.isDefault ?? false,
     isActive: initialData?.isActive ?? false,
   };
@@ -298,6 +304,24 @@ function ItemEntityForm({
             description={defaultItemDescription}
           />
         </div>
+
+        {!compact && (
+          <div className="space-y-3">
+            <FormCheckbox
+              name="isNewArrival"
+              label="New Arrival"
+              description="Shows the NEW badge on the storefront. Untick (or set an end date) to stop it."
+            />
+            {methods.watch("isNewArrival") && (
+              <FormInput
+                name="newArrivalUntil"
+                type="date"
+                label="Show as New until (optional)"
+                description="Leave blank to keep the badge until you untick it."
+              />
+            )}
+          </div>
+        )}
 
         <FormCheckbox
           name="isActive"

@@ -177,6 +177,21 @@ function ItemColorsPanel({
     });
   };
 
+  /** Select every value of a pick-any group, or clear them all if already all selected. */
+  const toggleAll = (group: ItemAttributeGroup) => {
+    setResult(null);
+    setFormError(null);
+    setDraftSelection((current) => {
+      const next = new Set(current ?? savedSelection);
+      const allSelected = group.values.every((value) => next.has(value.id));
+      for (const value of group.values) {
+        if (allSelected) next.delete(value.id);
+        else next.add(value.id);
+      }
+      return next;
+    });
+  };
+
   // A value created right here from the quick-add form is pre-selected, so the
   // admin doesn't have to hunt for the chip they just made.
   const selectNewValue = (group: ItemAttributeGroup, valueId: string) => {
@@ -315,6 +330,21 @@ function ItemColorsPanel({
         </span>
       </div>
       <div className="flex flex-wrap gap-2">
+        {group.multipleSelection && group.values.length > 0 && (
+          <button
+            type="button"
+            onClick={() => toggleAll(group)}
+            disabled={isBusy}
+            aria-pressed={group.values.every((value) => selected.has(value.id))}
+            className={`inline-flex cursor-pointer select-none items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-semibold transition-all disabled:opacity-50 ${
+              group.values.every((value) => selected.has(value.id))
+                ? "border-secondary-600 bg-secondary-600 text-white shadow-xs"
+                : "border-neutral-200 bg-white text-neutral-700 hover:border-neutral-400 hover:bg-neutral-50"
+            }`}
+          >
+            Select All
+          </button>
+        )}
         {group.values.map((value) => {
           const isChecked = selected.has(value.id);
           const alreadyCreated = group.type === "color" && isCreated(value.value);

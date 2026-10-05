@@ -102,6 +102,12 @@ export function CustomerDetailModal({
                   customer.isActive
                 )}
               </div>
+              {customer.blockReason && (
+                <p className="mt-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-800 sm:col-span-2">
+                  <span className="font-semibold">Block reason:</span>{" "}
+                  {customer.blockReason}
+                </p>
+              )}
             </div>
           </div>
         </div>

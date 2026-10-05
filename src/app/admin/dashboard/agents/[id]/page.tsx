@@ -7,6 +7,7 @@ import { Check, Copy, Pencil } from "lucide-react";
 import { apiClient } from "@/lib/api/api-client";
 import { toast } from "@/components/ui/Toast";
 import { PageContainer } from "@/components/admin/PageContainer";
+import { BlockReasonDialog } from "@/components/ui/block-reason-dialog";
 import type { AgentDto } from "@/features/agents/services/agent.service";
 import { errorMessage, useAdminObject } from "@/features/agents/hooks/use-admin-agents";
 import { AgentFormModal } from "@/features/agents/components/admin/AgentFormModal";
@@ -35,14 +36,21 @@ export default function AdminAgentDetailPage() {
 
   const { data: agent, isLoading, error } = useAdminObject<AgentDto>("agent", `/api/admin/agents/${id}`);
 
-  const toggleActive = async () => {
+  const [blockOpen, setBlockOpen] = useState(false);
+  const [blocking, setBlocking] = useState(false);
+
+  const toggleActive = async (blockReason?: string) => {
     if (!agent) return;
+    setBlocking(true);
     try {
-      await apiClient.put(`/api/admin/agents/${agent.id}`, { isActive: !agent.isActive });
-      toast.success(agent.isActive ? "Sales Partner deactivated" : "Sales Partner activated");
+      await apiClient.put(`/api/admin/agents/${agent.id}`, agent.isActive ? { isActive: false, blockReason } : { isActive: true });
+      toast.success(agent.isActive ? "Sales Partner blocked" : "Sales Partner unblocked");
       await qc.invalidateQueries({ queryKey: ["agents-admin"] });
     } catch (err) {
       toast.error("Could not update the Sales Partner", errorMessage(err));
+    } finally {
+      setBlocking(false);
+      setBlockOpen(false);
     }
   };
 
@@ -70,10 +78,10 @@ export default function AdminAgentDetailPage() {
             </button>
             <button
               type="button"
-              onClick={toggleActive}
+              onClick={() => (agent.isActive ? setBlockOpen(true) : toggleActive())}
               className={`h-10 rounded-xl px-4 text-sm font-semibold ${agent.isActive ? "border border-red-200 text-red-700 hover:bg-red-50" : "bg-emerald-600 text-white hover:bg-emerald-700"}`}
             >
-              {agent.isActive ? "Deactivate" : "Activate"}
+              {agent.isActive ? "Block" : "Unblock"}
             </button>
           </>
         )
@@ -115,9 +123,17 @@ export default function AdminAgentDetailPage() {
                 <div>
                   <dt className="text-xs text-neutral-500">Status</dt>
                   <dd>
-                    <StatusBadge status={agent.isActive ? "active" : "inactive"} />
+                    <StatusBadge status={agent.isActive ? "active" : "blocked"} />
                   </dd>
                 </div>
+                {!agent.isActive && (
+                  <div className="col-span-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2">
+                    <dt className="text-xs font-semibold text-red-700">
+                      Block reason{agent.blockedAt ? ` · blocked on ${dateOnly(agent.blockedAt)}` : ""}
+                    </dt>
+                    <dd className="break-words text-sm text-red-900">{agent.blockReason ?? "No reason recorded"}</dd>
+                  </div>
+                )}
                 {agent.notes && (
                   <div className="col-span-2">
                     <dt className="text-xs text-neutral-500">Notes</dt>
@@ -164,6 +180,14 @@ export default function AdminAgentDetailPage() {
         </div>
       )}
 
+      <BlockReasonDialog
+        open={blockOpen}
+        subject="Agent"
+        name={agent?.name}
+        isLoading={blocking}
+        onClose={() => setBlockOpen(false)}
+        onConfirm={(reason) => toggleActive(reason)}
+      />
       <AgentFormModal
         open={editing}
         onClose={() => setEditing(false)}

@@ -20,6 +20,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select } from "@/components/ui/select";
 import { SearchInput } from "@/components/ui/search-input";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { BlockReasonDialog } from "@/components/ui/block-reason-dialog";
 import {
   Users,
   UserCheck,
@@ -130,7 +131,7 @@ export default function AdminCustomersPage() {
     genderFilter !== "all" ||
     verificationFilter !== "all";
 
-  const handleConfirmStatusChange = () => {
+  const handleConfirmStatusChange = (blockReason?: string) => {
     if (!statusTargetCustomer) return;
     const isCurrentlyBlocked =
       statusTargetCustomer.isBlocked === true ||
@@ -145,6 +146,7 @@ export default function AdminCustomersPage() {
       {
         uuid: targetId,
         isActive: isCurrentlyBlocked, // unblock if blocked, block if active
+        blockReason,
       },
       {
         onSettled: () => {
@@ -274,13 +276,23 @@ export default function AdminCustomersPage() {
 
         if (isBlocked) {
           return (
-            <Badge
-              variant="destructive"
-              className="gap-1 bg-red-100 text-red-800 border-red-200"
-            >
-              <ShieldAlert className="h-3 w-3" />
-              Blocked
-            </Badge>
+            <div className="flex max-w-[220px] flex-col items-start gap-1">
+              <Badge
+                variant="destructive"
+                className="gap-1 bg-red-100 text-red-800 border-red-200"
+              >
+                <ShieldAlert className="h-3 w-3" />
+                Blocked
+              </Badge>
+              {item.blockReason && (
+                <span
+                  className="line-clamp-2 text-[11px] leading-snug text-neutral-500"
+                  title={item.blockReason}
+                >
+                  Reason: {item.blockReason}
+                </span>
+              )}
+            </div>
           );
         }
 
@@ -540,11 +552,21 @@ export default function AdminCustomersPage() {
         />
       </div>
 
-      {/* Confirm Block / Unblock Modal */}
-      <ConfirmDialog
-        open={Boolean(statusTargetCustomer)}
+      {/* Block (reason required) */}
+      <BlockReasonDialog
+        open={Boolean(statusTargetCustomer) && !isTargetBlocked}
+        subject="User"
+        name={statusTargetCustomer?.name}
+        isLoading={isUpdatingStatus}
         onClose={() => setStatusTargetCustomer(null)}
         onConfirm={handleConfirmStatusChange}
+      />
+
+      {/* Unblock confirmation */}
+      <ConfirmDialog
+        open={Boolean(statusTargetCustomer) && Boolean(isTargetBlocked)}
+        onClose={() => setStatusTargetCustomer(null)}
+        onConfirm={() => handleConfirmStatusChange()}
         title={
           isTargetBlocked
             ? "Unblock Customer Account"

@@ -39,9 +39,14 @@ export const updateAgentSchema = z
       .optional(),
     notes: z.string().trim().max(500).nullable().optional(),
     isActive: z.boolean().optional(),
+    blockReason: z.string().trim().max(500, "Reason must be 500 characters or fewer").optional(),
     password: z.string().min(8).max(100).optional(),
   })
-  .refine((v) => Object.keys(v).length > 0, "Nothing to update");
+  .refine((v) => Object.keys(v).length > 0, "Nothing to update")
+  .refine((v) => v.isActive !== false || Boolean(v.blockReason), {
+    path: ["blockReason"],
+    message: "A reason is required to block this account",
+  });
 export type UpdateAgentInput = z.infer<typeof updateAgentSchema>;
 
 export const paymentDetailsSchema = z

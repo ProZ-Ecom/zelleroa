@@ -36,6 +36,8 @@ const listingStyleSelect = {
   short_description: true,
   description: true,
   is_featured: true,
+  is_new_arrival: true,
+  new_arrival_until: true,
   createdAt: true,
   // The Item's own brand; `product.brand` is only the legacy fallback.
   brand: listingBrandSelect,

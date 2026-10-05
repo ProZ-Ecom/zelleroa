@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { createPortal } from "react-dom";
 import { ChevronDown, Check, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -71,12 +72,57 @@ const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
       }
     }, [controlledValue]);
 
+    const listRef = React.useRef<HTMLDivElement>(null);
+    const [listPos, setListPos] = React.useState<{
+      left: number;
+      width: number;
+      top?: number;
+      bottom?: number;
+      maxHeight: number;
+    } | null>(null);
+
+    // The list is portalled to <body> so scrollable/overflow-hidden parents
+    // (e.g. modal bodies) can't clip it; position it from the trigger's rect.
+    React.useLayoutEffect(() => {
+      if (!isOpen) {
+        setListPos(null);
+        return;
+      }
+      function update() {
+        const el = containerRef.current;
+        if (!el) return;
+        const rect = el.getBoundingClientRect();
+        const gap = 6;
+        const below = window.innerHeight - rect.bottom - gap - 8;
+        const above = rect.top - gap - 8;
+        const openUp = below < 220 && above > below;
+        const space = openUp ? above : below;
+        setListPos({
+          left: rect.left,
+          width: rect.width,
+          maxHeight: Math.max(160, Math.min(space, 360)),
+          ...(openUp
+            ? { bottom: window.innerHeight - rect.top + gap }
+            : { top: rect.bottom + gap }),
+        });
+      }
+      update();
+      window.addEventListener("resize", update);
+      window.addEventListener("scroll", update, true);
+      return () => {
+        window.removeEventListener("resize", update);
+        window.removeEventListener("scroll", update, true);
+      };
+    }, [isOpen]);
+
     // Handle outside click
     React.useEffect(() => {
       function handleClickOutside(event: MouseEvent) {
+        const target = event.target as Node;
         if (
           containerRef.current &&
-          !containerRef.current.contains(event.target as Node)
+          !containerRef.current.contains(target) &&
+          !listRef.current?.contains(target)
         ) {
           setIsOpen(false);
           setSearchQuery("");
@@ -249,9 +295,17 @@ const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
         </button>
 
         {/* Custom Dropdown List - Scrollable and Contained */}
-        {isOpen && (
+        {isOpen && listPos && createPortal(
           <div
-            className="absolute left-0 right-0 top-full z-[60] mt-1.5 overflow-hidden rounded-xl border border-theme-border bg-theme-surface shadow-lg animate-in zoom-in-95 duration-150 min-w-[160px]"
+            ref={listRef}
+            style={{
+              position: "fixed",
+              left: listPos.left,
+              width: listPos.width,
+              top: listPos.top,
+              bottom: listPos.bottom,
+            }}
+            className="z-[10000] overflow-hidden rounded-xl border border-theme-border bg-theme-surface shadow-lg animate-in zoom-in-95 duration-150 min-w-[160px]"
             role="listbox"
           >
             {/* Search Input for Long Lists (>= 7 options) */}
@@ -273,7 +327,10 @@ const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
             )}
 
             {/* Scrollable Options Area */}
-            <div className="max-h-56 overflow-y-auto p-1.5 space-y-0.5">
+            <div
+              className="overflow-y-auto p-1.5 space-y-0.5"
+              style={{ maxHeight: Math.max(120, listPos.maxHeight - (showSearch ? 52 : 0)) }}
+            >
               {filteredOptions.length === 0 ? (
                 <div className="px-3 py-4 text-center text-xs text-theme-text-muted">
                   No matching options found
@@ -313,7 +370,8 @@ const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
                 })
               )}
             </div>
-          </div>
+          </div>,
+          document.body
         )}
 
         {/* Error message */}

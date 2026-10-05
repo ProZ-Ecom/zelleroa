@@ -21,6 +21,9 @@ export interface AdminStyleResponse {
   vegType: "veg" | "nonveg" | "vegan" | "na";
   basePrice: number;
   isFeatured: boolean;
+  isNewArrival: boolean;
+  /** YYYY-MM-DD; the badge stops after this day. null = no expiry. */
+  newArrivalUntil: string | null;
   isDefault: boolean;
   isActive: boolean;
   outOfStock: boolean;

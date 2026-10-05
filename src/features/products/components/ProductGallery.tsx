@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, type ReactNode } from "react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight, Sparkles, CheckCircle2 } from "lucide-react";
@@ -23,6 +23,8 @@ interface ProductGalleryProps {
    * (clothing, accessories); on by default so existing callers are unchanged.
    */
   showQualitySeal?: boolean;
+  /** Buttons (e.g. like / share) stacked down the left edge of the image. */
+  overlayActions?: ReactNode;
 }
 
 function ProductGallery({
@@ -32,6 +34,7 @@ function ProductGallery({
   isVeg = true,
   isInStock = true,
   showQualitySeal = true,
+  overlayActions,
 }: ProductGalleryProps) {
   const [selectedIndex, setSelectedIndex] = useState(0);
   const touchStartX = useRef<number | null>(null);
@@ -89,6 +92,10 @@ function ProductGallery({
             </span>
           </div>
 
+          {overlayActions && (
+            <div className="absolute right-3.5 top-3.5 z-20 flex flex-col gap-2">{overlayActions}</div>
+          )}
+
           <ProductImage
             src={null}
             alt={productName}
@@ -130,6 +137,10 @@ function ProductGallery({
             {isInStock ? "In Stock" : "Out of Stock"}
           </span>
         </div>
+
+        {overlayActions && (
+          <div className="absolute right-3.5 top-3.5 z-20 flex flex-col gap-2">{overlayActions}</div>
+        )}
 
         {/* Quality Seal */}
         {showQualitySeal && (

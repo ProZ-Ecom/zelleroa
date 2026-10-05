@@ -3,7 +3,7 @@
 import * as React from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { useRouter, usePathname } from "next/navigation";
+import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { LogIn, Search, Heart, ShoppingCart } from "lucide-react";
 import { LOGOS, ICONS, mobileBottomIcons } from "@/constants/storefront";
@@ -33,7 +33,16 @@ function isInCategoryTree(node: CategoryTreeNode, pathname: string): boolean {
 }
 
 /** True when the current page matches any of this nav item's category subtrees, or its plain link. */
-function isNavItemActive(item: HeaderNavItem, pathname: string): boolean {
+function isNavItemActive(
+  item: HeaderNavItem,
+  pathname: string,
+  gender: string | null,
+): boolean {
+  // The same category can sit under several audience-specific items (Women/Mens),
+  // so when the URL names an audience only the matching item may highlight.
+  if (item.gender && gender && item.gender.toLowerCase() !== gender.toLowerCase()) {
+    return false;
+  }
   if (item.categories.some((c) => isInCategoryTree(c, pathname))) return true;
   return item.link ? pathname === item.link : false;
 }
@@ -60,7 +69,11 @@ function buildNavNode(item: HeaderNavItem): NavNode {
   };
 }
 
-export function Header() {
+export function Header({
+  initialUser = null,
+}: {
+  initialUser?: { role?: string; email?: string; name?: string } | null;
+}) {
   const [isOpen, setIsOpen] = React.useState(false);
   const [isSearchOpen, setIsSearchOpen] = React.useState(false);
   const [searchQuery, setSearchQuery] = React.useState("");
@@ -83,11 +96,15 @@ export function Header() {
   );
   const router = useRouter();
   const pathname = usePathname();
+  const activeGender = useSearchParams().get("gender");
   const { data: session, status } = useSession();
-  const isAuthenticated = status === "authenticated";
+  // The server-resolved user (NextAuth session or access_token cookie) backs up
+  // the client session, which can lag or fail to sync after a cookie login.
+  const isAuthenticated = status === "authenticated" || !!initialUser;
   // Admin/staff manage the store from /admin; they have no customer account,
   // wishlist or purchase UI, so those entry points are role-aware.
-  const userRole = (session?.user as { role?: string } | undefined)?.role;
+  const userRole =
+    (session?.user as { role?: string } | undefined)?.role ?? initialUser?.role;
   const isStaffUser = userRole === "ADMIN" || userRole === "STAFF";
   const accountHref = isAuthenticated ? getRoleHome(userRole) : "/login";
   // `status` is "loading" until /api/auth/session resolves on every page load.
@@ -105,16 +122,17 @@ export function Header() {
   const { data: profile } = useCustomerProfile({ enabled: isAuthenticated && !isStaffUser });
 
   // Get user name and initials for authenticated header state
-  const userName = profile?.name || session?.user?.name || "";
+  const userName = profile?.name || session?.user?.name || initialUser?.name || "";
   const userInitials = React.useMemo(() => {
     if (userName && userName.trim().length > 0) {
       return getInitials(userName) || "U";
     }
-    if (session?.user?.email) {
-      return session.user.email.slice(0, 2).toUpperCase();
+    const email = session?.user?.email ?? initialUser?.email;
+    if (email) {
+      return email.slice(0, 2).toUpperCase();
     }
     return "U";
-  }, [userName, session?.user?.email]);
+  }, [userName, session?.user?.email, initialUser?.email]);
 
   // Wishlist requires an account; cart works for guests too (guest-session cookie).
   const { data: wishlistCount = 0 } = useCustomerWishlistCount({ enabled: isAuthenticated && !isStaffUser });
@@ -269,7 +287,7 @@ export function Header() {
                 <MegaMenuTrigger
                   key={item.id}
                   root={buildNavNode(item)}
-                  isActive={isNavItemActive(item, pathname)}
+                  isActive={isNavItemActive(item, pathname, activeGender)}
                   isOpen={openNavId === item.id}
                   onMouseEnter={() => openMegaMenu(item.id)}
                   onMouseLeave={scheduleMegaMenuClose}
@@ -280,7 +298,7 @@ export function Header() {
                   key={item.id}
                   href={item.link ?? "#"}
                   className={`flex items-center gap-1.5 rounded-full px-3.5 py-2 text-sm font-medium transition-colors ${
-                    isNavItemActive(item, pathname)
+                    isNavItemActive(item, pathname, activeGender)
                       ? "bg-theme-primary text-theme-primary-fg font-semibold"
                       : "text-red-600 hover:bg-red-50"
                   }`}
