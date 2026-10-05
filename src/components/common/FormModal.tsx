@@ -14,6 +14,7 @@ interface FormModalProps {
   footer?: React.ReactNode;
   size?: "sm" | "md" | "lg" | "xl" | "full";
   className?: string;
+  bodyClassName?: string;
 }
 
 const sizeStyles: Record<string, string> = {
@@ -33,6 +34,7 @@ function FormModal({
   footer,
   size = "md",
   className,
+  bodyClassName,
 }: FormModalProps) {
   const overlayRef = React.useRef<HTMLDivElement>(null);
 
@@ -66,7 +68,7 @@ function FormModal({
         aria-describedby={description ? "form-modal-desc" : undefined}
         onClick={(e) => e.stopPropagation()}
         className={cn(
-          "relative w-full rounded-xl bg-white shadow-xl flex flex-col max-h-[90vh]",
+          "relative w-full rounded-2xl bg-white shadow-2xl flex flex-col max-h-[90vh] transition-all duration-200 ease-out",
           "animate-in zoom-in-95 duration-200",
           sizeStyles[size],
           className
@@ -93,7 +95,7 @@ function FormModal({
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-6 scrollbar-thin">
+        <div className={cn("flex-1 overflow-y-auto p-6 scrollbar-thin", bodyClassName)}>
           {children}
         </div>
 

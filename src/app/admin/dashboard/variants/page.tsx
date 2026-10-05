@@ -616,21 +616,23 @@ export default function AdminVariantsPage() {
                         <span className="text-xs font-medium text-[var(--color-neutral-600)]">
                           Cards per page:
                         </span>
-                        <select
-                          value={pageSize}
-                          onChange={(e) => {
-                            setPageSize(Number(e.target.value));
-                            setPage(1);
-                          }}
-                          aria-label="Cards per page"
-                          className="h-8 rounded-lg border border-[var(--color-neutral-300)] bg-white px-2.5 py-1 text-xs font-semibold text-[var(--color-neutral-700)] cursor-pointer"
-                        >
-                          {[8, 12, 16, 24, 32, 48].map((opt) => (
-                            <option key={opt} value={opt}>
-                              {opt}
-                            </option>
-                          ))}
-                        </select>
+                        <div className="w-20">
+                          <Select
+                            size="sm"
+                            value={String(pageSize)}
+                            onValueChange={(val) => {
+                              setPageSize(Number(val));
+                              setPage(1);
+                            }}
+                            searchable={false}
+                            portal={true}
+                            options={[8, 12, 16, 24, 32, 48].map((opt) => ({
+                              value: String(opt),
+                              label: String(opt),
+                            }))}
+                            aria-label="Cards per page"
+                          />
+                        </div>
                       </div>
                     </div>
 
@@ -1036,14 +1038,16 @@ export default function AdminVariantsPage() {
       <ConfirmDialog
         open={!!deleteTarget}
         onClose={() => setDeleteTarget(null)}
-        onConfirm={() => {
+        onConfirm={async () => {
           if (deleteTarget) {
-            deleteMutation.mutate(deleteTarget, {
-              onSuccess: () => {
-                setDeleteTarget(null);
-                refetch();
-              },
-            });
+            try {
+              await deleteMutation.mutateAsync(deleteTarget);
+              toast.success("Item deleted", "The item was removed successfully.");
+              setDeleteTarget(null);
+              refetch();
+            } catch (err: any) {
+              toast.error("Failed to delete item", err?.message || "Please try again.");
+            }
           }
         }}
         title="Delete Product Item"

@@ -335,7 +335,7 @@ export function OrdersTab({
             ) : selectedStatus !== "all" ? (
               `No ${selectedStatus.replace(/_/g, " ")} orders`
             ) : (
-              "No orders yet"
+              "No orders placed yet"
             )}
           </h3>
           <p className="text-xs sm:text-sm text-theme-text-muted max-w-sm mx-auto mt-3 mb-6 leading-relaxed break-words [overflow-wrap:anywhere]">
@@ -368,7 +368,7 @@ export function OrdersTab({
                 type="button"
                 className="bg-theme-secondary hover:bg-theme-secondary-hover text-theme-secondary-fg text-xs font-semibold uppercase tracking-wider py-3.5 px-7 rounded-lg transition-colors cursor-pointer min-h-[44px]"
               >
-                Start Shopping
+                Shop Now
               </button>
             </Link>
           )}

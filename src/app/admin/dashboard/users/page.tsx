@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { EMAIL_MAX_LENGTH } from "@/lib/validations/email";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { toast } from "@/components/ui/Toast";
 import {
   useUsers,
   useCreateUser,
@@ -18,18 +19,30 @@ import { AdminTableSkeleton } from "@/components/admin/AdminTableSkeleton";
 import { ErrorState } from "@/components/ui/error-state";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Select } from "@/components/ui/select";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { FormModal } from "@/components/common/FormModal";
 import { Plus, Pencil, Trash2, KeyRound } from "lucide-react";
+import { z } from "zod";
 import {
   createUserSchema,
   resetPasswordSchema,
+  indiaPhoneSchema,
   type CreateUserSchemaInput,
 } from "@/features/users/validations/user.schema";
 import type { ColumnDef } from "@tanstack/react-table";
 import type { UserListItem } from "@/features/users/types";
 
 type ModalMode = "create" | "edit" | "resetPassword" | null;
+
+interface UserFormValues {
+  name: string;
+  email: string;
+  password?: string;
+  phone: string;
+  roleId?: number;
+  status?: "active" | "inactive" | "banned";
+}
 
 export default function AdminUsersPage() {
   const [modalMode, setModalMode] = useState<ModalMode>(null);
@@ -44,13 +57,42 @@ export default function AdminUsersPage() {
 
   const users = data?.data ?? [];
 
+  const userFormSchema = useMemo(() => {
+    return z.object({
+      name: z
+        .string()
+        .trim()
+        .min(3, "Full name must contain at least 3 characters")
+        .max(255, "Full name must be less than 255 characters"),
+      email: z
+        .string()
+        .trim()
+        .email("Please enter a valid email address")
+        .transform((val) => val.toLowerCase()),
+      phone: indiaPhoneSchema,
+      password: z.string().optional(),
+      roleId: z.number().int().positive("Please select a valid role").optional(),
+      status: z.enum(["active", "inactive", "banned"]).optional(),
+    }).superRefine((data, ctx) => {
+      if (modalMode === "create" && (!data.password || data.password.length < 6)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["password"],
+          message: "Password must contain at least 6 characters",
+        });
+      }
+    });
+  }, [modalMode]);
+
   const {
     register,
     handleSubmit,
     reset,
+    watch,
+    setValue,
     formState: { errors },
-  } = useForm<CreateUserSchemaInput>({
-    resolver: zodResolver(createUserSchema),
+  } = useForm<UserFormValues>({
+    resolver: zodResolver(userFormSchema),
     defaultValues: {
       name: "",
       email: "",
@@ -93,40 +135,40 @@ export default function AdminUsersPage() {
     }
   }, [modalMode, selectedUser, reset]);
 
-  const onSubmit = (formData: CreateUserSchemaInput) => {
+  const onSubmit = async (formData: UserFormValues) => {
     if (modalMode === "edit" && selectedUser) {
-      const { password: _, ...updateData } = formData;
-      updateMutation.mutate(
-        { id: selectedUser.id, data: updateData },
-        {
-          onSuccess: () => {
-            setModalMode(null);
-            setSelectedUser(null);
-          },
-        }
-      );
+      try {
+        const { password: _, ...updateData } = formData;
+        await updateMutation.mutateAsync({ id: selectedUser.id, data: updateData });
+        toast.success("User updated", `"${formData.name}" was updated successfully.`);
+        setModalMode(null);
+        setSelectedUser(null);
+      } catch (err: any) {
+        toast.error("Failed to update user", err?.message || "Please try again.");
+      }
     } else if (modalMode === "create") {
-      createMutation.mutate(formData, {
-        onSuccess: () => {
-          setModalMode(null);
-          reset();
-        },
-      });
+      try {
+        await createMutation.mutateAsync(formData as CreateUserSchemaInput);
+        toast.success("User created", `"${formData.name}" was added successfully.`);
+        setModalMode(null);
+        reset();
+      } catch (err: any) {
+        toast.error("Failed to create user", err?.message || "Please try again.");
+      }
     }
   };
 
-  const onSubmitResetPassword = (formData: { password: string }) => {
+  const onSubmitResetPassword = async (formData: { password: string }) => {
     if (selectedUser) {
-      resetPasswordMutation.mutate(
-        { id: selectedUser.id, password: formData.password },
-        {
-          onSuccess: () => {
-            setModalMode(null);
-            setSelectedUser(null);
-            resetResetPassword();
-          },
-        }
-      );
+      try {
+        await resetPasswordMutation.mutateAsync({ id: selectedUser.id, password: formData.password });
+        toast.success("Password reset", `Password for "${selectedUser.name}" was updated successfully.`);
+        setModalMode(null);
+        setSelectedUser(null);
+        resetResetPassword();
+      } catch (err: any) {
+        toast.error("Failed to reset password", err?.message || "Please try again.");
+      }
     }
   };
 
@@ -165,7 +207,11 @@ export default function AdminUsersPage() {
     {
       accessorKey: "phone",
       header: "Phone",
-      cell: ({ row }) => row.original.phone || "-",
+      cell: ({ row }) => {
+        const phone = row.original.phone;
+        if (!phone) return "-";
+        return phone.replace(/^\+91/, "");
+      },
     },
     {
       accessorKey: "roleName",
@@ -332,7 +378,7 @@ export default function AdminUsersPage() {
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Phone
+              Phone <span className="text-error-600">*</span>
             </label>
             <input
               {...register("phone")}
@@ -364,14 +410,16 @@ export default function AdminUsersPage() {
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Status
               </label>
-              <select
-                {...register("status")}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
-              >
-                <option value="active">Active</option>
-                <option value="inactive">Inactive</option>
-                <option value="banned">Banned</option>
-              </select>
+              <Select
+                value={watch("status")}
+                onValueChange={(val) => setValue("status", val as "active" | "inactive" | "banned", { shouldValidate: true })}
+                searchable={false}
+                options={[
+                  { value: "active", label: "Active" },
+                  { value: "inactive", label: "Inactive" },
+                  { value: "banned", label: "Banned" },
+                ]}
+              />
               {errors.status && (
                 <p className="mt-1 text-xs text-red-500 font-medium">{errors.status.message}</p>
               )}
@@ -426,11 +474,15 @@ export default function AdminUsersPage() {
       <ConfirmDialog
         open={!!deleteId}
         onClose={() => setDeleteId(null)}
-        onConfirm={() => {
+        onConfirm={async () => {
           if (deleteId) {
-            deleteMutation.mutate(deleteId, {
-              onSuccess: () => setDeleteId(null),
-            });
+            try {
+              await deleteMutation.mutateAsync(deleteId);
+              toast.success("User deleted", "The user was removed successfully.");
+              setDeleteId(null);
+            } catch (err: any) {
+              toast.error("Failed to delete user", err?.message || "Please try again.");
+            }
           }
         }}
         title="Delete User"

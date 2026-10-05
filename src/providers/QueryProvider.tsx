@@ -59,10 +59,10 @@ function makeQueryClient() {
         // The account-blocked modal already explains this; don't stack an error toast.
         if (error?.code === ACCOUNT_BLOCKED_CODE) return;
 
-        const backendMessage = error?.message || meta?.errorMessage || "An unexpected error occurred";
-
-        // Preserve exact backend message (e.g. "Invalid email or password")
-        toast.error("Error", backendMessage);
+        // Only fire global error toast if explicitly requested via meta
+        if (meta?.errorMessage) {
+          toast.error("Error", error?.message || meta.errorMessage);
+        }
       },
     }),
     queryCache: new QueryCache({

@@ -7,6 +7,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Plus } from "lucide-react";
 import { apiClient } from "@/lib/api/api-client";
 import { toast } from "@/components/ui/Toast";
+import { Select } from "@/components/ui/select";
 import { PageContainer } from "@/components/admin/PageContainer";
 import { BlockReasonDialog } from "@/components/ui/block-reason-dialog";
 import type { AgentDto } from "@/features/agents/services/agent.service";

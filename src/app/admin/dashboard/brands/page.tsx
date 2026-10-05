@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 // import { Badge } from "@/components/ui/badge";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { FormModal } from "@/components/common/FormModal";
+import { toast } from "@/components/ui/Toast";
 import { Plus, Pencil, Trash2, Filter } from "lucide-react";
 import type { ColumnDef } from "@tanstack/react-table";
 import type { BrandListItem } from "@/features/brands/types";
@@ -198,80 +199,83 @@ export default function AdminBrandsPage() {
       </AdminContent>
 
       <FormModal
-  open={isCreateOpen}
-  onClose={() => setIsCreateOpen(false)}
-  title="Add Brand"
-  description="Create a new product brand"
->
-  <BrandForm
-    isLoading={createMutation.isPending}
-    submitLabel="Create Brand"
-    onSubmit={async (data) => {
-      const payload = {
-        name: data.name,
-        slug: data.slug,
-        description: data.description || null,
-      };
+        open={isCreateOpen}
+        onClose={() => setIsCreateOpen(false)}
+        title="Add Brand"
+        description="Create a new product brand"
+      >
+        <BrandForm
+          isLoading={createMutation.isPending}
+          submitLabel="Create Brand"
+          onSubmit={async (formData) => {
+            const payload = {
+              name: formData.name,
+              slug: formData.slug,
+              description: formData.description || null,
+            };
 
-      await createMutation.mutateAsync(payload);
+            await createMutation.mutateAsync(payload);
+            toast.success("Brand created", `"${formData.name}" was added.`);
+            setIsCreateOpen(false);
+            refetch();
+          }}
+        />
+      </FormModal>
 
-      setIsCreateOpen(false);
-    }}
-  />
-</FormModal>  
+      <FormModal
+        open={isEditOpen}
+        onClose={() => {
+          setIsEditOpen(false);
+          setSelectedBrand(null);
+        }}
+        title="Update Brand"
+        description="Update the selected brand"
+      >
+        {selectedBrand && (
+          <BrandForm
+            initialData={{
+              name: selectedBrand.name,
+              slug: selectedBrand.slug,
+              description: selectedBrand.description,
+            }}
+            isEditing
+            isLoading={updateMutation.isPending}
+            submitLabel="Update Brand"
+            onSubmit={async (formData) => {
+              const payload = {
+                name: formData.name,
+                slug: formData.slug,
+                description: formData.description || null,
+              };
 
-<FormModal
-  open={isEditOpen}
-  onClose={() => {
-    setIsEditOpen(false);
-    setSelectedBrand(null);
-  }}
-  title="Update Brand"
-  description="Update the selected brand"
->
-  {selectedBrand && (
-    <BrandForm
-      initialData={{
-        name: selectedBrand.name,
-        slug: selectedBrand.slug,
-        description: selectedBrand.description,
-        
-      }}
-      isEditing
-      isLoading={updateMutation.isPending}
-      submitLabel="Update Brand"
-      onSubmit={async (data) => {
-        const payload = {
-          name: data.name,
-          slug: data.slug,
-          description: data.description || null,
-         
-        };
+              await updateMutation.mutateAsync({
+                uuid: selectedBrand.uuid,
+                data: payload,
+              });
 
-        await updateMutation.mutateAsync({
-          uuid: selectedBrand.uuid,
-          data: payload,
-        });
-
-        setIsEditOpen(false);
-        setSelectedBrand(null);
-        refetch();
-      }}
-    />
-  )}
-</FormModal>
+              toast.success("Brand updated", `"${formData.name}" was saved.`);
+              setIsEditOpen(false);
+              setSelectedBrand(null);
+              refetch();
+            }}
+          />
+        )}
+      </FormModal>
 
       <ConfirmDialog
         open={!!deleteId}
         onClose={() => setDeleteId(null)}
         onConfirm={() => {
-          if (deleteId) 
-
+          if (deleteId) {
             deleteMutation.mutate(deleteId, {
-              onSuccess: () => setDeleteId(null),
+              onSuccess: () => {
+                toast.success("Brand deleted", "The brand has been removed.");
+                setDeleteId(null);
+                refetch();
+              },
             });
           }
-        }
+        }}
         title="Delete Brand"
         description="Are you sure you want to delete this brand? This action cannot be undone."
         confirmText="Delete"

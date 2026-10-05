@@ -14,6 +14,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Select } from "@/components/ui/select";
 import { useItemAttributeValues, useSetAttributeValuesForItem } from "@/features/attributes/hooks";
 import { AttributeValueQuickAdd } from "@/features/attributes/components/AttributeValueQuickAdd";
 import { useUnits } from "@/features/units/hooks";
@@ -465,19 +466,19 @@ function ItemColorsPanel({
                 <label className="mb-1.5 block text-xs font-semibold text-neutral-800">
                   Unit <span className="text-red-500">*</span>
                 </label>
-                <select
+                <Select
                   value={unitId}
-                  onChange={(e) => setPickedUnitId(e.target.value)}
+                  onValueChange={(val) => setPickedUnitId(val)}
                   disabled={isBusy}
-                  className="h-10 w-full rounded-lg border border-neutral-200 bg-white px-3 text-sm focus:border-secondary-600 focus:outline-none focus:ring-2 focus:ring-secondary-600/20 disabled:opacity-60"
-                >
-                  <option value="">Select unit</option>
-                  {units.map((unit) => (
-                    <option key={unit.id} value={unit.id}>
-                      {unit.name} ({unit.code})
-                    </option>
-                  ))}
-                </select>
+                  placeholder="Select unit"
+                  options={[
+                    { value: "", label: "Select unit" },
+                    ...units.map((unit) => ({
+                      value: unit.id,
+                      label: `${unit.name} (${unit.code})`,
+                    })),
+                  ]}
+                />
               </div>
               <div>
                 <label className="mb-1.5 block text-xs font-semibold text-neutral-800">

@@ -61,16 +61,32 @@ function ProductCatalogSkeleton() {
   );
 }
 
-const VALID_GENDERS = ["men", "women", "kids", "unisex"] as const;
-type GenderFilter = (typeof VALID_GENDERS)[number];
-
-export default function ShopAllPage() {
+function ProductCatalogPageSkeleton() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-white" />}>
-      <ShopAllContent />
-    </Suspense>
+    <div className="min-h-screen bg-white">
+      <div className="border-b border-[#F0E4D8] bg-gradient-to-b from-[#FFFDF9] via-[#FAF4ED] to-[#F5ECE1] py-8 sm:py-12">
+        <div className="w-full max-w-7xl 2xl:max-w-[1600px] 3xl:max-w-[1800px] mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-center gap-2 mb-3">
+            <div className="h-3 w-12 rounded skeleton-shimmer bg-stone-200" />
+            <div className="h-3 w-3 rounded skeleton-shimmer bg-stone-200" />
+            <div className="h-3 w-16 rounded skeleton-shimmer bg-stone-200" />
+          </div>
+          <div className="text-center max-w-3xl mx-auto space-y-3">
+            <div className="inline-block h-5 w-36 rounded-full skeleton-shimmer bg-stone-200" />
+            <div className="h-8 sm:h-10 w-64 mx-auto rounded-xl skeleton-shimmer bg-stone-200" />
+            <div className="h-4 w-80 max-w-full mx-auto rounded skeleton-shimmer bg-stone-100" />
+          </div>
+        </div>
+      </div>
+      <div className="w-full max-w-7xl 2xl:max-w-[1600px] 3xl:max-w-[1800px] mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-10 bg-white">
+        <ProductCatalogSkeleton />
+      </div>
+    </div>
   );
 }
+
+const VALID_GENDERS = ["men", "women", "kids", "unisex"] as const;
+type GenderFilter = (typeof VALID_GENDERS)[number];
 
 function ShopAllContent() {
   const searchParams = useSearchParams();
@@ -520,5 +536,13 @@ function ShopAllContent() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function ShopAllPage() {
+  return (
+    <Suspense fallback={<ProductCatalogPageSkeleton />}>
+      <ShopAllContent />
+    </Suspense>
   );
 }

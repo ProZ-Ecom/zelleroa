@@ -29,6 +29,11 @@ export function useCreateVariant() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: variantKeys.all });
     },
+    onError: (error: any) => {
+      if (error?.message && /null constraint|violates not-null|cannot be null/i.test(error.message)) {
+        error.message = "Please fill in all required variation details before proceeding";
+      }
+    },
   });
 }
 
@@ -50,6 +55,11 @@ export function useUpdateVariant() {
       queryClient.invalidateQueries({
         queryKey: variantKeys.detail(variables.variantUuid),
       });
+    },
+    onError: (error: any) => {
+      if (error?.message && /null constraint|violates not-null|cannot be null/i.test(error.message)) {
+        error.message = "Please fill in all required variation details before proceeding";
+      }
     },
   });
 }

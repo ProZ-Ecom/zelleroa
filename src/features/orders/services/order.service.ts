@@ -328,9 +328,10 @@ export const orderService = {
 
 
 
-    // Delivery is free within Tamil Nadu and a flat charge for every other state.
+    // Delivery charge based on delivery method (standard = 49, express = 99)
     const payableBeforeShipping = subtotal - totalDiscount;
-    const shippingCharge = getShippingCharge(shippingAddress.state);
+    const deliveryMethod = input.deliveryMethod || "standard";
+    const shippingCharge = getShippingCharge(shippingAddress.state, deliveryMethod);
     const totalAmount = payableBeforeShipping + shippingCharge;
 
     // Commission attribution is per ORDER: whichever valid agent referral code is active
@@ -461,6 +462,7 @@ export const orderService = {
         paymentMethod: input.paymentMethod || "COD",
         paymentDetails: input.paymentDetails,
         couponCode: input.couponCode,
+        deliveryMethod: input.deliveryMethod || "standard",
       },
       request
     );
@@ -863,6 +865,7 @@ export const orderService = {
         notes: input.notes,
         paymentMethod: input.paymentMethod || "CARD",
         paymentDetails: input.paymentDetails,
+        deliveryMethod: input.deliveryMethod || "standard",
       },
       request
     );
@@ -896,8 +899,7 @@ export const orderService = {
     }));
 
     const pricing = await offerService.priceCartItems(lines);
-    // Delivery depends on the destination state; until an address is chosen
-    // there is nothing to charge yet, and order creation recomputes it anyway.
+    // Delivery depends on chosen delivery method (standard = 49, express = 99)
     const isAddressNumeric = !!shippingAddressId && /^\d+$/.test(shippingAddressId);
     const shippingAddress = shippingAddressId
       ? await db.customerAddress.findFirst({
@@ -913,7 +915,7 @@ export const orderService = {
           select: { state: true },
         })
       : null;
-    const deliveryCharge = shippingAddress ? getShippingCharge(shippingAddress.state) : 0;
+    const deliveryCharge = getShippingCharge(shippingAddress?.state, deliveryMethod || "standard");
 
     let couponResult: { code: string; discount: number } | null = null;
     let couponError: string | null = null;

@@ -281,15 +281,61 @@ export const productRepository = {
     const existing = await this.findByUuid(uuid);
     if (!existing) return null;
 
+    const now = new Date();
+
     // Carts must not keep lines for a product that can no longer be bought,
     // otherwise checkout fails with "no longer available".
     await db.cartItem.deleteMany({ where: { productId: existing.id } });
+
+    // Cascade soft-delete styles & items
+    const styles = await db.style.findMany({
+      where: { productId: existing.id, deleted_at: null },
+      select: { id: true, slug: true },
+    });
+
+    for (const style of styles) {
+      await db.style.update({
+        where: { id: style.id },
+        data: {
+          isActive: false,
+          deleted_at: now,
+          slug: retireUniqueValue(style.slug, style.id, 220),
+          ...(adminId ? { updated_by: adminId } : {}),
+        },
+      });
+
+      const items = await db.item.findMany({
+        where: { styleId: style.id, deleted_at: null },
+        select: { id: true },
+      });
+      const itemIds = items.map((i) => i.id);
+
+      if (itemIds.length > 0) {
+        await db.productVariant.updateMany({
+          where: { itemId: { in: itemIds }, deleted_at: null },
+          data: {
+            isActive: false,
+            deleted_at: now,
+            ...(adminId ? { updated_by: adminId } : {}),
+          },
+        });
+      }
+
+      await db.item.updateMany({
+        where: { styleId: style.id, deleted_at: null },
+        data: {
+          isActive: false,
+          deleted_at: now,
+          ...(adminId ? { updated_by: adminId } : {}),
+        },
+      });
+    }
 
     return db.product.update({
       where: { id: existing.id },
       data: {
         isActive: false,
-        deleted_at: new Date(),
+        deleted_at: now,
         // Free the unique slug so a new product can reuse it; the archived row
         // keeps a namespaced slug instead of blocking the insert.
         slug: retireUniqueValue(existing.slug, existing.id, 220),

@@ -113,8 +113,8 @@ export const styleService = {
     const adminId = await getAdminInternalId(adminEmail);
 
     const product = await productRepository.findByUuid(productUuid);
-    if (!product || !product.isActive || product.deleted_at !== null) {
-      throw ApiError.notFound("Product not found or inactive");
+    if (!product || product.deleted_at !== null) {
+      throw ApiError.notFound("Product not found");
     }
 
     const styleSlug = slugify(data.slug).substring(0, 220);
@@ -158,8 +158,8 @@ export const styleService = {
 
   async getAdminStyles(productUuid: string, params: GetAdminStylesParams = {}) {
     const product = await productRepository.findByUuid(productUuid);
-    if (!product || !product.isActive || product.deleted_at !== null) {
-      throw ApiError.notFound("Product not found or inactive");
+    if (!product || product.deleted_at !== null) {
+      throw ApiError.notFound("Product not found");
     }
 
     const result = await styleRepository.findAllByProductId(product.id, params);
@@ -171,8 +171,8 @@ export const styleService = {
 
   async getAdminStyleByUuid(productUuid: string, styleUuid: string): Promise<AdminStyleResponse> {
     const product = await productRepository.findByUuid(productUuid);
-    if (!product || !product.isActive || product.deleted_at !== null) {
-      throw ApiError.notFound("Product not found or inactive");
+    if (!product || product.deleted_at !== null) {
+      throw ApiError.notFound("Product not found");
     }
 
     const item = await styleRepository.findByUuid(styleUuid);
@@ -198,8 +198,8 @@ export const styleService = {
     adminEmail?: string
   ): Promise<AdminStyleResponse> {
     const product = await productRepository.findByUuid(productUuid);
-    if (!product || !product.isActive || product.deleted_at !== null) {
-      throw ApiError.notFound("Product not found or inactive");
+    if (!product || product.deleted_at !== null) {
+      throw ApiError.notFound("Product not found");
     }
 
     const existing = await styleRepository.findByUuid(styleUuid);
@@ -263,8 +263,8 @@ export const styleService = {
    */
   async resolveDefaultStyleUuid(productUuid: string): Promise<string> {
     const product = await productRepository.findByUuid(productUuid);
-    if (!product || !product.isActive || product.deleted_at !== null) {
-      throw ApiError.notFound("Product not found or inactive");
+    if (!product || product.deleted_at !== null) {
+      throw ApiError.notFound("Product not found");
     }
 
     const result = await styleRepository.findAllByProductId(product.id, { pageSize: 1 });
@@ -277,14 +277,9 @@ export const styleService = {
   },
 
   async deleteAdminStyle(productUuid: string, styleUuid: string, adminEmail?: string) {
-    const product = await productRepository.findByUuid(productUuid);
-    if (!product || !product.isActive || product.deleted_at !== null) {
-      throw ApiError.notFound("Product not found or inactive");
-    }
-
     const existing = await styleRepository.findByUuid(styleUuid);
-    if (!existing || existing.productId !== product.id) {
-      throw ApiError.notFound("Style not found for this product");
+    if (!existing) {
+      throw ApiError.notFound("Style not found");
     }
 
     const adminId = await getAdminInternalId(adminEmail);

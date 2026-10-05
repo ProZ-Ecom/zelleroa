@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import path from "path";
 
 // Ensure Node memory allocation is 8GB across all Next.js worker threads
 if (!process.env.NODE_OPTIONS?.includes("max-old-space-size")) {
@@ -6,6 +7,7 @@ if (!process.env.NODE_OPTIONS?.includes("max-old-space-size")) {
 }
 
 const nextConfig: NextConfig = {
+  outputFileTracingRoot: path.resolve(__dirname),
   // typescript: {
   //   ignoreBuildErrors: false,
   // },

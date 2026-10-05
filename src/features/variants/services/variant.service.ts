@@ -290,8 +290,8 @@ export const variantService = {
 
     // 1. Resolve & Validate Item
     const item = await itemRepository.findByUuid(itemUuid);
-    if (!item || !item.isActive || item.deleted_at !== null) {
-      throw ApiError.notFound("Item not found or inactive");
+    if (!item || item.deleted_at !== null) {
+      throw ApiError.notFound("Item not found");
     }
 
     // 2. Validate Slug
@@ -358,8 +358,8 @@ export const variantService = {
     params: GetAdminVariantsParams = {}
   ) {
     const item = await itemRepository.findByUuid(itemUuid);
-    if (!item || !item.isActive || item.deleted_at !== null) {
-      throw ApiError.notFound("Item not found or inactive");
+    if (!item || item.deleted_at !== null) {
+      throw ApiError.notFound("Item not found");
     }
 
     const result = await variantRepository.findAdminAllByItemId(item.id, params);
@@ -378,8 +378,8 @@ export const variantService = {
     variantUuid: string
   ): Promise<AdminVariantResponse> {
     const item = await itemRepository.findByUuid(itemUuid);
-    if (!item || !item.isActive || item.deleted_at !== null) {
-      throw ApiError.notFound("Item not found or inactive");
+    if (!item || item.deleted_at !== null) {
+      throw ApiError.notFound("Item not found");
     }
 
     const variant = await variantRepository.findByUuid(variantUuid);
@@ -406,8 +406,8 @@ export const variantService = {
     adminEmail?: string
   ): Promise<AdminVariantResponse> {
     const item = await itemRepository.findByUuid(itemUuid);
-    if (!item || !item.isActive || item.deleted_at !== null) {
-      throw ApiError.notFound("Item not found or inactive");
+    if (!item || item.deleted_at !== null) {
+      throw ApiError.notFound("Item not found");
     }
 
     const existing = await variantRepository.findByUuid(variantUuid);
@@ -549,8 +549,8 @@ export const variantService = {
     adminEmail?: string
   ) {
     const item = await itemRepository.findByUuid(itemUuid);
-    if (!item || !item.isActive || item.deleted_at !== null) {
-      throw ApiError.notFound("Item not found or inactive");
+    if (!item || item.deleted_at !== null) {
+      throw ApiError.notFound("Item not found");
     }
 
     const existing = await variantRepository.findByUuid(variantUuid);
@@ -612,8 +612,8 @@ export const variantService = {
     adminEmail?: string
   ): Promise<GenerateVariantsResponse> {
     const item = await itemRepository.findByUuid(itemUuid);
-    if (!item || !item.isActive || item.deleted_at !== null) {
-      throw ApiError.notFound("Item not found or inactive");
+    if (!item || item.deleted_at !== null) {
+      throw ApiError.notFound("Item not found");
     }
 
     const selections = await attributeRepository.findAttributeValuesForItem(item.id);
@@ -658,8 +658,8 @@ export const variantService = {
     const adminId = await getAdminInternalId(adminEmail);
 
     const item = await itemRepository.findByUuid(itemUuid);
-    if (!item || !item.isActive || item.deleted_at !== null) {
-      throw ApiError.notFound("Item not found or inactive");
+    if (!item || item.deleted_at !== null) {
+      throw ApiError.notFound("Item not found");
     }
 
     const unit = await unitRepository.findByUuid(data.unitId);
@@ -939,8 +939,8 @@ export const variantService = {
     options: GenerateVariantOptionInput[]
   ): Promise<PreviewGenerateVariantsResponse> {
     const item = await itemRepository.findByUuid(itemUuid);
-    if (!item || !item.isActive || item.deleted_at !== null) {
-      throw ApiError.notFound("Item not found or inactive");
+    if (!item || item.deleted_at !== null) {
+      throw ApiError.notFound("Item not found");
     }
 
     type ResolvedValue = {
@@ -1104,8 +1104,8 @@ export const variantService = {
     const adminId = await getAdminInternalId(adminEmail);
 
     const item = await itemRepository.findByUuid(itemUuid);
-    if (!item || !item.isActive || item.deleted_at !== null) {
-      throw ApiError.notFound("Item not found or inactive");
+    if (!item || item.deleted_at !== null) {
+      throw ApiError.notFound("Item not found");
     }
 
     const variantUuids = input.variantUuids ?? [];

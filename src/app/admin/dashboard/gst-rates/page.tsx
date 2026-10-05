@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { toast } from "@/components/ui/Toast";
 import { useGstRates } from "@/features/gst-rates/hooks/use-gst-rates";
 import {
   useCreateGstRate,
@@ -194,8 +195,13 @@ export default function AdminGstRatesPage() {
           isLoading={createMutation.isPending}
           submitLabel="Create GST Rate"
           onSubmit={async (formData) => {
-            await createMutation.mutateAsync(formData);
-            setIsCreateOpen(false);
+            try {
+              await createMutation.mutateAsync(formData);
+              toast.success("GST Rate created", `"${formData.name}" was added successfully.`);
+              setIsCreateOpen(false);
+            } catch (err: any) {
+              toast.error("Failed to create GST rate", err?.message || "Please try again.");
+            }
           }}
         />
       </FormModal>
@@ -221,14 +227,18 @@ export default function AdminGstRatesPage() {
             isLoading={updateMutation.isPending}
             submitLabel="Update GST Rate"
             onSubmit={async (formData) => {
-              await updateMutation.mutateAsync({
-                uuid: selectedGst.id,
-                data: formData,
-              });
-
-              setIsEditOpen(false);
-              setSelectedGst(null);
-              refetch();
+              try {
+                await updateMutation.mutateAsync({
+                  uuid: selectedGst.id,
+                  data: formData,
+                });
+                toast.success("GST Rate updated", `"${formData.name}" was saved successfully.`);
+                setIsEditOpen(false);
+                setSelectedGst(null);
+                refetch();
+              } catch (err: any) {
+                toast.error("Failed to update GST rate", err?.message || "Please try again.");
+              }
             }}
           />
         )}
@@ -237,11 +247,15 @@ export default function AdminGstRatesPage() {
       <ConfirmDialog
         open={!!deleteId}
         onClose={() => setDeleteId(null)}
-        onConfirm={() => {
+        onConfirm={async () => {
           if (deleteId) {
-            deleteMutation.mutate(deleteId, {
-              onSuccess: () => setDeleteId(null),
-            });
+            try {
+              await deleteMutation.mutateAsync(deleteId);
+              toast.success("GST Rate deleted", "The GST rate was removed successfully.");
+              setDeleteId(null);
+            } catch (err: any) {
+              toast.error("Failed to delete GST rate", err?.message || "Please try again.");
+            }
           }
         }}
         title="Delete GST Rate"

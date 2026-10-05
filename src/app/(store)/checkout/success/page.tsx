@@ -203,8 +203,13 @@ function SuccessContent() {
                   {formatPrice(order.subtotal)}
                 </span>
               </div>
-              <div className="flex justify-between text-theme-text-subtle">
-                <span>Shipping & Delivery</span>
+              <div className="flex justify-between text-theme-text-subtle items-center">
+                <div className="flex items-center gap-1.5">
+                  <span>Shipping & Delivery</span>
+                  <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-theme-surface-alt border border-theme-border text-theme-text-muted uppercase">
+                    {order.shippingCharge === 99 ? "Express" : "Standard"}
+                  </span>
+                </div>
                 <span className="font-semibold text-theme-text-primary">
                   {order.shippingCharge === 0 ? "FREE" : formatPrice(order.shippingCharge)}
                 </span>

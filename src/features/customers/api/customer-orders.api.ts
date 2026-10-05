@@ -21,6 +21,8 @@ export interface CreateCustomerOrderPayload {
   notes?: string;
   paymentMethod?: "CARD" | "COD" | "UPI";
   paymentDetails?: Record<string, any>;
+  couponCode?: string;
+  deliveryMethod?: "standard" | "express";
 }
 
 export interface CancelCustomerOrderPayload {
@@ -43,6 +45,7 @@ export interface CreateGuestOrderPayload {
   paymentMethod?: "COD";
   paymentDetails?: Record<string, any>;
   couponCode?: string;
+  deliveryMethod?: "standard" | "express";
 }
 
 export const customerOrdersApi = {

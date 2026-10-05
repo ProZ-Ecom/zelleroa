@@ -3,6 +3,7 @@
 import React, { useMemo, useState } from "react";
 import { Loader2, Sparkles, CheckCircle2, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Select } from "@/components/ui/select";
 import { useConfiguredAttributesForProduct } from "@/features/attributes/hooks/use-attributes";
 import { useUnits } from "@/features/units/hooks";
 import { useGenerateVariants } from "../hooks";
@@ -185,19 +186,19 @@ function VariantGenerator({ productUuid, onGenerated, itemUuid }: VariantGenerat
           <label className="block text-xs font-semibold text-neutral-800 mb-1.5">
             Unit <span className="text-red-500">*</span>
           </label>
-          <select
+          <Select
             value={unitId}
-            onChange={(e) => setUnitId(e.target.value)}
+            onValueChange={(val) => setUnitId(val)}
             disabled={generateMutation.isPending}
-            className="w-full h-10 px-3 rounded-lg border border-neutral-200 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-secondary-600/20 focus:border-secondary-600 disabled:opacity-60"
-          >
-            <option value="">Select unit</option>
-            {units.map((u: AdminUnitResponse) => (
-              <option key={u.id} value={u.id}>
-                {u.name} ({u.code})
-              </option>
-            ))}
-          </select>
+            placeholder="Select unit"
+            options={[
+              { value: "", label: "Select unit" },
+              ...units.map((u: AdminUnitResponse) => ({
+                value: u.id,
+                label: `${u.name} (${u.code})`,
+              })),
+            ]}
+          />
         </div>
 
         <div>

@@ -290,7 +290,6 @@ export default function AdminStyleDetailsPage() {
                 });
                 const created = (res as any)?.data as AdminItemResponse | undefined;
                 if (created) setNewlyCreatedItem(created);
-                toast.success("Model created", `"${formData.name}" is ready for Colors & Sizes.`);
                 refetchItems();
               } catch (err: any) {
                 toast.error("Failed to create model", err?.message || "Please try again.");
