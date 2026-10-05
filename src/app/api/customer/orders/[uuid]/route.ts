@@ -22,6 +22,6 @@ export const GET = createApiHandler(
     },
   },
   {
-    requireAuth: true,
+    requireAuth: true, requiredRole: ["CUSTOMER", "AGENT"],
   }
 );

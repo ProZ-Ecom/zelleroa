@@ -24,6 +24,7 @@ export const bannerIncludePosition = Prisma.validator<Prisma.BannerInclude>()({
       is_active: true,
     },
   },
+  offer: { select: { id: true, uuid: true } },
 });
 
 export function formatBanner(
@@ -38,6 +39,7 @@ export function formatBanner(
     videoUrl: record.video_url,
     thumbnailUrl: record.thumbnail_url,
     linkUrl: record.link_url,
+    offerId: record.offer?.uuid ?? null,
     badgeLabel: record.badge_label,
     subtitle: record.subtitle,
     priceText: record.price_text,
@@ -67,7 +69,9 @@ export function formatCustomerBanner(
     imageUrl: record.image_url,
     videoUrl: record.video_url,
     thumbnailUrl: record.thumbnail_url,
-    linkUrl: record.link_url,
+    // A linked offer wins over any hand-typed URL.
+    linkUrl: record.offer?.uuid ? `/offers/${record.offer.uuid}` : record.link_url,
+    offerId: record.offer?.uuid ?? null,
     badgeLabel: record.badge_label,
     subtitle: record.subtitle,
     priceText: record.price_text,
@@ -97,7 +101,10 @@ export const bannerRepository = {
   },
 
   async create(
-    data: CreateBannerInput & { positionInternalId: bigint },
+    data: CreateBannerInput & {
+      positionInternalId: bigint;
+      offerInternalId?: bigint | null;
+    },
     userInternalId?: bigint
   ): Promise<BannerDto> {
     const created = await db.banner.create({
@@ -109,7 +116,8 @@ export const bannerRepository = {
         image_url: data.imageUrl?.trim() ?? "",
         video_url: data.videoUrl ? data.videoUrl.trim() : null,
         thumbnail_url: data.thumbnailUrl ? data.thumbnailUrl.trim() : null,
-        link_url: data.linkUrl ? data.linkUrl.trim() : null,
+        link_url: data.offerId ? null : data.linkUrl ? data.linkUrl.trim() : null,
+        offer_id: data.offerInternalId ?? null,
         badge_label: data.badgeLabel ? data.badgeLabel.trim() : null,
         subtitle: data.subtitle ? data.subtitle.trim() : null,
         price_text: data.priceText ? data.priceText.trim() : null,
@@ -128,7 +136,10 @@ export const bannerRepository = {
 
   async update(
     id: bigint,
-    data: UpdateBannerInput & { positionInternalId?: bigint },
+    data: UpdateBannerInput & {
+      positionInternalId?: bigint;
+      offerInternalId?: bigint | null;
+    },
     userInternalId?: bigint
   ): Promise<BannerDto> {
     const updateData: Prisma.BannerUpdateInput = {
@@ -165,6 +176,15 @@ export const bannerRepository = {
 
     if (data.linkUrl !== undefined) {
       updateData.link_url = data.linkUrl ? data.linkUrl.trim() : null;
+    }
+
+    if (data.offerId !== undefined) {
+      if (data.offerInternalId) {
+        updateData.offer = { connect: { id: data.offerInternalId } };
+        updateData.link_url = null;
+      } else {
+        updateData.offer = { disconnect: true };
+      }
     }
 
     if (data.badgeLabel !== undefined) {
@@ -306,6 +326,22 @@ export const bannerRepository = {
         },
         {
           OR: [{ ends_at: null }, { ends_at: { gte: now } }],
+        },
+        // A banner tied to an offer disappears once that offer stops running.
+        {
+          OR: [
+            { offer_id: null },
+            {
+              offer: {
+                isActive: true,
+                deleted_at: null,
+                AND: [
+                  { OR: [{ startsAt: null }, { startsAt: { lte: now } }] },
+                  { OR: [{ ends_at: null }, { ends_at: { gte: now } }] },
+                ],
+              },
+            },
+          ],
         },
       ],
     };

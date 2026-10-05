@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { CheckCircle2, Circle } from "lucide-react";
 import type { Completion } from "../lib/profile-completion";
+import { ProfileCompletionMeter } from "@/components/ui/ProfileCompletionMeter";
 import { Panel } from "./shared";
 
 /** Progress bar + the sections still to do. `onNavigate` lets the wizard jump a step instead of linking. */
@@ -15,29 +16,24 @@ export function ProfileCompletionCard({
 }) {
   const { percent, sections, incomplete } = completion;
   const first = incomplete[0];
+  const ctaClass =
+    "inline-flex h-10 w-full items-center justify-center rounded-xl bg-neutral-900 px-5 text-sm font-semibold text-white hover:bg-neutral-800 sm:w-auto";
+  const cta = first ? (
+    onNavigate ? (
+      <button type="button" onClick={() => onNavigate(first.step)} className={ctaClass}>
+        Complete Details
+      </button>
+    ) : (
+      <Link href={`/agent/profile?step=${first.step}`} className={ctaClass}>
+        Complete Details
+      </Link>
+    )
+  ) : null;
 
   return (
     <Panel title="Profile completion">
       <div className="flex flex-col gap-4 p-4 sm:p-5">
-        <div>
-          <div className="mb-1.5 flex items-baseline justify-between">
-            <span className="text-sm font-semibold text-neutral-900">Profile Completion: {percent}%</span>
-            {incomplete.length === 0 && <span className="text-xs font-semibold text-emerald-700">All done</span>}
-          </div>
-          <div
-            className="h-2.5 overflow-hidden rounded-full bg-neutral-100"
-            role="progressbar"
-            aria-valuenow={percent}
-            aria-valuemin={0}
-            aria-valuemax={100}
-            aria-label="Profile completion"
-          >
-            <div
-              className={`h-full rounded-full transition-all ${percent === 100 ? "bg-emerald-500" : "bg-neutral-900"}`}
-              style={{ width: `${percent}%` }}
-            />
-          </div>
-        </div>
+        <ProfileCompletionMeter percent={percent} action={cta} />
 
         {!compact && (
           <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2">
@@ -58,23 +54,6 @@ export function ProfileCompletionCard({
           </ul>
         )}
 
-        {first &&
-          (onNavigate ? (
-            <button
-              type="button"
-              onClick={() => onNavigate(first.step)}
-              className="inline-flex h-10 w-fit items-center rounded-xl bg-neutral-900 px-5 text-sm font-semibold text-white hover:bg-neutral-800"
-            >
-              Complete Now
-            </button>
-          ) : (
-            <Link
-              href={`/agent/profile?step=${first.step}`}
-              className="inline-flex h-10 w-fit items-center rounded-xl bg-neutral-900 px-5 text-sm font-semibold text-white hover:bg-neutral-800"
-            >
-              Complete Now
-            </Link>
-          ))}
       </div>
     </Panel>
   );

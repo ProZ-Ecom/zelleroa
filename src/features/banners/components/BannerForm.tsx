@@ -12,6 +12,7 @@ import { FormSwitch } from "@/components/forms/FormSwitch";
 import { FormSubmitButton } from "@/components/forms/form-submit-button";
 import { FormImageUpload } from "@/components/forms/form-image-upload";
 import { FormVideoUrl } from "@/components/forms/form-video-url";
+import { useOffers } from "@/features/offers/hooks";
 import { isValidVideoUrl } from "@/lib/utils/video-url.util";
 import {
   BANNER_IMAGE_ACCEPT_LABEL,
@@ -43,6 +44,8 @@ const bannerFormSchema = z
       .max(500, "Link URL cannot exceed 500 characters")
       .optional()
       .nullable(),
+    // Public offer UUID, or "none" when the banner isn't tied to an offer.
+    offerId: z.string().optional().nullable(),
     badgeLabel: z
       .string()
       .trim()
@@ -61,6 +64,16 @@ const bannerFormSchema = z
       .max(50, "Price text cannot exceed 50 characters")
       .optional()
       .nullable(),
+    // An empty numeric input arrives as "" from the DOM; treat it as 0.
+    sortOrder: z
+      .union([z.number(), z.literal("")])
+      .refine((val) => val === "" || Number.isInteger(val), {
+        message: "Sort order must be a whole number.",
+      })
+      .refine((val) => val === "" || (val >= 0 && val <= 100), {
+        message: "Sort order must be between 0 and 100.",
+      })
+      .optional(),
     isActive: z.boolean().default(true),
     startsAt: z.string().optional().nullable(),
     endsAt: z.string().optional().nullable(),
@@ -117,9 +130,11 @@ export interface BannerFormPayload {
   imageUrl: string;
   videoUrl: string | null;
   linkUrl: string | null;
+  offerId: string | null;
   badgeLabel: string | null;
   subtitle: string | null;
   priceText: string | null;
+  sortOrder: number;
   isActive: boolean;
   startsAt: string | null;
   endsAt: string | null;
@@ -135,6 +150,8 @@ interface BannerFormProps {
   isLoading?: boolean;
   submitLabel?: string;
 }
+
+const NO_OFFER = "none";
 
 function formatDateForInput(dateValue: unknown): string {
   if (!dateValue) return "";
@@ -183,9 +200,11 @@ export function BannerForm({
       imageUrl: initialData?.imageUrl ?? "",
       videoUrl: initialData?.videoUrl ?? "",
       linkUrl: initialData?.linkUrl ?? "",
+      offerId: initialData?.offerId ?? NO_OFFER,
       badgeLabel: initialData?.badgeLabel ?? "",
       subtitle: initialData?.subtitle ?? "",
       priceText: initialData?.priceText ?? "",
+      sortOrder: initialData?.sortOrder ?? 0,
       isActive: initialData?.isActive ?? true,
       startsAt: formatDateForInput(initialData?.startsAt),
       endsAt: formatDateForInput(initialData?.endsAt),
@@ -202,6 +221,29 @@ export function BannerForm({
 
   const { control, setValue, reset, formState } = methods;
   const selectedPositionId = useWatch({ control, name: "bannerPositionId" });
+  const selectedOfferId = useWatch({ control, name: "offerId" });
+  const hasOffer = Boolean(selectedOfferId) && selectedOfferId !== NO_OFFER;
+
+  // Only running or upcoming offers can usefully be promoted by a banner.
+  const { data: offersData } = useOffers({ limit: 100, sortBy: "endsAt", sortOrder: "asc" });
+  const offerOptions = React.useMemo(() => {
+    const live = (offersData?.data ?? []).filter(
+      (offer) => offer.status === "active" || offer.status === "scheduled"
+    );
+    // Keep the saved offer selectable even if it has since ended.
+    const saved = initialData?.offerId;
+    const rows = live.map((offer) => ({
+      value: offer.id,
+      label: offer.endsAt
+        ? `${offer.name} (ends ${new Date(offer.endsAt).toLocaleDateString()})`
+        : offer.name,
+    }));
+    if (saved && !rows.some((row) => row.value === saved)) {
+      const ended = offersData?.data.find((offer) => offer.id === saved);
+      rows.push({ value: saved, label: `${ended?.name ?? "Selected offer"} (not running)` });
+    }
+    return [{ value: NO_OFFER, label: "No offer - use a custom link" }, ...rows];
+  }, [offersData, initialData?.offerId]);
   const isActive = useWatch({ control, name: "isActive" });
 
   const selectedSlug = React.useMemo(
@@ -276,10 +318,12 @@ export function BannerForm({
       // banner is preserved rather than silently wiped on save.
       imageUrl: trimmedImageUrl,
       videoUrl: isVideo && trimmedVideoUrl ? trimmedVideoUrl : null,
-      linkUrl: values.linkUrl?.trim() || null,
+      linkUrl: values.offerId && values.offerId !== NO_OFFER ? null : values.linkUrl?.trim() || null,
+      offerId: values.offerId && values.offerId !== NO_OFFER ? values.offerId : null,
       badgeLabel: typeConfig.hasCard ? values.badgeLabel?.trim() || null : null,
       subtitle: typeConfig.hasCard ? values.subtitle?.trim() || null : null,
       priceText: typeConfig.hasCard ? values.priceText?.trim() || null : null,
+      sortOrder: values.sortOrder === "" ? 0 : Number(values.sortOrder ?? 0),
       isActive: Boolean(values.isActive),
       startsAt: values.startsAt?.trim()
         ? new Date(values.startsAt).toISOString()
@@ -350,13 +394,24 @@ export function BannerForm({
               maxLength={150}
             />
 
-            <FormInput
-              name="linkUrl"
-              label="Link URL"
-              placeholder="e.g. /products"
-              description="Where shoppers go when they click this banner. Optional."
-              maxLength={500}
+            <FormSelect
+              name="offerId"
+              label="When shoppers click this banner"
+              placeholder="Select an offer"
+              options={offerOptions}
+              searchable
+              description="Pick an offer and shoppers see every product on that offer. No link to type."
             />
+
+            {!hasOffer && (
+              <FormInput
+                name="linkUrl"
+                label="Custom Link URL"
+                placeholder="e.g. /products"
+                description="Where shoppers go when they click this banner. Optional."
+                maxLength={500}
+              />
+            )}
           </div>
 
           {typeConfig.hasCard && (
@@ -465,6 +520,19 @@ export function BannerForm({
               onCheckedChange={(checked) =>
                 setValue("isActive", checked, { shouldDirty: true })
               }
+            />
+          </div>
+
+          <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
+            <FormInput
+              name="sortOrder"
+              label="Sort Order"
+              type="number"
+              min={0}
+              max={100}
+              step={1}
+              placeholder="0"
+              description="Lower numbers appear first. Defaults to 0."
             />
           </div>
         </section>

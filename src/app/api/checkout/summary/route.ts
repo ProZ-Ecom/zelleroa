@@ -23,5 +23,5 @@ export const POST = createApiHandler(
       }
     },
   },
-  { requireAuth: true, bodySchema: checkoutSummarySchema }
+  { requireAuth: true, requiredRole: ["CUSTOMER", "AGENT"], bodySchema: checkoutSummarySchema }
 );

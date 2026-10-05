@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { BlockReasonDialog } from "@/components/ui/block-reason-dialog";
 import { useUpdateCustomerStatus } from "../../hooks";
 import type {
   AdminCustomerListItemDto,
@@ -64,12 +65,13 @@ export function CustomerTopBar({ customer }: CustomerTopBarProps) {
     };
   }, [isMoreOpen]);
 
-  const handleConfirmStatusChange = () => {
+  const handleConfirmStatusChange = (blockReason?: string) => {
     if (!customerId) return;
     updateStatus(
       {
         uuid: customerId,
         isActive: isBlocked, // If blocked, activate (true). If active, block (false).
+        blockReason,
       },
       {
         onSettled: () => {
@@ -190,10 +192,18 @@ export function CustomerTopBar({ customer }: CustomerTopBarProps) {
       </div>
 
       {/* Confirmation Dialog for Block / Unblock Action */}
-      <ConfirmDialog
-        open={isConfirmOpen}
+      <BlockReasonDialog
+        open={isConfirmOpen && !isBlocked}
+        subject="User"
+        name={customer.name}
+        isLoading={isUpdatingStatus}
         onClose={() => setIsConfirmOpen(false)}
         onConfirm={handleConfirmStatusChange}
+      />
+      <ConfirmDialog
+        open={isConfirmOpen && isBlocked}
+        onClose={() => setIsConfirmOpen(false)}
+        onConfirm={() => handleConfirmStatusChange()}
         title={
           isBlocked ? "Unblock Customer Account" : "Block Customer Account"
         }
@@ -302,6 +312,13 @@ export function CustomerProfileHeader({
               <MapPin className="h-3.5 w-3.5 text-neutral-400 shrink-0" />
               <span className="truncate">{location || "Seattle, WA"}</span>
             </div>
+
+            {isBlocked && customer.blockReason && (
+              <p className="mt-1 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-800">
+                <span className="font-semibold">Block reason:</span>{" "}
+                {customer.blockReason}
+              </p>
+            )}
 
             {memberSince && (
               <p className="text-xs sm:text-sm text-neutral-500 pt-0.5">

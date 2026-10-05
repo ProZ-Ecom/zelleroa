@@ -3,17 +3,20 @@
 import * as React from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { useRouter, usePathname } from "next/navigation";
+import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { LogIn, Search, Heart, ShoppingCart } from "lucide-react";
 import { LOGOS, ICONS, mobileBottomIcons } from "@/constants/storefront";
 import { NavButton } from "@/components/storefront/buttons/NavButton";
 import { IconButton } from "@/components/storefront/buttons/IconButton";
+import { getRoleHome } from "@/lib/auth/role-routes";
 import { useClickOutside } from "@/hooks/useClickOutside";
 import { getInitials } from "@/lib/utils";
 import { useCustomerWishlistCount } from "@/features/customers/hooks/use-customer-wishlist";
 import { useCustomerCartCount } from "@/features/customers/hooks/use-customer-cart";
 import { useCustomerProfile } from "@/features/customers/hooks/use-customer-profile";
+import { calculateCustomerCompletion } from "@/features/customers/lib/profile-completion";
+import { ProfileAvatarRing } from "@/components/ui/ProfileAvatarRing";
 import { useHeaderMenu } from "@/features/header-menu/hooks";
 import { categoryHref } from "@/features/customers/utils/catalog-listing-query";
 import type { CategoryTreeNode } from "@/features/categories/types";
@@ -30,7 +33,16 @@ function isInCategoryTree(node: CategoryTreeNode, pathname: string): boolean {
 }
 
 /** True when the current page matches any of this nav item's category subtrees, or its plain link. */
-function isNavItemActive(item: HeaderNavItem, pathname: string): boolean {
+function isNavItemActive(
+  item: HeaderNavItem,
+  pathname: string,
+  gender: string | null,
+): boolean {
+  // The same category can sit under several audience-specific items (Women/Mens),
+  // so when the URL names an audience only the matching item may highlight.
+  if (item.gender && gender && item.gender.toLowerCase() !== gender.toLowerCase()) {
+    return false;
+  }
   if (item.categories.some((c) => isInCategoryTree(c, pathname))) return true;
   return item.link ? pathname === item.link : false;
 }
@@ -57,7 +69,11 @@ function buildNavNode(item: HeaderNavItem): NavNode {
   };
 }
 
-export function Header() {
+export function Header({
+  initialUser = null,
+}: {
+  initialUser?: { role?: string; email?: string; name?: string } | null;
+}) {
   const [isOpen, setIsOpen] = React.useState(false);
   const [isSearchOpen, setIsSearchOpen] = React.useState(false);
   const [searchQuery, setSearchQuery] = React.useState("");
@@ -80,8 +96,17 @@ export function Header() {
   );
   const router = useRouter();
   const pathname = usePathname();
+  const activeGender = useSearchParams().get("gender");
   const { data: session, status } = useSession();
-  const isAuthenticated = status === "authenticated";
+  // The server-resolved user (NextAuth session or access_token cookie) backs up
+  // the client session, which can lag or fail to sync after a cookie login.
+  const isAuthenticated = status === "authenticated" || !!initialUser;
+  // Admin/staff manage the store from /admin; they have no customer account,
+  // wishlist or purchase UI, so those entry points are role-aware.
+  const userRole =
+    (session?.user as { role?: string } | undefined)?.role ?? initialUser?.role;
+  const isStaffUser = userRole === "ADMIN" || userRole === "STAFF";
+  const accountHref = isAuthenticated ? getRoleHome(userRole) : "/login";
   // `status` is "loading" until /api/auth/session resolves on every page load.
   // Treating that as logged-out would flash the Login button at signed-in users,
   // so the account cell renders a placeholder until the session is known.
@@ -94,22 +119,23 @@ export function Header() {
     return () => clearTimeout(timer);
   }, [status]);
   const isAuthLoading = status === "loading" && !authGraceExpired;
-  const { data: profile } = useCustomerProfile({ enabled: isAuthenticated });
+  const { data: profile } = useCustomerProfile({ enabled: isAuthenticated && !isStaffUser });
 
   // Get user name and initials for authenticated header state
-  const userName = profile?.name || session?.user?.name || "";
+  const userName = profile?.name || session?.user?.name || initialUser?.name || "";
   const userInitials = React.useMemo(() => {
     if (userName && userName.trim().length > 0) {
       return getInitials(userName) || "U";
     }
-    if (session?.user?.email) {
-      return session.user.email.slice(0, 2).toUpperCase();
+    const email = session?.user?.email ?? initialUser?.email;
+    if (email) {
+      return email.slice(0, 2).toUpperCase();
     }
     return "U";
-  }, [userName, session?.user?.email]);
+  }, [userName, session?.user?.email, initialUser?.email]);
 
   // Wishlist requires an account; cart works for guests too (guest-session cookie).
-  const { data: wishlistCount = 0 } = useCustomerWishlistCount({ enabled: isAuthenticated });
+  const { data: wishlistCount = 0 } = useCustomerWishlistCount({ enabled: isAuthenticated && !isStaffUser });
   const { data: cartCountData } = useCustomerCartCount();
   const cartCount =
     typeof cartCountData === "number"
@@ -148,7 +174,7 @@ export function Header() {
         item.alt === "cart" || item.text === "Cart" || item.path === "/cart";
 
       if (isUser) {
-        return isAuthenticated ? "/profile" : "/login";
+        return accountHref;
       }
       if (isWishlist) {
         return isAuthenticated ? "/wishlist" : "/login?callbackUrl=/wishlist";
@@ -159,7 +185,7 @@ export function Header() {
       }
       return item.path || "/";
     },
-    [isAuthenticated]
+    [isAuthenticated, accountHref]
   );
 
   const handleSearchSubmit = (e: React.FormEvent) => {
@@ -261,7 +287,7 @@ export function Header() {
                 <MegaMenuTrigger
                   key={item.id}
                   root={buildNavNode(item)}
-                  isActive={isNavItemActive(item, pathname)}
+                  isActive={isNavItemActive(item, pathname, activeGender)}
                   isOpen={openNavId === item.id}
                   onMouseEnter={() => openMegaMenu(item.id)}
                   onMouseLeave={scheduleMegaMenuClose}
@@ -272,7 +298,7 @@ export function Header() {
                   key={item.id}
                   href={item.link ?? "#"}
                   className={`flex items-center gap-1.5 rounded-full px-3.5 py-2 text-sm font-medium transition-colors ${
-                    isNavItemActive(item, pathname)
+                    isNavItemActive(item, pathname, activeGender)
                       ? "bg-theme-primary text-theme-primary-fg font-semibold"
                       : "text-red-600 hover:bg-red-50"
                   }`}
@@ -317,6 +343,7 @@ export function Header() {
             </form>
 
             {/* Wishlist */}
+            {!isStaffUser && (
             <Link
               href={wishlistHref}
               aria-label="Wishlist"
@@ -329,8 +356,10 @@ export function Header() {
                 </span>
               )}
             </Link>
+            )}
 
             {/* Cart */}
+            {!isStaffUser && (
             <Link
               href="/cart"
               aria-label="Cart"
@@ -343,13 +372,18 @@ export function Header() {
                 </span>
               )}
             </Link>
+            )}
 
             {/* Account */}
             {/* The account cell is the last item in a right-anchored row, so the
                 Login pill (~92px) collapsing to the 26px avatar would drag every
                 icon beside it. A fixed slot keeps the swap contained: siblings
                 never move, whichever state wins. */}
-            <div className="flex min-w-[92px] justify-end">
+            <div
+              className={`flex justify-end ${
+                isAuthLoading || isAuthenticated ? "" : "min-w-[92px]"
+              }`}
+            >
               {isAuthLoading ? (
                 <div
                   className="w-[26px] h-[26px] rounded-full bg-theme-surface-alt animate-pulse"
@@ -370,11 +404,19 @@ export function Header() {
               ) : (
                 <IconButton
                   alt={userName ? `${userName}'s profile` : "Profile"}
-                  href="/profile"
+                  href={accountHref}
                   customIcon={
-                    <div className="w-[26px] h-[26px] rounded-full bg-theme-primary text-theme-primary-fg text-[11px] font-bold flex items-center justify-center border border-theme-border-accent shadow-2xs select-none leading-none">
-                      {userInitials}
-                    </div>
+                    userRole === "CUSTOMER" && profile ? (
+                      <ProfileAvatarRing percent={calculateCustomerCompletion(profile).percent} size={36}>
+                        <div className="w-full h-full bg-theme-primary text-theme-primary-fg text-[11px] font-bold flex items-center justify-center select-none leading-none">
+                          {userInitials}
+                        </div>
+                      </ProfileAvatarRing>
+                    ) : (
+                      <div className="w-[26px] h-[26px] rounded-full bg-theme-primary text-theme-primary-fg text-[11px] font-bold flex items-center justify-center border border-theme-border-accent shadow-2xs select-none leading-none">
+                        {userInitials}
+                      </div>
+                    )
                   }
                 />
               )}
@@ -421,8 +463,8 @@ export function Header() {
         {/* Drawer Panel */}
         <div
           ref={menuRef}
-          className={`fixed top-0 right-0 z-50 h-screen w-72 bg-[var(--brown-600)] border-l border-white/20 shadow-2xl transform transition-all duration-500 ease-in-out flex flex-col ${
-            isOpen ? "translate-x-0" : "translate-x-full"
+          className={`fixed top-0 right-0 z-50 h-screen w-72 bg-[var(--brown-600)] border-l border-white/20 transform transition-all duration-500 ease-in-out flex flex-col ${
+            isOpen ? "translate-x-0 shadow-2xl" : "translate-x-full invisible"
           }`}
         >
           <div className="flex items-center justify-between border-b border-white/20 px-6 py-5 shrink-0">
@@ -496,6 +538,7 @@ export function Header() {
         "
       >
         {mobileBottomIcons.map((item) => {
+          if (isStaffUser && (item.text === "Wishlist" || item.text === "Cart")) return null;
           const isUser =
             item.text === "Account" || item.path === "/profile";
           const targetPath = resolvePath(item);
@@ -542,8 +585,8 @@ export function Header() {
                       </div>
                     }
                     text="Account"
-                    href="/profile"
-                    isActive={pathname === "/profile"}
+                    href={accountHref}
+                    isActive={pathname === accountHref}
                   />
                 )}
               </div>

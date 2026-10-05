@@ -43,7 +43,8 @@ function ItemForm({
       submitLabel={submitLabel}
       namePlaceholder="e.g. Regular Fit, Slim Fit, Oversized"
       skuPlaceholder="e.g. TSHIRT-VNECK-REGULAR"
-      codePlaceholder="e.g. regular-fit"
+      codePlaceholder="e.g. REGULAR_FIT"
+      codeFormat="constant"
       defaultItemDescription="Auto-selected on the item page"
       entityLabel="Model"
       compact

@@ -73,7 +73,7 @@ async function resolveActiveCustomer(sessionUserId: string) {
     throw ApiError.unauthorized("Customer not found");
   }
   if (!customer.isActive || customer.is_active === false) {
-    throw ApiError.forbidden("Your account is inactive or blocked. Please contact support.");
+    throw ApiError.accountBlocked("Your account is inactive or blocked. Please contact support.");
   }
   return customer;
 }

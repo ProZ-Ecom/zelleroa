@@ -209,6 +209,8 @@ export default function AdminStyleDetailsPage() {
             cookingRecipe: style.cookingRecipe || "",
             basePrice: style.basePrice ?? 0,
             isFeatured: style.isFeatured,
+            isNewArrival: style.isNewArrival,
+            newArrivalUntil: style.newArrivalUntil ?? "",
             isDefault: style.isDefault,
             isActive: style.isActive,
           }}
@@ -233,6 +235,8 @@ export default function AdminStyleDetailsPage() {
                   vegType: style.vegType || "na",
                   basePrice: formData.basePrice ?? 0,
                   isFeatured: formData.isFeatured,
+                  isNewArrival: formData.isNewArrival ?? false,
+                  newArrivalUntil: formData.isNewArrival ? formData.newArrivalUntil || null : null,
                   isDefault: formData.isDefault ?? false,
                   isActive: formData.isActive,
                 },

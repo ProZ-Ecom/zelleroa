@@ -44,7 +44,14 @@ import type {
 const DEFAULT_PAGE_SIZE = 24;
 const MAX_PAGE_SIZE = 60;
 const LOW_STOCK_THRESHOLD = 5;
-const NEW_ARRIVAL_DAYS = 30;
+
+/** An Item is a "New Arrival" only when an admin ticked it, and the optional end date hasn't passed. */
+function isNewArrival(row: { is_new_arrival: boolean; new_arrival_until: Date | null }): boolean {
+  if (!row.is_new_arrival) return false;
+  if (!row.new_arrival_until) return true;
+  const endOfLastDay = row.new_arrival_until.getTime() + 86_400_000;
+  return Date.now() < endOfLastDay;
+}
 
 // ---------------------------------------------------------------------------
 // Sellable units
@@ -518,7 +525,7 @@ function toCard(
     colors: c.colours,
     rating,
     stockStatus,
-    isNew: Date.now() - c.item.createdAt.getTime() < NEW_ARRIVAL_DAYS * 86_400_000,
+    isNew: isNewArrival(c.row),
   };
 }
 

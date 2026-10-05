@@ -3,6 +3,8 @@ export interface PaginationMeta {
   limit: number;
   total: number;
   totalPages: number;
+  /** Optional extras some lists add (e.g. own purchases total spend). */
+  totalSpend?: number;
 }
 
 export interface PaginatedResult<T> {

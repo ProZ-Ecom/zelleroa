@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db/prisma";
 import { apiSuccess } from "@/lib/api/api-response";
+import { withApiRoles } from "@/lib/api/api-handler";
 
-export async function GET(request: NextRequest) {
+async function handleGET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const filter = searchParams.get("filter") || "all"; // all, whatsapp_only, recent_buyers, with_orders
@@ -95,3 +96,5 @@ export async function GET(request: NextRequest) {
     );
   }
 }
+
+export const GET = withApiRoles(["ADMIN", "STAFF"], handleGET);

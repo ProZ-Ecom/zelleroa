@@ -16,6 +16,8 @@ export interface AdminCustomerListItemDto {
   status: "active" | "inactive" | "banned";
   isActive: boolean;
   isBlocked: boolean;
+  blockReason: string | null;
+  blockedAt: Date | null;
   emailVerified: boolean;
   phoneVerified: boolean;
   lastLoginAt: Date | null;
@@ -38,6 +40,8 @@ export interface AdminCustomerDetailDto {
   status: string;
   isActive: boolean;
   isBlocked: boolean;
+  blockReason: string | null;
+  blockedAt: Date | null;
   emailVerified: boolean;
   phoneVerified: boolean;
   lastLoginAt: Date | null;

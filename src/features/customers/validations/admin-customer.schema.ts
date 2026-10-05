@@ -54,8 +54,17 @@ export type AdminCustomerOrdersInput = z.infer<typeof adminCustomerOrdersSchema>
 export const updateCustomerStatusSchema = z
   .object({
     isActive: z.boolean(),
+    blockReason: z
+      .string()
+      .trim()
+      .max(500, "Reason must be 500 characters or fewer")
+      .optional(),
   })
-  .strict();
+  .strict()
+  .refine((v) => v.isActive || Boolean(v.blockReason), {
+    path: ["blockReason"],
+    message: "A reason is required to block this account",
+  });
 
 export type UpdateCustomerStatusInput = z.infer<typeof updateCustomerStatusSchema>;
 

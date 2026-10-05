@@ -16,6 +16,8 @@ const STATUS_STYLES: Record<string, string> = {
   // payout
   requested: "bg-sky-50 text-sky-700 border-sky-200",
   rejected: "bg-red-50 text-red-700 border-red-200",
+  // account
+  blocked: "bg-red-50 text-red-700 border-red-200",
   // order
   confirmed: "bg-sky-50 text-sky-700 border-sky-200",
   processing: "bg-sky-50 text-sky-700 border-sky-200",

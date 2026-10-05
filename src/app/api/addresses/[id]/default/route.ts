@@ -16,5 +16,5 @@ export const PATCH = createApiHandler(
       }
     },
   },
-  { requireAuth: true }
+  { requireAuth: true, requiredRole: ["CUSTOMER", "AGENT"] }
 );

@@ -34,6 +34,8 @@ function formatStyleListRow(style: StyleListRow, categoryNames: Map<string, stri
     vegType: (style.veg_type as AdminStyleResponse["vegType"]) || "na",
     basePrice: Number(style.base_price ?? 0),
     isFeatured: Boolean(style.is_featured),
+    isNewArrival: Boolean(style.is_new_arrival),
+    newArrivalUntil: style.new_arrival_until ? style.new_arrival_until.toISOString().slice(0, 10) : null,
     isDefault: Boolean(style.is_default),
     isActive: Boolean(style.isActive),
     outOfStock: Boolean(style.out_of_stock),
