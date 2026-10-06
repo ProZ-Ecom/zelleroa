@@ -17,6 +17,7 @@ const GENDER_OPTIONS = [
   { value: "men", label: "Men" },
   { value: "women", label: "Women" },
   { value: "kids", label: "Kids" },
+  { value: "not_applicable", label: "NA (Not applicable)" },
 ];
 
 const headerMenuFormSchema = z

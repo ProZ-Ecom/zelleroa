@@ -11,7 +11,7 @@ export interface AdminCustomerListItemDto {
   isWhatsapp: boolean;
   whatsappNo: string | null;
   dob: string | null; // YYYY-MM-DD
-  gender: "male" | "female" | "other" | null;
+  gender: "male" | "female" | "other" | "not_applicable" | null;
   referralCode: string | null;
   status: "active" | "inactive" | "banned";
   isActive: boolean;

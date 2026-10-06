@@ -8,6 +8,7 @@ import type { Prisma } from "@/generated/prisma";
 import type {
   AdminHeaderMenuItemResponse,
   GetAdminHeaderMenuParams,
+  HeaderMenuGender,
   HeaderNavItem,
 } from "../types";
 import type {
@@ -25,6 +26,13 @@ type HeaderMenuItemWithCategories = Prisma.HeaderMenuItemGetPayload<{
   };
 }>;
 
+function sanitizeHeaderGender(gender: unknown): HeaderMenuGender | null {
+  if (gender === "men" || gender === "women" || gender === "kids" || gender === "unisex" || gender === "not_applicable") {
+    return gender;
+  }
+  return null;
+}
+
 function formatAdminHeaderMenuItemResponse(
   item: HeaderMenuItemWithCategories
 ): AdminHeaderMenuItemResponse {
@@ -37,7 +45,7 @@ function formatAdminHeaderMenuItemResponse(
       slug: join.category.slug,
     })),
     link: item.link,
-    gender: item.gender === "na" ? null : item.gender,
+    gender: sanitizeHeaderGender(item.gender),
     sortOrder: item.sortOrder,
     isActive: item.isActive,
     createdAt: item.createdAt,
@@ -235,7 +243,7 @@ export const headerMenuService = {
         id: item.uuid || String(item.id),
         label: item.label,
         link: item.link,
-        gender: item.gender === "na" ? null : item.gender,
+        gender: sanitizeHeaderGender(item.gender),
         categories,
       };
     });

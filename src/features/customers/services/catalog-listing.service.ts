@@ -205,7 +205,7 @@ function buildCandidates(
           item,
           units,
           brand: brandRef,
-          gender: ((row.product.gender as string) === "na" ? null : (row.product.gender as ListingGender | null)) ?? null,
+          gender: ((row.product.gender as string) === "not_applicable" ? null : (row.product.gender as ListingGender | null)) ?? null,
           colours: [...colours.values()],
         };
       });

@@ -29,7 +29,7 @@ const productFormSchema = z.object({
   hsnCodeId: z
     .string()
     .min(1, "Please select an HSN code"),
-  gender: z.enum(["men", "women", "kids", "unisex"], {
+  gender: z.enum(["men", "women", "kids", "unisex", "not_applicable"], {
     message: "Please select a gender / audience",
   }),
 });
@@ -41,6 +41,7 @@ const GENDER_OPTIONS = [
   { value: "men", label: "Men" },
   { value: "women", label: "Women" },
   { value: "kids", label: "Kids" },
+  { value: "not_applicable", label: "Not Applicable" },
 ];
 
 export interface ProductOption {
