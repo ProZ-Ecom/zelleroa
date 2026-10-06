@@ -3134,6 +3134,7 @@ enum customer_profiles_gender {
   male
   female
   other
+  not_applicable
 }
 
 enum users_status {
@@ -3154,6 +3155,7 @@ enum products_gender {
   women
   kids
   unisex
+  not_applicable
 }
 
 model variant_price_history {

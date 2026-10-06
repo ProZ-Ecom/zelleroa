@@ -17,7 +17,7 @@ export const adminCustomerListSchema = z
     status: z.enum(["active", "inactive", "banned"]).optional(),
     isActive: z.boolean().optional(),
     isBlocked: z.boolean().optional(),
-    gender: z.enum(["male", "female", "other"]).optional(),
+    gender: z.enum(["male", "female", "other", "not_applicable"]).optional(),
     isWhatsapp: z.boolean().optional(),
     emailVerified: z.boolean().optional(),
     phoneVerified: z.boolean().optional(),

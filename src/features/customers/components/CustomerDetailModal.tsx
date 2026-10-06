@@ -213,7 +213,7 @@ export function CustomerDetailModal({
               <div>
                 <p className="text-xs text-neutral-500">Gender</p>
                 <p className="font-medium text-neutral-900 capitalize">
-                  {customer.gender || "-"}
+                  {customer.gender ? customer.gender.replace(/_/g, " ") : "-"}
                 </p>
               </div>
             </div>

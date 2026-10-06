@@ -98,7 +98,7 @@ export interface AdminProductResponse {
   hsnCodeName: string | null;
   name: string;
   slug: string;
-  gender: "men" | "women" | "kids" | "unisex" | null;
+  gender: "men" | "women" | "kids" | "unisex" | "not_applicable" | null;
   status: boolean;
   isActive: boolean;
   createdAt: Date;

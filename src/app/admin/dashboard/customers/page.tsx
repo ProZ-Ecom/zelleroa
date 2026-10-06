@@ -71,7 +71,7 @@ export default function AdminCustomersPage() {
       status?: "active" | "inactive" | "banned";
       isActive?: boolean;
       isBlocked?: boolean;
-      gender?: "male" | "female" | "other";
+      gender?: "male" | "female" | "other" | "not_applicable";
       emailVerified?: boolean;
       phoneVerified?: boolean;
       sortBy: "createdAt";
@@ -99,7 +99,7 @@ export default function AdminCustomersPage() {
     }
 
     if (genderFilter !== "all") {
-      params.gender = genderFilter as "male" | "female" | "other";
+      params.gender = genderFilter as "male" | "female" | "other" | "not_applicable";
     }
 
     if (verificationFilter === "email_verified") {
@@ -227,7 +227,7 @@ export default function AdminCustomersPage() {
         return (
           <div>
             <p className="text-sm text-neutral-800 capitalize">
-              {item.gender || "-"}
+              {item.gender ? item.gender.replace(/_/g, " ") : "-"}
             </p>
             <p className="text-xs text-neutral-500">
               {item.dob || "-"}
@@ -506,6 +506,7 @@ export default function AdminCustomersPage() {
                   { value: "male", label: "Male" },
                   { value: "female", label: "Female" },
                   { value: "other", label: "Other" },
+                  { value: "not_applicable", label: "Not Applicable" },
                 ]}
                 placeholder="Gender"
                 className="h-10 rounded-xl text-xs font-medium"

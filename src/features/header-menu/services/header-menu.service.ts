@@ -27,7 +27,7 @@ type HeaderMenuItemWithCategories = Prisma.HeaderMenuItemGetPayload<{
 }>;
 
 function sanitizeHeaderGender(gender: unknown): HeaderMenuGender | null {
-  if (gender === "men" || gender === "women" || gender === "kids" || gender === "unisex") {
+  if (gender === "men" || gender === "women" || gender === "kids" || gender === "unisex" || gender === "not_applicable") {
     return gender;
   }
   return null;

@@ -13,7 +13,7 @@ export function formatCustomerProfile(
     is_whatsapp: boolean | null;
     whatsapp_no: string | null;
     dob: Date | null;
-    gender: "male" | "female" | "other" | null;
+    gender: "male" | "female" | "other" | "not_applicable" | null;
     profile_image: string | null;
     referral_code: string | null;
     created_at: Date;
