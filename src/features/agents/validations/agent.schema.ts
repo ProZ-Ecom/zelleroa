@@ -141,3 +141,11 @@ export const transferCustomerSchema = z.object({
   reason: z.string().trim().max(255).optional(),
 });
 export type TransferCustomerInput = z.infer<typeof transferCustomerSchema>;
+
+export const reassignCustomersSchema = z.object({
+  toAgentId: z.string().trim().min(1, "Select a Sales Partner"),
+  /** Omit to move every customer the agent still has. */
+  customerIds: z.array(z.string().trim().min(1)).max(200).optional(),
+  reason: z.string().trim().max(255).optional(),
+});
+export type ReassignCustomersInput = z.infer<typeof reassignCustomersSchema>;

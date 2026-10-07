@@ -42,7 +42,7 @@ export default async function AgentDashboardPage() {
   const { agentId, name } = await requireAgentPage("/agent/dashboard");
 
   // Approve anything whose return period has ended before we total it up.
-  await commissionService.approveEligible({ agentId });
+  await commissionService.markReadyForApproval({ agentId });
 
   const [details, profile, summary, balance, customers, orders, commissions, payouts] = await Promise.all([
     agentProfileService.get(agentId),
@@ -104,7 +104,7 @@ export default async function AgentDashboardPage() {
         <MetricCard icon={ShoppingBag} label="Orders" value={summary.totalOrders} hint={`${summary.customerDirectOrders} direct · ${summary.agentPlacedOrders} placed · ${summary.agentOwnOrders} own`} />
         <MetricCard icon={TrendingUp} label="Referral sales" value={money(summary.totalSales)} hint="Product value, excl. delivery" />
         <MetricCard icon={Coins} label="Total commission" value={money(summary.totalCommission)} />
-        <MetricCard icon={Clock} label="Pending commission" value={money(summary.pendingCommission)} tone="warn" hint="Awaiting return period" />
+        <MetricCard icon={Clock} label="Pending commission" value={money(summary.pendingCommission)} tone="warn" hint="Return period / admin approval" />
         <MetricCard icon={CheckCircle2} label="Approved commission" value={money(summary.approvedCommission)} tone="good" hint="Ready / in payout" />
         <MetricCard icon={BadgeCheck} label="Paid commission" value={money(summary.paidCommission)} tone="good" />
         <div className="flex flex-col justify-between rounded-2xl bg-gradient-to-br from-emerald-600 to-emerald-800 p-4 text-white shadow-sm">

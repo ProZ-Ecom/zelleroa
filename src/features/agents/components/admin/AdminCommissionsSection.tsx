@@ -44,11 +44,11 @@ export function AdminCommissionsSection({ fixedAgent, allowApprove = true }: { f
     { name: "dateTo", label: "To", type: "date" },
   ];
 
-  const approveEligible = async () => {
+  const approveCommissions = async (ids?: string[]) => {
     setApproving(true);
     setConfirmApprove(false);
     try {
-      const res = await apiClient.post<{ approved: number }>("/api/admin/commissions/approve-eligible");
+      const res = await apiClient.post<{ approved: number }>("/api/admin/commissions/approve", ids ? { ids } : {});
       toast.success(res.message ?? "Done");
       await qc.invalidateQueries({ queryKey: ["agents-admin"] });
     } catch (err) {
@@ -68,10 +68,10 @@ export function AdminCommissionsSection({ fixedAgent, allowApprove = true }: { f
             onClick={() => setConfirmApprove(true)}
             disabled={approving}
             className="inline-flex min-h-[36px] items-center gap-2 rounded-lg border border-neutral-200 px-3 text-xs font-semibold hover:bg-neutral-50 disabled:opacity-60"
-            title="Approve every commission whose return period has ended"
+            title="Approve every commission that is awaiting approval"
           >
             {approving && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-            Approve eligible now
+            Approve all awaiting
           </button>
         )
       }
@@ -123,9 +123,21 @@ export function AdminCommissionsSection({ fixedAgent, allowApprove = true }: { f
               {
                 header: "",
                 cell: (r) => (
-                  <button type="button" onClick={() => setAuditId(r.id)} className="text-xs font-semibold text-neutral-700 underline-offset-4 hover:underline">
+                  <div className="flex items-center gap-3">
+                    {r.status === "pending_approval" && (
+                      <button
+                        type="button"
+                        disabled={approving}
+                        onClick={() => approveCommissions([r.id])}
+                        className="rounded-md bg-emerald-600 px-2 py-1 text-xs font-semibold text-white hover:bg-emerald-700 disabled:opacity-60"
+                      >
+                        Approve
+                      </button>
+                    )}
+                    <button type="button" onClick={() => setAuditId(r.id)} className="text-xs font-semibold text-neutral-700 underline-offset-4 hover:underline">
                     History
-                  </button>
+                    </button>
+                  </div>
                 ),
               },
             ]}
@@ -136,10 +148,10 @@ export function AdminCommissionsSection({ fixedAgent, allowApprove = true }: { f
       <ConfirmDialog
         open={confirmApprove}
         onClose={() => setConfirmApprove(false)}
-        onConfirm={approveEligible}
+        onConfirm={() => approveCommissions()}
         variant="default"
-        title="Approve eligible commissions?"
-        description="Every pending commission whose order is delivered and whose return period has ended will become approved and available for payout."
+        title="Approve awaiting commissions?"
+        description="Every commission whose return period has ended and is awaiting approval will become approved and available for the Sales Partner to withdraw."
         confirmText="Approve"
       />
       <AuditModal type="commission" id={auditId} title="Commission history" onClose={() => setAuditId(null)} />

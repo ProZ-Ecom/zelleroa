@@ -7,6 +7,7 @@ import { COMMISSION_STATUS_LABELS, PAYOUT_STATUS_LABELS } from "../constants";
 const STATUS_STYLES: Record<string, string> = {
   // commission
   pending: "bg-amber-50 text-amber-700 border-amber-200",
+  pending_approval: "bg-violet-50 text-violet-700 border-violet-200",
   approved: "bg-emerald-50 text-emerald-700 border-emerald-200",
   payout_requested: "bg-sky-50 text-sky-700 border-sky-200",
   payout_approved: "bg-indigo-50 text-indigo-700 border-indigo-200",

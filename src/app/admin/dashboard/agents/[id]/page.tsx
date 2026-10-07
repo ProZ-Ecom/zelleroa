@@ -14,6 +14,7 @@ import { AgentFormModal } from "@/features/agents/components/admin/AgentFormModa
 import { AdminCommissionsSection } from "@/features/agents/components/admin/AdminCommissionsSection";
 import { AdminOwnPurchasesSection } from "@/features/agents/components/admin/AdminOwnPurchasesSection";
 import { AdminProfileSection } from "@/features/agents/components/admin/AdminProfileSection";
+import { AdminAssignedCustomersSection } from "@/features/agents/components/admin/AdminAssignedCustomersSection";
 import { AdminOrdersSection } from "@/features/agents/components/admin/AdminOrdersSection";
 import { AdminPayoutsSection } from "@/features/agents/components/admin/AdminPayoutsSection";
 import { ReferralFlow } from "@/features/agents/components/ReferralFlow";
@@ -21,6 +22,7 @@ import { MetricCard, Panel, StatusBadge, dateOnly, money } from "@/features/agen
 
 const TABS = [
   { key: "profile", label: "Profile & KYC" },
+  { key: "customers", label: "Assigned customers" },
   { key: "orders", label: "Referral orders" },
   { key: "purchases", label: "Own purchases" },
   { key: "commissions", label: "Commissions" },
@@ -109,6 +111,17 @@ export default function AdminAgentDetailPage() {
             <MetricCard label="Open payout requests" value={agent.summary.openPayouts} />
           </div>
 
+          {!agent.isActive && agent.summary.totalReferredCustomers > 0 && (
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+              <span>
+                Blocked, but still holds <strong>{agent.summary.totalReferredCustomers}</strong> assigned customer(s). Move them to an active Sales Partner.
+              </span>
+              <button type="button" onClick={() => setTab("customers")} className="rounded-lg bg-amber-600 px-3 py-1.5 font-semibold text-white hover:bg-amber-700">
+                View &amp; reassign
+              </button>
+            </div>
+          )}
+
           <Panel title="Profile & referral">
             <div className="grid gap-4 p-4 sm:p-5 lg:grid-cols-2">
               <dl className="grid grid-cols-2 gap-3 text-sm">
@@ -178,6 +191,7 @@ export default function AdminAgentDetailPage() {
           </div>
 
           {tab === "profile" && <AdminProfileSection agentId={agent.id} />}
+          {tab === "customers" && <AdminAssignedCustomersSection agentId={agent.id} agentActive={agent.isActive} />}
           {tab === "purchases" && <AdminOwnPurchasesSection agentId={agent.id} />}
           {tab === "orders" && <AdminOrdersSection fixedAgent={agent.id} />}
           {tab === "commissions" && <AdminCommissionsSection fixedAgent={agent.id} allowApprove={false} />}

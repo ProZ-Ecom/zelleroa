@@ -38,7 +38,7 @@ export function CustomerAgentCard({ customerId, canTransfer = true }: { customer
   const [confirming, setConfirming] = React.useState(false);
   const [msg, setMsg] = React.useState<{ ok: boolean; text: string } | null>(null);
 
-  const choices = (options ?? []).filter((o) => o.id !== data?.agent?.id);
+  const choices = (options ?? []).filter((o) => o.isActive && o.id !== data?.agent?.id);
 
   async function submit() {
     setConfirming(false);

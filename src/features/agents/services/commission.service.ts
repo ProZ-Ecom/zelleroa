@@ -1,5 +1,6 @@
 import type { Prisma } from "@/generated/prisma";
 import { db } from "@/lib/db/prisma";
+import { ApiError } from "@/lib/api/api-error";
 import {
   DEFAULT_RETURN_PERIOD_DAYS,
   RETURN_PERIOD_SETTING_KEY,
@@ -155,7 +156,7 @@ export async function voidCommissions(tx: Prisma.TransactionClient, params: Void
   const touchedPayouts = new Set<bigint>();
 
   for (const row of rows) {
-    const cancelOnly = params.kind === "cancelled" && row.status === "pending";
+    const cancelOnly = params.kind === "cancelled" && (row.status === "pending" || row.status === "pending_approval");
     const toStatus = cancelOnly ? "cancelled" : "reversed";
     const inOpenPayout = row.status === "payout_requested" || row.status === "payout_approved";
     const wasPaid = row.status === "paid";
@@ -268,12 +269,11 @@ export async function syncCommissionsWithOrderStatus(
 
 export const commissionService = {
   /**
-   * Moves commissions whose return period has ended from `pending` to
-   * `approved` (available for payout). There is no scheduler in this app, so
-   * this is called lazily whenever commissions are read/requested, and can
-   * also be triggered by an admin.
+   * Moves commissions whose return period has ended from `pending` to `pending_approval`.
+   * They are NOT payable yet - an admin must approve them (see `approve`). There is no scheduler
+   * in this app, so this runs lazily whenever commissions are read/requested.
    */
-  async approveEligible(opts: { agentId?: bigint; actor?: AuditActor } = {}): Promise<number> {
+  async markReadyForApproval(opts: { agentId?: bigint; actor?: AuditActor } = {}): Promise<number> {
     const actor = opts.actor ?? SYSTEM_ACTOR;
     const due = await db.commissions.findMany({
       where: {
@@ -286,11 +286,50 @@ export const commissionService = {
       take: 500,
     });
 
-    let approved = 0;
+    let moved = 0;
     for (const row of due) {
       await db.$transaction(async (tx) => {
         const res = await tx.commissions.updateMany({
           where: { id: row.id, status: "pending" },
+          data: { status: "pending_approval" },
+        });
+        if (res.count === 0) return;
+        moved += 1;
+        await writeAudit(tx, {
+          entityType: "commission",
+          entityId: row.id,
+          agentId: row.agent_id,
+          action: "commission_ready_for_approval",
+          fromStatus: "pending",
+          toStatus: "pending_approval",
+          actor,
+          note: "Return period completed",
+        });
+      });
+    }
+    return moved;
+  },
+
+  /**
+   * Admin approval: `pending_approval` -> `approved` (now withdrawable). `ids` = commission uuids;
+   * omit to approve everything awaiting approval. The conditional update means a commission that was
+   * returned/cancelled in the meantime is never approved.
+   */
+  async approve(opts: { ids?: string[]; actor: AuditActor }): Promise<number> {
+    if (opts.actor.role !== "ADMIN" || !opts.actor.id) throw ApiError.forbidden("Only an admin can approve commissions");
+    await this.markReadyForApproval({ actor: opts.actor });
+
+    const rows = await db.commissions.findMany({
+      where: { status: "pending_approval", ...(opts.ids?.length ? { uuid: { in: opts.ids } } : {}) },
+      select: { id: true, agent_id: true },
+      take: 500,
+    });
+
+    let approved = 0;
+    for (const row of rows) {
+      await db.$transaction(async (tx) => {
+        const res = await tx.commissions.updateMany({
+          where: { id: row.id, status: "pending_approval" },
           data: { status: "approved", approved_at: new Date() },
         });
         if (res.count === 0) return;
@@ -300,10 +339,10 @@ export const commissionService = {
           entityId: row.id,
           agentId: row.agent_id,
           action: "commission_approved",
-          fromStatus: "pending",
+          fromStatus: "pending_approval",
           toStatus: "approved",
-          actor,
-          note: "Return period completed",
+          actor: opts.actor,
+          note: "Approved by admin",
         });
       });
     }

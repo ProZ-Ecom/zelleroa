@@ -96,7 +96,7 @@ async function summariesFor(agentIds: bigint[]): Promise<Map<string, AgentSummar
   for (const row of commissions) {
     const s = result.get(String(row.agent_id))!;
     const amount = Number(row._sum.commission_amount ?? 0);
-    if (row.status === "pending") s.pendingCommission += amount;
+    if (row.status === "pending" || row.status === "pending_approval") s.pendingCommission += amount;
     else if (row.status === "paid") s.paidCommission += amount;
     else if (["approved", "payout_requested", "payout_approved"].includes(row.status)) s.approvedCommission += amount;
     else if (row.status === "cancelled" || row.status === "reversed") s.cancelledCommission += amount;
@@ -347,12 +347,13 @@ export const agentService = {
   async agentOptions() {
     const rows = await db.user.findMany({
       where: { role: { slug: "agent" }, deleted_at: null },
-      select: { uuid: true, id: true, name: true, agent_profile: { select: { agent_code: true } } },
+      select: { uuid: true, id: true, name: true, is_active: true, status: true, agent_profile: { select: { agent_code: true } } },
       orderBy: { name: "asc" },
     });
     return rows.map((r) => ({
       id: r.uuid ?? String(r.id),
       name: r.name,
+      isActive: r.is_active && r.status === "active",
       agentCode: r.agent_profile?.agent_code ?? null,
     }));
   },
@@ -415,6 +416,13 @@ export const agentService = {
   },
 
   // ── Agent-facing lists (always scoped to a resolved agentId) ───────────────
+
+  /** Admin view of the same list, addressed by agent uuid/code. */
+  async listCustomersForAdmin(agentRef: string, filters: { search?: string; status?: string; page?: number; limit?: number }) {
+    const agentId = await resolveAgentRef(agentRef);
+    if (!agentId) throw ApiError.notFound("Sales Partner not found");
+    return this.listCustomers(agentId, filters);
+  },
 
   /** Customers currently assigned to this agent (users.current_agent_id). Never includes anyone else's customers. */
   async listCustomers(
