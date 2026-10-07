@@ -23,6 +23,10 @@ export interface AdminCustomerListItemDto {
   lastLoginAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
+  /** Sales Partner currently responsible for this customer. List view only. */
+  currentAgent?: { id: string; name: string; agentCode: string | null } | null;
+  orderCount?: number;
+  totalSales?: number;
 }
 
 export interface AdminCustomerDetailDto {

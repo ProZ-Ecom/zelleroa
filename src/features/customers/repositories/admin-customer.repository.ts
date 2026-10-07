@@ -342,7 +342,39 @@ export const adminCustomerRepository = {
       db.customer_profiles.count({ where }),
     ]);
 
-    const data = profiles.map((p) => formatAdminCustomer(p));
+    // Current Sales Partner + order totals for just this page of customers (two small queries, no N+1).
+    const userIds = profiles.map((p) => p.user_id);
+    const [agentRows, orderStats] = await Promise.all([
+      db.user.findMany({
+        where: { id: { in: userIds }, current_agent_id: { not: null } },
+        select: {
+          id: true,
+          current_agent: { select: { uuid: true, name: true, agent_profile: { select: { agent_code: true } } } },
+        },
+      }),
+      db.order.groupBy({
+        by: ["userId"],
+        where: { userId: { in: userIds }, is_active: true, is_manual_customer: false, order_status: { notIn: ["cancelled", "returned"] } },
+        _count: { _all: true },
+        _sum: { totalAmount: true },
+      }),
+    ]);
+    const agentByUser = new Map(agentRows.map((r) => [String(r.id), r.current_agent]));
+    const statsByUser = new Map(orderStats.map((o) => [String(o.userId), o]));
+
+    const data = profiles.map((p) => {
+      const base = formatAdminCustomer(p);
+      const agent = agentByUser.get(String(p.user_id));
+      const stats = statsByUser.get(String(p.user_id));
+      return {
+        ...base,
+        currentAgent: agent
+          ? { id: agent.uuid ?? "", name: agent.name, agentCode: agent.agent_profile?.agent_code ?? null }
+          : null,
+        orderCount: stats?._count._all ?? 0,
+        totalSales: Math.round(Number(stats?._sum.totalAmount ?? 0) * 100) / 100,
+      };
+    });
 
     return {
       data,

@@ -108,7 +108,7 @@ export function MegaMenuPanel({
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
     >
-      <div className="w-full max-w-[1100px] mx-auto px-4 sm:px-6 md:px-8 py-6 flex flex-col gap-6">
+      <div className="w-full max-w-[1100px] mx-auto px-4 sm:px-6 md:px-8 py-6 flex flex-col gap-6 max-h-[calc(100vh-10rem)] overflow-y-auto scrollbar-thin">
         {hasChildren && (
           <div className="shrink-0">
             {hasGrandchildren ? (

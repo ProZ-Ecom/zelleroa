@@ -26,7 +26,7 @@ const headerMenuFormSchema = z
     categoryIds: z.array(z.string()).default([]),
     link: z.string().trim().max(500).optional().nullable(),
     gender: z
-      .enum(["men", "women", "kids", "unisex"])
+      .enum(["men", "women", "kids", "unisex", "not_applicable"])
       .optional()
       .nullable()
       .or(z.literal("")),

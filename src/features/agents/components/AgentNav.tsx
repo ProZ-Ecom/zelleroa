@@ -2,7 +2,7 @@
 
 import { useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import {
   LayoutDashboard,
   LogOut,
@@ -36,7 +36,9 @@ const GROUPS: { title: string; items: NavItem[] }[] = [
     title: "Sales Partner (Referrals)",
     items: [
       { href: "/agent/customers", label: "Customers", icon: Users },
-      { href: "/agent/orders", label: "Referral Orders", icon: ShoppingBag },
+      { href: "/agent/place-order", label: "Place Order", icon: ShoppingCart },
+      { href: "/agent/orders?view=customers", label: "Customer Orders", icon: ShoppingBag },
+      { href: "/agent/orders?view=own", label: "Agent Own Orders", icon: ReceiptText },
       { href: "/agent/commissions", label: "Commissions", icon: Percent },
       { href: "/agent/payouts", label: "Payout History", icon: Wallet },
     ],
@@ -69,6 +71,7 @@ export function AgentShell({
   children: ReactNode;
 }) {
   const pathname = usePathname();
+  const view = useSearchParams()?.get("view") === "own" ? "own" : "customers";
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
 
@@ -102,7 +105,11 @@ export function AgentShell({
   };
 
   const initial = name.trim().charAt(0).toUpperCase() || "A";
-  const current = LINKS.find((l) => pathname === l.href || pathname.startsWith(`${l.href}/`));
+  const current = LINKS.find((l) => {
+    const [path, query] = l.href.split("?");
+    if (pathname !== path && !pathname.startsWith(`${path}/`)) return false;
+    return !query || query === `view=${view}`;
+  });
 
   const renderSidebar = (compact: boolean, mobile: boolean) => (
     <div className="flex h-full flex-col">

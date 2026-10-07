@@ -94,13 +94,18 @@ export default function AdminAgentDetailPage() {
       ) : (
         <div className="flex flex-col gap-5">
           <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-            <MetricCard label="Customers" value={agent.summary.totalReferredCustomers} />
+            <MetricCard label="Assigned customers" value={agent.summary.totalReferredCustomers} />
+            <MetricCard label="Active assigned customers" value={agent.summary.activeCustomers} />
             <MetricCard label="Orders" value={agent.summary.totalOrders} />
+            <MetricCard label="Customer direct orders" value={agent.summary.customerDirectOrders} />
+            <MetricCard label="Agent placed orders" value={agent.summary.agentPlacedOrders} />
+            <MetricCard label="Agent own orders" value={agent.summary.agentOwnOrders} />
             <MetricCard label="Total sales" value={money(agent.summary.totalSales)} />
             <MetricCard label="Total commission" value={money(agent.summary.totalCommission)} />
             <MetricCard label="Pending" value={money(agent.summary.pendingCommission)} tone="warn" />
             <MetricCard label="Approved" value={money(agent.summary.approvedCommission)} tone="good" />
             <MetricCard label="Paid" value={money(agent.summary.paidCommission)} tone="good" />
+            <MetricCard label="Cancelled" value={money(agent.summary.cancelledCommission)} />
             <MetricCard label="Open payout requests" value={agent.summary.openPayouts} />
           </div>
 

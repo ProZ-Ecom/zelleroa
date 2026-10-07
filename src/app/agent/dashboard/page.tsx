@@ -100,8 +100,8 @@ export default async function AgentDashboardPage() {
       <ReferralFlow />
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        <MetricCard icon={Users} label="Customers ordered" value={summary.totalReferredCustomers} />
-        <MetricCard icon={ShoppingBag} label="Referral orders" value={summary.totalOrders} hint="Excludes cancelled / returned" />
+        <MetricCard icon={Users} label="Assigned customers" value={summary.totalReferredCustomers} hint={`${summary.activeCustomers} active`} />
+        <MetricCard icon={ShoppingBag} label="Orders" value={summary.totalOrders} hint={`${summary.customerDirectOrders} direct · ${summary.agentPlacedOrders} placed · ${summary.agentOwnOrders} own`} />
         <MetricCard icon={TrendingUp} label="Referral sales" value={money(summary.totalSales)} hint="Product value, excl. delivery" />
         <MetricCard icon={Coins} label="Total commission" value={money(summary.totalCommission)} />
         <MetricCard icon={Clock} label="Pending commission" value={money(summary.pendingCommission)} tone="warn" hint="Awaiting return period" />
