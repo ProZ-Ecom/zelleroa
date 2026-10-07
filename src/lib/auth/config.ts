@@ -1,7 +1,7 @@
 import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import { PrismaAdapter } from "@auth/prisma-adapter";
-import bcrypt from "bcryptjs";
+import { verifyCredentialsWithProtection } from "@/features/auth/services/login-protection.service";
 import { db } from "@/lib/db/prisma";
 import { loginSchema } from "@/lib/validations/auth";
 
@@ -35,39 +35,29 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           return null;
         }
 
-        const user = await db.user.findUnique({
-          where: { email: validation.data.email },
-          include: { role: true },
-        });
-
-        if (!user || !user.password_hash) {
-          return null;
-        }
-
-        if (user.status !== "active") {
-          return null;
-        }
-
-        const isPasswordValid = await bcrypt.compare(
-          validation.data.password,
-          user.password_hash
-        );
-
-        if (!isPasswordValid) {
+        // Same protected check as /api/auth/login so this endpoint can't be
+        // used to guess passwords without throttling or lockout.
+        let user;
+        try {
+          user = await verifyCredentialsWithProtection(
+            validation.data.email,
+            validation.data.password
+          );
+        } catch {
           return null;
         }
 
         await db.user.update({
-          where: { id: user.id },
+          where: { id: BigInt(user.internalId) },
           data: { last_login_at: new Date() },
         });
 
         return {
-          id: user.id.toString(),
+          id: String(user.internalId),
           name: user.name,
           email: user.email ?? "",
           image: user.avatar ?? null,
-          role: user.role.name,
+          role: user.roleName,
           phone: user.phone ?? null,
           status: user.status,
         };

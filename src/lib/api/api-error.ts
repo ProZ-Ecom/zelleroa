@@ -5,15 +5,18 @@ export class ApiError extends Error {
   public readonly errors?: string[];
   public readonly isOperational: boolean;
   public readonly details?: unknown;
+  public readonly code?: string;
 
   constructor(
     message: string,
     statusCode: HttpStatusCode = HTTP_STATUS.INTERNAL_SERVER_ERROR,
     errors?: string[],
     isOperational = true,
-    details?: unknown
+    details?: unknown,
+    code?: string
   ) {
     super(message);
+    this.code = code;
     this.name = "ApiError";
     this.statusCode = statusCode;
     this.errors = errors;
@@ -33,6 +36,20 @@ export class ApiError extends Error {
 
   static forbidden(message = "You don't have permission") {
     return new ApiError(message, HTTP_STATUS.FORBIDDEN);
+  }
+
+  /** Signed-in account was blocked/deactivated; the client reacts by logging out. */
+  static accountBlocked(
+    message = "Your account is inactive or blocked. Please contact support."
+  ) {
+    return new ApiError(
+      message,
+      HTTP_STATUS.FORBIDDEN,
+      undefined,
+      true,
+      undefined,
+      "ACCOUNT_BLOCKED"
+    );
   }
 
   static notFound(message = "Resource not found") {

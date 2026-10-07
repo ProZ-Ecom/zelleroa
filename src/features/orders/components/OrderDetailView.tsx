@@ -283,6 +283,21 @@ export function OrderDetailView({
                   </h3>
                 </div>
                 <dl className="p-4 text-xs grid grid-cols-2 gap-x-3 gap-y-2">
+                  <dt className="text-theme-text-muted">Order source</dt>
+                  <dd className="font-semibold text-theme-text-primary text-right">
+                    {({ CUSTOMER_DIRECT: "Customer Direct", AGENT_PLACED_FOR_CUSTOMER: "Agent Placed", AGENT_OWN: "Agent Own" } as Record<string, string>)[order.referral.orderSource] ?? order.referral.orderSource}
+                  </dd>
+                  <dt className="text-theme-text-muted">Ordered by</dt>
+                  <dd className="font-semibold text-theme-text-primary text-right">{order.referral.orderedByName ?? "—"}</dd>
+                  {order.referral.manualCustomer && (
+                    <>
+                      <dt className="text-theme-text-muted">Customer account</dt>
+                      <dd className="font-semibold text-theme-text-primary text-right">
+                        Not registered ({order.referral.manualCustomer.name}
+                        {order.referral.manualCustomer.phone ? `, ${order.referral.manualCustomer.phone}` : ""})
+                      </dd>
+                    </>
+                  )}
                   <dt className="text-theme-text-muted">Referral code</dt>
                   <dd className="font-mono font-semibold text-theme-text-primary text-right">{order.referral.referralCode ?? "—"}</dd>
                   <dt className="text-theme-text-muted">Referred Sales Partner</dt>

@@ -20,6 +20,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select } from "@/components/ui/select";
 import { SearchInput } from "@/components/ui/search-input";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { BlockReasonDialog } from "@/components/ui/block-reason-dialog";
 import {
   Users,
   UserCheck,
@@ -70,7 +71,7 @@ export default function AdminCustomersPage() {
       status?: "active" | "inactive" | "banned";
       isActive?: boolean;
       isBlocked?: boolean;
-      gender?: "male" | "female" | "other";
+      gender?: "male" | "female" | "other" | "not_applicable";
       emailVerified?: boolean;
       phoneVerified?: boolean;
       sortBy: "createdAt";
@@ -98,7 +99,7 @@ export default function AdminCustomersPage() {
     }
 
     if (genderFilter !== "all") {
-      params.gender = genderFilter as "male" | "female" | "other";
+      params.gender = genderFilter as "male" | "female" | "other" | "not_applicable";
     }
 
     if (verificationFilter === "email_verified") {
@@ -130,7 +131,7 @@ export default function AdminCustomersPage() {
     genderFilter !== "all" ||
     verificationFilter !== "all";
 
-  const handleConfirmStatusChange = () => {
+  const handleConfirmStatusChange = (blockReason?: string) => {
     if (!statusTargetCustomer) return;
     const isCurrentlyBlocked =
       statusTargetCustomer.isBlocked === true ||
@@ -145,6 +146,7 @@ export default function AdminCustomersPage() {
       {
         uuid: targetId,
         isActive: isCurrentlyBlocked, // unblock if blocked, block if active
+        blockReason,
       },
       {
         onSettled: () => {
@@ -218,6 +220,33 @@ export default function AdminCustomersPage() {
       },
     },
     {
+      id: "currentAgent",
+      header: "Current Agent",
+      cell: ({ row }) => {
+        const a = row.original.currentAgent;
+        return a ? (
+          <div>
+            <p className="text-sm text-neutral-800">{a.name}</p>
+            {a.agentCode && <p className="text-xs font-mono text-neutral-500">{a.agentCode}</p>}
+          </div>
+        ) : (
+          <span className="text-xs text-neutral-400">Unassigned</span>
+        );
+      },
+    },
+    {
+      id: "orderStats",
+      header: "Orders / Sales",
+      cell: ({ row }) => (
+        <div>
+          <p className="text-sm text-neutral-800">{row.original.orderCount ?? 0} orders</p>
+          <p className="text-xs text-neutral-500">
+            ₹{(row.original.totalSales ?? 0).toLocaleString("en-IN", { maximumFractionDigits: 2 })}
+          </p>
+        </div>
+      ),
+    },
+    {
       accessorKey: "gender",
       header: "Gender / DOB",
       cell: ({ row }) => {
@@ -225,7 +254,7 @@ export default function AdminCustomersPage() {
         return (
           <div>
             <p className="text-sm text-neutral-800 capitalize">
-              {item.gender || "-"}
+              {item.gender ? item.gender.replace(/_/g, " ") : "-"}
             </p>
             <p className="text-xs text-neutral-500">
               {item.dob || "-"}
@@ -274,13 +303,23 @@ export default function AdminCustomersPage() {
 
         if (isBlocked) {
           return (
-            <Badge
-              variant="destructive"
-              className="gap-1 bg-red-100 text-red-800 border-red-200"
-            >
-              <ShieldAlert className="h-3 w-3" />
-              Blocked
-            </Badge>
+            <div className="flex max-w-[220px] flex-col items-start gap-1">
+              <Badge
+                variant="destructive"
+                className="gap-1 bg-red-100 text-red-800 border-red-200"
+              >
+                <ShieldAlert className="h-3 w-3" />
+                Blocked
+              </Badge>
+              {item.blockReason && (
+                <span
+                  className="line-clamp-2 text-[11px] leading-snug text-neutral-500"
+                  title={item.blockReason}
+                >
+                  Reason: {item.blockReason}
+                </span>
+              )}
+            </div>
           );
         }
 
@@ -345,6 +384,13 @@ export default function AdminCustomersPage() {
             >
               <Eye className="h-3.5 w-3.5" />
               View
+            </Link>
+            <Link
+              href={`/admin/dashboard/customers/${item.id}#sales-partner`}
+              className="inline-flex items-center h-8 gap-1 px-2 rounded-lg text-xs font-semibold text-neutral-700 hover:bg-neutral-100 cursor-pointer transition-colors"
+              title="Transfer customer or view transfer history"
+            >
+              Transfer / History
             </Link>
 
             {isBlocked ? (
@@ -494,6 +540,7 @@ export default function AdminCustomersPage() {
                   { value: "male", label: "Male" },
                   { value: "female", label: "Female" },
                   { value: "other", label: "Other" },
+                  { value: "not_applicable", label: "Not Applicable" },
                 ]}
                 placeholder="Gender"
                 className="h-10 rounded-xl text-xs font-medium"
@@ -540,11 +587,21 @@ export default function AdminCustomersPage() {
         />
       </div>
 
-      {/* Confirm Block / Unblock Modal */}
-      <ConfirmDialog
-        open={Boolean(statusTargetCustomer)}
+      {/* Block (reason required) */}
+      <BlockReasonDialog
+        open={Boolean(statusTargetCustomer) && !isTargetBlocked}
+        subject="User"
+        name={statusTargetCustomer?.name}
+        isLoading={isUpdatingStatus}
         onClose={() => setStatusTargetCustomer(null)}
         onConfirm={handleConfirmStatusChange}
+      />
+
+      {/* Unblock confirmation */}
+      <ConfirmDialog
+        open={Boolean(statusTargetCustomer) && Boolean(isTargetBlocked)}
+        onClose={() => setStatusTargetCustomer(null)}
+        onConfirm={() => handleConfirmStatusChange()}
         title={
           isTargetBlocked
             ? "Unblock Customer Account"

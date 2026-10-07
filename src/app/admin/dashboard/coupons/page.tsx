@@ -58,6 +58,17 @@ export default function AdminCouponsPage() {
     },
   });
 
+  const handleNumericInputBlur = (field: "value" | "minOrderAmount" | "maxDiscount" | "usageLimit") => (
+    e: React.FocusEvent<HTMLInputElement>
+  ) => {
+    const raw = e.target.value;
+    if (raw && /^0+\d+/.test(raw)) {
+      const normalized = Number(raw);
+      setValue(field, isNaN(normalized) ? undefined : (normalized as any), { shouldValidate: true });
+      e.target.value = String(normalized);
+    }
+  };
+
   useEffect(() => {
     if (editingCoupon) {
       reset({
@@ -283,6 +294,7 @@ export default function AdminCouponsPage() {
                 type="number"
                 step="0.01"
                 {...register("value", { valueAsNumber: true })}
+                onBlur={handleNumericInputBlur("value")}
                 className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
                 placeholder="0"
               />
@@ -301,6 +313,7 @@ export default function AdminCouponsPage() {
                 type="number"
                 step="0.01"
                 {...register("minOrderAmount", { valueAsNumber: true })}
+                onBlur={handleNumericInputBlur("minOrderAmount")}
                 className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
                 placeholder="0"
               />
@@ -314,6 +327,7 @@ export default function AdminCouponsPage() {
                 type="number"
                 step="0.01"
                 {...register("maxDiscount", { valueAsNumber: true })}
+                onBlur={handleNumericInputBlur("maxDiscount")}
                 className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
                 placeholder="0"
               />
@@ -327,6 +341,7 @@ export default function AdminCouponsPage() {
             <input
               type="number"
               {...register("usageLimit", { valueAsNumber: true })}
+              onBlur={handleNumericInputBlur("usageLimit")}
               className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
               placeholder="Unlimited"
             />

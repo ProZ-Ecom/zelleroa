@@ -21,7 +21,8 @@ export const PUT = createApiHandler(
       const customer = await adminCustomerService.updateCustomerStatus(
         uuid,
         body.isActive,
-        adminSessionUserId
+        adminSessionUserId,
+        body.blockReason
       );
 
       const message = body.isActive

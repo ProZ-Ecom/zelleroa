@@ -55,7 +55,7 @@ export function ManageBannerPositionsModal({
               setEditing(null);
               setIsFormOpen(true);
             }}
-            className="h-10 rounded-xl bg-[var(--color-secondary-600)] px-4 text-sm font-semibold text-white hover:bg-[var(--color-secondary-700)]"
+            className="h-10 rounded-xl bg-[var(--color-primary-500)] px-4 text-sm font-semibold text-white hover:bg-[var(--color-primary-600)]"
           >
             <Plus className="mr-2 h-4 w-4" />
             Add Position

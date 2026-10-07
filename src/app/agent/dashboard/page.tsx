@@ -27,11 +27,22 @@ const viewAll = (href: string) => (
   </Link>
 );
 
+function SectionHeading({ title, description, tone }: { title: string; description: string; tone: "personal" | "partner" }) {
+  return (
+    <div className={`flex items-center gap-3 border-l-4 pl-3 ${tone === "personal" ? "border-neutral-900" : "border-emerald-600"}`}>
+      <div>
+        <h2 className="text-base font-bold text-neutral-900">{title}</h2>
+        <p className="text-xs text-neutral-500">{description}</p>
+      </div>
+    </div>
+  );
+}
+
 export default async function AgentDashboardPage() {
   const { agentId, name } = await requireAgentPage("/agent/dashboard");
 
   // Approve anything whose return period has ended before we total it up.
-  await commissionService.approveEligible({ agentId });
+  await commissionService.markReadyForApproval({ agentId });
 
   const [details, profile, summary, balance, customers, orders, commissions, payouts] = await Promise.all([
     agentProfileService.get(agentId),
@@ -54,15 +65,17 @@ export default async function AgentDashboardPage() {
         )}
       </PageHeader>
 
-      {profile.referralCode && profile.referralLink && (
-        <ReferralLinkCard referralCode={profile.referralCode} referralLink={profile.referralLink} />
-      )}
+      <SectionHeading
+        title="My Account & Shopping"
+        description="Your personal profile and purchases. Your own orders earn no commission."
+        tone="personal"
+      />
 
       <ProfileCompletionCard completion={details.completion} />
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         {[
-          { href: "/products", title: "Purchase Products", sub: "Shop for yourself – no commission on your own orders" },
+          { href: "/products", title: "Purchase Products", sub: "Shop for yourself" },
           { href: "/orders", title: "My Orders", sub: "Your own purchases and tracking" },
           { href: "/agent/profile?step=kyc", title: "KYC Details", sub: details.kyc.status.replace("_", " ") },
           { href: "/agent/profile?step=bank", title: "Bank Details", sub: details.bank.status.replace("_", " ") },
@@ -74,14 +87,24 @@ export default async function AgentDashboardPage() {
         ))}
       </div>
 
+      <SectionHeading
+        title="Sales Partner Business"
+        description="Orders and earnings from customers who used your referral code."
+        tone="partner"
+      />
+
+      {profile.referralCode && profile.referralLink && (
+        <ReferralLinkCard referralCode={profile.referralCode} referralLink={profile.referralLink} />
+      )}
+
       <ReferralFlow />
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        <MetricCard icon={Users} label="Customers ordered" value={summary.totalReferredCustomers} />
-        <MetricCard icon={ShoppingBag} label="Referral orders" value={summary.totalOrders} hint="Excludes cancelled / returned" />
+        <MetricCard icon={Users} label="Assigned customers" value={summary.totalReferredCustomers} hint={`${summary.activeCustomers} active`} />
+        <MetricCard icon={ShoppingBag} label="Orders" value={summary.totalOrders} hint={`${summary.customerDirectOrders} direct · ${summary.agentPlacedOrders} placed · ${summary.agentOwnOrders} own`} />
         <MetricCard icon={TrendingUp} label="Referral sales" value={money(summary.totalSales)} hint="Product value, excl. delivery" />
         <MetricCard icon={Coins} label="Total commission" value={money(summary.totalCommission)} />
-        <MetricCard icon={Clock} label="Pending commission" value={money(summary.pendingCommission)} tone="warn" hint="Awaiting return period" />
+        <MetricCard icon={Clock} label="Pending commission" value={money(summary.pendingCommission)} tone="warn" hint="Return period / admin approval" />
         <MetricCard icon={CheckCircle2} label="Approved commission" value={money(summary.approvedCommission)} tone="good" hint="Ready / in payout" />
         <MetricCard icon={BadgeCheck} label="Paid commission" value={money(summary.paidCommission)} tone="good" />
         <div className="flex flex-col justify-between rounded-2xl bg-gradient-to-br from-emerald-600 to-emerald-800 p-4 text-white shadow-sm">

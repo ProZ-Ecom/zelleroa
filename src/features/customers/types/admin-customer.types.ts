@@ -11,16 +11,22 @@ export interface AdminCustomerListItemDto {
   isWhatsapp: boolean;
   whatsappNo: string | null;
   dob: string | null; // YYYY-MM-DD
-  gender: "male" | "female" | "other" | null;
+  gender: "male" | "female" | "other" | "not_applicable" | null;
   referralCode: string | null;
   status: "active" | "inactive" | "banned";
   isActive: boolean;
   isBlocked: boolean;
+  blockReason: string | null;
+  blockedAt: Date | null;
   emailVerified: boolean;
   phoneVerified: boolean;
   lastLoginAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
+  /** Sales Partner currently responsible for this customer. List view only. */
+  currentAgent?: { id: string; name: string; agentCode: string | null } | null;
+  orderCount?: number;
+  totalSales?: number;
 }
 
 export interface AdminCustomerDetailDto {
@@ -38,6 +44,8 @@ export interface AdminCustomerDetailDto {
   status: string;
   isActive: boolean;
   isBlocked: boolean;
+  blockReason: string | null;
+  blockedAt: Date | null;
   emailVerified: boolean;
   phoneVerified: boolean;
   lastLoginAt: Date | null;

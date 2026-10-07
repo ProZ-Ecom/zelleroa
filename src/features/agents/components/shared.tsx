@@ -7,6 +7,7 @@ import { COMMISSION_STATUS_LABELS, PAYOUT_STATUS_LABELS } from "../constants";
 const STATUS_STYLES: Record<string, string> = {
   // commission
   pending: "bg-amber-50 text-amber-700 border-amber-200",
+  pending_approval: "bg-violet-50 text-violet-700 border-violet-200",
   approved: "bg-emerald-50 text-emerald-700 border-emerald-200",
   payout_requested: "bg-sky-50 text-sky-700 border-sky-200",
   payout_approved: "bg-indigo-50 text-indigo-700 border-indigo-200",
@@ -16,6 +17,8 @@ const STATUS_STYLES: Record<string, string> = {
   // payout
   requested: "bg-sky-50 text-sky-700 border-sky-200",
   rejected: "bg-red-50 text-red-700 border-red-200",
+  // account
+  blocked: "bg-red-50 text-red-700 border-red-200",
   // order
   confirmed: "bg-sky-50 text-sky-700 border-sky-200",
   processing: "bg-sky-50 text-sky-700 border-sky-200",
@@ -299,11 +302,12 @@ export function FilterForm({
           )}
         </div>
       ))}
+      {values.view ? <input type="hidden" name="view" value={values.view} /> : null}
       <div className="flex gap-2">
         <button type="submit" className="h-10 rounded-xl bg-neutral-900 px-4 text-sm font-semibold text-white hover:bg-neutral-800">
           Apply
         </button>
-        <Link href={action} className="inline-flex h-10 items-center rounded-xl border border-neutral-200 px-4 text-sm font-medium hover:bg-neutral-50">
+        <Link href={values.view ? `${action}?view=${values.view}` : action} className="inline-flex h-10 items-center rounded-xl border border-neutral-200 px-4 text-sm font-medium hover:bg-neutral-50">
           Reset
         </Link>
       </div>
@@ -322,6 +326,23 @@ export const ORDER_STATUS_OPTIONS = [
   "cancelled",
   "returned",
 ].map((v) => ({ value: v, label: humanize(v) }));
+
+export const ORDER_SOURCE_LABELS: Record<string, string> = {
+  CUSTOMER_DIRECT: "Customer Direct Order",
+  AGENT_PLACED_FOR_CUSTOMER: "Agent Placed Order",
+  AGENT_OWN: "Agent Own Order",
+};
+export const ORDER_SOURCE_OPTIONS = Object.entries(ORDER_SOURCE_LABELS).map(([value, label]) => ({ value, label }));
+
+/** Source of an order, plus who placed it when that was not the customer. */
+export function OrderSourceCell({ source, orderedBy }: { source: string; orderedBy: string | null }) {
+  return (
+    <div className="min-w-[8rem]">
+      <p className="text-xs font-medium text-neutral-900">{ORDER_SOURCE_LABELS[source] ?? source}</p>
+      {source !== "CUSTOMER_DIRECT" && orderedBy ? <p className="text-xs text-neutral-500">Ordered by: {orderedBy}</p> : null}
+    </div>
+  );
+}
 
 export const COMMISSION_STATUS_OPTIONS = Object.entries(COMMISSION_STATUS_LABELS).map(([value, label]) => ({ value, label }));
 export const PAYOUT_STATUS_OPTIONS = Object.entries(PAYOUT_STATUS_LABELS).map(([value, label]) => ({ value, label }));

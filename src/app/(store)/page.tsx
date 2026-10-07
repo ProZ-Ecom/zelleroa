@@ -3,10 +3,7 @@ import dynamic from "next/dynamic";
 import {
   HeroIntro,
   ShopByCategory,
-  PromoBanner,
   Features,
-  OccasionEdits,
-  Feedback,
   ProductGridSectionSkeleton,
   DealsSectionSkeleton,
   NewsletterSkeleton,
@@ -54,13 +51,10 @@ export default function HomePage() {
       <HeroIntro />
       <ShopByCategory />
       <ProductSection />
-      <PromoBanner />
       <TrendingNow />
       <DealsSection />
       <LazyOfferReels />
       <Features />
-      <OccasionEdits />
-      <Feedback />
       <Newsletter />
     </div>
   );

@@ -4,6 +4,8 @@
  * Pure and dependency-free so the Sales Partner page, the API and the admin view agree.
  */
 
+import { isFilled } from "@/lib/profile-completion";
+
 export interface CompletionInput {
   name?: string | null;
   dob?: string | null;
@@ -56,7 +58,7 @@ export interface Completion {
   incomplete: CompletionSection[];
 }
 
-const has = (v: string | null | undefined) => Boolean(v && v.trim());
+const has = isFilled;
 
 export function calculateCompletion(p: CompletionInput): Completion {
   const defs: Array<[SectionKey, string, number, StepKey, Array<[string, boolean]>]> = [

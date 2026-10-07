@@ -4,6 +4,7 @@ export const DEFAULT_RETURN_PERIOD_DAYS = 3;
 /** Commission statuses that can still be paid out or are already inside a payout. */
 export const OPEN_COMMISSION_STATUSES = [
   "pending",
+  "pending_approval",
   "approved",
   "payout_requested",
   "payout_approved",
@@ -11,6 +12,7 @@ export const OPEN_COMMISSION_STATUSES = [
 
 export const COMMISSION_STATUS_LABELS: Record<string, string> = {
   pending: "Pending",
+  pending_approval: "Awaiting approval",
   approved: "Approved",
   payout_requested: "Payout requested",
   payout_approved: "Payout approved",

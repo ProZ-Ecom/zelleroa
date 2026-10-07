@@ -88,7 +88,8 @@ function SelectionBody({
           toast.success(`${item.name} added to cart`);
           onClose();
         },
-        onError: () => toast.error("Could not add this item to your cart"),
+        onError: (error) =>
+          toast.error(error instanceof Error && error.message ? error.message : "Could not add this item to your cart"),
       }
     );
   };
@@ -227,7 +228,7 @@ export function ItemQuickAdd({
         type="button"
         onClick={handleClick}
         disabled={loading}
-        className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-theme-primary px-4 py-2 text-xs font-bold text-theme-primary-fg transition-colors hover:bg-theme-primary-hover disabled:opacity-60"
+        className="inline-flex w-full items-center justify-center gap-1.5 rounded-lg bg-theme-primary px-3 py-1.5 text-xs font-bold text-theme-primary-fg transition-colors hover:bg-theme-primary-hover disabled:opacity-60"
       >
         {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ShoppingBag className="h-3.5 w-3.5" />}
         Add to Cart

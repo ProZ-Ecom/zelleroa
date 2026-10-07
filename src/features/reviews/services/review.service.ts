@@ -1,5 +1,5 @@
 import { ApiError } from "@/lib/api/api-error";
-import { reviewRepository } from "../repositories/review.repository";
+import { reviewRepository, type ReviewScope } from "../repositories/review.repository";
 import { userRepository } from "@/features/users/repositories/user.repository";
 import type {
   CreateReviewInput,
@@ -73,12 +73,93 @@ async function resolveActiveCustomer(sessionUserId: string) {
     throw ApiError.unauthorized("Customer not found");
   }
   if (!customer.isActive || customer.is_active === false) {
-    throw ApiError.forbidden("Your account is inactive or blocked. Please contact support.");
+    throw ApiError.accountBlocked("Your account is inactive or blocked. Please contact support.");
   }
   return customer;
 }
 
+const NOT_DELIVERED_MESSAGE =
+  "You can review this product only after your order has been delivered.";
+
+type EligibilityTarget = {
+  variantUnitPriceId?: string;
+  variantId?: string;
+  productId?: string;
+};
+
+/** Resolves the target to a scope and finds the customer's delivered, not-yet-reviewed order items in it. */
+async function resolveEligibility(customerId: bigint, target: EligibilityTarget) {
+  let scope: ReviewScope | null = null;
+
+  if (target.variantUnitPriceId) {
+    const unitPrice = await reviewRepository.findVariantUnitPriceByIdentifier(target.variantUnitPriceId);
+    if (unitPrice) scope = { variantUnitPriceId: unitPrice.id };
+  } else if (target.variantId) {
+    const variant = await reviewRepository.findVariantByIdentifier(target.variantId);
+    if (variant) scope = { variantId: variant.id };
+  } else if (target.productId) {
+    const product = await reviewRepository.findProductByIdentifier(target.productId);
+    if (product) scope = { productId: product.id };
+  }
+
+  if (!scope) {
+    return {
+      item: null,
+      items: [] as Awaited<ReturnType<typeof reviewRepository.findReviewableDeliveredOrderItems>>,
+      reason: "invalid_target" as const,
+      message: "Valid product variant or pack size is required to submit a review",
+    };
+  }
+
+  const items = await reviewRepository.findReviewableDeliveredOrderItems(scope, customerId);
+  if (items.length > 0) {
+    return { item: items[0], items, reason: null, message: "" };
+  }
+
+  const existing = await reviewRepository.findActiveReviewInScope(scope, customerId);
+  return existing
+    ? {
+        item: null,
+        items,
+        reason: "already_reviewed" as const,
+        message: "You have already submitted a review for this product",
+      }
+    : { item: null, items, reason: "not_delivered" as const, message: NOT_DELIVERED_MESSAGE };
+}
+
 export const reviewService = {
+  /** Whether the viewer may write a review for the target; guests get `login_required`. */
+  async getReviewEligibility(sessionUserId: string | undefined, target: EligibilityTarget) {
+    if (!sessionUserId) {
+      return {
+        eligible: false,
+        reason: "login_required" as const,
+        message: "Sign in to review products you have purchased.",
+        eligibleUnitPriceIds: [] as string[],
+      };
+    }
+
+    const customer = await userRepository.findById(sessionUserId);
+    if (!customer || !customer.isActive || customer.is_active === false) {
+      return {
+        eligible: false,
+        reason: "login_required" as const,
+        message: "Sign in to review products you have purchased.",
+        eligibleUnitPriceIds: [] as string[],
+      };
+    }
+
+    const result = await resolveEligibility(BigInt(customer.internalId || customer.id), target);
+    return {
+      eligible: Boolean(result.item),
+      reason: result.reason,
+      message: result.message,
+      eligibleUnitPriceIds: [
+        ...new Set(result.items.map((i) => i.variant_unit_price?.uuid).filter((u): u is string => Boolean(u))),
+      ],
+    };
+  },
+
   async createCustomerReview(
     sessionUserId: string,
     input: CreateReviewInput
@@ -105,9 +186,7 @@ export const reviewService = {
       }
 
       if (orderItem.order.order_status !== "delivered") {
-        throw ApiError.badRequest(
-          `Cannot review items from order with status '${orderItem.order.order_status}'. Only delivered orders can be reviewed.`
-        );
+        throw ApiError.forbidden(NOT_DELIVERED_MESSAGE);
       }
 
       if (
@@ -134,49 +213,23 @@ export const reviewService = {
       variantUnitPriceId = orderItem.variantUnitPriceId!;
       orderItemId = orderItem.id;
     } else {
-      // Storefront Product / Variant Review Flow
-      let unitPrice = null;
-
-      if (input.variantUnitPriceId) {
-        unitPrice = await reviewRepository.findVariantUnitPriceByIdentifier(
-          input.variantUnitPriceId
-        );
-      } else if (input.variantId) {
-        const variant = await reviewRepository.findVariantByIdentifier(input.variantId);
-        if (variant && variant.variant_unit_prices?.length > 0) {
-          unitPrice = await reviewRepository.findVariantUnitPriceByIdentifier(
-            variant.variant_unit_prices[0].uuid || String(variant.variant_unit_prices[0].id)
-          );
+      // Storefront Product / Variant Review Flow: only a delivered order of this exact
+      // product/variant/pack makes the customer eligible, and each order item is reviewed once.
+      const eligibility = await resolveEligibility(customerId, input);
+      if (!eligibility.item) {
+        if (eligibility.reason === "already_reviewed") {
+          throw ApiError.conflict(eligibility.message);
         }
-      } else if (input.productId) {
-        const product = await reviewRepository.findProductByIdentifier(input.productId);
-        const firstVariant = (product as any)?.styles?.[0]?.items?.[0]?.variants?.[0];
-        if (firstVariant && firstVariant.variant_unit_prices?.length > 0) {
-          unitPrice = await reviewRepository.findVariantUnitPriceByIdentifier(
-            firstVariant.variant_unit_prices[0].uuid || String(firstVariant.variant_unit_prices[0].id)
-          );
-        }
+        throw ApiError.forbidden(eligibility.message);
       }
 
-      if (!unitPrice) {
-        throw ApiError.badRequest(
-          "Valid product variant or pack size is required to submit a review"
-        );
+      const reviewableItem = eligibility.item;
+      if (!reviewableItem.variantUnitPriceId) {
+        throw ApiError.badRequest("This order item has no pack size and cannot be reviewed");
       }
-
-      productId = unitPrice.variant.item.style.productId;
-      variantUnitPriceId = unitPrice.id;
-
-      // Duplicate prevention: 1 review per customer per variant pack
-      const existingActive = await reviewRepository.findActiveReviewByVariant(
-        variantUnitPriceId,
-        customerId
-      );
-      if (existingActive) {
-        throw ApiError.conflict(
-          "You have already submitted a review for this snack"
-        );
-      }
+      productId = reviewableItem.productId;
+      variantUnitPriceId = reviewableItem.variantUnitPriceId;
+      orderItemId = reviewableItem.id;
     }
 
     // Create Review Transaction

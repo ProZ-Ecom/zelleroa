@@ -1769,7 +1769,7 @@ export default function AdminProductDetailsPage() {
                     setIsAddVariantOpen(false);
                     setNewlyCreatedVariant(null);
                   }}
-                  className="h-10 rounded-xl bg-[var(--color-secondary-600)] px-5 text-sm font-semibold text-white hover:bg-[var(--color-secondary-700)] cursor-pointer"
+                  className="h-10 rounded-xl bg-[var(--color-primary-500)] px-5 text-sm font-semibold text-white hover:bg-[var(--color-primary-600)] cursor-pointer"
                 >
                   Save & Activate
                 </Button>
@@ -1798,7 +1798,7 @@ export default function AdminProductDetailsPage() {
                 onClick={() => setEditVariantTab("details")}
                 className={`px-4 py-2.5 text-sm font-semibold border-b-2 transition-colors cursor-pointer ${
                   editVariantTab === "details"
-                    ? "border-[var(--color-secondary-600)] text-[var(--color-secondary-600)]"
+                    ? "border-[var(--color-primary-500)] text-[var(--color-primary-500)]"
                     : "border-transparent text-[var(--color-neutral-500)] hover:text-[var(--color-neutral-800)]"
                 }`}
               >
@@ -1809,7 +1809,7 @@ export default function AdminProductDetailsPage() {
                 onClick={() => setEditVariantTab("pricing")}
                 className={`px-4 py-2.5 text-sm font-semibold border-b-2 transition-colors cursor-pointer ${
                   editVariantTab === "pricing"
-                    ? "border-[var(--color-secondary-600)] text-[var(--color-secondary-600)]"
+                    ? "border-[var(--color-primary-500)] text-[var(--color-primary-500)]"
                     : "border-transparent text-[var(--color-neutral-500)] hover:text-[var(--color-neutral-800)]"
                 }`}
               >
@@ -1965,7 +1965,6 @@ export default function AdminProductDetailsPage() {
         size="lg"
       >
         <StyleForm
-          defaultBrandId={product.brandId}
           isLoading={createStyleMutation.isPending}
           submitLabel="Create Item"
           onSubmit={async (formData: StyleFormValues) => {
@@ -1986,6 +1985,8 @@ export default function AdminProductDetailsPage() {
                   vegType: "na",
                   basePrice: formData.basePrice ?? 0,
                   isFeatured: formData.isFeatured,
+                  isNewArrival: formData.isNewArrival ?? false,
+                  newArrivalUntil: formData.isNewArrival ? formData.newArrivalUntil || null : null,
                   isDefault: formData.isDefault ?? false,
                   isActive: formData.isActive,
                 },
@@ -2025,6 +2026,8 @@ export default function AdminProductDetailsPage() {
               cookingRecipe: editingStyle.cookingRecipe || "",
               basePrice: editingStyle.basePrice ?? 0,
               isFeatured: editingStyle.isFeatured,
+              isNewArrival: editingStyle.isNewArrival,
+              newArrivalUntil: editingStyle.newArrivalUntil ?? "",
               isDefault: editingStyle.isDefault,
               isActive: editingStyle.isActive,
             }}
@@ -2050,6 +2053,8 @@ export default function AdminProductDetailsPage() {
                     vegType: editingStyle.vegType || "na",
                     basePrice: formData.basePrice ?? 0,
                     isFeatured: formData.isFeatured,
+                    isNewArrival: formData.isNewArrival ?? false,
+                    newArrivalUntil: formData.isNewArrival ? formData.newArrivalUntil || null : null,
                     isDefault: formData.isDefault ?? false,
                     isActive: formData.isActive,
                   },
@@ -2120,7 +2125,7 @@ export default function AdminProductDetailsPage() {
           <button
             type="button"
             onClick={() => setIsAddBrandOpen(true)}
-            className="text-xs font-semibold text-[var(--color-secondary-600)] hover:text-[var(--color-secondary-700)] cursor-pointer"
+            className="text-xs font-semibold text-[var(--color-primary-500)] hover:text-[var(--color-primary-600)] cursor-pointer"
           >
             + Add brand
           </button>
@@ -2203,7 +2208,6 @@ export default function AdminProductDetailsPage() {
                     setSelectedItemUuid(created.id);
                     setNewlyCreatedItem(created);
                   }
-                  toast.success("Model created", `"${formData.name}" is ready for Colors & Sizes.`);
                 } catch (err: any) {
                   console.error("Failed to create item", err);
                   toast.error("Failed to create model", err?.message || "Please try again.");

@@ -83,7 +83,7 @@ async function auditCommissionMoves(
 export const payoutService = {
   /** Commissions the agent could request a payout for right now. */
   async availableBalance(agentId: bigint) {
-    await commissionService.approveEligible({ agentId });
+    await commissionService.markReadyForApproval({ agentId });
     const agg = await db.commissions.aggregate({
       where: { agent_id: agentId, status: "approved", payout_id: null },
       _sum: { commission_amount: true },
@@ -98,7 +98,7 @@ export const payoutService = {
    * onto the payout, so nothing sensitive travels in the request itself.
    */
   async requestPayout(agentId: bigint, input: RequestPayoutInput) {
-    await commissionService.approveEligible({ agentId });
+    await commissionService.markReadyForApproval({ agentId });
 
     const profile = await db.agent_profiles.findUnique({ where: { user_id: agentId } });
     if (!profile) throw ApiError.badRequest("Your Sales Partner profile is incomplete. Please contact support.");

@@ -2,7 +2,7 @@
 
 import { useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import {
   LayoutDashboard,
   LogOut,
@@ -23,25 +23,55 @@ import {
 import { cn } from "@/lib/utils";
 import { APP_NAME } from "@/lib/constants";
 import { useLogout } from "@/features/auth/hooks/use-auth-mutations";
+import { ProfileAvatarRing } from "@/components/ui/ProfileAvatarRing";
 
 type NavItem = { href: string; label: string; icon: LucideIcon };
 
-const LINKS: NavItem[] = [
-  { href: "/agent/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/agent/profile", label: "My Profile", icon: UserRound },
-  { href: "/products", label: "Purchase Products", icon: Package },
-  { href: "/cart", label: "My Cart", icon: ShoppingCart },
-  { href: "/orders", label: "My Orders", icon: ReceiptText },
-  { href: "/agent/customers", label: "Customers", icon: Users },
-  { href: "/agent/orders", label: "Referral Orders", icon: ShoppingBag },
-  { href: "/agent/commissions", label: "Commissions", icon: Percent },
-  { href: "/agent/payouts", label: "Payout History", icon: Wallet },
+const GROUPS: { title: string; items: NavItem[] }[] = [
+  {
+    title: "Overview",
+    items: [{ href: "/agent/dashboard", label: "Dashboard", icon: LayoutDashboard }],
+  },
+  {
+    title: "Sales Partner (Referrals)",
+    items: [
+      { href: "/agent/customers", label: "Customers", icon: Users },
+      { href: "/agent/place-order", label: "Place Order", icon: ShoppingCart },
+      { href: "/agent/orders?view=customers", label: "Customer Orders", icon: ShoppingBag },
+      { href: "/agent/orders?view=own", label: "Agent Own Orders", icon: ReceiptText },
+      { href: "/agent/commissions", label: "Commissions", icon: Percent },
+      { href: "/agent/payouts", label: "Payout History", icon: Wallet },
+    ],
+  },
+  {
+    title: "My Shopping (Personal)",
+    items: [
+      { href: "/products", label: "Purchase Products", icon: Package },
+      { href: "/cart", label: "My Cart", icon: ShoppingCart },
+      { href: "/orders", label: "My Orders", icon: ReceiptText },
+    ],
+  },
+  {
+    title: "Account",
+    items: [{ href: "/agent/profile", label: "My Profile", icon: UserRound }],
+  },
 ];
+
+const LINKS: NavItem[] = GROUPS.flatMap((g) => g.items);
 
 const STORAGE_KEY = "agent-sidebar-collapsed";
 
-export function AgentShell({ name, children }: { name: string; children: ReactNode }) {
+export function AgentShell({
+  name,
+  completionPercent,
+  children,
+}: {
+  name: string;
+  completionPercent: number;
+  children: ReactNode;
+}) {
   const pathname = usePathname();
+  const view = useSearchParams()?.get("view") === "own" ? "own" : "customers";
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
 
@@ -75,7 +105,11 @@ export function AgentShell({ name, children }: { name: string; children: ReactNo
   };
 
   const initial = name.trim().charAt(0).toUpperCase() || "A";
-  const current = LINKS.find((l) => pathname === l.href || pathname.startsWith(`${l.href}/`));
+  const current = LINKS.find((l) => {
+    const [path, query] = l.href.split("?");
+    if (pathname !== path && !pathname.startsWith(`${path}/`)) return false;
+    return !query || query === `view=${view}`;
+  });
 
   const renderSidebar = (compact: boolean, mobile: boolean) => (
     <div className="flex h-full flex-col">
@@ -104,38 +138,44 @@ export function AgentShell({ name, children }: { name: string; children: ReactNo
       </div>
 
       <nav className="flex-1 overflow-y-auto px-3 py-4" aria-label="Sales Partner navigation">
-        {!compact && <p className="mb-2 px-3 text-[11px] font-semibold uppercase tracking-wider text-neutral-500">Menu</p>}
-        <ul className="flex flex-col gap-1">
-          {LINKS.map((l) => {
-            const active = l === current;
-            const Icon = l.icon;
-            return (
-              <li key={l.href}>
-                <Link
-                  href={l.href}
-                  title={compact ? l.label : undefined}
-                  aria-current={active ? "page" : undefined}
-                  className={cn(
-                    "group relative flex min-h-[42px] items-center gap-3 rounded-lg px-3 text-sm font-medium transition-colors",
-                    compact && "justify-center px-0",
-                    active ? "bg-white/10 text-white" : "text-neutral-400 hover:bg-white/5 hover:text-white"
-                  )}
-                >
-                  {active && <span className="absolute left-0 top-2 bottom-2 w-1 rounded-r bg-white" />}
-                  <Icon className="h-[18px] w-[18px] shrink-0" />
-                  {!compact && <span className="truncate">{l.label}</span>}
-                </Link>
-              </li>
-            );
-          })}
-        </ul>
+        {GROUPS.map((g, gi) => (
+          <div key={g.title} className={cn(gi > 0 && (compact ? "mt-3 border-t border-neutral-800 pt-3" : "mt-5"))}>
+            {!compact && <p className="mb-2 px-3 text-[11px] font-semibold uppercase tracking-wider text-neutral-500">{g.title}</p>}
+            <ul className="flex flex-col gap-1">
+              {g.items.map((l) => {
+                const active = l === current;
+                const Icon = l.icon;
+                return (
+                  <li key={l.href}>
+                    <Link
+                      href={l.href}
+                      title={compact ? l.label : undefined}
+                      aria-current={active ? "page" : undefined}
+                      className={cn(
+                        "group relative flex min-h-[42px] items-center gap-3 rounded-lg px-3 text-sm font-medium transition-colors",
+                        compact && "justify-center px-0",
+                        active ? "bg-white/10 text-white" : "text-neutral-400 hover:bg-white/5 hover:text-white"
+                      )}
+                    >
+                      {active && <span className="absolute left-0 top-2 bottom-2 w-1 rounded-r bg-white" />}
+                      <Icon className="h-[18px] w-[18px] shrink-0" />
+                      {!compact && <span className="truncate">{l.label}</span>}
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        ))}
       </nav>
 
       <div className="shrink-0 border-t border-neutral-800 p-3">
         <div className={cn("flex items-center gap-3 rounded-lg px-2 py-2", compact && "justify-center px-0")}>
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-neutral-700 text-sm font-bold text-white">
-            {initial}
-          </span>
+          <ProfileAvatarRing percent={completionPercent} size={44} hideBadge={compact}>
+            <span className="flex h-full w-full items-center justify-center bg-neutral-700 text-sm font-bold text-white">
+              {initial}
+            </span>
+          </ProfileAvatarRing>
           {!compact && (
             <div className="min-w-0 flex-1">
               <p className="truncate text-sm font-medium text-white">{name}</p>
@@ -209,7 +249,9 @@ export function AgentShell({ name, children }: { name: string; children: ReactNo
           <h1 className="min-w-0 flex-1 truncate text-base font-semibold text-neutral-900">{current?.label ?? "Sales Partner Portal"}</h1>
           <div className="flex items-center gap-2">
             <span className="hidden text-sm text-neutral-600 sm:inline">{name}</span>
-            <span className="flex h-9 w-9 items-center justify-center rounded-full bg-neutral-900 text-sm font-bold text-white">{initial}</span>
+            <ProfileAvatarRing percent={completionPercent} size={44}>
+              <span className="flex h-full w-full items-center justify-center bg-neutral-900 text-sm font-bold text-white">{initial}</span>
+            </ProfileAvatarRing>
           </div>
         </header>
         <main className="flex w-full flex-1 flex-col gap-5 px-4 py-5 sm:px-6 sm:py-6">{children}</main>

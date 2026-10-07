@@ -22,7 +22,12 @@ function createPrismaClient() {
   allowPublicKeyRetrieval: true,
 });
 
-  return new PrismaClient({ adapter });
+  // Cart/checkout transactions run many sequential queries (stock reservation,
+// pricing, totals); the 5s default expires under normal DB latency.
+  return new PrismaClient({
+    adapter,
+    transactionOptions: { maxWait: 10_000, timeout: 30_000 },
+  });
 }
 
 export const db = globalForPrisma.prisma ?? createPrismaClient();

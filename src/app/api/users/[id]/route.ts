@@ -8,7 +8,7 @@ export const GET = createApiHandler(
     GET: async (_request, context) => {
       const id = context.params?.id;
       if (!id) return apiError("User ID is required", 400);
-      const user = await userService.getUser(parseInt(id));
+      const user = await userService.getUser(id);
       return apiSuccess(user, "User fetched successfully");
     },
   },
@@ -24,7 +24,7 @@ export const PUT = createApiHandler(
       const id = context.params?.id;
       if (!id) return apiError("User ID is required", 400);
       const body = context.body as ReturnType<typeof updateUserSchema.parse>;
-      const user = await userService.updateUser(parseInt(id), body);
+      const user = await userService.updateUser(id, body);
       return apiSuccess(user, "User updated successfully");
     },
   },
@@ -41,7 +41,7 @@ export const DELETE = createApiHandler(
     DELETE: async (_request, context) => {
       const id = context.params?.id;
       if (!id) return apiError("User ID is required", 400);
-      await userService.deleteUser(parseInt(id));
+      await userService.deleteUser(id);
       return apiSuccess(null, "User deleted successfully");
     },
   },

@@ -5,6 +5,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Loader2 } from "lucide-react";
 import { apiClient } from "@/lib/api/api-client";
 import { toast } from "@/components/ui/Toast";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import type { CommissionRow } from "../../types";
 import { errorMessage, useAdminList } from "../../hooks/use-admin-agents";
 import {
@@ -27,6 +28,7 @@ export function AdminCommissionsSection({ fixedAgent, allowApprove = true }: { f
   const [page, setPage] = useState(1);
   const [auditId, setAuditId] = useState<string | null>(null);
   const [approving, setApproving] = useState(false);
+  const [confirmApprove, setConfirmApprove] = useState(false);
 
   const params = { ...filters, ...(fixedAgent ? { agent: fixedAgent } : {}), page, limit: 20 };
   const { data, isLoading, error } = useAdminList<CommissionRow>("commissions", "/api/admin/commissions", params);
@@ -42,10 +44,11 @@ export function AdminCommissionsSection({ fixedAgent, allowApprove = true }: { f
     { name: "dateTo", label: "To", type: "date" },
   ];
 
-  const approveEligible = async () => {
+  const approveCommissions = async (ids?: string[]) => {
     setApproving(true);
+    setConfirmApprove(false);
     try {
-      const res = await apiClient.post<{ approved: number }>("/api/admin/commissions/approve-eligible");
+      const res = await apiClient.post<{ approved: number }>("/api/admin/commissions/approve", ids ? { ids } : {});
       toast.success(res.message ?? "Done");
       await qc.invalidateQueries({ queryKey: ["agents-admin"] });
     } catch (err) {
@@ -62,13 +65,13 @@ export function AdminCommissionsSection({ fixedAgent, allowApprove = true }: { f
         allowApprove && (
           <button
             type="button"
-            onClick={approveEligible}
+            onClick={() => setConfirmApprove(true)}
             disabled={approving}
             className="inline-flex min-h-[36px] items-center gap-2 rounded-lg border border-neutral-200 px-3 text-xs font-semibold hover:bg-neutral-50 disabled:opacity-60"
-            title="Approve every commission whose return period has ended"
+            title="Approve every commission that is awaiting approval"
           >
             {approving && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-            Approve eligible now
+            Approve all awaiting
           </button>
         )
       }
@@ -120,9 +123,21 @@ export function AdminCommissionsSection({ fixedAgent, allowApprove = true }: { f
               {
                 header: "",
                 cell: (r) => (
-                  <button type="button" onClick={() => setAuditId(r.id)} className="text-xs font-semibold text-neutral-700 underline-offset-4 hover:underline">
+                  <div className="flex items-center gap-3">
+                    {r.status === "pending_approval" && (
+                      <button
+                        type="button"
+                        disabled={approving}
+                        onClick={() => approveCommissions([r.id])}
+                        className="rounded-md bg-emerald-600 px-2 py-1 text-xs font-semibold text-white hover:bg-emerald-700 disabled:opacity-60"
+                      >
+                        Approve
+                      </button>
+                    )}
+                    <button type="button" onClick={() => setAuditId(r.id)} className="text-xs font-semibold text-neutral-700 underline-offset-4 hover:underline">
                     History
-                  </button>
+                    </button>
+                  </div>
                 ),
               },
             ]}
@@ -130,6 +145,15 @@ export function AdminCommissionsSection({ fixedAgent, allowApprove = true }: { f
           <ButtonPager page={page} totalPages={data?.meta.totalPages ?? 1} total={data?.meta.total ?? 0} onPage={setPage} />
         </>
       )}
+      <ConfirmDialog
+        open={confirmApprove}
+        onClose={() => setConfirmApprove(false)}
+        onConfirm={() => approveCommissions()}
+        variant="default"
+        title="Approve awaiting commissions?"
+        description="Every commission whose return period has ended and is awaiting approval will become approved and available for the Sales Partner to withdraw."
+        confirmText="Approve"
+      />
       <AuditModal type="commission" id={auditId} title="Commission history" onClose={() => setAuditId(null)} />
     </Panel>
   );

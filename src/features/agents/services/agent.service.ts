@@ -20,7 +20,12 @@ export function buildReferralLink(code: string) {
 function emptySummary(): AgentSummary {
   return {
     totalReferredCustomers: 0,
+    activeCustomers: 0,
     totalOrders: 0,
+    customerDirectOrders: 0,
+    agentPlacedOrders: 0,
+    agentOwnOrders: 0,
+    cancelledCommission: 0,
     totalSales: 0,
     pendingCommission: 0,
     approvedCommission: 0,
@@ -37,15 +42,20 @@ async function summariesFor(agentIds: bigint[]): Promise<Map<string, AgentSummar
   if (agentIds.length === 0) return result;
   for (const id of agentIds) result.set(String(id), { ...emptySummary(), openPayouts: 0 });
 
-  const [customers, orders, commissions, payouts] = await Promise.all([
-    // "Customers" = distinct customers who have placed an order under this agent's code.
-    // There is no permanent customer-agent link; the same customer can appear under several agents.
-    db.order.groupBy({
-      by: ["agent_id", "userId"],
-      where: { agent_id: { in: agentIds }, is_active: true },
+  const [customers, activeCustomers, orders, commissions, payouts] = await Promise.all([
+    // "Customers" = customers currently assigned to the agent.
+    db.user.groupBy({
+      by: ["current_agent_id"],
+      where: { current_agent_id: { in: agentIds }, deleted_at: null },
+      _count: { _all: true },
+    }),
+    db.user.groupBy({
+      by: ["current_agent_id"],
+      where: { current_agent_id: { in: agentIds }, deleted_at: null, is_active: true, status: "active" },
+      _count: { _all: true },
     }),
     db.order.groupBy({
-      by: ["agent_id"],
+      by: ["agent_id", "order_source"],
       where: {
         agent_id: { in: agentIds },
         is_active: true,
@@ -66,23 +76,36 @@ async function summariesFor(agentIds: bigint[]): Promise<Map<string, AgentSummar
     }),
   ]);
 
-  for (const row of customers) result.get(String(row.agent_id))!.totalReferredCustomers += 1;
+  for (const row of customers) {
+    const s = result.get(String(row.current_agent_id));
+    if (s) s.totalReferredCustomers = row._count._all;
+  }
+  for (const row of activeCustomers) {
+    const s = result.get(String(row.current_agent_id));
+    if (s) s.activeCustomers = row._count._all;
+  }
   for (const row of orders) {
     const s = result.get(String(row.agent_id));
     if (!s) continue;
-    s.totalOrders = row._count._all;
-    s.totalSales = round2(Number(row._sum.subtotal ?? 0));
+    s.totalOrders += row._count._all;
+    s.totalSales += Number(row._sum.subtotal ?? 0);
+    if (row.order_source === "CUSTOMER_DIRECT") s.customerDirectOrders += row._count._all;
+    else if (row.order_source === "AGENT_PLACED_FOR_CUSTOMER") s.agentPlacedOrders += row._count._all;
+    else s.agentOwnOrders += row._count._all;
   }
   for (const row of commissions) {
     const s = result.get(String(row.agent_id))!;
     const amount = Number(row._sum.commission_amount ?? 0);
-    if (row.status === "pending") s.pendingCommission += amount;
+    if (row.status === "pending" || row.status === "pending_approval") s.pendingCommission += amount;
     else if (row.status === "paid") s.paidCommission += amount;
     else if (["approved", "payout_requested", "payout_approved"].includes(row.status)) s.approvedCommission += amount;
+    else if (row.status === "cancelled" || row.status === "reversed") s.cancelledCommission += amount;
   }
   for (const row of payouts) result.get(String(row.agent_id))!.openPayouts = row._count._all;
 
   for (const s of result.values()) {
+    s.totalSales = round2(s.totalSales);
+    s.cancelledCommission = round2(s.cancelledCommission);
     s.pendingCommission = round2(s.pendingCommission);
     s.approvedCommission = round2(s.approvedCommission);
     s.paidCommission = round2(s.paidCommission);
@@ -110,6 +133,8 @@ const agentUserSelect = {
   phone: true,
   status: true,
   is_active: true,
+  block_reason: true,
+  blocked_at: true,
   createdAt: true,
   last_login_at: true,
   referral_code: true,
@@ -121,13 +146,16 @@ type AgentUser = Prisma.UserGetPayload<{ select: typeof agentUserSelect }>;
 function formatAgent(u: AgentUser, summary?: AgentSummary & { openPayouts: number }) {
   const code = u.agent_profile?.agent_code ?? null;
   const referralCode = u.referral_code ?? code;
+  const isActive = u.is_active && u.status === "active";
   return {
     id: u.uuid ?? String(u.id),
     agentCode: code,
     name: u.name,
     email: u.email,
     phone: u.phone,
-    isActive: u.is_active && u.status === "active",
+    isActive,
+    blockReason: isActive ? null : u.block_reason ?? null,
+    blockedAt: isActive ? null : u.blocked_at?.toISOString() ?? null,
     notes: u.agent_profile?.notes ?? null,
     referralCode,
     referralLink: referralCode ? buildReferralLink(referralCode) : null,
@@ -237,6 +265,8 @@ export const agentService = {
       if (input.isActive !== undefined) {
         data.is_active = input.isActive;
         data.status = input.isActive ? "active" : "inactive";
+        data.block_reason = input.isActive ? null : input.blockReason ?? null;
+        data.blocked_at = input.isActive ? null : new Date();
       }
       await tx.user.update({ where: { id: agentId }, data });
 
@@ -257,7 +287,11 @@ export const agentService = {
         fromStatus: before ? (before.is_active ? "active" : "inactive") : null,
         toStatus: input.isActive === undefined ? null : input.isActive ? "active" : "inactive",
         actor,
-        metadata: { fields: Object.keys(input).filter((k) => k !== "password"), passwordReset: Boolean(input.password) },
+        metadata: {
+          fields: Object.keys(input).filter((k) => k !== "password"),
+          passwordReset: Boolean(input.password),
+          ...(input.isActive === false ? { blockReason: input.blockReason } : {}),
+        },
       });
     });
     return this.getAgentDetail(String(agentId));
@@ -313,12 +347,13 @@ export const agentService = {
   async agentOptions() {
     const rows = await db.user.findMany({
       where: { role: { slug: "agent" }, deleted_at: null },
-      select: { uuid: true, id: true, name: true, agent_profile: { select: { agent_code: true } } },
+      select: { uuid: true, id: true, name: true, is_active: true, status: true, agent_profile: { select: { agent_code: true } } },
       orderBy: { name: "asc" },
     });
     return rows.map((r) => ({
       id: r.uuid ?? String(r.id),
       name: r.name,
+      isActive: r.is_active && r.status === "active",
       agentCode: r.agent_profile?.agent_code ?? null,
     }));
   },
@@ -382,39 +417,48 @@ export const agentService = {
 
   // ── Agent-facing lists (always scoped to a resolved agentId) ───────────────
 
-  /** Customers who have ordered with this agent's referral code (derived from orders, not a fixed mapping). */
+  /** Admin view of the same list, addressed by agent uuid/code. */
+  async listCustomersForAdmin(agentRef: string, filters: { search?: string; status?: string; page?: number; limit?: number }) {
+    const agentId = await resolveAgentRef(agentRef);
+    if (!agentId) throw ApiError.notFound("Sales Partner not found");
+    return this.listCustomers(agentId, filters);
+  },
+
+  /** Customers currently assigned to this agent (users.current_agent_id). Never includes anyone else's customers. */
   async listCustomers(
     agentId: bigint,
-    filters: { search?: string; page?: number; limit?: number }
+    filters: { search?: string; status?: string; page?: number; limit?: number }
   ): Promise<PaginatedResult<AgentCustomerRow>> {
     const page = Math.max(1, filters.page ?? 1);
     const limit = Math.min(100, Math.max(1, filters.limit ?? 20));
-    const where: Prisma.OrderWhereInput = { agent_id: agentId, is_active: true };
-    if (filters.search?.trim()) where.user = customerSearchWhere(filters.search.trim());
+    const where: Prisma.UserWhereInput = { current_agent_id: agentId, deleted_at: null, role: { slug: "customer" } };
+    if (filters.search?.trim()) {
+      const term = filters.search.trim();
+      where.AND = [{ OR: [...(customerSearchWhere(term).OR ?? []), { cust_id: { contains: term } }] }];
+    }
+    if (filters.status === "active") where.is_active = true;
+    if (filters.status === "inactive") where.is_active = false;
 
-    const [groups, allGroups] = await Promise.all([
-      db.order.groupBy({
-        by: ["userId"],
+    const [users, total] = await Promise.all([
+      db.user.findMany({
         where,
-        _count: { _all: true },
-        _max: { createdAt: true },
-        orderBy: { _max: { createdAt: "desc" } },
+        select: { id: true, uuid: true, cust_id: true, name: true, email: true, phone: true, createdAt: true, is_active: true, agent_assigned_at: true },
+        orderBy: { agent_assigned_at: "desc" },
         skip: (page - 1) * limit,
         take: limit,
       }),
-      db.order.groupBy({ by: ["userId"], where }),
+      db.user.count({ where }),
     ]);
-    const total = allGroups.length;
 
-    const customerIds = groups.map((g) => g.userId);
-    const [users, sales, commissions] = await Promise.all([
-      db.user.findMany({
-        where: { id: { in: customerIds } },
-        select: { id: true, uuid: true, name: true, email: true, phone: true, createdAt: true, is_active: true },
-      }),
+    const customerIds = users.map((u) => u.id);
+    // Orders/commission figures are THIS agent's only (orders frozen to them), so a transferred-in
+    // customer starts at zero for the new agent.
+    const orderWhere: Prisma.OrderWhereInput = { agent_id: agentId, is_active: true, userId: { in: customerIds }, is_manual_customer: false };
+    const [last, sales, commissions] = await Promise.all([
+      db.order.groupBy({ by: ["userId"], where: orderWhere, _max: { createdAt: true } }),
       db.order.groupBy({
         by: ["userId"],
-        where: { ...where, userId: { in: customerIds }, order_status: { notIn: [...DEAD_ORDER_STATUSES] } },
+        where: { ...orderWhere, order_status: { notIn: [...DEAD_ORDER_STATUSES] } },
         _count: { _all: true },
         _sum: { subtotal: true },
       }),
@@ -424,28 +468,27 @@ export const agentService = {
         _sum: { commission_amount: true },
       }),
     ]);
-    const userMap = new Map(users.map((u) => [String(u.id), u]));
+    const lastMap = new Map(last.map((o) => [String(o.userId), o._max.createdAt]));
     const salesMap = new Map(sales.map((o) => [String(o.userId), o]));
     const commissionMap = new Map(commissions.map((c) => [String(c.customer_id), c]));
 
     return {
-      data: groups.flatMap((g) => {
-        const u = userMap.get(String(g.userId));
-        if (!u) return [];
-        const o = salesMap.get(String(g.userId));
-        return [
-          {
-            id: u.uuid ?? String(u.id),
-            name: u.name,
-            contact: u.email ?? u.phone ?? null,
-            registeredAt: u.createdAt.toISOString(),
-            lastOrderAt: g._max.createdAt?.toISOString() ?? null,
-            totalOrders: o?._count._all ?? 0,
-            totalSales: round2(Number(o?._sum.subtotal ?? 0)),
-            commissionGenerated: round2(Number(commissionMap.get(String(g.userId))?._sum.commission_amount ?? 0)),
-            status: u.is_active ? "active" : "inactive",
-          },
-        ];
+      data: users.map((u) => {
+        const o = salesMap.get(String(u.id));
+        return {
+          id: u.uuid ?? String(u.id),
+          name: u.name,
+          customerCode: u.cust_id,
+          phone: u.phone,
+          email: u.email,
+          contact: u.email ?? u.phone ?? null,
+          registeredAt: u.createdAt.toISOString(),
+          lastOrderAt: lastMap.get(String(u.id))?.toISOString() ?? null,
+          totalOrders: o?._count._all ?? 0,
+          totalSales: round2(Number(o?._sum.subtotal ?? 0)),
+          commissionGenerated: round2(Number(commissionMap.get(String(u.id))?._sum.commission_amount ?? 0)),
+          status: u.is_active ? "active" : "inactive",
+        };
       }),
       meta: { page, limit, total, totalPages: Math.max(1, Math.ceil(total / limit)) },
     };
@@ -455,32 +498,55 @@ export const agentService = {
    * Orders the Sales Partner placed for themselves (they are the buyer). Deliberately a different
    * query from referral orders (`agent_id` = partner): a self-purchase never carries an agent_id.
    */
-  async listOwnPurchases(agentRef: string, paging: { page?: number; limit?: number }) {
+  async listOwnPurchases(
+    agentRef: string,
+    paging: { page?: number; limit?: number; orderStatus?: string; dateFrom?: string; dateTo?: string }
+  ) {
     const agentId = await resolveAgentRef(agentRef);
     if (!agentId) throw ApiError.notFound("Sales Partner not found");
     const page = Math.max(1, paging.page ?? 1);
     const limit = Math.min(100, Math.max(1, paging.limit ?? 20));
-    const where: Prisma.OrderWhereInput = { userId: agentId, is_active: true };
-    const [rows, total] = await Promise.all([
+    const where: Prisma.OrderWhereInput = { userId: agentId, is_active: true, is_manual_customer: false, order_source: "AGENT_OWN" };
+    if (paging.orderStatus) where.order_status = paging.orderStatus as Prisma.OrderWhereInput["order_status"];
+    const from = paging.dateFrom ? startOfDay(paging.dateFrom) : null;
+    const to = paging.dateTo ? endOfDay(paging.dateTo) : null;
+    if (from || to) where.createdAt = { ...(from ? { gte: from } : {}), ...(to ? { lte: to } : {}) };
+    const [rows, total, spend] = await Promise.all([
       db.order.findMany({
         where,
-        select: { uuid: true, orderNumber: true, totalAmount: true, order_status: true, payment_status: true, createdAt: true },
+        select: {
+          uuid: true,
+          orderNumber: true,
+          subtotal: true,
+          totalAmount: true,
+          order_status: true,
+          payment_status: true,
+          createdAt: true,
+          items: {
+            where: { is_active: true },
+            select: { id: true, product_name_snapshot: true, quantity: true, total_price: true },
+          },
+        },
         orderBy: { createdAt: "desc" },
         skip: (page - 1) * limit,
         take: limit,
       }),
       db.order.count({ where }),
+      db.order.aggregate({ where, _sum: { totalAmount: true } }),
     ]);
     return {
       data: rows.map((o) => ({
         id: o.uuid ?? o.orderNumber,
         orderNumber: o.orderNumber,
+        subtotal: Number(o.subtotal),
+        itemCount: o.items.reduce((n, i) => n + i.quantity, 0),
+        items: o.items.map((i) => ({ productName: i.product_name_snapshot, quantity: i.quantity, amount: Number(i.total_price) })),
         total: Number(o.totalAmount),
         orderStatus: String(o.order_status),
         paymentStatus: String(o.payment_status),
         orderDate: o.createdAt.toISOString(),
       })),
-      meta: { page, limit, total, totalPages: Math.max(1, Math.ceil(total / limit)) },
+      meta: { page, limit, total, totalPages: Math.max(1, Math.ceil(total / limit)), totalSpend: round2(Number(spend._sum.totalAmount ?? 0)) },
     } satisfies PaginatedResult<OwnPurchaseRow>;
   },
 
@@ -489,6 +555,9 @@ export const agentService = {
     filters: {
       agent?: string;
       customer?: string;
+      orderSource?: string;
+      /** "own" = the agent's own purchases, "customers" = everything else credited to them. */
+      view?: string;
       order?: string;
       referralCode?: string;
       orderStatus?: string;
@@ -510,6 +579,11 @@ export const agentService = {
       orderWhere.agent_id = (await resolveAgentRef(filters.agent)) ?? BigInt(0);
     }
     if (filters.customer?.trim()) orderWhere.user = customerSearchWhere(filters.customer.trim());
+    if (filters.orderSource && ["CUSTOMER_DIRECT", "AGENT_PLACED_FOR_CUSTOMER", "AGENT_OWN"].includes(filters.orderSource)) {
+      orderWhere.order_source = filters.orderSource as Prisma.OrderWhereInput["order_source"];
+    }
+    if (filters.view === "own") orderWhere.order_source = "AGENT_OWN";
+    else if (filters.view === "customers") orderWhere.order_source = { not: "AGENT_OWN" };
     if (filters.referralCode?.trim()) orderWhere.referral_code = filters.referralCode.trim();
     if (filters.order?.trim()) orderWhere.OR = [{ orderNumber: { contains: filters.order.trim() } }, { uuid: filters.order.trim() }];
     if (filters.orderStatus) orderWhere.order_status = filters.orderStatus as Prisma.OrderWhereInput["order_status"];
@@ -537,6 +611,11 @@ export const agentService = {
               referral_code: true,
               createdAt: true,
               order_status: true,
+              order_source: true,
+              is_manual_customer: true,
+              manual_customer_name: true,
+              manual_customer_phone: true,
+              ordered_by: { select: { name: true } },
               user: { select: { name: true, email: true, phone: true } },
               agent: { select: { name: true, agent_profile: { select: { agent_code: true } } } },
             },
@@ -556,8 +635,10 @@ export const agentService = {
         orderId: r.order.uuid ?? "",
         orderNumber: r.order.orderNumber,
         referralCode: r.order.referral_code,
-        customerName: r.order.user.name,
-        customerContact: r.order.user.email ?? r.order.user.phone ?? null,
+        customerName: r.order.is_manual_customer ? r.order.manual_customer_name || "Walk-in customer" : r.order.user.name,
+        customerContact: r.order.is_manual_customer ? r.order.manual_customer_phone : (r.order.user.email ?? r.order.user.phone ?? null),
+        orderSource: r.order.order_source,
+        orderedByName: r.order.ordered_by?.name ?? null,
         agentName: r.order.agent?.name ?? "",
         agentCode: r.order.agent?.agent_profile?.agent_code ?? null,
         orderDate: r.order.createdAt.toISOString(),
@@ -577,6 +658,9 @@ export const agentService = {
 export interface AgentCustomerRow {
   id: string;
   name: string;
+  customerCode: string | null;
+  phone: string | null;
+  email: string | null;
   contact: string | null;
   registeredAt: string;
   lastOrderAt: string | null;
@@ -593,6 +677,8 @@ export interface AgentOrderLine {
   referralCode: string | null;
   customerName: string;
   customerContact: string | null;
+  orderSource: string;
+  orderedByName: string | null;
   agentName: string;
   agentCode: string | null;
   orderDate: string;
@@ -608,6 +694,9 @@ export interface AgentOrderLine {
 export interface OwnPurchaseRow {
   id: string;
   orderNumber: string;
+  subtotal: number;
+  itemCount: number;
+  items: { productName: string; quantity: number; amount: number }[];
   total: number;
   orderStatus: string;
   paymentStatus: string;

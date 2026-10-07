@@ -39,9 +39,14 @@ export const updateAgentSchema = z
       .optional(),
     notes: z.string().trim().max(500).nullable().optional(),
     isActive: z.boolean().optional(),
+    blockReason: z.string().trim().max(500, "Reason must be 500 characters or fewer").optional(),
     password: z.string().min(8).max(100).optional(),
   })
-  .refine((v) => Object.keys(v).length > 0, "Nothing to update");
+  .refine((v) => Object.keys(v).length > 0, "Nothing to update")
+  .refine((v) => v.isActive !== false || Boolean(v.blockReason), {
+    path: ["blockReason"],
+    message: "A reason is required to block this account",
+  });
 export type UpdateAgentInput = z.infer<typeof updateAgentSchema>;
 
 export const paymentDetailsSchema = z
@@ -128,3 +133,19 @@ export const reassignSchema = z.object({
 export const returnPeriodSchema = z.object({
   days: z.coerce.number().int().min(0).max(90),
 });
+
+export const transferCustomerSchema = z.object({
+  toAgentId: z.string().trim().min(1, "Select a Sales Partner"),
+  /** The agent the admin saw; the transfer is rejected if the customer has since moved. */
+  fromAgentId: z.string().trim().min(1).optional().nullable(),
+  reason: z.string().trim().max(255).optional(),
+});
+export type TransferCustomerInput = z.infer<typeof transferCustomerSchema>;
+
+export const reassignCustomersSchema = z.object({
+  toAgentId: z.string().trim().min(1, "Select a Sales Partner"),
+  /** Omit to move every customer the agent still has. */
+  customerIds: z.array(z.string().trim().min(1)).max(200).optional(),
+  reason: z.string().trim().max(255).optional(),
+});
+export type ReassignCustomersInput = z.infer<typeof reassignCustomersSchema>;

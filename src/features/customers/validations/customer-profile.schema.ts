@@ -30,7 +30,7 @@ export const updateCustomerProfileSchema = z
       )
       .optional()
       .nullable(),
-    gender: z.enum(["male", "female", "other"]).optional().nullable(),
+    gender: z.enum(["male", "female", "other", "not_applicable"]).optional().nullable(),
     isWhatsapp: z.boolean().optional(),
     whatsappNo: z
       .union([indiaPhoneSchema, z.literal(""), z.null()])

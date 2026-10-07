@@ -125,7 +125,7 @@ function CartSummary({
         <div className="pt-2 space-y-2 border-t border-theme-border-subtle">
           <div className="flex items-center gap-2 text-xs text-theme-text-subtle">
             <ShieldCheck className="h-4 w-4 text-theme-status-del-fg shrink-0" />
-            <span>100% Authentic Homemade Snacks</span>
+            <span>100% Authentic Products</span>
           </div>
           <div className="flex items-center gap-2 text-xs text-theme-text-subtle">
             <Lock className="h-4 w-4 text-theme-status-out-fg shrink-0" />

@@ -62,12 +62,12 @@ function CategoryForm({
   return (
     <FormProvider {...methods}>
       <form
-          onSubmit={methods.handleSubmit((data) => {
-            console.log("Category Form Data:", data);
-            onSubmit(data as CategoryFormData);
-          })}
-          className="space-y-6"
-        >
+        onSubmit={methods.handleSubmit((data) => {
+          console.log("Category Form Data:", data);
+          onSubmit(data as CategoryFormData);
+        })}
+        className="space-y-6"
+      >
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <FormInput
             name="name"
@@ -78,7 +78,7 @@ function CategoryForm({
 
           <FormInput
             name="slug"
-            label="Category Code (fills in automatically)"
+            label="Category Code"
             placeholder="e.g. SWEETS_SNACKS"
             infoMessage="Use letters, numbers, and underscores only (e.g. SWEETS_SNACKS). No spaces or other special characters allowed."
             onFocus={() => setCodeTouched(true)}
@@ -121,19 +121,30 @@ function CategoryForm({
         </div> */}
 
         <FormInput
-            name="sortOrder"
-            label="Sort Order"
-            type="number"
-            min="0"
-            max="100"
-            step="1"
-            placeholder="0"
+          name="sortOrder"
+          label="Sort Order"
+          type="number"
+          min="0"
+          max="100"
+          step="1"
+          placeholder="0"
+          onFocus={() => {
+            if (methods.getValues("sortOrder") === 0) {
+              methods.setValue("sortOrder", "" as any);
+            }
+          }}
+          onBlur={() => {
+            const val = methods.getValues("sortOrder") as unknown;
+            if (val === "" || val === undefined || val === null) {
+              methods.setValue("sortOrder", 0 as any);
+            }
+          }}
         />
 
         <div className="flex justify-end pt-4">
           <FormSubmitButton
             isLoading={isLoading}
-            className="h-11 rounded-xl bg-[var(--color-secondary-600)] px-6 text-sm font-semibold text-white hover:bg-[var(--color-secondary-700)]"
+            className="h-11 rounded-xl bg-[var(--color-primary-500)] px-6 text-sm font-semibold text-white hover:bg-[var(--color-primary-600)]"
           >
             {submitLabel}
           </FormSubmitButton>

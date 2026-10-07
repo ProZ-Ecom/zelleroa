@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { EMAIL_MAX_LENGTH } from "@/lib/validations/email";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -23,15 +23,26 @@ import { Select } from "@/components/ui/select";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { FormModal } from "@/components/common/FormModal";
 import { Plus, Pencil, Trash2, KeyRound } from "lucide-react";
+import { z } from "zod";
 import {
   createUserSchema,
   resetPasswordSchema,
+  indiaPhoneSchema,
   type CreateUserSchemaInput,
 } from "@/features/users/validations/user.schema";
 import type { ColumnDef } from "@tanstack/react-table";
 import type { UserListItem } from "@/features/users/types";
 
 type ModalMode = "create" | "edit" | "resetPassword" | null;
+
+interface UserFormValues {
+  name: string;
+  email: string;
+  password?: string;
+  phone: string;
+  roleId?: number;
+  status?: "active" | "inactive" | "banned";
+}
 
 export default function AdminUsersPage() {
   const [modalMode, setModalMode] = useState<ModalMode>(null);
@@ -46,6 +57,33 @@ export default function AdminUsersPage() {
 
   const users = data?.data ?? [];
 
+  const userFormSchema = useMemo(() => {
+    return z.object({
+      name: z
+        .string()
+        .trim()
+        .min(3, "Full name must contain at least 3 characters")
+        .max(255, "Full name must be less than 255 characters"),
+      email: z
+        .string()
+        .trim()
+        .email("Please enter a valid email address")
+        .transform((val) => val.toLowerCase()),
+      phone: indiaPhoneSchema,
+      password: z.string().optional(),
+      roleId: z.number().int().positive("Please select a valid role").optional(),
+      status: z.enum(["active", "inactive", "banned"]).optional(),
+    }).superRefine((data, ctx) => {
+      if (modalMode === "create" && (!data.password || data.password.length < 6)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["password"],
+          message: "Password must contain at least 6 characters",
+        });
+      }
+    });
+  }, [modalMode]);
+
   const {
     register,
     handleSubmit,
@@ -53,8 +91,8 @@ export default function AdminUsersPage() {
     watch,
     setValue,
     formState: { errors },
-  } = useForm<CreateUserSchemaInput>({
-    resolver: zodResolver(createUserSchema),
+  } = useForm<UserFormValues>({
+    resolver: zodResolver(userFormSchema),
     defaultValues: {
       name: "",
       email: "",
@@ -97,7 +135,7 @@ export default function AdminUsersPage() {
     }
   }, [modalMode, selectedUser, reset]);
 
-  const onSubmit = async (formData: CreateUserSchemaInput) => {
+  const onSubmit = async (formData: UserFormValues) => {
     if (modalMode === "edit" && selectedUser) {
       try {
         const { password: _, ...updateData } = formData;
@@ -110,7 +148,7 @@ export default function AdminUsersPage() {
       }
     } else if (modalMode === "create") {
       try {
-        await createMutation.mutateAsync(formData);
+        await createMutation.mutateAsync(formData as CreateUserSchemaInput);
         toast.success("User created", `"${formData.name}" was added successfully.`);
         setModalMode(null);
         reset();
@@ -169,7 +207,11 @@ export default function AdminUsersPage() {
     {
       accessorKey: "phone",
       header: "Phone",
-      cell: ({ row }) => row.original.phone || "-",
+      cell: ({ row }) => {
+        const phone = row.original.phone;
+        if (!phone) return "-";
+        return phone.replace(/^\+91/, "");
+      },
     },
     {
       accessorKey: "roleName",
@@ -336,7 +378,7 @@ export default function AdminUsersPage() {
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Phone
+              Phone <span className="text-error-600">*</span>
             </label>
             <input
               {...register("phone")}

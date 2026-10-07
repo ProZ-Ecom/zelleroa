@@ -141,12 +141,13 @@ export async function getAdminCustomerCart(
 
 export async function updateCustomerStatus(
   uuid: string,
-  isActive: boolean
+  isActive: boolean,
+  blockReason?: string
 ): Promise<AdminCustomerDetailDto> {
   const cleanUuid = uuid.trim();
   const response = await apiClient.put<AdminCustomerDetailDto>(
     `/api/admin/customers/${encodeURIComponent(cleanUuid)}/status`,
-    { isActive }
+    isActive ? { isActive } : { isActive, blockReason }
   );
   return response.data!;
 }

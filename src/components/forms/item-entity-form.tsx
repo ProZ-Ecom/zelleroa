@@ -46,6 +46,10 @@ export const itemEntityFormSchema = z.object({
     .number({ message: "Base price is required" })
     .min(0, "Base price cannot be negative"),
   isFeatured: z.boolean(),
+  // Storefront "New" badge. Set by hand so a bulk upload doesn't flag everything.
+  isNewArrival: z.boolean().optional(),
+  // YYYY-MM-DD; blank = no expiry.
+  newArrivalUntil: z.string().optional(),
   isDefault: z.boolean().optional(),
   isActive: z.boolean(),
 });
@@ -132,6 +136,8 @@ function buildDefaults(initialData?: Partial<ItemEntityFormValues>): ItemEntityF
     description: initialData?.description || "",
     basePrice: initialData?.basePrice ?? 0,
     isFeatured: initialData?.isFeatured ?? false,
+    isNewArrival: initialData?.isNewArrival ?? false,
+    newArrivalUntil: initialData?.newArrivalUntil ?? "",
     isDefault: initialData?.isDefault ?? false,
     isActive: initialData?.isActive ?? false,
   };
@@ -224,7 +230,7 @@ function ItemEntityForm({
               <button
                 type="button"
                 onClick={() => setIsAddBrandOpen(true)}
-                className="text-xs font-semibold text-[var(--color-secondary-600)] hover:text-[var(--color-secondary-700)] cursor-pointer"
+                className="text-xs font-semibold text-[var(--color-primary-500)] hover:text-[var(--color-primary-600)] cursor-pointer"
               >
                 + Add brand
               </button>
@@ -299,6 +305,24 @@ function ItemEntityForm({
           />
         </div>
 
+        {!compact && (
+          <div className="space-y-3">
+            <FormCheckbox
+              name="isNewArrival"
+              label="New Arrival"
+              description="Shows the NEW badge on the storefront. Untick (or set an end date) to stop it."
+            />
+            {methods.watch("isNewArrival") && (
+              <FormInput
+                name="newArrivalUntil"
+                type="date"
+                label="Show as New until (optional)"
+                description="Leave blank to keep the badge until you untick it."
+              />
+            )}
+          </div>
+        )}
+
         <FormCheckbox
           name="isActive"
           label="Status: Active"
@@ -308,7 +332,7 @@ function ItemEntityForm({
         <div className="flex justify-end pt-2">
           <FormSubmitButton
             isLoading={isLoading}
-            className="h-11 rounded-xl bg-[var(--color-secondary-600)] px-6 text-sm font-semibold text-white hover:bg-[var(--color-secondary-700)]"
+            className="h-11 rounded-xl bg-[var(--color-primary-500)] px-6 text-sm font-semibold text-white hover:bg-[var(--color-primary-600)]"
           >
             {submitLabel}
           </FormSubmitButton>

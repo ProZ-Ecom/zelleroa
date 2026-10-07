@@ -10,7 +10,7 @@ export const GET = createApiHandler({
     const coupon = await couponService.getCoupon(parseInt(id));
     return apiSuccess(coupon, "Coupon fetched successfully");
   },
-});
+}, { requireAuth: true, requiredRole: ["ADMIN", "STAFF"] });
 
 export const PUT = createApiHandler(
   {

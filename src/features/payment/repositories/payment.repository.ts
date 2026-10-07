@@ -350,12 +350,14 @@ export const paymentRepository = {
   /**
    * Mark a token as used (single-use guarantee).
    */
-  async markTokenUsed(token: string): Promise<void> {
-    await db.$executeRaw`
+  async markTokenUsed(token: string): Promise<boolean> {
+    // Atomic claim: only the single request that flips is_used 0 -> 1 wins, so
+    // a double-submit cannot create two orders from one payment.
+    const affected = await db.$executeRaw`
       UPDATE \`payment_redirect_tokens\`
       SET \`is_used\` = 1
-      WHERE \`token\` = ${token}
+      WHERE \`token\` = ${token} AND \`is_used\` = 0
     `;
+    return Number(affected) > 0;
   },
 };
-

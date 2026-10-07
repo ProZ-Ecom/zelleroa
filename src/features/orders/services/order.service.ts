@@ -9,8 +9,10 @@ import { customerAddressService } from "@/features/customers/services/customer-a
 import { cartRepository } from "@/features/cart/repositories/cart.repository";
 import { generateAccessToken, generateRefreshToken } from "@/lib/auth/jwt";
 import { referralService, type ReferralAgent } from "@/features/agents/services/referral.service";
+import { customerAssignmentService } from "@/features/agents/services/customer-assignment.service";
 import { orderRepository } from "../repositories/order.repository";
 import { getShippingCharge } from "../shipping";
+import { assertMobileVerifiedForOrder } from "../lib/mobile-verification";
 import type {
   OrderDetailResponse,
   OrderListItemResponse,
@@ -50,17 +52,25 @@ export const orderService = {
      * through instead. `undefined` (the default) means "resolve from the
      * request cookie as normal"; `null` explicitly means "no referral".
      */
-    referralOverride?: ReferralAgent | null
+    referralOverride?: ReferralAgent | null,
+    /**
+     * Set ONLY by server-side code that has itself verified a gateway payment
+     * signature. The client-supplied `paymentDetails` is never trusted to mark
+     * an order paid.
+     */
+    options: { gatewayPaymentVerified?: boolean; expectedPaidAmount?: number } = {}
   ): Promise<OrderDetailResponse> {
     const user = await userRepository.findById(sessionUserId);
     if (!user || !user.internalId) {
       throw ApiError.unauthorized("User not found");
     }
     if (!user.isActive || user.is_active === false) {
-      throw ApiError.forbidden("Your account is inactive or blocked. Please contact support.");
+      throw ApiError.accountBlocked("Your account is inactive or blocked. Please contact support.");
     }
 
     const userId = user.internalId;
+
+    await assertMobileVerifiedForOrder(userId);
 
     // 1. Find active cart with active cart items
     const cart = await db.cart.findFirst({
@@ -322,7 +332,7 @@ export const orderService = {
     const paymentMethod = input.paymentMethod || "CARD";
     const isOnlinePayment = paymentMethod === "CARD" || paymentMethod === "UPI" || (paymentMethod as string) === "ONLINE" || (paymentMethod as string) === "RAZORPAY";
     // If explicitly verified through Razorpay, mark paid and confirmed; if COD, confirm order with payment pending; otherwise pending.
-    const isVerifiedPaid = input.paymentDetails?.isPaid === true || (!isOnlinePayment && input.paymentDetails?.isSimulated === true);
+    const isVerifiedPaid = options.gatewayPaymentVerified === true && isOnlinePayment;
     const paymentStatus: "paid" | "pending" = isVerifiedPaid ? "paid" : "pending";
     const orderStatus: "confirmed" | "pending" = paymentMethod === "COD" || isVerifiedPaid ? "confirmed" : "pending";
 
@@ -334,18 +344,37 @@ export const orderService = {
     const shippingCharge = getShippingCharge(shippingAddress.state, deliveryMethod);
     const totalAmount = payableBeforeShipping + shippingCharge;
 
-    // Commission attribution is per ORDER: whichever valid agent referral code is active
-    // right now gets this order. The customer's earlier orders/agents are never consulted.
+    // A verified gateway payment is only valid for the amount that was charged.
+    // If the cart or prices changed after the payment started, do not create a
+    // "paid" order for a different total.
+    if (
+      options.expectedPaidAmount !== undefined &&
+      Math.abs(totalAmount - options.expectedPaidAmount) > 0.01
+    ) {
+      console.error(
+        `[order] paid amount mismatch for user ${userId}: charged ${options.expectedPaidAmount}, order total ${totalAmount}`
+      );
+      throw ApiError.conflict(
+        "Your cart total changed after the payment was started. Please contact support with your payment reference for a refund or reorder."
+      );
+    }
+
+    // Attribution follows the customer's CURRENT agent (set by referral code or an admin transfer),
+    // frozen onto the order here. A referral code only fills an empty assignment - it never moves a
+    // customer between agents. An agent buying for themselves is an AGENT_OWN order.
     const referral =
       referralOverride !== undefined
         ? referralOverride
         : await referralService.resolveForOrder(BigInt(userId), request);
+    const attribution = await customerAssignmentService.resolveOrderAttribution(BigInt(userId), referral);
 
     // 5. Execute creation transaction
     return orderRepository.createCustomerOrderTransaction({
       userId,
-      agentId: referral?.id ?? null,
-      referralCode: referral?.referralCode ?? null,
+      agentId: attribution.agentId,
+      referralCode: attribution.referralCode,
+      orderSource: attribution.orderSource,
+      orderedById: attribution.orderedById,
       cartId: cart.id,
       subtotal,
       discountAmount: totalDiscount,
@@ -417,7 +446,7 @@ export const orderService = {
         );
       }
       if (!shadowUser.isActive) {
-        throw ApiError.forbidden("This account is inactive or blocked. Please contact support.");
+        throw ApiError.accountBlocked("This account is inactive or blocked. Please contact support.");
       }
     } else {
       await db.user.create({
@@ -487,7 +516,7 @@ export const orderService = {
       throw ApiError.unauthorized("User not found");
     }
     if (!user.isActive || user.is_active === false) {
-      throw ApiError.forbidden("Your account is inactive or blocked. Please contact support.");
+      throw ApiError.accountBlocked("Your account is inactive or blocked. Please contact support.");
     }
 
     return orderRepository.findCustomerOrders(user.internalId, query);
@@ -502,7 +531,7 @@ export const orderService = {
       throw ApiError.unauthorized("User not found");
     }
     if (!user.isActive || user.is_active === false) {
-      throw ApiError.forbidden("Your account is inactive or blocked. Please contact support.");
+      throw ApiError.accountBlocked("Your account is inactive or blocked. Please contact support.");
     }
 
     const order = await orderRepository.findCustomerOrderByUuid(
@@ -733,6 +762,7 @@ export const orderService = {
       status: newStatus,
       note: input?.note,
       changedBy: adminUser.internalId,
+      expectedStatus: expectedCurrentStatus,
     });
 
     return {

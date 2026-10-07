@@ -6,6 +6,8 @@ import { formatPrice } from "@/lib/utils";
 import type { CustomerProfileResponse } from "../../types";
 import type { OrderDetailResponse } from "@/features/orders/types";
 import { useAddToCartMutation } from "../../hooks/use-customer-cart";
+import { ProfileCompletionMeter } from "@/components/ui/ProfileCompletionMeter";
+import { calculateCustomerCompletion } from "../../lib/profile-completion";
 
 interface DashboardTabProps {
   profile?: CustomerProfileResponse | null;
@@ -104,6 +106,10 @@ export function DashboardTab({
       </div>
     );
   }
+
+  const completion = calculateCustomerCompletion(
+    profile ?? ({} as CustomerProfileResponse)
+  );
 
   // Calculate live statistics
   const totalOrdersCount = orders.length;
@@ -231,6 +237,25 @@ export function DashboardTab({
           )}
         </div>
       </div>
+
+      {/* Profile completion — derived from live profile data, refreshes when the profile query updates */}
+      {profile && (
+        <div className="bg-theme-surface border border-theme-border rounded-2xl p-4 sm:p-5 shadow-2xs">
+          <ProfileCompletionMeter
+            percent={completion.percent}
+            missing={completion.missing}
+            action={
+              <button
+                type="button"
+                onClick={() => onNavigateTab("profile")}
+                className="bg-theme-secondary hover:bg-theme-secondary-hover text-theme-secondary-fg text-xs font-semibold uppercase tracking-wider py-3 px-5 rounded-lg transition-colors cursor-pointer min-h-[44px] w-full sm:w-auto"
+              >
+                Complete Profile
+              </button>
+            }
+          />
+        </div>
+      )}
 
       {/* Quick Stats Grid */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5">

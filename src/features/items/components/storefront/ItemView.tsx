@@ -14,6 +14,7 @@ import {
   ShieldCheck,
   Share2,
   ShoppingBag,
+  Store,
   Video,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -139,7 +140,8 @@ export function ItemView({ item, returnUrl, eyebrow, brandName, className }: Ite
       },
       {
         onSuccess: () => toast.success(`${item.name} added to cart`),
-        onError: () => toast.error("Could not add this item to your cart"),
+        onError: (error) =>
+          toast.error(error?.message || "Could not add this item to your cart"),
       }
     );
   };
@@ -196,6 +198,41 @@ export function ItemView({ item, returnUrl, eyebrow, brandName, className }: Ite
               isInStock={inStock}
               isVeg={false}
               showQualitySeal={false}
+              overlayActions={
+                <>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleWishlistToggle}
+                disabled={wishlistPending}
+                aria-label={isInWishlist ? "Remove from wishlist" : "Add to wishlist"}
+                className={cn(
+                  "h-12 w-12 shrink-0 rounded-full bg-white/90 shadow-sm backdrop-blur-xs transition-colors",
+                  isInWishlist
+                    ? "border-rose-200 bg-rose-50 hover:bg-rose-100"
+                    : "hover:border-rose-200 hover:bg-rose-50"
+                )}
+              >
+                {wishlistPending ? (
+                  <Loader2 className="size-7 animate-spin" />
+                ) : (
+                  <Heart
+                    className={cn("size-7", isInWishlist && "fill-rose-500 text-rose-500")}
+                  />
+                )}
+              </Button>
+
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleShare}
+                aria-label="Share this item"
+                className="h-12 w-12 shrink-0 rounded-full bg-white/90 shadow-sm backdrop-blur-xs"
+              >
+                <Share2 className="size-7" />
+              </Button>
+                </>
+              }
             />
           </div>
         </div>
@@ -203,18 +240,17 @@ export function ItemView({ item, returnUrl, eyebrow, brandName, className }: Ite
         <div className="space-y-5 rounded-3xl border border-theme-border bg-theme-surface p-4 shadow-sm sm:p-6 lg:col-span-6">
           {/* 2. Name, with the 10. rating summary beside it */}
           <div className="space-y-2.5">
-            <div className="flex flex-wrap items-center gap-2">
-              {eyebrow && (
-                <span className="inline-flex rounded-full bg-theme-primary-light px-2.5 py-1 text-xs font-bold uppercase tracking-wide text-theme-primary">
-                  {eyebrow}
-                </span>
-              )}
-              {brandName && (
-                <span className="text-xs font-semibold uppercase tracking-wide text-theme-text-subtle">
-                  {brandName}
-                </span>
-              )}
-            </div>
+            {eyebrow && (
+              <p className="text-xs font-medium uppercase tracking-wide text-theme-text-subtle">
+                {eyebrow}
+              </p>
+            )}
+            {brandName && (
+              <p className="flex items-center gap-1.5 text-sm text-theme-text-subtle">
+                <Store aria-label="Brand" className="h-4 w-4 text-theme-primary" />
+                <span className="font-bold text-theme-primary">{brandName}</span>
+              </p>
+            )}
             <h1 className="text-xl font-bold leading-tight tracking-tight text-theme-text-primary sm:text-2xl">
               {item.name}
             </h1>
@@ -264,13 +300,6 @@ export function ItemView({ item, returnUrl, eyebrow, brandName, className }: Ite
               onSelect={selectSize}
             />
           )}
-
-          {/* 6. Extra attributes */}
-          <ItemAttributeFacts
-            item={item}
-            selectedColor={selectedColor}
-            selectedSize={selectedSize}
-          />
 
           {/* 9. Quantity and add to cart */}
           <div className="space-y-3">
@@ -342,38 +371,6 @@ export function ItemView({ item, returnUrl, eyebrow, brandName, className }: Ite
                   </>
                 )}
               </Button>
-
-              <Button
-                type="button"
-                variant="outline"
-                onClick={handleWishlistToggle}
-                disabled={wishlistPending}
-                aria-label={isInWishlist ? "Remove from wishlist" : "Add to wishlist"}
-                className={cn(
-                  "h-12 w-12 shrink-0 rounded-xl shadow-sm transition-colors",
-                  isInWishlist
-                    ? "border-rose-200 bg-rose-50 hover:bg-rose-100"
-                    : "hover:border-rose-200 hover:bg-rose-50"
-                )}
-              >
-                {wishlistPending ? (
-                  <Loader2 className="h-6 w-6 animate-spin" />
-                ) : (
-                  <Heart
-                    className={cn("h-6 w-6", isInWishlist && "fill-rose-500 text-rose-500")}
-                  />
-                )}
-              </Button>
-
-              <Button
-                type="button"
-                variant="outline"
-                onClick={handleShare}
-                aria-label="Share this item"
-                className="h-12 w-12 shrink-0 rounded-xl shadow-sm"
-              >
-                <Share2 className="h-6 w-6" />
-              </Button>
             </div>
 
             {/* Reassurance under the buy button */}
@@ -393,6 +390,14 @@ export function ItemView({ item, returnUrl, eyebrow, brandName, className }: Ite
               ))}
             </ul>
           </div>
+
+          {/* 6. Extra attributes - below the buy buttons so they don't push
+              Add to cart down the page. */}
+          <ItemAttributeFacts
+            item={item}
+            selectedColor={selectedColor}
+            selectedSize={selectedSize}
+          />
         </div>
       </div>
 

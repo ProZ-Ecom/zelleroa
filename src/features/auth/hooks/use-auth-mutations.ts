@@ -108,7 +108,7 @@ export function useRefreshToken() {
 const AUTH_STORAGE_KEY_PATTERN =
   /token|jwt|next-?auth|authjs|pending_registration|fp_verification_email/i;
 
-function clearAuthStorage() {
+export function clearAuthStorage() {
   for (const store of [window.localStorage, window.sessionStorage]) {
     try {
       Object.keys(store)

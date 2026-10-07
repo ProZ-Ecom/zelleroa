@@ -160,7 +160,7 @@ async function resolveInternalUserId(sessionUserId: string): Promise<bigint> {
     throw ApiError.unauthorized("Please login to access your cart");
   }
   if (!user.isActive || user.is_active === false) {
-    throw ApiError.forbidden("Your account is inactive or blocked. Please contact support.");
+    throw ApiError.accountBlocked("Your account is inactive or blocked. Please contact support.");
   }
   return BigInt(user.internalId);
 }

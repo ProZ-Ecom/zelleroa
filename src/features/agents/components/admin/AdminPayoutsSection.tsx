@@ -6,6 +6,7 @@ import { Loader2 } from "lucide-react";
 import { apiClient } from "@/lib/api/api-client";
 import { Modal } from "@/components/ui/modal";
 import { toast } from "@/components/ui/Toast";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import type { PayoutRow } from "../../types";
 import { errorMessage, useAdminList } from "../../hooks/use-admin-agents";
 import { ButtonPager, PAYOUT_STATUS_OPTIONS, Panel, SimpleTable, StatusBadge, TableSkeleton, dateOnly, fieldCls, money } from "../shared";
@@ -42,6 +43,7 @@ export function AdminPayoutsSection({ fixedAgent }: { fixedAgent?: string }) {
   const { data, isLoading, error } = useAdminList<PayoutRow>("payouts", "/api/admin/agent-payouts", params);
 
   const refresh = () => qc.invalidateQueries({ queryKey: ["agents-admin"] });
+  const [confirmApprove, setConfirmApprove] = useState<PayoutRow | null>(null);
 
   const approve = async (p: PayoutRow) => {
     setBusyId(p.id);
@@ -108,7 +110,7 @@ export function AdminPayoutsSection({ fixedAgent }: { fixedAgent?: string }) {
                 cell: (r) => (
                   <div className="flex flex-wrap items-center gap-1.5">
                     {r.status === "requested" && (
-                      <button type="button" disabled={busyId === r.id} onClick={() => approve(r)} className={`${btn} bg-emerald-600 text-white hover:bg-emerald-700`}>
+                      <button type="button" disabled={busyId === r.id} onClick={() => setConfirmApprove(r)} className={`${btn} bg-emerald-600 text-white hover:bg-emerald-700`}>
                         {busyId === r.id ? "…" : "Approve"}
                       </button>
                     )}
@@ -139,6 +141,19 @@ export function AdminPayoutsSection({ fixedAgent }: { fixedAgent?: string }) {
         </>
       )}
 
+      <ConfirmDialog
+        open={confirmApprove !== null}
+        onClose={() => setConfirmApprove(null)}
+        onConfirm={() => {
+          const p = confirmApprove;
+          setConfirmApprove(null);
+          if (p) void approve(p);
+        }}
+        variant="default"
+        title="Approve this payout?"
+        description={`Approve the payout request${confirmApprove ? ` of ${money(confirmApprove.amount)}` : ""}. You still need to transfer the money and mark it as paid.`}
+        confirmText="Approve payout"
+      />
       <RejectDialog dialog={dialog} onClose={() => setDialog(null)} onDone={refresh} />
       <PaidDialog dialog={dialog} onClose={() => setDialog(null)} onDone={refresh} />
       <DetailsDialog dialog={dialog} onClose={() => setDialog(null)} />

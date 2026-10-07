@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-export const headerMenuGenderEnum = z.enum(["men", "women", "kids", "unisex"]);
+export const headerMenuGenderEnum = z.enum(["men", "women", "kids", "unisex", "not_applicable"]);
 export type HeaderMenuGender = z.infer<typeof headerMenuGenderEnum>;
 
 export const createAdminHeaderMenuItemSchema = z

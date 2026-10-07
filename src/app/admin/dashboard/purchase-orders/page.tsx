@@ -40,7 +40,7 @@ export default function PurchaseOrdersPage() {
       cell: ({ row }) => (
         <Link
           href={`/admin/dashboard/purchase-orders/${row.original.id}`}
-          className="font-semibold text-[var(--color-secondary-700)] hover:underline"
+          className="font-semibold text-[var(--color-primary-600)] hover:underline"
         >
           {row.original.poNumber}
         </Link>
@@ -151,7 +151,7 @@ export default function PurchaseOrdersPage() {
             </Button>
             <Button
               onClick={() => router.push("/admin/dashboard/purchase-orders/confirm")}
-              className="h-11 rounded-xl bg-[var(--color-secondary-600)] px-5 text-sm font-semibold text-white hover:bg-[var(--color-secondary-700)]"
+              className="h-11 rounded-xl bg-[var(--color-primary-500)] px-5 text-sm font-semibold text-white hover:bg-[var(--color-primary-600)]"
             >
               <Plus className="mr-2 h-4 w-4" />
               Create Purchase

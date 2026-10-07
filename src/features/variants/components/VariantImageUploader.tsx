@@ -476,7 +476,7 @@ export function VariantImageUploader({
                     onClick={() => setPrimaryPendingImage(img.id)}
                     className={`absolute bottom-1.5 left-1.5 right-1.5 py-1 px-2 rounded-lg text-[10px] font-medium transition-colors flex items-center justify-center gap-1 ${
                       img.isPrimary
-                        ? "bg-[var(--color-secondary-600)] text-white shadow"
+                        ? "bg-[var(--color-primary-500)] text-white shadow"
                         : "bg-black/60 text-white hover:bg-black/80"
                     }`}
                   >
@@ -549,7 +549,7 @@ export function VariantImageUploader({
               type="button"
               onClick={handleUploadAndSave}
               isLoading={isUploading}
-              className="h-11 rounded-xl bg-[var(--color-secondary-600)] px-6 text-sm font-semibold text-white hover:bg-[var(--color-secondary-700)]"
+              className="h-11 rounded-xl bg-[var(--color-primary-500)] px-6 text-sm font-semibold text-white hover:bg-[var(--color-primary-600)]"
             >
               {pendingImages.length > 0 ? "Upload & Finish" : "Finish"}
             </Button>
@@ -561,7 +561,7 @@ export function VariantImageUploader({
               onClick={handleUploadAndSave}
               isLoading={isUploading}
               disabled={pendingImages.length === 0}
-              className="h-11 rounded-xl bg-[var(--color-secondary-600)] px-6 text-sm font-semibold text-white hover:bg-[var(--color-secondary-700)]"
+              className="h-11 rounded-xl bg-[var(--color-primary-500)] px-6 text-sm font-semibold text-white hover:bg-[var(--color-primary-600)]"
             >
               Upload Images
             </Button>

@@ -12,6 +12,7 @@ import { FormSwitch } from "@/components/forms/FormSwitch";
 import { FormSubmitButton } from "@/components/forms/form-submit-button";
 import { FormImageUpload } from "@/components/forms/form-image-upload";
 import { FormVideoUrl } from "@/components/forms/form-video-url";
+import { useOffers } from "@/features/offers/hooks";
 import { isValidVideoUrl } from "@/lib/utils/video-url.util";
 import {
   BANNER_IMAGE_ACCEPT_LABEL,
@@ -43,6 +44,8 @@ const bannerFormSchema = z
       .max(500, "Link URL cannot exceed 500 characters")
       .optional()
       .nullable(),
+    // Public offer UUID, or "none" when the banner isn't tied to an offer.
+    offerId: z.string().optional().nullable(),
     badgeLabel: z
       .string()
       .trim()
@@ -127,6 +130,7 @@ export interface BannerFormPayload {
   imageUrl: string;
   videoUrl: string | null;
   linkUrl: string | null;
+  offerId: string | null;
   badgeLabel: string | null;
   subtitle: string | null;
   priceText: string | null;
@@ -146,6 +150,8 @@ interface BannerFormProps {
   isLoading?: boolean;
   submitLabel?: string;
 }
+
+const NO_OFFER = "none";
 
 function formatDateForInput(dateValue: unknown): string {
   if (!dateValue) return "";
@@ -194,6 +200,7 @@ export function BannerForm({
       imageUrl: initialData?.imageUrl ?? "",
       videoUrl: initialData?.videoUrl ?? "",
       linkUrl: initialData?.linkUrl ?? "",
+      offerId: initialData?.offerId ?? NO_OFFER,
       badgeLabel: initialData?.badgeLabel ?? "",
       subtitle: initialData?.subtitle ?? "",
       priceText: initialData?.priceText ?? "",
@@ -214,6 +221,29 @@ export function BannerForm({
 
   const { control, setValue, reset, formState } = methods;
   const selectedPositionId = useWatch({ control, name: "bannerPositionId" });
+  const selectedOfferId = useWatch({ control, name: "offerId" });
+  const hasOffer = Boolean(selectedOfferId) && selectedOfferId !== NO_OFFER;
+
+  // Only running or upcoming offers can usefully be promoted by a banner.
+  const { data: offersData } = useOffers({ limit: 100, sortBy: "endsAt", sortOrder: "asc" });
+  const offerOptions = React.useMemo(() => {
+    const live = (offersData?.data ?? []).filter(
+      (offer) => offer.status === "active" || offer.status === "scheduled"
+    );
+    // Keep the saved offer selectable even if it has since ended.
+    const saved = initialData?.offerId;
+    const rows = live.map((offer) => ({
+      value: offer.id,
+      label: offer.endsAt
+        ? `${offer.name} (ends ${new Date(offer.endsAt).toLocaleDateString()})`
+        : offer.name,
+    }));
+    if (saved && !rows.some((row) => row.value === saved)) {
+      const ended = offersData?.data.find((offer) => offer.id === saved);
+      rows.push({ value: saved, label: `${ended?.name ?? "Selected offer"} (not running)` });
+    }
+    return [{ value: NO_OFFER, label: "No offer - use a custom link" }, ...rows];
+  }, [offersData, initialData?.offerId]);
   const isActive = useWatch({ control, name: "isActive" });
 
   const selectedSlug = React.useMemo(
@@ -288,7 +318,8 @@ export function BannerForm({
       // banner is preserved rather than silently wiped on save.
       imageUrl: trimmedImageUrl,
       videoUrl: isVideo && trimmedVideoUrl ? trimmedVideoUrl : null,
-      linkUrl: values.linkUrl?.trim() || null,
+      linkUrl: values.offerId && values.offerId !== NO_OFFER ? null : values.linkUrl?.trim() || null,
+      offerId: values.offerId && values.offerId !== NO_OFFER ? values.offerId : null,
       badgeLabel: typeConfig.hasCard ? values.badgeLabel?.trim() || null : null,
       subtitle: typeConfig.hasCard ? values.subtitle?.trim() || null : null,
       priceText: typeConfig.hasCard ? values.priceText?.trim() || null : null,
@@ -301,6 +332,19 @@ export function BannerForm({
         ? new Date(values.endsAt).toISOString()
         : null,
     });
+  };
+
+  const handleFormError = (errors: Record<string, any>) => {
+    const firstKey = Object.keys(errors)[0];
+    if (firstKey && typeof document !== "undefined") {
+      const el =
+        document.querySelector(`[name="${firstKey}"]`) ||
+        document.getElementById(firstKey);
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "center" });
+        if ("focus" in el) (el as HTMLElement).focus();
+      }
+    }
   };
 
   const hasType = Boolean(selectedPositionId);
@@ -318,7 +362,7 @@ export function BannerForm({
   return (
     <FormProvider {...methods}>
       <form
-        onSubmit={methods.handleSubmit(handleFormSubmit)}
+        onSubmit={methods.handleSubmit(handleFormSubmit, handleFormError)}
         className="space-y-5"
         noValidate
       >
@@ -350,13 +394,24 @@ export function BannerForm({
               maxLength={150}
             />
 
-            <FormInput
-              name="linkUrl"
-              label="Link URL"
-              placeholder="e.g. /products"
-              description="Where shoppers go when they click this banner. Optional."
-              maxLength={500}
+            <FormSelect
+              name="offerId"
+              label="When shoppers click this banner"
+              placeholder="Select an offer"
+              options={offerOptions}
+              searchable
+              description="Pick an offer and shoppers see every product on that offer. No link to type."
             />
+
+            {!hasOffer && (
+              <FormInput
+                name="linkUrl"
+                label="Custom Link URL"
+                placeholder="e.g. /products"
+                description="Where shoppers go when they click this banner. Optional."
+                maxLength={500}
+              />
+            )}
           </div>
 
           {typeConfig.hasCard && (

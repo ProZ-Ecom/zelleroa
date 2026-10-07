@@ -347,16 +347,37 @@ export function formatCourierShipment(
   };
 }
 
-export function formatOrderDetail(
-  order: Prisma.OrderGetPayload<{ include: typeof orderDetailInclude }>
-): OrderDetailResponse {
-  const customer = {
+/** An agent-keyed order for a non-registered buyer shows the buyer's own details, not the agent's. */
+function formatOrderCustomer(order: {
+  userId: bigint;
+  is_manual_customer: boolean;
+  manual_customer_name: string | null;
+  manual_customer_phone: string | null;
+  manual_customer_email: string | null;
+  user?: { uuid: string | null; cust_id: string | null; name: string; email: string | null; phone: string | null } | null;
+}) {
+  if (order.is_manual_customer) {
+    return {
+      id: `manual-${order.userId}`,
+      customerId: null,
+      name: order.manual_customer_name || "Walk-in customer",
+      email: order.manual_customer_email,
+      phone: order.manual_customer_phone,
+    };
+  }
+  return {
     id: order.user?.uuid || String(order.userId),
     customerId: order.user?.cust_id ?? null,
     name: order.user?.name || "",
     email: order.user?.email ?? null,
     phone: order.user?.phone ?? null,
   };
+}
+
+export function formatOrderDetail(
+  order: Prisma.OrderGetPayload<{ include: typeof orderDetailInclude }>
+): OrderDetailResponse {
+  const customer = formatOrderCustomer(order);
 
   const items = (order.items || []).map(formatOrderItem);
   const totalItems = items.reduce((sum, item) => sum + item.quantity, 0);
@@ -477,13 +498,7 @@ export function formatOrderListItem(
     };
   }>
 ): OrderListItemResponse {
-  const customer = {
-    id: order.user?.uuid || String(order.userId),
-    customerId: order.user?.cust_id ?? null,
-    name: order.user?.name || "",
-    email: order.user?.email ?? null,
-    phone: order.user?.phone ?? null,
-  };
+  const customer = formatOrderCustomer(order);
 
   const totalItems = (order.items || []).reduce(
     (sum, item) => sum + item.quantity,
@@ -546,6 +561,11 @@ export const orderRepository = {
         referral_code: true,
         commission_percentage: true,
         commission_amount: true,
+        order_source: true,
+        is_manual_customer: true,
+        manual_customer_name: true,
+        manual_customer_phone: true,
+        ordered_by: { select: { name: true } },
         agent: { select: { name: true, agent_profile: { select: { agent_code: true } } } },
         commissions: { select: { status: true, commission_amount: true, product_amount: true } },
       },
@@ -556,6 +576,11 @@ export const orderRepository = {
     const total = order.commissions.reduce((sum, c) => sum + Number(c.commission_amount), 0);
     const base = order.commissions.reduce((sum, c) => sum + Number(c.product_amount), 0);
     return {
+      orderSource: order.order_source,
+      orderedByName: order.ordered_by?.name ?? null,
+      manualCustomer: order.is_manual_customer
+        ? { name: order.manual_customer_name ?? "", phone: order.manual_customer_phone ?? null }
+        : null,
       referralCode: order.referral_code,
       agentName: order.agent.name,
       agentCode: order.agent.agent_profile?.agent_code ?? null,
@@ -574,7 +599,13 @@ export const orderRepository = {
     userId: bigint;
     agentId?: bigint | null;
     referralCode?: string | null;
-    cartId: bigint;
+    orderSource?: "CUSTOMER_DIRECT" | "AGENT_PLACED_FOR_CUSTOMER" | "AGENT_OWN";
+    /** Who physically placed the order (agent for agent-placed/own orders). Defaults to the customer. */
+    orderedById?: bigint | null;
+    /** Agent-placed order for a buyer with no account: `userId` is then the agent, details below the customer. */
+    manualCustomer?: { name: string; phone: string; email?: string | null } | null;
+    /** Absent for agent-placed orders, which are built from explicit lines instead of a cart. */
+    cartId?: bigint | null;
     subtotal: number;
     discountAmount?: number;
     shippingCharge?: number;
@@ -629,8 +660,30 @@ export const orderRepository = {
     }>;
   }): Promise<OrderDetailResponse> {
     return db.$transaction(async (tx) => {
-      const orderNumber = await generateUniqueOrderNumber(tx);
       const now = new Date();
+      const actorId = params.orderedById ?? params.userId;
+
+      // 0. Claim the cart atomically. Two concurrent submits (double-click, two
+      // tabs, retry) both read the same active cart; only the one that flips it
+      // to "converted" may go on to create an order. The loser updates 0 rows.
+      if (params.cartId) {
+        const claimedCart = await tx.cart.updateMany({
+          where: { id: params.cartId, status: "active" },
+          data: {
+            status: "converted",
+            last_activity_at: now,
+            updatedAt: now,
+            updated_by: params.userId,
+          },
+        });
+        if (claimedCart.count !== 1) {
+          throw ApiError.conflict(
+            "This order has already been placed or your cart changed. Please check your orders."
+          );
+        }
+      }
+
+      const orderNumber = await generateUniqueOrderNumber(tx);
 
       // 1. Create Order
       const createdOrder = await tx.order.create({
@@ -640,7 +693,13 @@ export const orderRepository = {
           userId: params.userId,
           agent_id: params.agentId ?? null,
           referral_code: params.agentId ? (params.referralCode ?? null) : null,
-          cart_id: params.cartId,
+          order_source: params.orderSource ?? "CUSTOMER_DIRECT",
+          ordered_by_id: actorId,
+          is_manual_customer: Boolean(params.manualCustomer),
+          manual_customer_name: params.manualCustomer?.name ?? null,
+          manual_customer_phone: params.manualCustomer?.phone ?? null,
+          manual_customer_email: params.manualCustomer?.email ?? null,
+          cart_id: params.cartId ?? null,
           couponId: params.coupon?.id ?? null,
           order_status: (params.orderStatus ?? "pending") as any,
           payment_status: (params.paymentStatus ?? "pending") as any,
@@ -652,14 +711,14 @@ export const orderRepository = {
           notes: params.notes ?? null,
           placed_at: now,
           is_active: true,
-          created_by: params.userId,
-          updated_by: params.userId,
+          created_by: actorId,
+          updated_by: actorId,
         },
       });
 
       // Convert this cart's stock holds into confirmed holds against the
       // order, before the exact-quantity decrement below.
-      await reservationService.confirmCart(tx, params.cartId, createdOrder.id);
+      if (params.cartId) await reservationService.confirmCart(tx, params.cartId, createdOrder.id);
 
       if (params.coupon) {
         await tx.coupon_usage.create({
@@ -771,38 +830,34 @@ export const orderRepository = {
           status: (params.orderStatus ?? "pending") as any,
           note:
             params.notes ||
-            (params.paymentStatus === "paid"
+            (params.orderSource === "AGENT_PLACED_FOR_CUSTOMER"
+              ? "Order placed by Sales Partner on behalf of the customer"
+              : params.orderSource === "AGENT_OWN"
+                ? "Order placed by Sales Partner for themselves"
+                : params.paymentStatus === "paid"
               ? `Order confirmed with payment via ${params.paymentMethod ?? "CARD"}`
               : "Order placed by customer"),
-          changed_by: params.userId,
+          changed_by: actorId,
           is_active: true,
-          created_by: params.userId,
-          updated_by: params.userId,
+          created_by: actorId,
+          updated_by: actorId,
         },
       });
 
-      // 5. Convert Cart & Deactivate Items
-      await tx.cart.update({
-        where: { id: params.cartId },
-        data: {
-          status: "converted",
-          last_activity_at: now,
-          updatedAt: now,
-          updated_by: params.userId,
-        },
-      });
-
-      await tx.cartItem.updateMany({
-        where: {
-          cartId: params.cartId,
-          is_active: true,
-        },
-        data: {
-          is_active: false,
-          updatedAt: now,
-          updated_by: params.userId,
-        },
-      });
+      // 5. Deactivate cart items (the cart itself was claimed in step 0)
+      if (params.cartId) {
+        await tx.cartItem.updateMany({
+          where: {
+            cartId: params.cartId,
+            is_active: true,
+          },
+          data: {
+            is_active: false,
+            updatedAt: now,
+            updated_by: params.userId,
+          },
+        });
+      }
 
       // 6. Fetch created full order
       const fullOrder = await tx.order.findUniqueOrThrow({
@@ -822,9 +877,11 @@ export const orderRepository = {
     const limit =
       Number((params as any).limit ?? params.pageSize ?? 20) || 20;
 
+    // Orders an agent keyed in for someone with no account sit under the agent's userId but are not theirs.
     const where: Prisma.OrderWhereInput = {
       userId,
       is_active: true,
+      is_manual_customer: false,
     };
 
     // 1. Resolve requested status(es) flexibly (single string, array, or nested filters)
@@ -966,6 +1023,7 @@ export const orderRepository = {
       where: {
         userId,
         is_active: true,
+        is_manual_customer: false,
         OR: [
           { uuid },
           { orderNumber: uuid },
@@ -1367,12 +1425,21 @@ export const orderRepository = {
     status: string;
     note?: string;
     changedBy: bigint;
+    /** When set, the update only applies if the order is still in this status. */
+    expectedStatus?: string;
   }): Promise<OrderDetailResponse> {
     return db.$transaction(async (tx) => {
       const now = new Date();
 
-      await tx.order.update({
-        where: { id: params.orderId },
+      // Conditional update = atomic claim: a concurrent transition that got
+      // there first updates 0 rows here, before any history/commission write.
+      const claimed = await tx.order.updateMany({
+        where: {
+          id: params.orderId,
+          ...(params.expectedStatus
+            ? { order_status: params.expectedStatus as any }
+            : {}),
+        },
         data: {
           order_status: params.status as any,
           ...(params.status === "delivered" ? { delivered_at: now } : {}),
@@ -1380,6 +1447,11 @@ export const orderRepository = {
           updated_by: params.changedBy,
         },
       });
+      if (claimed.count !== 1) {
+        throw ApiError.conflict(
+          "Order status has changed. Please refresh and try again."
+        );
+      }
       await syncCommissionsWithOrderStatus(tx, params.orderId, params.status, { id: params.changedBy, role: "USER" });
 
       await tx.order_status_history.create({

@@ -7,12 +7,14 @@ import { Check, Copy, Pencil } from "lucide-react";
 import { apiClient } from "@/lib/api/api-client";
 import { toast } from "@/components/ui/Toast";
 import { PageContainer } from "@/components/admin/PageContainer";
+import { BlockReasonDialog } from "@/components/ui/block-reason-dialog";
 import type { AgentDto } from "@/features/agents/services/agent.service";
 import { errorMessage, useAdminObject } from "@/features/agents/hooks/use-admin-agents";
 import { AgentFormModal } from "@/features/agents/components/admin/AgentFormModal";
 import { AdminCommissionsSection } from "@/features/agents/components/admin/AdminCommissionsSection";
 import { AdminOwnPurchasesSection } from "@/features/agents/components/admin/AdminOwnPurchasesSection";
 import { AdminProfileSection } from "@/features/agents/components/admin/AdminProfileSection";
+import { AdminAssignedCustomersSection } from "@/features/agents/components/admin/AdminAssignedCustomersSection";
 import { AdminOrdersSection } from "@/features/agents/components/admin/AdminOrdersSection";
 import { AdminPayoutsSection } from "@/features/agents/components/admin/AdminPayoutsSection";
 import { ReferralFlow } from "@/features/agents/components/ReferralFlow";
@@ -20,6 +22,7 @@ import { MetricCard, Panel, StatusBadge, dateOnly, money } from "@/features/agen
 
 const TABS = [
   { key: "profile", label: "Profile & KYC" },
+  { key: "customers", label: "Assigned customers" },
   { key: "orders", label: "Referral orders" },
   { key: "purchases", label: "Own purchases" },
   { key: "commissions", label: "Commissions" },
@@ -35,14 +38,21 @@ export default function AdminAgentDetailPage() {
 
   const { data: agent, isLoading, error } = useAdminObject<AgentDto>("agent", `/api/admin/agents/${id}`);
 
-  const toggleActive = async () => {
+  const [blockOpen, setBlockOpen] = useState(false);
+  const [blocking, setBlocking] = useState(false);
+
+  const toggleActive = async (blockReason?: string) => {
     if (!agent) return;
+    setBlocking(true);
     try {
-      await apiClient.put(`/api/admin/agents/${agent.id}`, { isActive: !agent.isActive });
-      toast.success(agent.isActive ? "Sales Partner deactivated" : "Sales Partner activated");
+      await apiClient.put(`/api/admin/agents/${agent.id}`, agent.isActive ? { isActive: false, blockReason } : { isActive: true });
+      toast.success(agent.isActive ? "Sales Partner blocked" : "Sales Partner unblocked");
       await qc.invalidateQueries({ queryKey: ["agents-admin"] });
     } catch (err) {
       toast.error("Could not update the Sales Partner", errorMessage(err));
+    } finally {
+      setBlocking(false);
+      setBlockOpen(false);
     }
   };
 
@@ -70,10 +80,10 @@ export default function AdminAgentDetailPage() {
             </button>
             <button
               type="button"
-              onClick={toggleActive}
+              onClick={() => (agent.isActive ? setBlockOpen(true) : toggleActive())}
               className={`h-10 rounded-xl px-4 text-sm font-semibold ${agent.isActive ? "border border-red-200 text-red-700 hover:bg-red-50" : "bg-emerald-600 text-white hover:bg-emerald-700"}`}
             >
-              {agent.isActive ? "Deactivate" : "Activate"}
+              {agent.isActive ? "Block" : "Unblock"}
             </button>
           </>
         )
@@ -86,15 +96,31 @@ export default function AdminAgentDetailPage() {
       ) : (
         <div className="flex flex-col gap-5">
           <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-            <MetricCard label="Customers" value={agent.summary.totalReferredCustomers} />
+            <MetricCard label="Assigned customers" value={agent.summary.totalReferredCustomers} />
+            <MetricCard label="Active assigned customers" value={agent.summary.activeCustomers} />
             <MetricCard label="Orders" value={agent.summary.totalOrders} />
+            <MetricCard label="Customer direct orders" value={agent.summary.customerDirectOrders} />
+            <MetricCard label="Agent placed orders" value={agent.summary.agentPlacedOrders} />
+            <MetricCard label="Agent own orders" value={agent.summary.agentOwnOrders} />
             <MetricCard label="Total sales" value={money(agent.summary.totalSales)} />
             <MetricCard label="Total commission" value={money(agent.summary.totalCommission)} />
             <MetricCard label="Pending" value={money(agent.summary.pendingCommission)} tone="warn" />
             <MetricCard label="Approved" value={money(agent.summary.approvedCommission)} tone="good" />
             <MetricCard label="Paid" value={money(agent.summary.paidCommission)} tone="good" />
+            <MetricCard label="Cancelled" value={money(agent.summary.cancelledCommission)} />
             <MetricCard label="Open payout requests" value={agent.summary.openPayouts} />
           </div>
+
+          {!agent.isActive && agent.summary.totalReferredCustomers > 0 && (
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+              <span>
+                Blocked, but still holds <strong>{agent.summary.totalReferredCustomers}</strong> assigned customer(s). Move them to an active Sales Partner.
+              </span>
+              <button type="button" onClick={() => setTab("customers")} className="rounded-lg bg-amber-600 px-3 py-1.5 font-semibold text-white hover:bg-amber-700">
+                View &amp; reassign
+              </button>
+            </div>
+          )}
 
           <Panel title="Profile & referral">
             <div className="grid gap-4 p-4 sm:p-5 lg:grid-cols-2">
@@ -115,9 +141,17 @@ export default function AdminAgentDetailPage() {
                 <div>
                   <dt className="text-xs text-neutral-500">Status</dt>
                   <dd>
-                    <StatusBadge status={agent.isActive ? "active" : "inactive"} />
+                    <StatusBadge status={agent.isActive ? "active" : "blocked"} />
                   </dd>
                 </div>
+                {!agent.isActive && (
+                  <div className="col-span-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2">
+                    <dt className="text-xs font-semibold text-red-700">
+                      Block reason{agent.blockedAt ? ` · blocked on ${dateOnly(agent.blockedAt)}` : ""}
+                    </dt>
+                    <dd className="break-words text-sm text-red-900">{agent.blockReason ?? "No reason recorded"}</dd>
+                  </div>
+                )}
                 {agent.notes && (
                   <div className="col-span-2">
                     <dt className="text-xs text-neutral-500">Notes</dt>
@@ -157,6 +191,7 @@ export default function AdminAgentDetailPage() {
           </div>
 
           {tab === "profile" && <AdminProfileSection agentId={agent.id} />}
+          {tab === "customers" && <AdminAssignedCustomersSection agentId={agent.id} agentActive={agent.isActive} />}
           {tab === "purchases" && <AdminOwnPurchasesSection agentId={agent.id} />}
           {tab === "orders" && <AdminOrdersSection fixedAgent={agent.id} />}
           {tab === "commissions" && <AdminCommissionsSection fixedAgent={agent.id} allowApprove={false} />}
@@ -164,6 +199,14 @@ export default function AdminAgentDetailPage() {
         </div>
       )}
 
+      <BlockReasonDialog
+        open={blockOpen}
+        subject="Agent"
+        name={agent?.name}
+        isLoading={blocking}
+        onClose={() => setBlockOpen(false)}
+        onConfirm={(reason) => toggleActive(reason)}
+      />
       <AgentFormModal
         open={editing}
         onClose={() => setEditing(false)}

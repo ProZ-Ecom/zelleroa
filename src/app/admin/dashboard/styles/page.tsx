@@ -234,7 +234,7 @@ export default function AdminStylesPage() {
 
             <Button
               onClick={() => setIsAddOpen(true)}
-              className="h-11 rounded-xl bg-[var(--color-secondary-600)] px-5 text-sm font-semibold text-white hover:bg-[var(--color-secondary-700)]"
+              className="h-11 rounded-xl bg-[var(--color-primary-500)] px-5 text-sm font-semibold text-white hover:bg-[var(--color-primary-600)]"
             >
               <Plus className="mr-2 h-4 w-4" />
               Add Item
@@ -305,7 +305,6 @@ export default function AdminStylesPage() {
 
           {addProductUuid && (
             <StyleForm
-              defaultBrandId={products.find((p) => p.id === addProductUuid)?.brandId ?? null}
               isLoading={createStyleMutation.isPending}
               submitLabel="Create Item"
               onSubmit={async (formData: StyleFormValues) => {
@@ -326,6 +325,8 @@ export default function AdminStylesPage() {
                       vegType: "na",
                       basePrice: formData.basePrice ?? 0,
                       isFeatured: formData.isFeatured,
+                      isNewArrival: formData.isNewArrival ?? false,
+                      newArrivalUntil: formData.isNewArrival ? formData.newArrivalUntil || null : null,
                       isDefault: formData.isDefault ?? false,
                       isActive: formData.isActive,
                     },
@@ -364,6 +365,8 @@ export default function AdminStylesPage() {
               cookingRecipe: editingStyle.cookingRecipe || "",
               basePrice: editingStyle.basePrice ?? 0,
               isFeatured: editingStyle.isFeatured,
+              isNewArrival: editingStyle.isNewArrival,
+              newArrivalUntil: editingStyle.newArrivalUntil ?? "",
               isDefault: editingStyle.isDefault,
               isActive: editingStyle.isActive,
             }}
@@ -389,6 +392,8 @@ export default function AdminStylesPage() {
                     vegType: editingStyle.vegType || "na",
                     basePrice: formData.basePrice ?? 0,
                     isFeatured: formData.isFeatured,
+                    isNewArrival: formData.isNewArrival ?? false,
+                    newArrivalUntil: formData.isNewArrival ? formData.newArrivalUntil || null : null,
                     isDefault: formData.isDefault ?? false,
                     isActive: formData.isActive,
                   },

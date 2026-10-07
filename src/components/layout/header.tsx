@@ -3,18 +3,22 @@
 import * as React from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { useRouter, usePathname } from "next/navigation";
+import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
-import { LogIn, Search, Heart, ShoppingCart } from "lucide-react";
-import { LOGOS, ICONS, mobileBottomIcons } from "@/constants/storefront";
+import { LogIn, Search, Heart, ShoppingCart, Menu } from "lucide-react";
+import { LOGOS, mobileBottomIcons } from "@/constants/storefront";
 import { NavButton } from "@/components/storefront/buttons/NavButton";
 import { IconButton } from "@/components/storefront/buttons/IconButton";
 import { getRoleHome } from "@/lib/auth/role-routes";
 import { useClickOutside } from "@/hooks/useClickOutside";
+import { useRecentSearches } from "@/hooks/use-recent-searches";
+import { SearchDropdown } from "@/components/storefront/search/SearchDropdown";
 import { getInitials } from "@/lib/utils";
 import { useCustomerWishlistCount } from "@/features/customers/hooks/use-customer-wishlist";
 import { useCustomerCartCount } from "@/features/customers/hooks/use-customer-cart";
 import { useCustomerProfile } from "@/features/customers/hooks/use-customer-profile";
+import { calculateCustomerCompletion } from "@/features/customers/lib/profile-completion";
+import { ProfileAvatarRing } from "@/components/ui/ProfileAvatarRing";
 import { useHeaderMenu } from "@/features/header-menu/hooks";
 import { categoryHref } from "@/features/customers/utils/catalog-listing-query";
 import type { CategoryTreeNode } from "@/features/categories/types";
@@ -31,7 +35,16 @@ function isInCategoryTree(node: CategoryTreeNode, pathname: string): boolean {
 }
 
 /** True when the current page matches any of this nav item's category subtrees, or its plain link. */
-function isNavItemActive(item: HeaderNavItem, pathname: string): boolean {
+function isNavItemActive(
+  item: HeaderNavItem,
+  pathname: string,
+  gender: string | null,
+): boolean {
+  // The same category can sit under several audience-specific items (Women/Mens),
+  // so when the URL names an audience only the matching item may highlight.
+  if (item.gender && gender && item.gender.toLowerCase() !== gender.toLowerCase()) {
+    return false;
+  }
   if (item.categories.some((c) => isInCategoryTree(c, pathname))) return true;
   return item.link ? pathname === item.link : false;
 }
@@ -58,11 +71,23 @@ function buildNavNode(item: HeaderNavItem): NavNode {
   };
 }
 
-export function Header() {
+export function Header({
+  initialUser = null,
+}: {
+  initialUser?: { role?: string; email?: string; name?: string } | null;
+}) {
   const [isOpen, setIsOpen] = React.useState(false);
   const [isSearchOpen, setIsSearchOpen] = React.useState(false);
   const [searchQuery, setSearchQuery] = React.useState("");
   const searchInputRef = React.useRef<HTMLInputElement>(null);
+  const [showSearchDropdown, setShowSearchDropdown] = React.useState(false);
+  const searchWrapRef =React.useRef<HTMLDivElement>(null);
+  const {
+    recent: recentSearches,
+    add: addRecentSearch,
+    remove: removeRecentSearch,
+    clear: clearRecentSearches,
+  } = useRecentSearches();
   const [openNavId, setOpenNavId] = React.useState<string | null>(null);
   const megaMenuCloseTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const cancelMegaMenuClose = React.useCallback(() => {
@@ -81,11 +106,15 @@ export function Header() {
   );
   const router = useRouter();
   const pathname = usePathname();
+  const activeGender = useSearchParams().get("gender");
   const { data: session, status } = useSession();
-  const isAuthenticated = status === "authenticated";
+  // The server-resolved user (NextAuth session or access_token cookie) backs up
+  // the client session, which can lag or fail to sync after a cookie login.
+  const isAuthenticated = status === "authenticated" || !!initialUser;
   // Admin/staff manage the store from /admin; they have no customer account,
   // wishlist or purchase UI, so those entry points are role-aware.
-  const userRole = (session?.user as { role?: string } | undefined)?.role;
+  const userRole =
+    (session?.user as { role?: string } | undefined)?.role ?? initialUser?.role;
   const isStaffUser = userRole === "ADMIN" || userRole === "STAFF";
   const accountHref = isAuthenticated ? getRoleHome(userRole) : "/login";
   // `status` is "loading" until /api/auth/session resolves on every page load.
@@ -103,16 +132,17 @@ export function Header() {
   const { data: profile } = useCustomerProfile({ enabled: isAuthenticated && !isStaffUser });
 
   // Get user name and initials for authenticated header state
-  const userName = profile?.name || session?.user?.name || "";
+  const userName = profile?.name || session?.user?.name || initialUser?.name || "";
   const userInitials = React.useMemo(() => {
     if (userName && userName.trim().length > 0) {
       return getInitials(userName) || "U";
     }
-    if (session?.user?.email) {
-      return session.user.email.slice(0, 2).toUpperCase();
+    const email = session?.user?.email ?? initialUser?.email;
+    if (email) {
+      return email.slice(0, 2).toUpperCase();
     }
     return "U";
-  }, [userName, session?.user?.email]);
+  }, [userName, session?.user?.email, initialUser?.email]);
 
   // Wishlist requires an account; cart works for guests too (guest-session cookie).
   const { data: wishlistCount = 0 } = useCustomerWishlistCount({ enabled: isAuthenticated && !isStaffUser });
@@ -133,6 +163,10 @@ export function Header() {
 
   useClickOutside([menuRef, buttonRef], () => {
     setIsOpen(false);
+  });
+  useClickOutside([searchWrapRef], () => {
+    setShowSearchDropdown(false);
+    if (!searchQuery.trim()) setIsSearchOpen(false);
   });
 
   React.useEffect(() => {
@@ -168,12 +202,18 @@ export function Header() {
     [isAuthenticated, accountHref]
   );
 
-  const handleSearchSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    const trimmed = searchQuery.trim();
+  const runSearch = (term: string) => {
+    const trimmed = term.trim();
     if (!trimmed) return;
+    addRecentSearch(trimmed);
+    setSearchQuery(trimmed);
     router.push(`/products?search=${encodeURIComponent(trimmed)}`);
     setIsSearchOpen(false);
+  };
+
+  const handleSearchSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    runSearch(searchQuery);
   };
 
   React.useEffect(() => {
@@ -267,7 +307,7 @@ export function Header() {
                 <MegaMenuTrigger
                   key={item.id}
                   root={buildNavNode(item)}
-                  isActive={isNavItemActive(item, pathname)}
+                  isActive={isNavItemActive(item, pathname, activeGender)}
                   isOpen={openNavId === item.id}
                   onMouseEnter={() => openMegaMenu(item.id)}
                   onMouseLeave={scheduleMegaMenuClose}
@@ -278,7 +318,7 @@ export function Header() {
                   key={item.id}
                   href={item.link ?? "#"}
                   className={`flex items-center gap-1.5 rounded-full px-3.5 py-2 text-sm font-medium transition-colors ${
-                    isNavItemActive(item, pathname)
+                    isNavItemActive(item, pathname, activeGender)
                       ? "bg-theme-primary text-theme-primary-fg font-semibold"
                       : "text-red-600 hover:bg-red-50"
                   }`}
@@ -294,12 +334,21 @@ export function Header() {
         <div className="flex items-center gap-2 sm:gap-3 md:gap-5">
           <div className="hidden lg:flex items-center gap-5">
             {/* Inline search */}
+            <div ref={searchWrapRef} className="relative">
             <form onSubmit={handleSearchSubmit} className="relative flex items-center">
               <input
                 ref={searchInputRef}
                 type="text"
                 value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+                onChange={(e) => {
+                  setSearchQuery(e.target.value);
+                  setShowSearchDropdown(true);
+                }}
+                onFocus={() => setShowSearchDropdown(true)}
+                onKeyDown={(e) => {
+                  if (e.key === "Escape") setShowSearchDropdown(false);
+                }}
+                autoComplete="off"
                 onBlur={() => {
                   if (!searchQuery.trim()) setIsSearchOpen(false);
                 }}
@@ -321,6 +370,23 @@ export function Header() {
                 <Search className="h-[18px] w-[18px]" strokeWidth={1.75} />
               </button>
             </form>
+
+            {isSearchOpen && showSearchDropdown && (
+              <SearchDropdown
+                query={searchQuery}
+                recent={recentSearches}
+                onSearch={runSearch}
+                onProductOpen={(term) => {
+                  addRecentSearch(term);
+                  setShowSearchDropdown(false);
+                  setIsSearchOpen(false);
+                }}
+                onRemoveRecent={removeRecentSearch}
+                onClearRecent={clearRecentSearches}
+                className="absolute right-0 top-full mt-2 w-80 xl:w-96 z-50"
+              />
+            )}
+            </div>
 
             {/* Wishlist */}
             {!isStaffUser && (
@@ -386,9 +452,17 @@ export function Header() {
                   alt={userName ? `${userName}'s profile` : "Profile"}
                   href={accountHref}
                   customIcon={
-                    <div className="w-[26px] h-[26px] rounded-full bg-theme-primary text-theme-primary-fg text-[11px] font-bold flex items-center justify-center border border-theme-border-accent shadow-2xs select-none leading-none">
-                      {userInitials}
-                    </div>
+                    userRole === "CUSTOMER" && profile ? (
+                      <ProfileAvatarRing percent={calculateCustomerCompletion(profile).percent} size={36}>
+                        <div className="w-full h-full bg-theme-primary text-theme-primary-fg text-[11px] font-bold flex items-center justify-center select-none leading-none">
+                          {userInitials}
+                        </div>
+                      </ProfileAvatarRing>
+                    ) : (
+                      <div className="w-[26px] h-[26px] rounded-full bg-theme-primary text-theme-primary-fg text-[11px] font-bold flex items-center justify-center border border-theme-border-accent shadow-2xs select-none leading-none">
+                        {userInitials}
+                      </div>
+                    )
                   }
                 />
               )}
@@ -398,10 +472,10 @@ export function Header() {
           {/* Hamburger Menu Trigger */}
           <div ref={buttonRef} className="lg:hidden">
             <IconButton
-              icon={ICONS.menu}
               alt="menu"
               onClick={() => setIsOpen(!isOpen)}
-              imageClassName="w-[22px] h-[22px]"
+              className="text-neutral-700 hover:text-theme-primary"
+              customIcon={<Menu className="h-[22px] w-[22px]" strokeWidth={1.75} />}
             />
           </div>
         </div>

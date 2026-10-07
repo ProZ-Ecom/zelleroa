@@ -250,7 +250,7 @@ function AdjustmentContent() {
             <Button
               type="button"
               onClick={() => validate() && setConfirmOpen(true)}
-              className="h-11 rounded-xl bg-[var(--color-secondary-600)] px-6 text-sm font-semibold text-white hover:bg-[var(--color-secondary-700)]"
+              className="h-11 rounded-xl bg-[var(--color-primary-500)] px-6 text-sm font-semibold text-white hover:bg-[var(--color-primary-600)]"
             >
               Review adjustment
             </Button>

@@ -9,6 +9,7 @@ import { apiClient } from "@/lib/api/api-client";
 import { toast } from "@/components/ui/Toast";
 import { Select } from "@/components/ui/select";
 import { PageContainer } from "@/components/admin/PageContainer";
+import { BlockReasonDialog } from "@/components/ui/block-reason-dialog";
 import type { AgentDto } from "@/features/agents/services/agent.service";
 import { errorMessage, useAdminList } from "@/features/agents/hooks/use-admin-agents";
 import { AgentFormModal, type EditableAgent } from "@/features/agents/components/admin/AgentFormModal";
@@ -24,13 +25,27 @@ export default function AdminAgentsPage() {
 
   const { data, isLoading, error } = useAdminList<AgentDto>("agents", "/api/admin/agents", { search, status, page, limit: 20 });
 
-  const toggleActive = async (a: AgentDto) => {
+  const [blockTarget, setBlockTarget] = useState<AgentDto | null>(null);
+  const [blocking, setBlocking] = useState(false);
+
+  const toggleActive = async (a: AgentDto, blockReason?: string) => {
     try {
-      await apiClient.put(`/api/admin/agents/${a.id}`, { isActive: !a.isActive });
-      toast.success(a.isActive ? "Sales Partner deactivated" : "Sales Partner activated");
+      await apiClient.put(`/api/admin/agents/${a.id}`, a.isActive ? { isActive: false, blockReason } : { isActive: true });
+      toast.success(a.isActive ? "Sales Partner blocked" : "Sales Partner unblocked");
       await qc.invalidateQueries({ queryKey: ["agents-admin"] });
     } catch (err) {
       toast.error("Could not update the Sales Partner", errorMessage(err));
+    }
+  };
+
+  const confirmBlock = async (reason: string) => {
+    if (!blockTarget) return;
+    setBlocking(true);
+    try {
+      await toggleActive(blockTarget, reason);
+    } finally {
+      setBlocking(false);
+      setBlockTarget(null);
     }
   };
 
@@ -63,26 +78,21 @@ export default function AdminAgentsPage() {
               Search
               <input className={fieldCls} value={draftSearch} onChange={(e) => setDraftSearch(e.target.value)} placeholder="Name, email, phone or AGT001" />
             </label>
-            <div className="flex min-w-[9rem] flex-1 flex-col gap-1 text-xs font-medium text-neutral-600 sm:flex-none">
-              <span>Status</span>
-              <div className="w-36">
-                <Select
-                  size="sm"
-                  value={status}
-                  onValueChange={(val) => {
-                    setStatus(val);
-                    setPage(1);
-                  }}
-                  searchable={false}
-                  options={[
-                    { value: "", label: "All Statuses" },
-                    { value: "active", label: "Active" },
-                    { value: "inactive", label: "Inactive" },
-                  ]}
-                  aria-label="Filter by status"
-                />
-              </div>
-            </div>
+            <label className="flex min-w-[9rem] flex-1 flex-col gap-1 text-xs font-medium text-neutral-600 sm:flex-none">
+              Status
+              <select
+                className={fieldCls}
+                value={status}
+                onChange={(e) => {
+                  setStatus(e.target.value);
+                  setPage(1);
+                }}
+              >
+                <option value="">All</option>
+                <option value="active">Active</option>
+                <option value="inactive">Blocked</option>
+              </select>
+            </label>
             <button type="submit" className="h-10 rounded-xl bg-neutral-900 px-4 text-sm font-semibold text-white hover:bg-neutral-800">
               Search
             </button>
@@ -117,7 +127,17 @@ export default function AdminAgentsPage() {
                   { header: "Approved", cell: (r) => money(r.summary.approvedCommission) },
                   { header: "Paid", cell: (r) => money(r.summary.paidCommission) },
                   { header: "Open payouts", cell: (r) => r.summary.openPayouts },
-                  { header: "Status", cell: (r) => <StatusBadge status={r.isActive ? "active" : "inactive"} /> },
+                  { header: "Status", cell: (r) => (
+                      <div className="flex max-w-[220px] flex-col items-start gap-1">
+                        <StatusBadge status={r.isActive ? "active" : "blocked"} />
+                        {!r.isActive && r.blockReason && (
+                          <span className="line-clamp-2 text-[11px] leading-snug text-neutral-500" title={r.blockReason}>
+                            Reason: {r.blockReason}
+                          </span>
+                        )}
+                      </div>
+                    ),
+                  },
                   {
                     header: "Actions",
                     cell: (r) => (
@@ -128,8 +148,8 @@ export default function AdminAgentsPage() {
                         <button type="button" onClick={() => setModal({ open: true, agent: { id: r.id, name: r.name, phone: r.phone, notes: r.notes } })} className="text-neutral-700 hover:underline">
                           Edit
                         </button>
-                        <button type="button" onClick={() => toggleActive(r)} className={r.isActive ? "text-red-600 hover:underline" : "text-emerald-700 hover:underline"}>
-                          {r.isActive ? "Deactivate" : "Activate"}
+                        <button type="button" onClick={() => (r.isActive ? setBlockTarget(r) : toggleActive(r))} className={r.isActive ? "text-red-600 hover:underline" : "text-emerald-700 hover:underline"}>
+                          {r.isActive ? "Block" : "Unblock"}
                         </button>
                       </div>
                     ),
@@ -142,6 +162,14 @@ export default function AdminAgentsPage() {
         </Panel>
       </div>
 
+      <BlockReasonDialog
+        open={Boolean(blockTarget)}
+        subject="Agent"
+        name={blockTarget?.name}
+        isLoading={blocking}
+        onClose={() => setBlockTarget(null)}
+        onConfirm={confirmBlock}
+      />
       <AgentFormModal open={modal.open} agent={modal.agent} onClose={() => setModal({ open: false, agent: null })} />
     </PageContainer>
   );

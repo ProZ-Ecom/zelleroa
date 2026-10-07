@@ -9,6 +9,7 @@ import { getRazorpayClient, getRazorpayPublicKey } from "../config/razorpay.conf
 import { paymentRepository } from "../repositories/payment.repository";
 import { referralService, findAgentByReferralCode } from "@/features/agents/services/referral.service";
 import { getShippingCharge } from "@/features/orders/shipping";
+import { assertMobileVerifiedForOrder } from "@/features/orders/lib/mobile-verification";
 import type {
   CreateRazorpayOrderInput,
   VerifyRazorpayPaymentInput,
@@ -64,6 +65,9 @@ export const razorpayService = {
 
     const userId = user.internalId;
     const isCartCheckout = !input.orderId || input.orderId === "cart";
+
+    // Refuse before any payment is taken; the order is only created after payment.
+    await assertMobileVerifiedForOrder(userId);
 
     // A. Cart-First Flow: Create Razorpay Order directly from active cart (No internal order created yet)
     if (isCartCheckout) {
@@ -245,6 +249,25 @@ export const razorpayService = {
         throw ApiError.badRequest("Shipping address is required to complete the order.");
       }
 
+      // Replay guard: one verified Razorpay order may only ever produce one order.
+      const alreadyUsed = await db.payment.findFirst({
+        where: { gateway_order_id: input.razorpay_order_id, status: "success" },
+        select: { id: true },
+      });
+      if (alreadyUsed) {
+        throw ApiError.conflict("This payment has already been used for an order.");
+      }
+
+      // Amount that was actually charged, straight from Razorpay.
+      let chargedAmount: number | undefined;
+      try {
+        const rzpOrder: any = await getRazorpayClient().orders.fetch(input.razorpay_order_id);
+        chargedAmount = Number(rzpOrder.amount) / 100;
+      } catch (err) {
+        console.error("Razorpay orders.fetch failed during verification:", err);
+        throw ApiError.badRequest("Could not confirm the payment amount. Please contact support.");
+      }
+
       const createdOrder = await orderService.createCustomerOrder(sessionUserId, {
         shippingAddressId: input.shippingAddressId,
         billingAddressId: input.billingAddressId || input.shippingAddressId,
@@ -258,7 +281,7 @@ export const razorpayService = {
           razorpay_payment_id: input.razorpay_payment_id,
           razorpay_signature: input.razorpay_signature,
         },
-      }, request);
+      }, request, undefined, { gatewayPaymentVerified: true, expectedPaidAmount: chargedAmount });
 
       // Find the created order to retrieve internal BigInt ID
       const dbOrder = await db.order.findFirst({
@@ -532,6 +555,9 @@ export const razorpayService = {
 
     const userId = user.internalId;
 
+    // Refuse before any payment is taken; the order is only created after payment.
+    await assertMobileVerifiedForOrder(userId);
+
     // 1. Compute amount from active cart
     const cart = await cartService.getCart({ sessionUserId });
     if (!cart || cart.items.length === 0)
@@ -634,8 +660,16 @@ export const razorpayService = {
       throw ApiError.badRequest("Invalid payment signature. Verification rejected.");
     }
 
-    // 3. Mark token as used immediately (prevent replay)
-    await paymentRepository.markTokenUsed(input.token);
+    // The signed Razorpay order must be the one this token was issued for;
+    // otherwise a cheap, genuinely-paid order could unlock a costlier cart.
+    if (input.razorpay_order_id !== tokenData.razorpayOrderId) {
+      throw ApiError.badRequest("Payment does not match this checkout session.");
+    }
+
+    // 3. Claim the token atomically (prevent replay / double submit)
+    if (!(await paymentRepository.markTokenUsed(input.token))) {
+      throw ApiError.badRequest("Payment token is invalid, expired, or already used.");
+    }
 
     // 4. Reconstruct sessionUserId from stored userId
     const userRows = await db.$queryRaw<any[]>`
@@ -676,7 +710,8 @@ export const razorpayService = {
         },
       },
       undefined,
-      validReferral
+      validReferral,
+      { gatewayPaymentVerified: true, expectedPaidAmount: tokenData.amount }
     );
 
     // 6. Record payment in DB

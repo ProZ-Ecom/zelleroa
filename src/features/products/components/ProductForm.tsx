@@ -29,7 +29,7 @@ const productFormSchema = z.object({
   hsnCodeId: z
     .string()
     .min(1, "Please select an HSN code"),
-  gender: z.enum(["men", "women", "kids", "unisex"], {
+  gender: z.enum(["men", "women", "kids", "unisex", "not_applicable"], {
     message: "Please select a gender / audience",
   }),
 });
@@ -41,6 +41,7 @@ const GENDER_OPTIONS = [
   { value: "men", label: "Men" },
   { value: "women", label: "Women" },
   { value: "kids", label: "Kids" },
+  { value: "not_applicable", label: "Not Applicable" },
 ];
 
 export interface ProductOption {
@@ -204,7 +205,7 @@ function ProductForm({
           <FormInput
             name="name"
             label="Product Name"
-            placeholder="e.g. Banana Chips"
+            placeholder="e.g. Anarkali Suit / Floral Summer Dress"
             required
           />
 
@@ -227,7 +228,7 @@ function ProductForm({
               <button
                 type="button"
                 onClick={() => setShowInfo((prev) => !prev)}
-                className="text-neutral-400 hover:text-[var(--color-secondary-600)] transition-colors focus:outline-none cursor-pointer rounded-full p-0.5"
+                className="text-neutral-400 hover:text-[var(--color-primary-500)] transition-colors focus:outline-none cursor-pointer rounded-full p-0.5"
                 title="Click for more information"
                 aria-label="Information"
               >
@@ -238,9 +239,9 @@ function ProductForm({
                 <div className="absolute left-0 top-full mt-1.5 z-50 w-72 sm:w-80 rounded-xl bg-white border border-neutral-200/90 p-3 text-xs text-neutral-700 shadow-xl shadow-neutral-900/10 animate-in fade-in zoom-in-95 duration-150">
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex items-start gap-2">
-                      <Info className="h-4 w-4 text-[var(--color-secondary-600)] shrink-0 mt-0.5" />
+                      <Info className="h-4 w-4 text-[var(--color-primary-500)] shrink-0 mt-0.5" />
                       <p className="leading-relaxed text-[var(--color-neutral-800)]">
-                        Enter product code (special characters allowed, e.g. BANANA_CHIPS). Category code prefix is automatically applied.
+                        Enter product code (special characters allowed, e.g. ANARKALI_SUIT). Category code prefix is automatically applied.
                       </p>
                     </div>
                     <button
@@ -288,7 +289,7 @@ function ProductForm({
               type="text"
               value={extraSlug}
               onChange={(e) => handleExtraSlugChange(e.target.value)}
-              placeholder="e.g. BANANA_CHIPS"
+              placeholder="e.g. ANARKALI_SUIT"
               className="flex-1 min-w-0 px-3 py-2 text-sm text-neutral-900 bg-transparent outline-none font-mono placeholder:text-neutral-400 placeholder:font-sans uppercase"
             />
           </div>
@@ -342,7 +343,7 @@ function ProductForm({
         <div className="flex justify-end pt-4">
           <FormSubmitButton
             isLoading={isLoading}
-            className="h-11 rounded-xl bg-[var(--color-secondary-600)] px-6 text-sm font-semibold text-white hover:bg-[var(--color-secondary-700)]"
+            className="h-11 rounded-xl bg-[var(--color-primary-500)] px-6 text-sm font-semibold text-white hover:bg-[var(--color-primary-600)]"
           >
             {submitLabel}
           </FormSubmitButton>

@@ -6,6 +6,8 @@ import { withApiRoles } from "@/lib/api/api-handler";
 
 const resetDatabaseSchema = z.object({
   excludeTables: z.array(z.string()).optional().default([]),
+  // Must be typed exactly; stops accidental or scripted one-shot wipes.
+  confirm: z.literal("RESET DATABASE"),
 });
 
 const ADMIN_ROLE_ID = 1;
@@ -14,6 +16,11 @@ const ADMIN_ROLE_ID = 1;
 const ALWAYS_KEEP = new Set(["_prisma_migrations"]);
 
 async function handlePOST(request: NextRequest) {
+  // Wiping the database is opt-in per environment, never reachable by default.
+  if (process.env.ALLOW_DATABASE_RESET !== "true") {
+    return apiError("Database reset is disabled in this environment", 403);
+  }
+
   let body: unknown;
   try {
     body = await request.json();

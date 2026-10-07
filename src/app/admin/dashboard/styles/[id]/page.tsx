@@ -169,7 +169,7 @@ export default function AdminStyleDetailsPage() {
           <div className="flex justify-end">
             <Button
               onClick={() => setIsAddItemOpen(true)}
-              className="h-9 rounded-lg bg-[var(--color-secondary-600)] px-4 text-xs font-semibold text-white hover:bg-[var(--color-secondary-700)]"
+              className="h-9 rounded-lg bg-[var(--color-primary-500)] px-4 text-xs font-semibold text-white hover:bg-[var(--color-primary-600)]"
             >
               <Plus className="mr-1.5 h-3.5 w-3.5" />
               Add Model
@@ -209,6 +209,8 @@ export default function AdminStyleDetailsPage() {
             cookingRecipe: style.cookingRecipe || "",
             basePrice: style.basePrice ?? 0,
             isFeatured: style.isFeatured,
+            isNewArrival: style.isNewArrival,
+            newArrivalUntil: style.newArrivalUntil ?? "",
             isDefault: style.isDefault,
             isActive: style.isActive,
           }}
@@ -233,6 +235,8 @@ export default function AdminStyleDetailsPage() {
                   vegType: style.vegType || "na",
                   basePrice: formData.basePrice ?? 0,
                   isFeatured: formData.isFeatured,
+                  isNewArrival: formData.isNewArrival ?? false,
+                  newArrivalUntil: formData.isNewArrival ? formData.newArrivalUntil || null : null,
                   isDefault: formData.isDefault ?? false,
                   isActive: formData.isActive,
                 },
@@ -286,7 +290,6 @@ export default function AdminStyleDetailsPage() {
                 });
                 const created = (res as any)?.data as AdminItemResponse | undefined;
                 if (created) setNewlyCreatedItem(created);
-                toast.success("Model created", `"${formData.name}" is ready for Colors & Sizes.`);
                 refetchItems();
               } catch (err: any) {
                 toast.error("Failed to create model", err?.message || "Please try again.");

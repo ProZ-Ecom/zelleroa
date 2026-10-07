@@ -17,7 +17,7 @@ export const adminCustomerListSchema = z
     status: z.enum(["active", "inactive", "banned"]).optional(),
     isActive: z.boolean().optional(),
     isBlocked: z.boolean().optional(),
-    gender: z.enum(["male", "female", "other"]).optional(),
+    gender: z.enum(["male", "female", "other", "not_applicable"]).optional(),
     isWhatsapp: z.boolean().optional(),
     emailVerified: z.boolean().optional(),
     phoneVerified: z.boolean().optional(),
@@ -54,8 +54,17 @@ export type AdminCustomerOrdersInput = z.infer<typeof adminCustomerOrdersSchema>
 export const updateCustomerStatusSchema = z
   .object({
     isActive: z.boolean(),
+    blockReason: z
+      .string()
+      .trim()
+      .max(500, "Reason must be 500 characters or fewer")
+      .optional(),
   })
-  .strict();
+  .strict()
+  .refine((v) => v.isActive || Boolean(v.blockReason), {
+    path: ["blockReason"],
+    message: "A reason is required to block this account",
+  });
 
 export type UpdateCustomerStatusInput = z.infer<typeof updateCustomerStatusSchema>;
 

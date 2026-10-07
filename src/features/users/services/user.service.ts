@@ -13,6 +13,8 @@ import {
 } from "@/lib/phone";
 import type { GetUserParams, CreateUserInput, UpdateUserInput } from "../types";
 import type { RegisterInput } from "../validations/user.schema";
+import { customerAssignmentService } from "@/features/agents/services/customer-assignment.service";
+import { REFERRAL_AGENT_COOKIE } from "@/lib/referral/cookie";
 
 export const userService = {
   async getUsers(params: GetUserParams = {}) {
@@ -139,6 +141,13 @@ export const userService = {
           status: true,
         },
       });
+
+      // A referral link/code the visitor carries assigns them to that agent for good (admin-only to change).
+      await customerAssignmentService.assignFromReferralCode(
+        newUser.id,
+        request?.cookies.get(REFERRAL_AGENT_COOKIE)?.value,
+        tx
+      );
 
       // Atomically mark verification token as used inside transaction
       await otpRepository.markVerificationTokenUsed(tokenRecord.id, tx);

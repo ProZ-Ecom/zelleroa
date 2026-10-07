@@ -102,6 +102,12 @@ export function CustomerDetailModal({
                   customer.isActive
                 )}
               </div>
+              {customer.blockReason && (
+                <p className="mt-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-800 sm:col-span-2">
+                  <span className="font-semibold">Block reason:</span>{" "}
+                  {customer.blockReason}
+                </p>
+              )}
             </div>
           </div>
         </div>
@@ -207,7 +213,7 @@ export function CustomerDetailModal({
               <div>
                 <p className="text-xs text-neutral-500">Gender</p>
                 <p className="font-medium text-neutral-900 capitalize">
-                  {customer.gender || "-"}
+                  {customer.gender ? customer.gender.replace(/_/g, " ") : "-"}
                 </p>
               </div>
             </div>

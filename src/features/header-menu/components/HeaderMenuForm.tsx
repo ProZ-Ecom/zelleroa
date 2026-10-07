@@ -17,6 +17,7 @@ const GENDER_OPTIONS = [
   { value: "men", label: "Men" },
   { value: "women", label: "Women" },
   { value: "kids", label: "Kids" },
+  { value: "not_applicable", label: "NA (Not applicable)" },
 ];
 
 const headerMenuFormSchema = z
@@ -24,7 +25,11 @@ const headerMenuFormSchema = z
     label: z.string().trim().min(1, "Label is required").max(150),
     categoryIds: z.array(z.string()).default([]),
     link: z.string().trim().max(500).optional().nullable(),
-    gender: z.enum(["men", "women", "kids", "unisex"]).optional().nullable(),
+    gender: z
+      .enum(["men", "women", "kids", "unisex", "not_applicable"])
+      .optional()
+      .nullable()
+      .or(z.literal("")),
     sortOrder: z.union([z.number(), z.literal("")]).default(0),
     isActive: z.boolean().default(true),
   })
@@ -97,7 +102,7 @@ export function HeaderMenuForm({
 
   const methods = useForm<HeaderMenuFormData>({
     resolver: zodResolver(headerMenuFormSchema) as any,
-    mode: "onChange",
+    mode: "onSubmit",
     reValidateMode: "onChange",
     defaultValues: {
       label: initialData?.label ?? "",
@@ -206,7 +211,7 @@ export function HeaderMenuForm({
         <div className="flex justify-end pt-4">
           <FormSubmitButton
             isLoading={isLoading}
-            className="h-11 rounded-xl bg-[var(--color-secondary-600)] px-6 text-sm font-semibold text-white hover:bg-[var(--color-secondary-700)]"
+            className="h-11 rounded-xl bg-[var(--color-primary-500)] px-6 text-sm font-semibold text-white hover:bg-[var(--color-primary-600)]"
           >
             {submitLabel}
           </FormSubmitButton>

@@ -117,7 +117,7 @@ export function BannerPositionForm({
         <div className="flex justify-end pt-2">
           <FormSubmitButton
             isLoading={isLoading}
-            className="h-11 rounded-xl bg-[var(--color-secondary-600)] px-6 text-sm font-semibold text-white hover:bg-[var(--color-secondary-700)] cursor-pointer"
+            className="h-11 rounded-xl bg-[var(--color-primary-500)] px-6 text-sm font-semibold text-white hover:bg-[var(--color-primary-600)] cursor-pointer"
           >
             {submitLabel}
           </FormSubmitButton>

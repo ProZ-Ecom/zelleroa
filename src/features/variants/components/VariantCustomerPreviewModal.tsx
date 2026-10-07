@@ -156,7 +156,7 @@ export function VariantCustomerPreviewModal({
               onClick={() => setActiveView("catalog")}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-all cursor-pointer ${
                 activeView === "catalog"
-                  ? "bg-[var(--color-secondary-600)] text-white shadow-xs"
+                  ? "bg-[var(--color-primary-500)] text-white shadow-xs"
                   : "text-neutral-600 hover:text-neutral-900"
               }`}
             >
@@ -168,7 +168,7 @@ export function VariantCustomerPreviewModal({
               onClick={() => setActiveView("cart")}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-all cursor-pointer ${
                 activeView === "cart"
-                  ? "bg-[var(--color-secondary-600)] text-white shadow-xs"
+                  ? "bg-[var(--color-primary-500)] text-white shadow-xs"
                   : "text-neutral-600 hover:text-neutral-900"
               }`}
             >
@@ -363,7 +363,7 @@ export function VariantCustomerPreviewModal({
           {activeView === "cart" && (
             <div className="w-full max-w-lg bg-white rounded-2xl border border-gray-200 p-5 shadow-xs">
               <h4 className="text-xs font-bold uppercase tracking-wider text-neutral-900 mb-3 flex items-center gap-1.5">
-                <ShoppingBag className="h-4 w-4 text-[var(--color-secondary-600)]" />
+                <ShoppingBag className="h-4 w-4 text-[var(--color-primary-500)]" />
                 <span>Simulated Cart Item</span>
               </h4>
 

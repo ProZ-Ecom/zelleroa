@@ -6,6 +6,7 @@ import { ItemViewSkeleton } from "@/features/items/components/storefront/ItemVie
 import { ErrorState } from "@/components/ui/error-state";
 import { PageContainer } from "@/components/layout/PageContainer";
 import { Breadcrumb } from "@/components/ui/breadcrumb";
+import { RelatedItems } from "@/features/customers/components/catalog/RelatedItems";
 import { categoryHref } from "@/features/customers/utils/catalog-listing-query";
 
 export function ItemDetailClient({ itemId }: { itemId: string }) {
@@ -58,6 +59,7 @@ export function ItemDetailClient({ itemId }: { itemId: string }) {
           returnUrl={`/items/${item.id}`}
         />
       </div>
+      <RelatedItems itemId={item.id} categoryId={item.category?.id} />
     </PageContainer>
   );
 }

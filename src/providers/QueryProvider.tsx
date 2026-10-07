@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider, MutationCache, QueryCache } from "@ta
 import * as React from "react";
 import { toast, getSuccessToastAttempts } from "@/components/ui/Toast";
 import { ApiClientError } from "@/lib/api/api-client";
+import { ACCOUNT_BLOCKED_CODE } from "@/lib/api/account-blocked";
 
 interface MetaOptions {
   skipToast?: boolean;
@@ -55,6 +56,8 @@ function makeQueryClient() {
       onError: (error: any, _variables, _context, mutation) => {
         const meta = mutation.meta as MetaOptions | undefined;
         if (meta?.skipToast) return;
+        // The account-blocked modal already explains this; don't stack an error toast.
+        if (error?.code === ACCOUNT_BLOCKED_CODE) return;
 
         // Only fire global error toast if explicitly requested via meta
         if (meta?.errorMessage) {

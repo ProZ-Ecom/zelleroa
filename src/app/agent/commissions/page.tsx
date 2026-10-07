@@ -26,7 +26,7 @@ export default async function AgentCommissionsPage({
   const filters = pickParams(sp, ["order", "referralCode", "customer", "status", "dateFrom", "dateTo"]);
   const page = pageParam(sp);
 
-  await commissionService.approveEligible({ agentId });
+  await commissionService.markReadyForApproval({ agentId });
   const [result, returnDays] = await Promise.all([
     commissionService.list({ ...filters, page, limit: 20 }, { agentId }),
     getReturnPeriodDays(),

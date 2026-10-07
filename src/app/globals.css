@@ -441,6 +441,50 @@ body {
   }
 }
 
+/*
+ * Cursor affordance for interactive elements. Kept in the base layer so any
+ * explicit Tailwind cursor utility (e.g. cursor-not-allowed, cursor-default)
+ * on a specific element still takes precedence.
+ */
+@layer base {
+  button,
+  summary,
+  select,
+  a[href],
+  area[href],
+  [role="button"],
+  [role="link"],
+  [role="tab"],
+  [role="menuitem"],
+  [role="menuitemradio"],
+  [role="menuitemcheckbox"],
+  [role="option"],
+  [role="switch"],
+  [role="checkbox"],
+  [role="radio"],
+  input[type="checkbox"],
+  input[type="radio"],
+  input[type="button"],
+  input[type="submit"],
+  input[type="reset"],
+  input[type="file"],
+  input[type="range"],
+  label:has(> input[type="checkbox"]),
+  label:has(> input[type="radio"]),
+  label:has(> input[type="file"]) {
+    cursor: pointer;
+  }
+
+  button:disabled,
+  select:disabled,
+  input:disabled,
+  [aria-disabled="true"],
+  [role="button"][aria-disabled="true"],
+  label:has(> input:disabled) {
+    cursor: not-allowed;
+  }
+}
+
 @keyframes animateIn {
   from {
     opacity: 0;
