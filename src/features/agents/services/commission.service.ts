@@ -38,6 +38,7 @@ export async function createCommissionsForOrder(tx: Prisma.TransactionClient, or
       userId: true,
       agent_id: true,
       referral_code: true,
+      order_source: true,
       order_status: true,
       items: {
         where: { is_active: true },
@@ -50,7 +51,10 @@ export async function createCommissionsForOrder(tx: Prisma.TransactionClient, or
       },
     },
   });
-  if (!order || !order.agent_id || order.agent_id === order.userId) return [];
+  if (!order || !order.agent_id) return [];
+  // A plain customer-direct order bought by the agent themselves never earns; own and agent-placed
+  // (incl. walk-in) orders are explicit sources and do.
+  if (order.agent_id === order.userId && order.order_source === "CUSTOMER_DIRECT") return [];
 
   const existing = await tx.commissions.findMany({
     where: { order_id: orderId },

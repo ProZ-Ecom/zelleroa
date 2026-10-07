@@ -133,3 +133,11 @@ export const reassignSchema = z.object({
 export const returnPeriodSchema = z.object({
   days: z.coerce.number().int().min(0).max(90),
 });
+
+export const transferCustomerSchema = z.object({
+  toAgentId: z.string().trim().min(1, "Select a Sales Partner"),
+  /** The agent the admin saw; the transfer is rejected if the customer has since moved. */
+  fromAgentId: z.string().trim().min(1).optional().nullable(),
+  reason: z.string().trim().max(255).optional(),
+});
+export type TransferCustomerInput = z.infer<typeof transferCustomerSchema>;

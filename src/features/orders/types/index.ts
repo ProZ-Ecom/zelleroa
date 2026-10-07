@@ -127,6 +127,11 @@ export interface OrderListItemResponse {
 
 /** Order-specific referral attribution. Admin-facing only - never sent to customers. */
 export interface OrderReferralDto {
+  /** CUSTOMER_DIRECT | AGENT_PLACED_FOR_CUSTOMER | AGENT_OWN */
+  orderSource: string;
+  orderedByName: string | null;
+  /** Set when an agent keyed the order in for a buyer without an account. */
+  manualCustomer: { name: string; phone: string | null } | null;
   referralCode: string | null;
   agentName: string;
   agentCode: string | null;

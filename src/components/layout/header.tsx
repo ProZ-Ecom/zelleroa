@@ -5,8 +5,8 @@ import Image from "next/image";
 import Link from "next/link";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
-import { LogIn, Search, Heart, ShoppingCart } from "lucide-react";
-import { LOGOS, ICONS, mobileBottomIcons } from "@/constants/storefront";
+import { LogIn, Search, Heart, ShoppingCart, Menu } from "lucide-react";
+import { LOGOS, mobileBottomIcons } from "@/constants/storefront";
 import { NavButton } from "@/components/storefront/buttons/NavButton";
 import { IconButton } from "@/components/storefront/buttons/IconButton";
 import { getRoleHome } from "@/lib/auth/role-routes";
@@ -472,10 +472,10 @@ export function Header({
           {/* Hamburger Menu Trigger */}
           <div ref={buttonRef} className="lg:hidden">
             <IconButton
-              icon={ICONS.menu}
               alt="menu"
               onClick={() => setIsOpen(!isOpen)}
-              imageClassName="w-[22px] h-[22px]"
+              className="text-neutral-700 hover:text-theme-primary"
+              customIcon={<Menu className="h-[22px] w-[22px]" strokeWidth={1.75} />}
             />
           </div>
         </div>

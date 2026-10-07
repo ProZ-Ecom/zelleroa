@@ -98,6 +98,16 @@ model User {
   block_reason                                                        String?                    @db.VarChar(500)
   referral_code                                                      String?                    @unique(map: "users_referral_code") @db.VarChar(30)
   referred_at                                                         DateTime?                  @db.Timestamp(0)
+  /// The agent currently responsible for this customer. Only an admin can change it once set.
+  current_agent_id                                                    BigInt?                    @db.UnsignedBigInt
+  agent_assigned_at                                                   DateTime?                  @db.Timestamp(0)
+  current_agent                                                       User?                      @relation("CustomerCurrentAgent", fields: [current_agent_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_users_current_agent")
+  assigned_customers                                                  User[]                     @relation("CustomerCurrentAgent")
+  agent_placed_orders                                                 Order[]                    @relation("OrderPlacedBy")
+  customer_agent_history_as_customer                                  customer_agent_history[]   @relation("CagCustomer")
+  customer_agent_history_from                                         customer_agent_history[]   @relation("CagFromAgent")
+  customer_agent_history_to                                           customer_agent_history[]   @relation("CagToAgent")
+  customer_agent_history_by                                           customer_agent_history[]   @relation("CagActor")
   agent_orders                                                        Order[]                    @relation("OrderAgent")
   agent_profile                                                       agent_profiles?
   agent_commissions                                                   commissions[]              @relation("CommissionAgent")
@@ -322,6 +332,7 @@ model User {
 
   @@index([created_by], map: "fk_users_created_by")
   @@index([roleId], map: "fk_users_role")
+  @@index([current_agent_id], map: "idx_users_current_agent")
   @@index([updated_by], map: "fk_users_updated_by")
   @@index([status], map: "idx_users_status")
   @@map("users")
@@ -998,6 +1009,15 @@ model Order {
   created_by                     BigInt?                  @db.UnsignedBigInt
   updated_by                     BigInt?                  @db.UnsignedBigInt
   agent_id                       BigInt?                  @db.UnsignedBigInt
+  /// Where the order came from. Fixed at creation; never rewritten when a customer is transferred.
+  order_source                   order_source             @default(CUSTOMER_DIRECT)
+  /// Who physically placed the order (the agent for agent-placed / own orders, else the customer).
+  ordered_by_id                  BigInt?                  @db.UnsignedBigInt
+  /// Agent-placed order for someone with no account: user_id then holds the agent and the details below the customer.
+  is_manual_customer             Boolean                  @default(false)
+  manual_customer_name           String?                  @db.VarChar(150)
+  manual_customer_phone          String?                  @db.VarChar(20)
+  manual_customer_email          String?                  @db.VarChar(254)
   /// Referral code active when THIS order was placed (order-specific, never customer-specific).
   referral_code                  String?                  @db.VarChar(30)
   /// Blended commission % and total commission frozen at order creation (per-item detail lives in `commissions`).
@@ -1020,6 +1040,7 @@ model Order {
   delivery_slots                 delivery_slots?          @relation(fields: [delivery_slot_id], references: [id], onUpdate: NoAction, map: "fk_order_slot")
   user                           User                     @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_order_user")
   agent                          User?                    @relation("OrderAgent", fields: [agent_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_orders_agent")
+  ordered_by                     User?                    @relation("OrderPlacedBy", fields: [ordered_by_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_orders_ordered_by")
   commissions                    commissions[]
   users_orders_created_byTousers User?                    @relation("orders_created_byTousers", fields: [created_by], references: [id], onUpdate: NoAction, map: "fk_orders_created_by")
   users_orders_updated_byTousers User?                    @relation("orders_updated_byTousers", fields: [updated_by], references: [id], onUpdate: NoAction, map: "fk_orders_updated_by")
@@ -1038,6 +1059,8 @@ model Order {
   @@index([created_by], map: "fk_orders_created_by")
   @@index([updated_by], map: "fk_orders_updated_by")
   @@index([agent_id], map: "fk_orders_agent")
+  @@index([ordered_by_id], map: "idx_orders_ordered_by")
+  @@index([order_source, agent_id], map: "idx_orders_source_agent")
   @@index([referral_code], map: "idx_orders_referral_code")
   @@index([createdAt], map: "idx_order_created")
   @@index([order_status], map: "idx_order_status")
@@ -3245,6 +3268,17 @@ model WhatsAppTemplate {
 // An agent is a `users` row whose role is AGENT; everything below hangs off it.
 // ─────────────────────────────────────────────────────────────────────────────
 
+enum order_source {
+  CUSTOMER_DIRECT
+  AGENT_PLACED_FOR_CUSTOMER
+  AGENT_OWN
+}
+
+enum customer_agent_action {
+  assigned
+  transferred
+}
+
 enum commission_rate_scope {
   global
   category
@@ -3433,6 +3467,29 @@ model commission_payouts {
   @@index([agent_id, status], map: "idx_commission_payouts_agent_status")
   @@index([status], map: "idx_commission_payouts_status")
   @@map("commission_payouts")
+}
+
+/// Append-only log of every change to a customer's current agent. Rows are never updated or deleted.
+model customer_agent_history {
+  id            BigInt                @id @default(autoincrement()) @db.UnsignedBigInt
+  uuid          String                @unique(map: "uq_cag_history_uuid") @db.VarChar(64)
+  customer_id   BigInt                @db.UnsignedBigInt
+  from_agent_id BigInt?               @db.UnsignedBigInt
+  to_agent_id   BigInt                @db.UnsignedBigInt
+  action        customer_agent_action
+  /// Admin who transferred; NULL for an automatic referral assignment.
+  transferred_by BigInt?              @db.UnsignedBigInt
+  reason        String?               @db.VarChar(255)
+  created_at    DateTime              @default(now()) @db.Timestamp(0)
+  customer      User                  @relation("CagCustomer", fields: [customer_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_cag_customer")
+  from_agent    User?                 @relation("CagFromAgent", fields: [from_agent_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_cag_from_agent")
+  to_agent      User                  @relation("CagToAgent", fields: [to_agent_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_cag_to_agent")
+  actor         User?                 @relation("CagActor", fields: [transferred_by], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_cag_actor")
+
+  @@index([customer_id, created_at], map: "idx_cag_customer")
+  @@index([from_agent_id], map: "idx_cag_from")
+  @@index([to_agent_id], map: "idx_cag_to")
+  @@map("customer_agent_history")
 }
 
 /// Append-only trail for every commission / payout / assignment / rate action.

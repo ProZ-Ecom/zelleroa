@@ -8,7 +8,7 @@ export const GET = createApiHandler(
     GET: async (_request, context) => {
       const { agentId } = await requireSessionAgent(context.session);
       const result = await agentService.listCustomers(agentId, {
-        ...readQuery(context.searchParams, ["search"]),
+        ...readQuery(context.searchParams, ["search", "status"]),
         ...readPaging(context.searchParams),
       });
       return apiSuccess(result.data, "Success", 200, result.meta);

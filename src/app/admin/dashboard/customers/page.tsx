@@ -220,6 +220,33 @@ export default function AdminCustomersPage() {
       },
     },
     {
+      id: "currentAgent",
+      header: "Current Agent",
+      cell: ({ row }) => {
+        const a = row.original.currentAgent;
+        return a ? (
+          <div>
+            <p className="text-sm text-neutral-800">{a.name}</p>
+            {a.agentCode && <p className="text-xs font-mono text-neutral-500">{a.agentCode}</p>}
+          </div>
+        ) : (
+          <span className="text-xs text-neutral-400">Unassigned</span>
+        );
+      },
+    },
+    {
+      id: "orderStats",
+      header: "Orders / Sales",
+      cell: ({ row }) => (
+        <div>
+          <p className="text-sm text-neutral-800">{row.original.orderCount ?? 0} orders</p>
+          <p className="text-xs text-neutral-500">
+            ₹{(row.original.totalSales ?? 0).toLocaleString("en-IN", { maximumFractionDigits: 2 })}
+          </p>
+        </div>
+      ),
+    },
+    {
       accessorKey: "gender",
       header: "Gender / DOB",
       cell: ({ row }) => {
@@ -357,6 +384,13 @@ export default function AdminCustomersPage() {
             >
               <Eye className="h-3.5 w-3.5" />
               View
+            </Link>
+            <Link
+              href={`/admin/dashboard/customers/${item.id}#sales-partner`}
+              className="inline-flex items-center h-8 gap-1 px-2 rounded-lg text-xs font-semibold text-neutral-700 hover:bg-neutral-100 cursor-pointer transition-colors"
+              title="Transfer customer or view transfer history"
+            >
+              Transfer / History
             </Link>
 
             {isBlocked ? (

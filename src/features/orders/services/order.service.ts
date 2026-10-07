@@ -9,6 +9,7 @@ import { customerAddressService } from "@/features/customers/services/customer-a
 import { cartRepository } from "@/features/cart/repositories/cart.repository";
 import { generateAccessToken, generateRefreshToken } from "@/lib/auth/jwt";
 import { referralService, type ReferralAgent } from "@/features/agents/services/referral.service";
+import { customerAssignmentService } from "@/features/agents/services/customer-assignment.service";
 import { orderRepository } from "../repositories/order.repository";
 import { getShippingCharge } from "../shipping";
 import { assertMobileVerifiedForOrder } from "../lib/mobile-verification";
@@ -358,18 +359,22 @@ export const orderService = {
       );
     }
 
-    // Commission attribution is per ORDER: whichever valid agent referral code is active
-    // right now gets this order. The customer's earlier orders/agents are never consulted.
+    // Attribution follows the customer's CURRENT agent (set by referral code or an admin transfer),
+    // frozen onto the order here. A referral code only fills an empty assignment - it never moves a
+    // customer between agents. An agent buying for themselves is an AGENT_OWN order.
     const referral =
       referralOverride !== undefined
         ? referralOverride
         : await referralService.resolveForOrder(BigInt(userId), request);
+    const attribution = await customerAssignmentService.resolveOrderAttribution(BigInt(userId), referral);
 
     // 5. Execute creation transaction
     return orderRepository.createCustomerOrderTransaction({
       userId,
-      agentId: referral?.id ?? null,
-      referralCode: referral?.referralCode ?? null,
+      agentId: attribution.agentId,
+      referralCode: attribution.referralCode,
+      orderSource: attribution.orderSource,
+      orderedById: attribution.orderedById,
       cartId: cart.id,
       subtotal,
       discountAmount: totalDiscount,
