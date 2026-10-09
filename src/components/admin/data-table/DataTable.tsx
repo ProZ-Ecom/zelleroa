@@ -54,7 +54,7 @@ function DataTable<TData, TValue>({
   onPageChange,
   className,
   emptyMessage = "No results found.",
-  exportable = true,
+  exportable = false,
   exportFileName,
 }: DataTableProps<TData, TValue>) {
   const [internalPageSize, setInternalPageSize] = React.useState<number>(
@@ -62,8 +62,14 @@ function DataTable<TData, TValue>({
   );
   const [internalPage, setInternalPage] = React.useState<number>(page);
 
-  const effectivePageSize = controlledPageSize ?? internalPageSize;
-  const effectivePage = page ?? internalPage;
+  const isControlledPageSize =
+    controlledPageSize !== undefined && onPageSizeChange !== undefined;
+  const effectivePageSize = isControlledPageSize
+    ? controlledPageSize
+    : internalPageSize;
+
+  const isControlledPage = page !== undefined && onPageChange !== undefined;
+  const effectivePage = isControlledPage ? page : internalPage;
 
   React.useEffect(() => {
     if (controlledPageSize !== undefined) {
@@ -95,7 +101,7 @@ function DataTable<TData, TValue>({
   const [rowSelection, setRowSelection] = React.useState({});
   const [globalFilter, setGlobalFilter] = React.useState("");
 
-  const isServerSide = totalItems !== undefined && totalItems > data.length;
+  const isServerSide = totalItems !== undefined || onPageChange !== undefined;
   const paginatedData = React.useMemo(() => {
     if (isServerSide || data.length <= effectivePageSize) {
       return data;
@@ -150,7 +156,7 @@ function DataTable<TData, TValue>({
   return (
     <div className={cn("w-full flex-1 flex flex-col justify-between rounded-2xl overflow-hidden min-h-[380px] border border-neutral-200/70 bg-white shadow-[0_1px_2px_rgba(16,24,40,0.04),0_8px_24px_-8px_rgba(16,24,40,0.08)]", className)}>
       {(searchKey || exportable) && (
-        <div className="flex items-center justify-between gap-2 p-3 pb-0 flex-shrink-0">
+        <div className="flex items-center justify-between gap-3 p-3.5 border-b border-neutral-200/80 bg-neutral-50/50 flex-shrink-0">
           {searchKey ? (
             <SearchInput
               placeholder={searchPlaceholder}
@@ -166,7 +172,7 @@ function DataTable<TData, TValue>({
               type="button"
               onClick={handleExport}
               disabled={!table.getRowModel().rows.length}
-              className="inline-flex items-center gap-2 rounded-xl border border-neutral-200 bg-white px-3.5 py-2 text-sm font-medium text-neutral-700 shadow-sm transition-all hover:border-neutral-300 hover:bg-neutral-50 hover:shadow active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
+              className="inline-flex items-center gap-2 rounded-xl border border-neutral-200 bg-white px-3.5 py-2 text-sm font-medium text-neutral-700 shadow-sm transition-all hover:border-neutral-300 hover:bg-neutral-50 hover:shadow active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 shrink-0 cursor-pointer"
             >
               <Download className="h-4 w-4" />
               Export
@@ -277,6 +283,7 @@ function DataTable<TData, TValue>({
               <Select
                 size="sm"
                 value={String(effectivePageSize)}
+                onValueChange={(val) => handlePageSizeChange(Number(val))}
                 onChange={(e) => handlePageSizeChange(Number(e.target.value))}
                 options={pageSizeOptions.map((opt) => ({
                   value: String(opt),

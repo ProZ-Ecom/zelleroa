@@ -19,6 +19,8 @@ import { ErrorState } from "@/components/ui/error-state";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { FormModal } from "@/components/common/FormModal";
+import { ExportButton } from "@/components/common/export-button";
+import { exportDataToCsv } from "@/lib/export-csv";
 import { SearchInput } from "@/components/ui/search-input";
 import { Plus, Pencil, Trash2 } from "lucide-react";
 import type { ColumnDef } from "@tanstack/react-table";
@@ -156,13 +158,29 @@ export default function AdminGstRatesPage() {
               className="w-full max-w-md"
             />
 
-            <Button
-              onClick={() => setIsCreateOpen(true)}
-              className="h-11 rounded-xl bg-[var(--color-primary-500)] px-5 text-sm font-semibold text-white hover:bg-[var(--color-primary-600)]"
-            >
-              <Plus className="mr-2 h-4 w-4" />
-              Add GST Rate
-            </Button>
+            <div className="flex items-center gap-3">
+              <ExportButton
+                onClick={() =>
+                  exportDataToCsv(
+                    gstRates.map((g) => ({
+                      Name: g.name,
+                      CGST: `${g.cgstPercent}%`,
+                      SGST: `${g.sgstPercent}%`,
+                      IGST: `${g.igstPercent}%`,
+                    })),
+                    "gst-rates"
+                  )
+                }
+                disabled={gstRates.length === 0}
+              />
+              <Button
+                onClick={() => setIsCreateOpen(true)}
+                className="h-11 rounded-xl bg-[var(--color-primary-500)] px-5 text-sm font-semibold text-white hover:bg-[var(--color-primary-600)]"
+              >
+                <Plus className="mr-2 h-4 w-4" />
+                Add GST Rate
+              </Button>
+            </div>
           </div>
 
           <div className="mt-6 flex-1 min-h-0 overflow-hidden flex flex-col">

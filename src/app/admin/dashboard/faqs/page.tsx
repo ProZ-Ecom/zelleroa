@@ -16,6 +16,8 @@ import {
   AdminContent,
 } from "@/components/admin/AdminPageHeader";
 import { FormModal } from "@/components/common/FormModal";
+import { ExportButton } from "@/components/common/export-button";
+import { exportDataToCsv } from "@/lib/export-csv";
 import { SearchInput } from "@/components/ui/search-input";
 import { ClearFiltersButton } from "@/components/common/clear-filters-button";
 import {
@@ -317,7 +319,22 @@ export default function AdminFaqsPage() {
               )}
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-3">
+              <ExportButton
+                onClick={() =>
+                  exportDataToCsv(
+                    faqs.map((f) => ({
+                      Order: f.displayOrder,
+                      Question: f.question,
+                      Answer: f.answer,
+                      Category: f.category || "Uncategorised",
+                      Status: f.status,
+                    })),
+                    "faqs"
+                  )
+                }
+                disabled={faqs.length === 0}
+              />
               <Button
                 onClick={() => setIsCreateOpen(true)}
                 className="h-11 rounded-xl bg-[var(--color-primary-500)] px-5 text-sm font-semibold text-white hover:bg-[var(--color-primary-600)]"

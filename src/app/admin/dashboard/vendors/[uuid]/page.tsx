@@ -14,6 +14,8 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { ErrorState } from "@/components/ui/error-state";
 import { Skeleton } from "@/components/ui/skeleton";
 import { FormModal } from "@/components/common/FormModal";
+import { ExportButton } from "@/components/common/export-button";
+import { exportDataToCsv } from "@/lib/export-csv";
 import { VendorForm } from "@/features/purchases/components/VendorForm";
 import { PurchaseStatusBadge } from "@/features/purchases/components/PurchaseStatusBadge";
 import {
@@ -228,7 +230,25 @@ export default function VendorDetailPage() {
         </section>
 
         <section className="xl:col-span-2">
-          <h2 className="mb-3 font-semibold">Purchase history</h2>
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="font-semibold">Purchase history</h2>
+            <ExportButton
+              onClick={() =>
+                exportDataToCsv(
+                  (purchases.data?.data ?? []).map((p) => ({
+                    PONumber: p.poNumber,
+                    PurchaseDate: p.purchaseDate ? formatDate(p.purchaseDate) : "—",
+                    InvoiceNumber: p.invoiceNumber || "—",
+                    ItemsCount: p.itemCount,
+                    TotalAmount: inr(p.totalAmount),
+                    Status: p.status,
+                  })),
+                  `${vendor.name.toLowerCase().replace(/[^a-z0-9]/g, "-")}-purchases`
+                )
+              }
+              disabled={!purchases.data?.data?.length}
+            />
+          </div>
           {purchases.isLoading && !purchases.data ? (
             <AdminTableSkeleton />
           ) : (

@@ -14,6 +14,8 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { FormModal } from "@/components/common/FormModal";
 import { SearchInput } from "@/components/ui/search-input";
 import { ClearFiltersButton } from "@/components/common/clear-filters-button";
+import { ExportButton } from "@/components/common/export-button";
+import { exportDataToCsv } from "@/lib/export-csv";
 import { useCategories } from "@/features/categories/hooks";
 import { useAdminProducts } from "@/features/products/hooks";
 import {
@@ -232,13 +234,33 @@ export default function AdminStylesPage() {
               {hasActiveFilters && <ClearFiltersButton onClick={handleClearFilters} />}
             </div>
 
-            <Button
-              onClick={() => setIsAddOpen(true)}
-              className="h-11 rounded-xl bg-[var(--color-primary-500)] px-5 text-sm font-semibold text-white hover:bg-[var(--color-primary-600)]"
-            >
-              <Plus className="mr-2 h-4 w-4" />
-              Add Item
-            </Button>
+            <div className="flex items-center gap-3">
+              <ExportButton
+                onClick={() =>
+                  exportDataToCsv(
+                    styles.map((s) => ({
+                      Name: s.name,
+                      Slug: s.slug,
+                      Product: s.productName || "—",
+                      Brand: s.brandName || "—",
+                      Category: s.categoryName || "—",
+                      Items: s.itemCount,
+                      Status: s.isActive ? "Active" : "Inactive",
+                      CreatedDate: new Date(s.createdAt).toLocaleDateString("en-IN"),
+                    })),
+                    "items"
+                  )
+                }
+                disabled={styles.length === 0}
+              />
+              <Button
+                onClick={() => setIsAddOpen(true)}
+                className="h-11 rounded-xl bg-[var(--color-primary-500)] px-5 text-sm font-semibold text-white hover:bg-[var(--color-primary-600)]"
+              >
+                <Plus className="mr-2 h-4 w-4" />
+                Add Item
+              </Button>
+            </div>
           </div>
 
           <div className="mt-6 flex-1 min-h-0 overflow-hidden flex flex-col">

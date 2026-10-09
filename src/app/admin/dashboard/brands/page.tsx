@@ -12,6 +12,8 @@ import { Button } from "@/components/ui/button";
 // import { Badge } from "@/components/ui/badge";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { FormModal } from "@/components/common/FormModal";
+import { ExportButton } from "@/components/common/export-button";
+import { exportDataToCsv } from "@/lib/export-csv";
 import { toast } from "@/components/ui/Toast";
 import { Plus, Pencil, Trash2, Filter } from "lucide-react";
 import type { ColumnDef } from "@tanstack/react-table";
@@ -168,13 +170,29 @@ export default function AdminBrandsPage() {
               className="w-full max-w-md"
             />
 
-            <Button
-              onClick={() => setIsCreateOpen(true)}
-              className="h-11 rounded-xl bg-[var(--color-primary-500)] px-5 text-sm font-semibold text-white hover:bg-[var(--color-primary-600)]"
-            >
-              <Plus className="mr-2 h-4 w-4" />
-              Add Brand
-            </Button>
+            <div className="flex items-center gap-3">
+              <ExportButton
+                onClick={() =>
+                  exportDataToCsv(
+                    brands.map((b) => ({
+                      Name: b.name,
+                      Code: b.slug || "",
+                      Products: b._count?.products || 0,
+                      CreatedAt: new Date(b.createdAt).toLocaleDateString("en-IN"),
+                    })),
+                    "brands"
+                  )
+                }
+                disabled={brands.length === 0}
+              />
+              <Button
+                onClick={() => setIsCreateOpen(true)}
+                className="h-11 rounded-xl bg-[var(--color-primary-500)] px-5 text-sm font-semibold text-white hover:bg-[var(--color-primary-600)]"
+              >
+                <Plus className="mr-2 h-4 w-4" />
+                Add Brand
+              </Button>
+            </div>
           </div>
 
           {/* Table */}

@@ -12,6 +12,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { FormModal } from "@/components/common/FormModal";
+import { ExportButton } from "@/components/common/export-button";
+import { exportDataToCsv } from "@/lib/export-csv";
 import { SearchInput } from "@/components/ui/search-input";
 import { useVendors, useVendorMutations } from "@/features/purchases/hooks";
 import { VendorForm } from "@/features/purchases/components/VendorForm";
@@ -126,13 +128,32 @@ export default function VendorsPage() {
               }}
               className="w-full max-w-md"
             />
-            <Button
-              onClick={() => setIsCreateOpen(true)}
-              className="h-11 rounded-xl bg-[var(--color-primary-500)] px-5 text-sm font-semibold text-white hover:bg-[var(--color-primary-600)]"
-            >
-              <Plus className="mr-2 h-4 w-4" />
-              Add Vendor
-            </Button>
+            <div className="flex items-center gap-3">
+              <ExportButton
+                onClick={() =>
+                  exportDataToCsv(
+                    vendors.map((v) => ({
+                      Name: v.name,
+                      Code: v.code,
+                      ContactPerson: v.contactPerson || "",
+                      Email: v.email || "",
+                      Phone: v.phone || "",
+                      GSTIN: v.gstin || "",
+                      Status: v.isActive ? "Active" : "Inactive",
+                    })),
+                    "vendors"
+                  )
+                }
+                disabled={vendors.length === 0}
+              />
+              <Button
+                onClick={() => setIsCreateOpen(true)}
+                className="h-11 rounded-xl bg-[var(--color-primary-500)] px-5 text-sm font-semibold text-white hover:bg-[var(--color-primary-600)]"
+              >
+                <Plus className="mr-2 h-4 w-4" />
+                Add Vendor
+              </Button>
+            </div>
           </div>
 
           <div className="mt-6 flex-1 min-h-0 overflow-hidden flex flex-col">

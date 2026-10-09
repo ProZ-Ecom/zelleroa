@@ -24,6 +24,8 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { FormModal } from "@/components/common/FormModal";
 import { SearchInput } from "@/components/ui/search-input";
 import { ClearFiltersButton } from "@/components/common/clear-filters-button";
+import { ExportButton } from "@/components/common/export-button";
+import { exportDataToCsv } from "@/lib/export-csv";
 import Link from "next/link";
 import { Plus, Pencil, Trash2 } from "lucide-react";
 import type { ColumnDef } from "@tanstack/react-table";
@@ -246,13 +248,33 @@ export default function AdminProductsPage() {
               {hasActiveFilters && <ClearFiltersButton onClick={handleClearFilters} />}
             </div>
 
-            <Button
-              onClick={() => setIsCreateOpen(true)}
-              className="h-11 rounded-xl bg-[var(--color-primary-500)] px-5 text-sm font-semibold text-white hover:bg-[var(--color-primary-600)]"
-            >
-              <Plus className="mr-2 h-4 w-4" />
-              Add Product
-            </Button>
+            <div className="flex items-center gap-2.5 shrink-0">
+              <ExportButton
+                onClick={() =>
+                  exportDataToCsv(
+                    products,
+                    "products",
+                    [
+                      { header: "Name", accessor: (p) => p.name },
+                      { header: "Slug", accessor: (p) => p.slug },
+                      { header: "Category", accessor: (p) => p.categoryName || "-" },
+                      { header: "HSN Code", accessor: (p) => p.hsnCodeName || "-" },
+                      { header: "Status", accessor: (p) => (p.isActive ? "Active" : "Inactive") },
+                      { header: "Created At", accessor: (p) => p.createdAt ? new Date(p.createdAt).toLocaleDateString("en-IN") : "-" },
+                    ]
+                  )
+                }
+                disabled={!products.length}
+              />
+
+              <Button
+                onClick={() => setIsCreateOpen(true)}
+                className="h-10 rounded-xl bg-[var(--color-primary-500)] px-5 text-sm font-semibold text-white hover:bg-[var(--color-primary-600)]"
+              >
+                <Plus className="mr-2 h-4 w-4" />
+                Add Product
+              </Button>
+            </div>
           </div>
 
           <div className="mt-6 flex-1 min-h-0 overflow-hidden flex flex-col">

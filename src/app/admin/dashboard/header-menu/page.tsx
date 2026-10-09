@@ -15,6 +15,8 @@ import { ErrorState } from "@/components/ui/error-state";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { FormModal } from "@/components/common/FormModal";
+import { ExportButton } from "@/components/common/export-button";
+import { exportDataToCsv } from "@/lib/export-csv";
 import { StatusToggle } from "@/components/admin/StatusToggle";
 import { Plus, Pencil, Trash2, FolderTree, Link2 } from "lucide-react";
 import type { ColumnDef } from "@tanstack/react-table";
@@ -151,14 +153,32 @@ export default function AdminHeaderMenuPage() {
       <AdminContent className="flex-1 min-h-0 overflow-hidden">
         <div className="flex h-full flex-col overflow-hidden bg-[var(--color-background)] py-1 rounded-2xl">
           <div className="flex-shrink-0 mt-6 flex flex-col gap-4 md:flex-row md:items-center md:justify-end">
-            <Button
-              type="button"
-              onClick={() => setIsCreateOpen(true)}
-              className="h-11 rounded-xl bg-[var(--color-primary-500)] px-5 text-sm font-semibold text-white hover:bg-[var(--color-primary-600)]"
-            >
-              <Plus className="mr-2 h-4 w-4" />
-              Add Menu Item
-            </Button>
+            <div className="flex items-center gap-3">
+              <ExportButton
+                onClick={() =>
+                  exportDataToCsv(
+                    items.map((item) => ({
+                      Label: item.label,
+                      Categories: item.categories.map((c) => c.name).join(", "),
+                      Link: item.link || "",
+                      Gender: item.gender || "All",
+                      SortOrder: item.sortOrder,
+                      Status: item.isActive ? "Active" : "Inactive",
+                    })),
+                    "header-menu"
+                  )
+                }
+                disabled={items.length === 0}
+              />
+              <Button
+                type="button"
+                onClick={() => setIsCreateOpen(true)}
+                className="h-11 rounded-xl bg-[var(--color-primary-500)] px-5 text-sm font-semibold text-white hover:bg-[var(--color-primary-600)]"
+              >
+                <Plus className="mr-2 h-4 w-4" />
+                Add Menu Item
+              </Button>
+            </div>
           </div>
 
           <div className="mt-6 flex-1 min-h-0 overflow-hidden flex flex-col">

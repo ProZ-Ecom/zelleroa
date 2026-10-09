@@ -24,6 +24,8 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { SearchInput } from "@/components/ui/search-input";
 import { Select } from "@/components/ui/select";
 import { ClearFiltersButton } from "@/components/common/clear-filters-button";
+import { ExportButton } from "@/components/common/export-button";
+import { exportDataToCsv } from "@/lib/export-csv";
 import { formatDateTime, formatPrice } from "@/lib/utils";
 import {
   useAdminOrders,
@@ -381,8 +383,8 @@ export function AdminOrderListTable({
   return (
     <div className="flex h-full flex-col overflow-hidden bg-[var(--color-background)] rounded-2xl">
       {/* Filter and Search Bar */}
-      <div className="flex-shrink-0 mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex flex-1 items-center gap-3">
+      <div className="flex-shrink-0 mb-4 flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-1 flex-wrap items-center gap-3 min-w-0">
           <SearchInput
             placeholder="Search by order number, customer name, email, phone..."
             value={search}
@@ -390,31 +392,56 @@ export function AdminOrderListTable({
               setSearch(val.trim());
               setPage(1);
             }}
-            className="w-full max-w-md bg-cream-50 border-cream-border-subtle"
+            className="w-full sm:w-80 md:w-96 max-w-md bg-cream-50 border-cream-border-subtle"
           />
+
+          <div className="w-full sm:w-48 shrink-0">
+            <Select
+              size="sm"
+              value={paymentFilter}
+              onValueChange={(val) => {
+                setPaymentFilter(val);
+                setPage(1);
+              }}
+              options={[
+                { value: "", label: "All Payments" },
+                ...PAYMENT_STATUSES.map((ps) => ({
+                  value: ps,
+                  label: PAYMENT_STATUS_LABELS[ps] || ps,
+                })),
+              ]}
+              placeholder="All Payments"
+              className="h-10 rounded-xl"
+              searchable={false}
+            />
+          </div>
+
+          {hasActiveFilters && (
+            <ClearFiltersButton onClick={handleClearFilters} />
+          )}
         </div>
 
-        <div className="flex items-center gap-2 w-full sm:w-48">
-          <Select
-            size="sm"
-            value={paymentFilter}
-            onChange={(e) => {
-              setPaymentFilter(e.target.value);
-              setPage(1);
-            }}
-            options={[
-              { value: "", label: "All Payments" },
-              ...PAYMENT_STATUSES.map((ps) => ({
-                value: ps,
-                label: PAYMENT_STATUS_LABELS[ps] || ps,
-              })),
-            ]}
-            placeholder="All Payments"
-            className="h-10 rounded-xl"
-            searchable={false}
+        <div className="flex items-center gap-2.5 shrink-0">
+          <ExportButton
+            onClick={() =>
+              exportDataToCsv(
+                orders,
+                `orders-${status || "all"}`,
+                [
+                  { header: "Order Number", accessor: (o) => o.orderNumber },
+                  { header: "Customer", accessor: (o) => o.customer?.name || "-" },
+                  { header: "Phone", accessor: (o) => o.customer?.phone || "-" },
+                  { header: "Email", accessor: (o) => o.customer?.email || "-" },
+                  { header: "Items Count", accessor: (o) => o.totalItems },
+                  { header: "Total (₹)", accessor: (o) => Number(o.totalAmount || 0).toFixed(2) },
+                  { header: "Order Status", accessor: (o) => o.status },
+                  { header: "Payment Status", accessor: (o) => o.paymentStatus || "-" },
+                  { header: "Placed At", accessor: (o) => o.placedAt || o.createdAt },
+                ]
+              )
+            }
+            disabled={!orders.length}
           />
-
-          {hasActiveFilters && <ClearFiltersButton onClick={handleClearFilters} />}
         </div>
       </div>
 

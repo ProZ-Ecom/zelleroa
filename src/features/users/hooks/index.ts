@@ -1,6 +1,6 @@
 "use client";
 
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import { userKeys } from "@/lib/api/query-keys";
 import {
   getUsers,
@@ -23,6 +23,8 @@ export function useUsers(params?: GetUserParams) {
   return useQuery({
     queryKey: userKeys.list(queryParams),
     queryFn: () => getUsers(queryParams),
+    placeholderData: keepPreviousData,
+    staleTime: 30 * 1000,
   });
 }
 

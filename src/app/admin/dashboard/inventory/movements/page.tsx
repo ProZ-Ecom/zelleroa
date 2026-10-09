@@ -10,6 +10,8 @@ import { ErrorState } from "@/components/ui/error-state";
 import { SearchInput } from "@/components/ui/search-input";
 import { Input } from "@/components/ui/input";
 import { ClearFiltersButton } from "@/components/common/clear-filters-button";
+import { ExportButton } from "@/components/common/export-button";
+import { exportDataToCsv } from "@/lib/export-csv";
 import { MovementTypeBadge, SignedQuantity, VariantLabel } from "@/features/inventory/components/StockBadges";
 import { useStockMovements } from "@/features/inventory/hooks/use-stock";
 import { formatDateTime } from "@/lib/utils";
@@ -105,66 +107,91 @@ function MovementsContent() {
       />
       <AdminContent className="flex-1 min-h-0 overflow-hidden">
         <div className="flex h-full flex-col overflow-hidden py-1">
-          <div className="flex-shrink-0 flex flex-col gap-3 lg:flex-row lg:items-center">
-            <SearchInput
-              placeholder="Search product, SKU, order / PO number..."
-              defaultValue={search}
-              onSearch={(v) => {
-                setSearch(v);
-                setPage(1);
-              }}
-              className="w-full max-w-md"
-            />
-            <select
-              value={type}
-              onChange={(e) => {
-                setType(e.target.value as MovementType | "");
-                setPage(1);
-              }}
-              className="h-11 rounded-xl border border-neutral-300 bg-white px-3 text-sm focus:border-secondary-600 focus:outline-none"
-              aria-label="Filter by movement type"
-            >
-              {TYPES.map((t) => (
-                <option key={t.value} value={t.value}>
-                  {t.label}
-                </option>
-              ))}
-            </select>
-            <div className="flex items-center gap-2">
-              <Input
-                type="date"
-                value={from}
-                max={to || undefined}
-                onChange={(e) => {
-                  setFrom(e.target.value);
+          <div className="flex-shrink-0 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex flex-1 flex-col gap-3 lg:flex-row lg:items-center flex-wrap">
+              <SearchInput
+                placeholder="Search product, SKU, order / PO number..."
+                defaultValue={search}
+                onSearch={(v) => {
+                  setSearch(v);
                   setPage(1);
                 }}
-                aria-label="From date"
+                className="w-full max-w-md"
               />
-              <span className="text-sm text-neutral-500">to</span>
-              <Input
-                type="date"
-                value={to}
-                min={from || undefined}
+              <select
+                value={type}
                 onChange={(e) => {
-                  setTo(e.target.value);
+                  setType(e.target.value as MovementType | "");
                   setPage(1);
                 }}
-                aria-label="To date"
-              />
+                className="h-11 rounded-xl border border-neutral-300 bg-white px-3 text-sm focus:border-secondary-600 focus:outline-none"
+                aria-label="Filter by movement type"
+              >
+                {TYPES.map((t) => (
+                  <option key={t.value} value={t.value}>
+                    {t.label}
+                  </option>
+                ))}
+              </select>
+              <div className="flex items-center gap-2">
+                <Input
+                  type="date"
+                  value={from}
+                  max={to || undefined}
+                  onChange={(e) => {
+                    setFrom(e.target.value);
+                    setPage(1);
+                  }}
+                  aria-label="From date"
+                />
+                <span className="text-sm text-neutral-500">to</span>
+                <Input
+                  type="date"
+                  value={to}
+                  min={from || undefined}
+                  onChange={(e) => {
+                    setTo(e.target.value);
+                    setPage(1);
+                  }}
+                  aria-label="To date"
+                />
+              </div>
+              {hasFilters && (
+                <ClearFiltersButton
+                  onClick={() => {
+                    setSearch("");
+                    setType("");
+                    setFrom("");
+                    setTo("");
+                    setItem(undefined);
+                    setPage(1);
+                  }}
+                />
+              )}
             </div>
-            {hasFilters && (
-              <ClearFiltersButton
-                onClick={() => {
-                  setSearch("");
-                  setType("");
-                  setFrom("");
-                  setTo("");
-                  setItem(undefined);
-                  setPage(1);
-                }}
-              />
-            )}
+
+            <ExportButton
+              onClick={() =>
+                exportDataToCsv(
+                  rows.map((r) => ({
+                    Date: formatDateTime(r.createdAt),
+                    Product: r.productName,
+                    SKU: r.sku,
+                    Color: r.colorName || "—",
+                    Size: r.sizeName || "—",
+                    Type: r.movementType,
+                    Quantity: r.signedQuantity,
+                    PreviousStock: r.previousStock ?? "—",
+                    NewStock: r.newStock,
+                    Reference: r.referenceNumber || "—",
+                    Reason: r.reason || "—",
+                    CreatedBy: r.createdBy || "System",
+                  })),
+                  "stock-movements"
+                )
+              }
+              disabled={rows.length === 0}
+            />
           </div>
 
           <div className="mt-6 flex-1 min-h-0 overflow-hidden flex flex-col">

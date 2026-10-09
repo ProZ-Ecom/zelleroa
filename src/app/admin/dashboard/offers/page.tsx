@@ -17,6 +17,8 @@ import { AdminTableSkeleton } from "@/components/admin/AdminTableSkeleton";
 import { AdminContent, AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { FormModal } from "@/components/common/FormModal";
 import { ClearFiltersButton } from "@/components/common/clear-filters-button";
+import { ExportButton } from "@/components/common/export-button";
+import { exportDataToCsv } from "@/lib/export-csv";
 import {
   useCreateOffer,
   useDeleteOffer,
@@ -398,16 +400,37 @@ export default function AdminOffersPage() {
         title="Offers"
         description="Create product-wise and item-wise offers, and control which one wins when several apply."
         actions={
-          <Button
-            onClick={() => {
-              setFormError(null);
-              setIsCreateOpen(true);
-            }}
-            className="h-11 rounded-xl bg-[var(--color-primary-500)] px-5 text-sm font-semibold text-white hover:bg-[var(--color-primary-600)]"
-          >
-            <Plus className="mr-2 h-4 w-4" />
-            Create Offer
-          </Button>
+          <div className="flex items-center gap-3">
+            <ExportButton
+              onClick={() =>
+                exportDataToCsv(
+                  offers.map((o) => ({
+                    Name: o.name,
+                    Code: o.code || "",
+                    Level: OFFER_LEVEL_LABELS[o.level] || o.level,
+                    Type: OFFER_TYPE_LABELS[o.type] || o.type,
+                    Discount: formatOfferDiscount(o),
+                    Priority: o.priority,
+                    Status: OFFER_STATUS_LABELS[o.status] || o.status,
+                    StartDate: formatDate(o.startsAt),
+                    EndDate: formatDate(o.endsAt),
+                  })),
+                  "offers"
+                )
+              }
+              disabled={offers.length === 0}
+            />
+            <Button
+              onClick={() => {
+                setFormError(null);
+                setIsCreateOpen(true);
+              }}
+              className="h-11 rounded-xl bg-[var(--color-primary-500)] px-5 text-sm font-semibold text-white hover:bg-[var(--color-primary-600)]"
+            >
+              <Plus className="mr-2 h-4 w-4" />
+              Create Offer
+            </Button>
+          </div>
         }
       />
 

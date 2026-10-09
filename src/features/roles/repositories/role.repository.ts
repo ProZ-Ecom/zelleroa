@@ -32,11 +32,38 @@ const roleDetailInclude = Prisma.validator<Prisma.RoleInclude>()({
 });
 
 export const roleRepository = {
-  async findAll() {
-    return db.role.findMany({
-      include: roleListInclude,
-      orderBy: { name: "asc" },
-    });
+  async findAll(params: { page?: number; limit?: number; search?: string } = {}) {
+    const page = params.page ?? 1;
+    const limit = params.limit ?? 10;
+    const where: Prisma.RoleWhereInput = params.search
+      ? {
+          OR: [
+            { name: { contains: params.search } },
+            { description: { contains: params.search } },
+          ],
+        }
+      : {};
+
+    const [data, total] = await Promise.all([
+      db.role.findMany({
+        where,
+        include: roleListInclude,
+        orderBy: { name: "asc" },
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+      db.role.count({ where }),
+    ]);
+
+    return {
+      data,
+      meta: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
   },
 
   async findById(id: number) {

@@ -62,7 +62,7 @@ export const updateUserSchema = createUserSchema
 export const resetPasswordSchema = z.object({
   password: z
     .string()
-    .min(6, "Password must be at least 6 characters")
+    .min(8, "Password must be at least 8 characters")
     .max(100, "Password cannot exceed 100 characters"),
 });
 
