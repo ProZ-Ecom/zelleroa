@@ -16,6 +16,7 @@ import { z } from "zod";
 import { emailField } from "@/lib/validations/email";
 import { NAME_REGEX, NAME_INVALID_MESSAGE } from "@/lib/validations/name";
 import { getMobileError } from "@/lib/validations/mobile";
+import { GoogleAuthButton } from "@/components/auth/GoogleAuthButton";
 
 const registerFormSchema = z
   .object({
@@ -208,14 +209,26 @@ function RegisterForm() {
         </div>
       }
     >
-      <FormProvider {...methods}>
-        <form
-          onSubmit={methods.handleSubmit(onSubmit, () => {
-            // RHF focuses the first invalid field; also surface the terms error
-            if (!acceptTerms) setTermsError(true);
-          })}
-          className="space-y-5 md:space-y-6"
-        >
+      <div className="space-y-4">
+        {/* Google One-Click Registration */}
+        <GoogleAuthButton callbackUrl={callbackUrl} text="Continue with Google" />
+
+        {/* Divider */}
+        <div className="relative flex items-center justify-center py-1">
+          <div className="w-full border-t border-neutral-200" />
+          <span className="absolute bg-white px-3 text-xs font-medium uppercase tracking-wider text-neutral-400">
+            Or register with email
+          </span>
+        </div>
+
+        <FormProvider {...methods}>
+          <form
+            onSubmit={methods.handleSubmit(onSubmit, () => {
+              // RHF focuses the first invalid field; also surface the terms error
+              if (!acceptTerms) setTermsError(true);
+            })}
+            className="space-y-5 md:space-y-6"
+          >
           {/* Server Error */}
           {methods.formState.errors.root?.message && (
             <div className="flex items-center gap-2 rounded-lg border border-error-200 bg-error-50 p-3 text-sm text-error-600">
@@ -345,6 +358,7 @@ function RegisterForm() {
           </FormSubmitButton>
         </form>
       </FormProvider>
+      </div>
     </AuthFormLayout>
   );
 }
