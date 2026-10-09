@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { INDIA_POST_CONSIGNMENT_REGEX } from "@/lib/shipping/india-post";
+import { COURIER_CODES, DEFAULT_COURIER_CODE, getCourier } from "@/lib/shipping/couriers";
 
 /* ----------------------- Admin Delivery Schemas ----------------------- */
 
@@ -89,16 +89,25 @@ export type AssignDeliveryInput = z.infer<typeof assignDeliverySchema>;
 export const shipViaCourierSchema = z
   .object({
     orderId: z.string().uuid("Invalid order UUID"),
+    courier: z.enum(COURIER_CODES).default(DEFAULT_COURIER_CODE),
     trackingNumber: z
       .string()
       .trim()
       .toUpperCase()
-      .regex(
-        INDIA_POST_CONSIGNMENT_REGEX,
-        "Enter a valid Speed Post consignment number (e.g. EE123456789IN)"
-      ),
+      .min(5, "Enter the tracking number")
+      .max(50, "Tracking number is too long"),
   })
-  .strict();
+  .strict()
+  .superRefine((value, ctx) => {
+    const courier = getCourier(value.courier);
+    if (courier?.pattern && !courier.pattern.test(value.trackingNumber)) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["trackingNumber"],
+        message: courier.patternMessage ?? "Invalid tracking number",
+      });
+    }
+  });
 
 export type ShipViaCourierInput = z.infer<typeof shipViaCourierSchema>;
 

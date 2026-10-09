@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { useSession } from "next-auth/react";
+import { useSignedIn } from "@/features/auth/hooks/use-signed-in";
 import { useQueryClient } from "@tanstack/react-query";
 import { Loader2, Minus, Plus, ShoppingBag } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -172,7 +172,7 @@ export function ItemQuickAdd({
 }) {
   const router = useRouter();
   const pathname = usePathname();
-  const { data: session } = useSession();
+  const session = useSignedIn();
   const queryClient = useQueryClient();
   const addToCart = useAddToCart();
   const [loading, setLoading] = useState(false);

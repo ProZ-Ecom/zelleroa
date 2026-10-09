@@ -8,7 +8,7 @@ import { resolveSnackFallbackImage } from "@/lib/storefront";
 import { formatMeasurementLabel } from "@/features/variants/utils/measurement.util";
 import { useAddToCart } from "@/features/cart/hooks/use-cart";
 import { useWishlist, useAddToWishlist, useRemoveFromWishlist } from "@/features/wishlist/hooks/use-wishlist";
-import { useSession } from "next-auth/react";
+import { useSignedIn } from "@/features/auth/hooks/use-signed-in";
 import { useRouter } from "next/navigation";
 import { toast } from "@/components/ui/Toast";
 import { SnackCard } from "@/components/storefront/cards/SnackCard";
@@ -35,7 +35,7 @@ export function ProductVariantSelector({
   className,
 }: ProductVariantSelectorProps) {
   const router = useRouter();
-  const { data: session } = useSession();
+  const session = useSignedIn();
   const addToCart = useAddToCart();
   const { data: wishlist } = useWishlist({ enabled: !!session });
   const addToWishlist = useAddToWishlist();

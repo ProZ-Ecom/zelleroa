@@ -47,6 +47,8 @@ import {
 } from "@/features/customers/hooks/use-customer-orders";
 import { customerPaymentApi } from "@/features/customers/api/customer-payment.api";
 import { useCheckout } from "@/features/checkout/checkout-context";
+import { useIsAgent, useSignedIn } from "@/features/auth/hooks/use-signed-in";
+import { AgentCartCustomerOrder } from "@/features/agents/components/AgentCartCustomerOrder";
 import {
   DELIVERY_ESTIMATE,
   FREE_DELIVERY_STATE,
@@ -117,7 +119,12 @@ export default function CheckoutPage() {
   const createOrderMutation = useCreateCustomerOrder();
   const createGuestOrderMutation = useCreateGuestOrder();
 
-  const isGuest = authStatus !== "loading" && authStatus !== "authenticated";
+  // Agents sign in through the cookie flow, so useSession() alone would call them guests.
+  const signedIn = useSignedIn();
+  const isAgent = useIsAgent();
+  // Agent flow: is this cart for the agent themselves (own order) or one of their customers?
+  const [orderFor, setOrderFor] = useState<"self" | "customer">("self");
+  const isGuest = authStatus !== "loading" && !signedIn;
   const [guestEmail, setGuestEmail] = useState<string>("");
 
   // Selected state
@@ -170,13 +177,16 @@ export default function CheckoutPage() {
   const {
     isLoading: isPincodeLoading,
     lookupError: pincodeLookupError,
+    postOffices,
     triggerLookup: triggerPincodeLookup,
   } = usePincodeLookup();
+  const [area, setArea] = useState("");
 
   // Auto-fill city and state from the PIN code; user can still edit them afterwards.
   const handlePincodeChange = (value: string) => {
     const pincode = value.replace(/\D/g, "").slice(0, 6);
-    setNewAddressForm((prev) => ({ ...prev, pincode }));
+    setArea("");
+    setNewAddressForm((prev) => ({ ...prev, pincode, ...(pincode.length < 6 ? { city: "", state: "Tamil Nadu" } : {}) }));
     void triggerPincodeLookup(pincode, {
       onSuccess: ({ city, state }) =>
         setNewAddressForm((prev) => ({ ...prev, city, state })),
@@ -563,7 +573,24 @@ export default function CheckoutPage() {
         </div>
       )}
 
-      {/* Main Grid Layout */}
+      {isAgent && (
+        <div className="mb-6 rounded-2xl border border-theme-border bg-theme-surface shadow-xs p-5 sm:p-6">
+          <h2 className="text-base font-bold text-theme-text-primary mb-3">Who is this order for?</h2>
+          <div className="flex flex-wrap gap-4 text-sm">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input type="radio" checked={orderFor === "self"} onChange={() => setOrderFor("self")} /> Self (for myself)
+            </label>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input type="radio" checked={orderFor === "customer"} onChange={() => setOrderFor("customer")} /> Customer
+            </label>
+          </div>
+        </div>
+      )}
+
+      {isAgent && orderFor === "customer" ? (
+        <AgentCartCustomerOrder items={items} subtotal={subtotal} />
+      ) : (
+      /* Main Grid Layout */
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
         {/* Left Column: Form & Steps (8 cols) */}
         <div className="lg:col-span-8 space-y-6">
@@ -763,6 +790,58 @@ export default function CheckoutPage() {
 
                   <div className="sm:col-span-2">
                     <label className="block text-xs font-semibold text-theme-text-secondary mb-1">
+                      PIN Code (6 digits) *
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        required
+                        maxLength={6}
+                        placeholder="e.g. 636001"
+                        value={newAddressForm.pincode}
+                        onChange={(e) => handlePincodeChange(e.target.value)}
+                        className="w-full min-h-[44px] rounded-xl border border-theme-border-input bg-white px-3 text-xs text-theme-text-primary placeholder:text-theme-text-muted focus:border-theme-primary focus:outline-none"
+                      />
+                      {isPincodeLoading && (
+                        <Loader2 className="absolute right-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 animate-spin text-theme-text-muted" />
+                      )}
+                    </div>
+                    {pincodeLookupError && (
+                      <p className="mt-1 text-[11px] text-red-600">{pincodeLookupError}</p>
+                    )}
+                  </div>
+
+                  {postOffices.length > 0 && (
+                    <div className="sm:col-span-2">
+                      <label className="block text-xs font-semibold text-theme-text-secondary mb-1">
+                        Select your area / post office ({postOffices.length} found)
+                      </label>
+                      <select
+                        value={area}
+                        onChange={(e) => {
+                          const next = e.target.value;
+                          setArea(next);
+                          setNewAddressForm((prev) =>
+                            next && (!prev.addressLine2.trim() || prev.addressLine2 === area)
+                              ? { ...prev, addressLine2: next }
+                              : prev,
+                          );
+                        }}
+                        className="w-full min-h-[44px] rounded-xl border border-theme-border-input bg-white px-3 text-xs text-theme-text-primary focus:border-theme-primary focus:outline-none"
+                      >
+                        <option value="">Select area…</option>
+                        {postOffices.map((po) => (
+                          <option key={po.value} value={po.value}>
+                            {po.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+
+                  <div className="sm:col-span-2">
+                    <label className="block text-xs font-semibold text-theme-text-secondary mb-1">
                       Flat / House No., Building, Street *
                     </label>
                     <input
@@ -816,30 +895,6 @@ export default function CheckoutPage() {
                       }
                       className="w-full min-h-[44px] rounded-xl border border-theme-border-input bg-white px-3 text-xs text-theme-text-primary placeholder:text-theme-text-muted focus:border-theme-primary focus:outline-none"
                     />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-semibold text-theme-text-secondary mb-1">
-                      PIN Code (6 digits) *
-                    </label>
-                    <div className="relative">
-                      <input
-                        type="text"
-                        inputMode="numeric"
-                        required
-                        maxLength={6}
-                        placeholder="e.g. 636001"
-                        value={newAddressForm.pincode}
-                        onChange={(e) => handlePincodeChange(e.target.value)}
-                        className="w-full min-h-[44px] rounded-xl border border-theme-border-input bg-white px-3 text-xs text-theme-text-primary placeholder:text-theme-text-muted focus:border-theme-primary focus:outline-none"
-                      />
-                      {isPincodeLoading && (
-                        <Loader2 className="absolute right-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 animate-spin text-theme-text-muted" />
-                      )}
-                    </div>
-                    {pincodeLookupError && (
-                      <p className="mt-1 text-[11px] text-red-600">{pincodeLookupError}</p>
-                    )}
                   </div>
                 </div>
 
@@ -1263,6 +1318,7 @@ export default function CheckoutPage() {
           </div>
         </div>
       </div>
+      )}
     </div>
   );
 }

@@ -117,6 +117,8 @@ export interface OrderListItemResponse {
   delivery?: OrderDeliveryDto;
   courierShipment?: OrderCourierShipmentDto | null;
   notes: string | null;
+  /** Set when a Sales Partner placed this order on the customer's behalf. Safe to show the customer (no commission data). */
+  placedByAgent?: { name: string; agentCode: string | null } | null;
   placedAt: Date | null;
   deliveredAt?: Date | null;
   /** Present once the order has been cancelled. */
@@ -142,8 +144,24 @@ export interface OrderReferralDto {
   commissionStatus: string;
 }
 
+/** One payment attempt on an order. Admin-facing only. */
+export interface OrderPaymentDto {
+  id: string;
+  methodName: string;
+  methodCode: string;
+  amount: number;
+  currency: string;
+  /** pending | success | failed | refunded */
+  status: string;
+  gateway: string | null;
+  gatewayOrderId: string | null;
+  gatewayPaymentId: string | null;
+  createdAt: Date;
+}
+
 export interface OrderDetailResponse extends OrderListItemResponse {
   referral?: OrderReferralDto | null;
+  payments?: OrderPaymentDto[];
   items: OrderItemResponse[];
   shippingAddress: OrderAddressResponse | null;
   billingAddress: OrderAddressResponse | null;

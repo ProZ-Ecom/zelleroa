@@ -34,6 +34,7 @@ import {
   CheckCircle2,
   Ban,
   Filter,
+  ArrowRightLeft,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { ColumnDef } from "@tanstack/react-table";
@@ -377,41 +378,43 @@ export default function AdminCustomersPage() {
           item.status === "inactive";
 
         return (
-          <div className="flex items-center justify-center gap-1.5">
+          <div className="flex items-center justify-center gap-0.5">
             <Link
               href={`/admin/dashboard/customers/${item.id}`}
-              className="inline-flex items-center h-8 gap-1 px-2.5 rounded-lg text-xs font-semibold text-secondary-600 hover:text-secondary-700 hover:bg-secondary-50 cursor-pointer transition-colors"
+              className="inline-flex items-center justify-center h-8 w-8 rounded-lg text-secondary-600 hover:text-secondary-700 hover:bg-secondary-50 cursor-pointer transition-colors"
+              title="View customer"
+              aria-label="View customer"
             >
-              <Eye className="h-3.5 w-3.5" />
-              View
+              <Eye className="h-4 w-4" />
             </Link>
             <Link
               href={`/admin/dashboard/customers/${item.id}#sales-partner`}
-              className="inline-flex items-center h-8 gap-1 px-2 rounded-lg text-xs font-semibold text-neutral-700 hover:bg-neutral-100 cursor-pointer transition-colors"
-              title="Transfer customer or view transfer history"
+              className="inline-flex items-center justify-center h-8 w-8 rounded-lg text-neutral-600 hover:text-neutral-800 hover:bg-neutral-100 cursor-pointer transition-colors"
+              title="Transfer customer / view transfer history"
+              aria-label="Transfer customer or view transfer history"
             >
-              Transfer / History
+              <ArrowRightLeft className="h-4 w-4" />
             </Link>
 
             {isBlocked ? (
               <button
                 type="button"
                 onClick={() => setStatusTargetCustomer(item)}
-                className="inline-flex items-center h-8 gap-1 px-2 rounded-lg text-xs font-semibold text-emerald-700 hover:text-emerald-800 hover:bg-emerald-50 cursor-pointer transition-colors"
-                title="Unblock Customer"
+                className="inline-flex items-center justify-center h-8 w-8 rounded-lg text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 cursor-pointer transition-colors"
+                title="Unblock customer"
+                aria-label="Unblock customer"
               >
-                <ShieldCheck className="h-3.5 w-3.5 text-emerald-600" />
-                Unblock
+                <ShieldCheck className="h-4 w-4" />
               </button>
             ) : (
               <button
                 type="button"
                 onClick={() => setStatusTargetCustomer(item)}
-                className="inline-flex items-center h-8 gap-1 px-2 rounded-lg text-xs font-semibold text-red-600 hover:text-red-700 hover:bg-red-50 cursor-pointer transition-colors"
-                title="Block Customer"
+                className="inline-flex items-center justify-center h-8 w-8 rounded-lg text-red-500 hover:text-red-600 hover:bg-red-50 cursor-pointer transition-colors"
+                title="Block customer"
+                aria-label="Block customer"
               >
-                <Ban className="h-3.5 w-3.5 text-red-500" />
-                Block
+                <Ban className="h-4 w-4" />
               </button>
             )}
           </div>

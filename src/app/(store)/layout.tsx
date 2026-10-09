@@ -3,6 +3,7 @@ import { Header } from "@/components/layout/header";
 import { Footer } from "@/components/layout/footer";
 import { getPageSessionUser } from "@/lib/auth/require-auth";
 import { db } from "@/lib/db/prisma";
+import { ServerUserProvider } from "@/features/auth/hooks/use-signed-in";
 
 export default async function StoreLayout({
   children,
@@ -34,12 +35,14 @@ export default async function StoreLayout({
     : null;
 
   return (
-    <div className="flex min-h-screen flex-col">
-      <Suspense fallback={null}>
-        <Header initialUser={initialUser} />
-      </Suspense>
-      <main className="flex-1">{children}</main>
-      <Footer />
-    </div>
+    <ServerUserProvider signedIn={!!sessionUser} role={sessionUser?.role ?? null}>
+      <div className="flex min-h-screen flex-col">
+        <Suspense fallback={null}>
+          <Header initialUser={initialUser} />
+        </Suspense>
+        <main className="flex-1">{children}</main>
+        <Footer />
+      </div>
+    </ServerUserProvider>
   );
 }

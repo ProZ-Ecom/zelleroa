@@ -90,6 +90,11 @@ export function OrderCard({ order }: OrderCardProps) {
             <span className="font-mono text-xs sm:text-sm font-bold text-theme-text-primary">
               {order.orderNumber || `#${String(order.id).slice(0, 8)}`}
             </span>
+            {"placedByAgent" in order && order.placedByAgent && (
+              <span className="mt-0.5 block text-[10px] font-semibold text-theme-text-subtle">
+                Ordered by Sales Partner: {order.placedByAgent.name}
+              </span>
+            )}
           </div>
 
           <div>

@@ -102,6 +102,7 @@ export function OrderDetailView({
   const courierShipment =
     "courierShipment" in order ? order.courierShipment : (order as any).courierShipment;
 
+  const placedByAgent = "placedByAgent" in order ? order.placedByAgent : null;
   const statusMeta = getStatusBadgeMeta(order.status);
   const paymentStatus = (order as any).paymentStatus || (order as any).payment_status;
 
@@ -129,6 +130,13 @@ export function OrderDetailView({
             <CalendarDays className="h-3.5 w-3.5 text-theme-text-muted" />
             Placed on {formattedDate}
           </p>
+          {placedByAgent && (
+            <p className="mt-1.5 inline-flex items-center gap-1.5 rounded-full border border-theme-border bg-theme-surface-alt px-2.5 py-1 text-[11px] font-semibold text-theme-text-primary">
+              <User className="h-3 w-3 text-theme-text-muted" />
+              Ordered by Sales Partner: {placedByAgent.name}
+              {placedByAgent.agentCode ? ` (${placedByAgent.agentCode})` : ""}
+            </p>
+          )}
         </div>
 
         <div className="flex flex-wrap items-center gap-2.5">
@@ -314,6 +322,59 @@ export function OrderDetailView({
                     {order.referral.commissionStatus.replace(/_/g, " ")}
                   </dd>
                 </dl>
+              </div>
+            )}
+
+            {/* Payment details (admin only - the API sends this for admin requests only) */}
+            {"payments" in order && order.payments && (
+              <div className="rounded-2xl border border-theme-border bg-theme-surface shadow-2xs overflow-hidden">
+                <div className="bg-theme-surface-alt border-b border-theme-border-subtle px-4 py-3 flex items-center gap-2">
+                  <CreditCard className="h-4 w-4 text-theme-secondary" />
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-theme-text-primary">
+                    Payment Details
+                  </h3>
+                </div>
+                <div className="p-4 text-xs space-y-3 text-theme-text-subtle">
+                  {order.payments.length === 0 ? (
+                    <p className="text-theme-text-muted">
+                      No payment recorded yet. Status: <span className="font-semibold capitalize">{paymentStatus ?? "pending"}</span>
+                    </p>
+                  ) : (
+                    order.payments.map((p) => (
+                      <dl
+                        key={p.id}
+                        className="grid grid-cols-2 gap-x-3 gap-y-1.5 pb-3 border-b border-theme-border-subtle last:border-0 last:pb-0"
+                      >
+                        <dt className="text-theme-text-muted">Method</dt>
+                        <dd className="font-semibold text-theme-text-primary text-right">{p.methodName}</dd>
+                        <dt className="text-theme-text-muted">Amount</dt>
+                        <dd className="font-semibold text-theme-text-primary text-right">{formatPrice(p.amount)}</dd>
+                        <dt className="text-theme-text-muted">Status</dt>
+                        <dd className="font-semibold capitalize text-theme-text-primary text-right">{p.status}</dd>
+                        {p.gateway && (
+                          <>
+                            <dt className="text-theme-text-muted">Gateway</dt>
+                            <dd className="font-semibold capitalize text-theme-text-primary text-right">{p.gateway}</dd>
+                          </>
+                        )}
+                        {p.gatewayPaymentId && (
+                          <>
+                            <dt className="text-theme-text-muted">Payment ID</dt>
+                            <dd className="font-mono text-[11px] text-theme-text-primary text-right break-all">{p.gatewayPaymentId}</dd>
+                          </>
+                        )}
+                        {p.gatewayOrderId && (
+                          <>
+                            <dt className="text-theme-text-muted">Gateway order</dt>
+                            <dd className="font-mono text-[11px] text-theme-text-primary text-right break-all">{p.gatewayOrderId}</dd>
+                          </>
+                        )}
+                        <dt className="text-theme-text-muted">Date</dt>
+                        <dd className="text-theme-text-primary text-right">{formatDateTime(p.createdAt)}</dd>
+                      </dl>
+                    ))
+                  )}
+                </div>
               </div>
             )}
 

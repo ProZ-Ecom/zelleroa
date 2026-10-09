@@ -336,10 +336,18 @@ export const ORDER_SOURCE_OPTIONS = Object.entries(ORDER_SOURCE_LABELS).map(([va
 
 /** Source of an order, plus who placed it when that was not the customer. */
 export function OrderSourceCell({ source, orderedBy }: { source: string; orderedBy: string | null }) {
+  const tone =
+    source === "AGENT_PLACED_FOR_CUSTOMER"
+      ? "border-violet-200 bg-violet-50 text-violet-700"
+      : source === "AGENT_OWN"
+        ? "border-amber-200 bg-amber-50 text-amber-700"
+        : "border-neutral-200 bg-neutral-50 text-neutral-600";
   return (
     <div className="min-w-[8rem]">
-      <p className="text-xs font-medium text-neutral-900">{ORDER_SOURCE_LABELS[source] ?? source}</p>
-      {source !== "CUSTOMER_DIRECT" && orderedBy ? <p className="text-xs text-neutral-500">Ordered by: {orderedBy}</p> : null}
+      <span className={`inline-flex items-center whitespace-nowrap rounded-full border px-2.5 py-0.5 text-xs font-semibold ${tone}`}>
+        {ORDER_SOURCE_LABELS[source] ?? source}
+      </span>
+      {source !== "CUSTOMER_DIRECT" && orderedBy ? <p className="mt-1 text-xs text-neutral-500">Ordered by: {orderedBy}</p> : null}
     </div>
   );
 }

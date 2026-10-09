@@ -18,6 +18,8 @@ const addressSchema = z.object({
  */
 export const agentPlaceOrderSchema = z
   .object({
+    /** The agent is buying for themselves (AGENT_OWN); no customer fields are sent. */
+    forSelf: z.boolean().optional(),
     customerId: z.string().trim().min(1).optional(),
     manualCustomer: z
       .object({
@@ -36,6 +38,15 @@ export const agentPlaceOrderSchema = z
     notes: z.string().trim().max(500).optional(),
   })
   .superRefine((v, ctx) => {
+    if (v.forSelf) {
+      if (v.customerId || v.manualCustomer) {
+        ctx.addIssue({ code: "custom", path: ["forSelf"], message: "A self order cannot also name a customer" });
+      }
+      if (!v.shippingAddressId && !v.shippingAddress) {
+        ctx.addIssue({ code: "custom", path: ["shippingAddressId"], message: "Select a delivery address" });
+      }
+      return;
+    }
     if (!v.customerId === !v.manualCustomer) {
       ctx.addIssue({ code: "custom", path: ["customerId"], message: "Choose an assigned customer or enter a new customer's details" });
     }
