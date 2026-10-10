@@ -1,7 +1,7 @@
 import { Fragment } from "react";
 import { ArrowDown, ArrowRight, Calculator, Globe, Link2, ShoppingBag, ShoppingCart, UserCheck, Wallet } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Panel } from "./shared";
+import { CollapsiblePanel } from "./shared";
 
 const STEPS = [
   { icon: UserCheck, title: "Sales Partner", text: "You share your unique referral details." },
@@ -16,7 +16,7 @@ const STEPS = [
 /** Read-only explainer of the referral-to-earnings journey. Vertical on mobile, wrapped grid on desktop. */
 export function ReferralFlow({ className }: { className?: string }) {
   return (
-    <Panel title="How referrals turn into earnings" className={className}>
+    <CollapsiblePanel title="How referrals turn into earnings" className={className}>
       <ol className="flex flex-col items-stretch gap-1 p-4 sm:p-5 lg:flex-row lg:items-stretch lg:gap-0">
         {STEPS.map((s, i) => (
           <Fragment key={s.title}>
@@ -41,6 +41,6 @@ export function ReferralFlow({ className }: { className?: string }) {
           </Fragment>
         ))}
       </ol>
-    </Panel>
+    </CollapsiblePanel>
   );
 }

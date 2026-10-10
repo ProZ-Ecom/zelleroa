@@ -367,6 +367,38 @@ export function PageHeader({ title, description, children }: { title: string; de
   );
 }
 
+/** Panel that stays folded until the header is clicked. Native <details>, so it works in Server Components. */
+export function CollapsiblePanel({
+  title,
+  action,
+  children,
+  defaultOpen = false,
+  className,
+}: {
+  title: React.ReactNode;
+  action?: React.ReactNode;
+  children: React.ReactNode;
+  defaultOpen?: boolean;
+  className?: string;
+}) {
+  return (
+    <details
+      open={defaultOpen}
+      className={cn("group overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-xs", className)}
+    >
+      <summary className="flex cursor-pointer list-none flex-wrap items-center justify-between gap-2 px-4 py-3 marker:hidden sm:px-5 [&::-webkit-details-marker]:hidden">
+        <h2 className="text-sm font-bold tracking-tight text-neutral-900">{title}</h2>
+        <span className="flex items-center gap-3">
+          {action}
+          <span className="text-xs font-semibold text-neutral-500 group-open:hidden">Show</span>
+          <span className="hidden text-xs font-semibold text-neutral-500 group-open:inline">Hide</span>
+        </span>
+      </summary>
+      <div className="border-t border-neutral-100">{children}</div>
+    </details>
+  );
+}
+
 /** Loading placeholder that matches SimpleTable's footprint. */
 export function TableSkeleton({ rows = 5 }: { rows?: number }) {
   return (

@@ -1,6 +1,7 @@
 import { createApiHandler } from "@/lib/api/api-handler";
 import { apiCreated } from "@/lib/api/api-response";
 import { registerSchema, type RegisterInput } from "@/features/users/validations/user.schema";
+import { clearReferralCookie } from "@/lib/referral/cookie";
 import { userService } from "@/features/users/services/user.service";
 
 export const POST = createApiHandler(
@@ -10,7 +11,7 @@ export const POST = createApiHandler(
 
       const user = await userService.registerUserWithToken(body, request);
 
-      return apiCreated(
+      const response = apiCreated(
         {
           id: user.id,
           name: user.name,
@@ -19,6 +20,8 @@ export const POST = createApiHandler(
         },
         "Registration successful"
       );
+      // The pending referral was consumed by this registration; it must not carry to another account.
+      return clearReferralCookie(response);
     },
   },
   {

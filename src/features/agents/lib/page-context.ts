@@ -1,4 +1,6 @@
+import { cache } from "react";
 import { redirect } from "next/navigation";
+import { agentProfileService } from "../services/agent-profile.service";
 import { getPageSessionUser } from "@/lib/auth/require-auth";
 import { ROLES } from "@/lib/constants";
 import { agentService } from "../services/agent.service";
@@ -14,13 +16,23 @@ export async function requireAgentPage(callbackUrl = "/agent/dashboard") {
   if (!user) redirect(`/login?callbackUrl=${encodeURIComponent(callbackUrl)}`);
   if (user.role !== ROLES.AGENT) redirect("/unauthorized");
 
+  const agent = await resolveAgentContext(user.id);
+  if (!agent) redirect("/unauthorized");
+  return agent;
+}
+
+// Layout and page both resolve the agent in the same request; cache() makes that one DB lookup.
+const resolveAgentContext = cache(async (userId: string) => {
   try {
-    return await agentService.requireAgentContext(user.id);
+    return await agentService.requireAgentContext(userId);
   } catch {
     // Deactivated or removed since the token was issued.
-    redirect("/unauthorized");
+    return null;
   }
-}
+});
+
+/** Per-request memoised profile (layout + dashboard both need the completion figures). */
+export const getAgentProfileDetails = cache((agentId: bigint) => agentProfileService.get(agentId));
 
 /** First value of each whitelisted query param, trimmed. */
 export function pickParams(sp: SearchParams, keys: string[]) {

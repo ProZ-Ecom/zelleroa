@@ -286,15 +286,20 @@ export const commissionService = {
       take: 500,
     });
 
-    let moved = 0;
-    for (const row of due) {
-      await db.$transaction(async (tx) => {
-        const res = await tx.commissions.updateMany({
-          where: { id: row.id, status: "pending" },
-          data: { status: "pending_approval" },
-        });
-        if (res.count === 0) return;
-        moved += 1;
+    if (due.length === 0) return 0;
+
+    // One transaction for the whole batch; re-check status inside so a concurrent sweep can't double-audit.
+    return db.$transaction(async (tx) => {
+      const still = await tx.commissions.findMany({
+        where: { id: { in: due.map((r) => r.id) }, status: "pending" },
+        select: { id: true, agent_id: true },
+      });
+      if (still.length === 0) return 0;
+      await tx.commissions.updateMany({
+        where: { id: { in: still.map((r) => r.id) }, status: "pending" },
+        data: { status: "pending_approval" },
+      });
+      for (const row of still) {
         await writeAudit(tx, {
           entityType: "commission",
           entityId: row.id,
@@ -305,9 +310,9 @@ export const commissionService = {
           actor,
           note: "Return period completed",
         });
-      });
-    }
-    return moved;
+      }
+      return still.length;
+    });
   },
 
   /**
