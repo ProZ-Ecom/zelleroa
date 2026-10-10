@@ -98,7 +98,7 @@ export function AdminAssignedCustomersSection({ agentId, agentActive }: { agentI
             type="button"
             disabled={!toAgent || selected.size === 0 || busy}
             onClick={() => setConfirming("selected")}
-            className="rounded-lg bg-neutral-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+            className="rounded-lg bg-[var(--color-primary-500)] px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
           >
             Move selected ({selected.size})
           </button>

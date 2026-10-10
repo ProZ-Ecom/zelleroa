@@ -175,7 +175,7 @@ export default function AdminRolesPage() {
         title="Roles"
         description="Manage user roles and their permissions"
         actions={
-          <Button onClick={() => handleOpenModal()}>
+          <Button variant="gradient" onClick={() => handleOpenModal()}>
             <Plus className="mr-2 h-4 w-4" />
             Add Role
           </Button>
@@ -216,7 +216,7 @@ export default function AdminRolesPage() {
             >
               Cancel
             </Button>
-            <Button onClick={handleSubmit(onSubmit)} disabled={isMutating}>
+            <Button variant="gradient" onClick={handleSubmit(onSubmit)} disabled={isMutating}>
               {editingRole ? "Update" : "Create"}
             </Button>
           </>

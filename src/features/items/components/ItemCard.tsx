@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { Pencil, Trash2, Star, CheckCircle2, XCircle, Layers } from "lucide-react";
+import { Pencil, Trash2, Star, CheckCircle2, XCircle, Shapes } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { AdminItemResponse } from "../types";
 
@@ -24,7 +24,7 @@ export function ItemCard({ item, isSelected, onSelect, onEdit, onDelete }: ItemC
       }`}
     >
       <div className="w-12 h-12 rounded-lg bg-neutral-100 overflow-hidden shrink-0 flex items-center justify-center">
-        <Layers className="w-5 h-5 text-neutral-300" />
+        <Shapes className="w-5 h-5 text-neutral-300" />
       </div>
 
       <div className="min-w-0 flex-1">

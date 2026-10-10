@@ -127,7 +127,11 @@ export interface Column<T> {
   header: string;
   cell: (row: T) => React.ReactNode;
   className?: string;
+  /** Pin this column to the right edge while the table scrolls horizontally. */
+  stickyRight?: boolean;
 }
+
+const STICKY_RIGHT = "sticky right-0 shadow-[-4px_0_6px_-2px_rgba(0,0,0,0.06)]";
 
 /** Plain responsive table: scrolls horizontally on small screens instead of breaking layout. */
 export function SimpleTable<T>({
@@ -157,7 +161,7 @@ export function SimpleTable<T>({
         <thead>
           <tr className="border-b border-neutral-100 bg-neutral-50 text-[11px] uppercase tracking-wider text-neutral-500">
             {columns.map((c, i) => (
-              <th key={`${i}-${c.header}`} className={cn("px-4 py-2.5 font-semibold", c.className)}>
+              <th key={`${i}-${c.header}`} className={cn("px-4 py-2.5 font-semibold", c.stickyRight && cn(STICKY_RIGHT, "z-10 bg-neutral-50"), c.className)}>
                 {c.header}
               </th>
             ))}
@@ -165,9 +169,9 @@ export function SimpleTable<T>({
         </thead>
         <tbody>
           {rows.map((row) => (
-            <tr key={rowKey(row)} className="border-b border-neutral-100 last:border-0 transition-colors hover:bg-neutral-50">
+            <tr key={rowKey(row)} className="group border-b border-neutral-100 last:border-0 transition-colors hover:bg-neutral-50">
               {columns.map((c, i) => (
-                <td key={`${i}-${c.header}`} className={cn("px-4 py-3 align-middle text-neutral-800", c.className)}>
+                <td key={`${i}-${c.header}`} className={cn("px-4 py-3 align-middle text-neutral-800", c.stickyRight && cn(STICKY_RIGHT, "z-10 bg-white transition-colors group-hover:bg-neutral-50"), c.className)}>
                   {c.cell(row)}
                 </td>
               ))}

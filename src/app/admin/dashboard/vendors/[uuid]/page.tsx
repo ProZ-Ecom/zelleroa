@@ -184,7 +184,7 @@ export default function VendorDetailPage() {
               <Power className="mr-2 h-4 w-4" /> {vendor.isActive ? "Disable" : "Enable"}
             </Button>
             <Link href="/admin/dashboard/purchase-orders/new">
-              <Button className="h-11 rounded-xl bg-[var(--color-primary-500)] text-white hover:bg-[var(--color-primary-600)]">
+              <Button className="h-11 rounded-xl bg-gradient-to-b from-[var(--color-primary-400)] to-[var(--color-primary-600)] shadow-[0_6px_16px_-6px_rgba(37,99,235,0.45),inset_0_1px_0_rgba(255,255,255,0.18)] transition-all text-white hover:-translate-y-px hover:shadow-[0_10px_20px_-8px_rgba(37,99,235,0.5),inset_0_1px_0_rgba(255,255,255,0.18)] active:translate-y-0">
                 <Plus className="mr-2 h-4 w-4" /> New purchase
               </Button>
             </Link>

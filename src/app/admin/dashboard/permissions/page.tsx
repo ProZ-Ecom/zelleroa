@@ -146,7 +146,7 @@ export default function AdminPermissionsPage() {
         title="Permissions"
         description="Manage granular permissions for roles"
         actions={
-          <Button onClick={() => handleOpenModal()}>
+          <Button variant="gradient" onClick={() => handleOpenModal()}>
             <Plus className="mr-2 h-4 w-4" />
             Add Permission
           </Button>
@@ -188,7 +188,7 @@ export default function AdminPermissionsPage() {
             >
               Cancel
             </Button>
-            <Button onClick={handleSubmit(onSubmit)} disabled={isMutating}>
+            <Button variant="gradient" onClick={handleSubmit(onSubmit)} disabled={isMutating}>
               {editingPermission ? "Update" : "Create"}
             </Button>
           </>

@@ -4,7 +4,7 @@ import { ReferralFlow } from "@/features/agents/components/ReferralFlow";
 import { useState } from "react";
 import Link from "next/link";
 import { useQueryClient } from "@tanstack/react-query";
-import { Plus } from "lucide-react";
+import { Ban, CheckCircle2, Eye, Pencil, Plus } from "lucide-react";
 import { apiClient } from "@/lib/api/api-client";
 import { toast } from "@/components/ui/Toast";
 import { Select } from "@/components/ui/select";
@@ -140,16 +140,17 @@ export default function AdminAgentsPage() {
                   },
                   {
                     header: "Actions",
+                    stickyRight: true,
                     cell: (r) => (
-                      <div className="flex items-center gap-3 text-xs font-semibold">
-                        <Link href={`/admin/dashboard/agents/${r.id}`} className="text-neutral-700 hover:underline">
-                          View
+                      <div className="flex items-center gap-1">
+                        <Link href={`/admin/dashboard/agents/${r.id}`} title="View" aria-label="View" className="rounded-lg p-1.5 text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900">
+                          <Eye className="h-4 w-4" />
                         </Link>
-                        <button type="button" onClick={() => setModal({ open: true, agent: { id: r.id, name: r.name, phone: r.phone, notes: r.notes } })} className="text-neutral-700 hover:underline">
-                          Edit
+                        <button type="button" title="Edit" aria-label="Edit" onClick={() => setModal({ open: true, agent: { id: r.id, name: r.name, phone: r.phone, notes: r.notes } })} className="rounded-lg p-1.5 text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900">
+                          <Pencil className="h-4 w-4" />
                         </button>
-                        <button type="button" onClick={() => (r.isActive ? setBlockTarget(r) : toggleActive(r))} className={r.isActive ? "text-red-600 hover:underline" : "text-emerald-700 hover:underline"}>
-                          {r.isActive ? "Block" : "Unblock"}
+                        <button type="button" title={r.isActive ? "Block" : "Unblock"} aria-label={r.isActive ? "Block" : "Unblock"} onClick={() => (r.isActive ? setBlockTarget(r) : toggleActive(r))} className={r.isActive ? "rounded-lg p-1.5 text-red-600 hover:bg-red-50" : "rounded-lg p-1.5 text-emerald-700 hover:bg-emerald-50"}>
+                          {r.isActive ? <Ban className="h-4 w-4" /> : <CheckCircle2 className="h-4 w-4" />}
                         </button>
                       </div>
                     ),

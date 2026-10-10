@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { AlertTriangle, Boxes, Layers, Package, PackageX, Settings2, Warehouse } from "lucide-react";
+import { AlertTriangle, Boxes, Palette, Package, PackageX, Settings2, Warehouse } from "lucide-react";
 import { AdminPageHeader, AdminContent } from "@/components/admin/AdminPageHeader";
 import { ErrorState } from "@/components/ui/error-state";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -69,7 +69,7 @@ export default function InventoryDashboardPage() {
               <Settings2 className="mr-2 h-4 w-4" /> Low-stock threshold
             </Button>
             <Link href="/admin/dashboard/inventory/adjustment">
-              <Button className="h-11 rounded-xl bg-[var(--color-primary-500)] text-white hover:bg-[var(--color-primary-600)]">
+              <Button className="h-11 rounded-xl bg-gradient-to-b from-[var(--color-primary-400)] to-[var(--color-primary-600)] shadow-[0_6px_16px_-6px_rgba(37,99,235,0.45),inset_0_1px_0_rgba(255,255,255,0.18)] transition-all text-white hover:-translate-y-px hover:shadow-[0_10px_20px_-8px_rgba(37,99,235,0.5),inset_0_1px_0_rgba(255,255,255,0.18)] active:translate-y-0">
                 Adjust stock
               </Button>
             </Link>
@@ -87,7 +87,7 @@ export default function InventoryDashboardPage() {
               <StatCard
                 label="Total variants"
                 value={data.totalVariants}
-                icon={Layers}
+                icon={Palette}
                 href="/admin/dashboard/inventory/stock"
               />
               <StatCard label="Available stock" value={data.totalAvailableStock} icon={Boxes} />
@@ -210,7 +210,7 @@ export default function InventoryDashboardPage() {
             <Button
               type="submit"
               isLoading={updateThreshold.isPending}
-              className="rounded-xl bg-[var(--color-primary-500)] text-white"
+              className="rounded-xl bg-gradient-to-b from-[var(--color-primary-400)] to-[var(--color-primary-600)] text-white shadow-[0_6px_16px_-6px_rgba(37,99,235,0.45),inset_0_1px_0_rgba(255,255,255,0.18)]"
             >
               Save
             </Button>

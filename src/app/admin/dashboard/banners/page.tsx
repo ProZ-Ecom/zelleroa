@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useEffect } from "react";
 import Image from "next/image";
-import { Plus, Pencil, Trash2, Calendar } from "lucide-react";
+import { Plus, Pencil, Trash2, Calendar, Eye } from "lucide-react";
 import type { ColumnDef } from "@tanstack/react-table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -25,7 +25,7 @@ import {
   useUpdateBanner,
   useDeleteBanner,
 } from "@/features/banners/hooks";
-import { BannerForm } from "@/features/banners/components";
+import { BannerForm, BannerPreviewModal } from "@/features/banners/components";
 import {
   parseVideoUrl,
   getVideoThumbnailUrl,
@@ -46,6 +46,7 @@ export default function AdminBannersPage() {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [selectedBanner, setSelectedBanner] = useState<BannerDto | null>(null);
+  const [previewBanner, setPreviewBanner] = useState<BannerDto | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<{
     uuid: string;
     title: string;
@@ -303,6 +304,16 @@ export default function AdminBannersPage() {
             <Button
               variant="ghost"
               size="icon"
+              onClick={() => setPreviewBanner(banner)}
+              className="h-8 w-8 text-[var(--color-neutral-500)] hover:text-[var(--color-neutral-900)] hover:bg-[var(--color-neutral-100)]"
+              title="Preview Banner"
+            >
+              <Eye className="h-4 w-4" />
+            </Button>
+
+            <Button
+              variant="ghost"
+              size="icon"
               onClick={() => {
                 setSelectedBanner(banner);
                 setIsEditOpen(true);
@@ -387,7 +398,7 @@ export default function AdminBannersPage() {
             <div className="flex items-center gap-2">
               <Button
                 onClick={() => setIsCreateOpen(true)}
-                className="h-11 rounded-xl bg-[var(--color-primary-500)] px-5 text-sm font-semibold text-white hover:bg-[var(--color-primary-600)]"
+                className="h-11 rounded-xl bg-gradient-to-b from-[var(--color-primary-400)] to-[var(--color-primary-600)] shadow-[0_6px_16px_-6px_rgba(37,99,235,0.45),inset_0_1px_0_rgba(255,255,255,0.18)] transition-all px-5 text-sm font-semibold text-white hover:-translate-y-px hover:shadow-[0_10px_20px_-8px_rgba(37,99,235,0.5),inset_0_1px_0_rgba(255,255,255,0.18)] active:translate-y-0"
               >
                 <Plus className="mr-2 h-4 w-4" />
                 Add Banner
@@ -468,6 +479,12 @@ export default function AdminBannersPage() {
           />
         )}
       </FormModal>
+
+      {/* PREVIEW MODAL */}
+      <BannerPreviewModal
+        banner={previewBanner}
+        onClose={() => setPreviewBanner(null)}
+      />
 
       {/* DELETE CONFIRMATION DIALOG */}
       <ConfirmDialog

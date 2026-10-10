@@ -1,6 +1,9 @@
 "use client";
 
+import { useState } from "react";
 import {
+  Check,
+  Copy,
   MapPin,
   CreditCard,
   Truck,
@@ -78,6 +81,92 @@ function getStatusBadgeMeta(status?: string) {
   }
 }
 
+const PROGRESS_STEPS: { key: string; label: string }[] = [
+  { key: "pending", label: "Pending" },
+  { key: "confirmed", label: "Confirmed" },
+  { key: "processing", label: "Processing" },
+  { key: "packed", label: "Packed" },
+  { key: "shipped", label: "Shipped" },
+  { key: "out_for_delivery", label: "Out for delivery" },
+  { key: "delivered", label: "Delivered" },
+];
+
+function CopyButton({ value, label }: { value: string; label: string }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <button
+      type="button"
+      title={copied ? "Copied" : `Copy ${label}`}
+      aria-label={`Copy ${label}`}
+      onClick={() => {
+        navigator.clipboard
+          ?.writeText(value)
+          .then(() => {
+            setCopied(true);
+            setTimeout(() => setCopied(false), 1500);
+          })
+          .catch(() => {});
+      }}
+      className="inline-grid h-5 w-5 shrink-0 place-items-center rounded text-theme-text-muted hover:bg-theme-surface-alt hover:text-theme-text-primary transition-colors cursor-pointer"
+    >
+      {copied ? (
+        <Check className="h-3 w-3 text-emerald-600" />
+      ) : (
+        <Copy className="h-3 w-3" />
+      )}
+    </button>
+  );
+}
+
+function OrderProgress({ status }: { status?: string }) {
+  const current = PROGRESS_STEPS.findIndex(
+    (s) => s.key === String(status || "").toLowerCase()
+  );
+  if (current === -1) return null;
+  return (
+    <ol className="flex items-start overflow-x-auto rounded-2xl border border-theme-border bg-theme-surface px-4 py-4 shadow-2xs">
+      {PROGRESS_STEPS.map((step, i) => {
+        const done = i < current;
+        const active = i === current;
+        return (
+          <li key={step.key} className="flex min-w-[84px] flex-1 flex-col items-center text-center">
+            <div className="flex w-full items-center">
+              <span
+                className={`h-0.5 flex-1 ${i === 0 ? "bg-transparent" : done || active ? "bg-emerald-400" : "bg-theme-border"}`}
+              />
+              <span
+                className={`grid h-6 w-6 shrink-0 place-items-center rounded-full border text-[10px] font-bold ${
+                  done
+                    ? "border-emerald-500 bg-emerald-500 text-white"
+                    : active
+                      ? "border-theme-secondary bg-theme-surface text-theme-secondary ring-4 ring-theme-secondary/15"
+                      : "border-theme-border bg-theme-surface text-theme-text-muted"
+                }`}
+              >
+                {done ? <Check className="h-3 w-3" /> : i + 1}
+              </span>
+              <span
+                className={`h-0.5 flex-1 ${i === PROGRESS_STEPS.length - 1 ? "bg-transparent" : done ? "bg-emerald-400" : "bg-theme-border"}`}
+              />
+            </div>
+            <span
+              className={`mt-1.5 text-[10.5px] leading-tight ${
+                active
+                  ? "font-bold text-theme-text-primary"
+                  : done
+                    ? "font-medium text-theme-text-subtle"
+                    : "text-theme-text-muted"
+              }`}
+            >
+              {step.label}
+            </span>
+          </li>
+        );
+      })}
+    </ol>
+  );
+}
+
 export function OrderDetailView({
   order,
   onCancel,
@@ -125,6 +214,7 @@ export function OrderDetailView({
             <h1 className="text-xl sm:text-2xl font-black text-theme-text-primary font-mono tracking-tight">
               {order.orderNumber}
             </h1>
+            {readOnly && <CopyButton value={order.orderNumber} label="order number" />}
           </div>
           <p className="mt-1 flex items-center gap-1.5 text-xs text-theme-text-subtle font-medium">
             <CalendarDays className="h-3.5 w-3.5 text-theme-text-muted" />
@@ -139,7 +229,8 @@ export function OrderDetailView({
           )}
         </div>
 
-        <div className="flex flex-wrap items-center gap-2.5">
+        {/* Admin modal already shows status badges and invoice actions in its toolbar */}
+        <div className={`flex flex-wrap items-center gap-2.5 ${readOnly ? "hidden" : ""}`}>
           {/* Order Status Badge */}
           <span
             className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-bold uppercase tracking-wider ${statusMeta.bg}`}
@@ -191,6 +282,32 @@ export function OrderDetailView({
         </div>
       </div>
 
+      {readOnly && (
+        <>
+          <OrderProgress status={order.status} />
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            {[
+              { label: "Items", value: String(order.items?.length || 0) },
+              { label: "Order total", value: formatPrice(Number(order.totalAmount || 0)) },
+              { label: "Payment", value: String(paymentStatus || "pending").replace(/_/g, " ") },
+              { label: "Placed", value: formattedDate },
+            ].map((f) => (
+              <div
+                key={f.label}
+                className="rounded-xl border border-theme-border bg-theme-surface px-3.5 py-2.5 shadow-2xs"
+              >
+                <p className="text-[10.5px] font-semibold uppercase tracking-wider text-theme-text-muted">
+                  {f.label}
+                </p>
+                <p className="mt-0.5 text-sm font-bold capitalize text-theme-text-primary tabular-nums">
+                  {f.value}
+                </p>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3 items-start">
         {/* Main Content (2 Columns) */}
         <div className="lg:col-span-2 space-y-6">
@@ -208,7 +325,7 @@ export function OrderDetailView({
           </div>
 
           {/* 2. Three Info Cards: Customer, Address & Staff */}
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             {/* Customer Details */}
             {customer && (
               <div className="rounded-2xl border border-theme-border bg-theme-surface shadow-2xs overflow-hidden">
@@ -230,13 +347,27 @@ export function OrderDetailView({
                   {customer.email && (
                     <p className="flex items-center gap-1.5 truncate pt-0.5">
                       <Mail className="h-3 w-3 shrink-0 text-theme-text-muted" />
-                      <span className="truncate">{customer.email}</span>
+                      {readOnly ? (
+                        <a href={`mailto:${customer.email}`} className="truncate hover:underline">
+                          {customer.email}
+                        </a>
+                      ) : (
+                        <span className="truncate">{customer.email}</span>
+                      )}
+                      {readOnly && <CopyButton value={customer.email} label="email" />}
                     </p>
                   )}
                   {customer.phone && (
                     <p className="flex items-center gap-1.5 pt-0.5">
                       <Phone className="h-3 w-3 shrink-0 text-theme-text-muted" />
-                      <span>{customer.phone}</span>
+                      {readOnly ? (
+                        <a href={`tel:${customer.phone}`} className="hover:underline">
+                          {customer.phone}
+                        </a>
+                      ) : (
+                        <span>{customer.phone}</span>
+                      )}
+                      {readOnly && <CopyButton value={customer.phone} label="phone" />}
                     </p>
                   )}
                 </div>
@@ -251,6 +382,22 @@ export function OrderDetailView({
                   <h3 className="text-xs font-bold uppercase tracking-wider text-theme-text-primary">
                     Delivery Address
                   </h3>
+                  {readOnly && (
+                    <span className="ml-auto">
+                      <CopyButton
+                        label="address"
+                        value={[
+                          shippingAddress.fullName,
+                          [shippingAddress.addressLine1, shippingAddress.addressLine2].filter(Boolean).join(", "),
+                          shippingAddress.landmark ? `Landmark: ${shippingAddress.landmark}` : "",
+                          `${shippingAddress.city}, ${shippingAddress.state} ${shippingAddress.pincode ?? ""}`.trim(),
+                          shippingAddress.phone ? `Phone: ${shippingAddress.phone}` : "",
+                        ]
+                          .filter(Boolean)
+                          .join("\n")}
+                      />
+                    </span>
+                  )}
                 </div>
                 <div className="p-4 text-xs text-theme-text-subtle space-y-1">
                   <p className="font-bold text-theme-text-primary text-sm">
@@ -427,7 +574,9 @@ export function OrderDetailView({
                       Unassigned
                     </span>
                     <p className="text-xs text-theme-text-muted mt-2">
-                      No delivery staff assigned yet. Kitchen is packaging your order.
+                      {readOnly
+                        ? "No delivery staff assigned yet."
+                        : "No delivery staff assigned yet. Kitchen is packaging your order."}
                     </p>
                   </div>
                 )}
@@ -591,7 +740,7 @@ export function OrderDetailView({
         </div>
 
         {/* Sidebar: Order Totals Summary (Sticky) */}
-        <div className="sticky top-24">
+        <div className={readOnly ? "lg:sticky lg:top-2" : "sticky top-24"}>
           <div className="rounded-2xl border border-theme-border bg-theme-surface shadow-2xs overflow-hidden">
             <div className="bg-theme-surface-alt border-b border-theme-border-subtle px-5 py-3.5">
               <h2 className="text-sm sm:text-base font-bold text-theme-text-primary">

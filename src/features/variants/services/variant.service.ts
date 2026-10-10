@@ -195,7 +195,8 @@ function formatAdminVariantResponse(
     isFeatured: Boolean(variant.is_featured),
     primaryImage,
     isActive: Boolean(variant.isActive),
-    outOfStock: Boolean(variant.out_of_stock),
+    // Zero total stock always reads as out of stock, whatever the stored flag says.
+    outOfStock: Boolean(variant.out_of_stock) || (unitPrices.length > 0 && totalStock <= 0),
     createdAt: variant.createdAt,
     updatedAt: variant.updatedAt,
     unitPrices,
