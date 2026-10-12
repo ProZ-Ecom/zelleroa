@@ -38,6 +38,10 @@ interface DataTableProps<TData, TValue> {
   exportable?: boolean;
   /** Base file name for the export; defaults to the current admin route segment. */
   exportFileName?: string;
+  /** Custom export handler; when provided, overrides the default exportTableToCsv behavior. */
+  onExport?: () => void | Promise<void>;
+  /** Indicates whether custom export is currently running. */
+  isExporting?: boolean;
 }
 
 function DataTable<TData, TValue>({
@@ -56,6 +60,8 @@ function DataTable<TData, TValue>({
   emptyMessage = "No results found.",
   exportable = true,
   exportFileName,
+  onExport,
+  isExporting = false,
 }: DataTableProps<TData, TValue>) {
   const [internalPageSize, setInternalPageSize] = React.useState<number>(
     controlledPageSize ?? 10
@@ -126,11 +132,16 @@ function DataTable<TData, TValue>({
   });
 
   const pathname = usePathname();
-  const handleExport = () =>
+  const handleExport = () => {
+    if (onExport) {
+      onExport();
+      return;
+    }
     exportTableToCsv(
       table,
       exportFileName ?? (pathname?.split("/").filter(Boolean).pop() || "export")
     );
+  };
 
   const computedTotalItems = totalItems !== undefined ? totalItems : data.length;
   const computedTotalPages =
@@ -165,11 +176,11 @@ function DataTable<TData, TValue>({
             <button
               type="button"
               onClick={handleExport}
-              disabled={!table.getRowModel().rows.length}
+              disabled={isExporting || !table.getRowModel().rows.length}
               className="inline-flex items-center gap-2 rounded-xl border border-neutral-200 bg-white px-3.5 py-2 text-sm font-medium text-neutral-700 shadow-sm transition-all hover:border-neutral-300 hover:bg-neutral-50 hover:shadow active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
             >
-              <Download className="h-4 w-4" />
-              Export
+              <Download className={cn("h-4 w-4", isExporting && "animate-spin")} />
+              {isExporting ? "Exporting..." : "Export"}
               {Object.keys(rowSelection).length > 0 ? ` (${Object.keys(rowSelection).length})` : ""}
             </button>
           )}

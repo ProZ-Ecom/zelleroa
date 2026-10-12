@@ -98,8 +98,15 @@ function format(po: any): PurchaseOrderResponse {
     poNumber: po.po_number,
     status: po.status,
     vendor: { id: po.vendor.uuid, name: po.vendor.name, code: po.vendor.code },
-    expectedDate: po.expected_date ? po.expected_date.toISOString().slice(0, 10) : null,
-    purchaseDate: po.purchase_date ? po.purchase_date.toISOString().slice(0, 10) : null,
+   
+expectedDate: po.expected_date
+  ? `${String(po.expected_date.getUTCDate()).padStart(2, "0")}-${String(po.expected_date.getUTCMonth() + 1).padStart(2, "0")}-${po.expected_date.getUTCFullYear()}`
+  : null,
+
+purchaseDate: po.purchase_date
+  ? `${String(po.purchase_date.getUTCDate()).padStart(2, "0")}-${String(po.purchase_date.getUTCMonth() + 1).padStart(2, "0")}-${po.purchase_date.getUTCFullYear()}`
+  : null,
+
     invoiceNumber: po.invoice_number,
     notes: po.notes,
     rejectReason: po.reject_reason,

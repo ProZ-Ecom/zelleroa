@@ -49,26 +49,30 @@ function CurrentStockContent() {
     {
       id: "product",
       header: "Product",
+      accessorFn: (row) => row.productName,
       cell: ({ row }) => <VariantLabel item={row.original} />,
     },
-    { id: "color", header: "Colour", cell: ({ row }) => row.original.colorName ?? "—" },
-    { id: "size", header: "Size", cell: ({ row }) => row.original.sizeName ?? "—" },
+    { id: "color", header: "Colour", accessorFn: (row) => row.colorName ?? "—", cell: ({ row }) => row.original.colorName ?? "—" },
+    { id: "size", header: "Size", accessorFn: (row) => row.sizeName ?? "—", cell: ({ row }) => row.original.sizeName ?? "—" },
     {
       id: "available",
       header: "Available",
+      accessorFn: (row) => row.available,
       cell: ({ row }) => <span className="font-semibold tabular-nums">{row.original.available}</span>,
     },
     {
       id: "reserved",
       header: "In carts",
+      accessorFn: (row) => row.reserved,
       cell: ({ row }) => <span className="tabular-nums text-neutral-500">{row.original.reserved}</span>,
     },
     {
       id: "threshold",
       header: "Low at",
+      accessorFn: (row) => row.threshold,
       cell: ({ row }) => <span className="tabular-nums text-neutral-500">≤ {row.original.threshold}</span>,
     },
-    { id: "status", header: "Status", cell: ({ row }) => <StockStatusBadge status={row.original.status} /> },
+    { id: "status", header: "Status", accessorFn: (row) => row.status, cell: ({ row }) => <StockStatusBadge status={row.original.status} /> },
     {
       id: "actions",
       header: "Actions",
