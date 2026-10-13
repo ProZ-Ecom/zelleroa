@@ -21,6 +21,9 @@ import {
 import { usePurchaseProducts } from "@/features/purchases/hooks";
 import { cn, formatDateTime } from "@/lib/utils";
 import type { MovementRow } from "@/features/inventory/types/stock";
+import { downloadCsv } from "@/lib/export-csv";
+import { getStockMovements } from "@/features/inventory/api/stock.api";
+import { toast } from "@/components/ui/Toast";
 
 const REASONS = ["Damaged items", "Stock count correction", "Lost / missing", "Found extra stock"];
 const labelCls = "mb-1.5 block text-sm font-medium text-neutral-700";
@@ -35,18 +38,59 @@ function useDebounced(value: string, ms = 300) {
 }
 
 const historyColumns: ColumnDef<MovementRow>[] = [
-  { id: "date", header: "Date", cell: ({ row }) => <span className="text-sm">{formatDateTime(row.original.createdAt)}</span> },
-  { id: "product", header: "Product", cell: ({ row }) => <VariantLabel item={row.original} /> },
-  { id: "type", header: "Type", cell: ({ row }) => <MovementTypeBadge type={row.original.movementType} /> },
-  { id: "qty", header: "Change", cell: ({ row }) => <SignedQuantity value={row.original.signedQuantity} /> },
+  {
+    id: "date",
+    header: "DATE",
+    accessorFn: (row) => formatDateTime(row.createdAt),
+    cell: ({ row }) => <span className="text-sm">{formatDateTime(row.original.createdAt)}</span>,
+  },
+  {
+    id: "product",
+    header: "PRODUCT",
+    accessorFn: (row) => row.productName,
+    cell: ({ row }) => <VariantLabel item={row.original} />,
+  },
+  {
+    id: "sku",
+    header: "SKU",
+    accessorFn: (row) => row.sku,
+    cell: ({ row }) => <span className="font-mono text-xs text-neutral-600">{row.original.sku}</span>,
+  },
+  {
+    id: "type",
+    header: "TYPE",
+    accessorFn: (row) =>
+      row.movementType
+        ? row.movementType.charAt(0) + row.movementType.slice(1).toLowerCase()
+        : "Adjustment",
+    cell: ({ row }) => <MovementTypeBadge type={row.original.movementType} />,
+  },
+  {
+    id: "qty",
+    header: "CHANGE",
+    accessorFn: (row) => (row.signedQuantity > 0 ? `+${row.signedQuantity}` : String(row.signedQuantity)),
+    cell: ({ row }) => <SignedQuantity value={row.original.signedQuantity} />,
+  },
   {
     id: "stock",
-    header: "Stock",
+    header: "STOCK",
+    accessorFn: (row) =>
+      row.previousStock === null ? "—" : `${row.previousStock} → ${row.newStock}`,
     cell: ({ row }) =>
       row.original.previousStock === null ? "—" : `${row.original.previousStock} → ${row.original.newStock}`,
   },
-  { id: "reason", header: "Reason", cell: ({ row }) => <span className="text-sm">{row.original.reason ?? "—"}</span> },
-  { id: "by", header: "By", cell: ({ row }) => <span className="text-sm">{row.original.createdBy ?? "—"}</span> },
+  {
+    id: "reason",
+    header: "REASON",
+    accessorFn: (row) => row.reason ?? "—",
+    cell: ({ row }) => <span className="text-sm">{row.original.reason ?? "—"}</span>,
+  },
+  {
+    id: "by",
+    header: "BY",
+    accessorFn: (row) => row.createdBy ?? "—",
+    cell: ({ row }) => <span className="text-sm">{row.original.createdBy ?? "—"}</span>,
+  },
 ];
 
 function AdjustmentContent() {
@@ -73,6 +117,51 @@ function AdjustmentContent() {
   const adjust = useAdjustStockLevel();
   const [historyPage, setHistoryPage] = useState(1);
   const history = useStockMovements({ type: "ADJUSTMENT", page: historyPage, limit: 10 });
+  const [isExporting, setIsExporting] = useState(false);
+
+  const handleExportAll = async () => {
+    try {
+      setIsExporting(true);
+      let allRecords: MovementRow[] = [];
+      let pageNum = 1;
+      let totalPages = 1;
+
+      do {
+        const res = await getStockMovements({
+          type: "ADJUSTMENT",
+          page: pageNum,
+          limit: 100,
+        });
+        allRecords = allRecords.concat(res.data ?? []);
+        totalPages = res.meta?.totalPages ?? 1;
+        pageNum++;
+      } while (pageNum <= totalPages);
+
+      if (allRecords.length === 0) {
+        toast.error("No adjustment records to export");
+        return;
+      }
+
+      downloadCsv(
+        ["DATE", "PRODUCT", "SKU", "TYPE", "CHANGE", "STOCK", "REASON", "BY"],
+        allRecords.map((r) => [
+          formatDateTime(r.createdAt),
+          r.productName,
+          r.sku,
+          r.movementType ? r.movementType.charAt(0) + r.movementType.slice(1).toLowerCase() : "Adjustment",
+          r.signedQuantity > 0 ? `+${r.signedQuantity}` : String(r.signedQuantity),
+          r.previousStock === null ? "—" : `${r.previousStock} → ${r.newStock}`,
+          r.reason ?? "—",
+          r.createdBy ?? "—",
+        ]),
+        "adjustment"
+      );
+    } catch {
+      toast.error("Failed to export adjustment records");
+    } finally {
+      setIsExporting(false);
+    }
+  };
 
   const qty = Number(quantity);
   const validQty = Number.isInteger(qty) && qty > 0;

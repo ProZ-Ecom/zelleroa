@@ -28,18 +28,45 @@ const columns: ColumnDef<MovementRow>[] = [
   {
     id: "date",
     header: "Date",
+    accessorFn: (row) => formatDateTime(row.createdAt),
     cell: ({ row }) => (
       <span className="whitespace-nowrap text-sm">{formatDateTime(row.original.createdAt)}</span>
     ),
   },
-  { id: "product", header: "Product", cell: ({ row }) => <VariantLabel item={row.original} /> },
-  { id: "color", header: "Colour", cell: ({ row }) => row.original.colorName ?? "—" },
-  { id: "size", header: "Size", cell: ({ row }) => row.original.sizeName ?? "—" },
-  { id: "type", header: "Type", cell: ({ row }) => <MovementTypeBadge type={row.original.movementType} /> },
-  { id: "qty", header: "Qty", cell: ({ row }) => <SignedQuantity value={row.original.signedQuantity} /> },
+  {
+    id: "product",
+    header: "Product",
+    accessorFn: (row) => row.productName,
+    cell: ({ row }) => <VariantLabel item={row.original} />,
+  },
+  {
+    id: "color",
+    header: "Colour",
+    accessorFn: (row) => row.colorName ?? "—",
+    cell: ({ row }) => row.original.colorName ?? "—",
+  },
+  {
+    id: "size",
+    header: "Size",
+    accessorFn: (row) => row.sizeName ?? "—",
+    cell: ({ row }) => row.original.sizeName ?? "—",
+  },
+  {
+    id: "type",
+    header: "Type",
+    accessorFn: (row) => (row.movementType ? row.movementType.charAt(0) + row.movementType.slice(1).toLowerCase() : "Legacy"),
+    cell: ({ row }) => <MovementTypeBadge type={row.original.movementType} />,
+  },
+  {
+    id: "qty",
+    header: "Qty",
+    accessorFn: (row) => (row.signedQuantity > 0 ? `+${row.signedQuantity}` : String(row.signedQuantity)),
+    cell: ({ row }) => <SignedQuantity value={row.original.signedQuantity} />,
+  },
   {
     id: "stock",
     header: "Stock",
+    accessorFn: (row) => (row.previousStock === null ? "—" : `${row.previousStock} → ${row.newStock}`),
     cell: ({ row }) =>
       row.original.previousStock === null ? (
         <span className="text-neutral-400">—</span>
@@ -52,18 +79,25 @@ const columns: ColumnDef<MovementRow>[] = [
   {
     id: "reference",
     header: "Reference",
+    accessorFn: (row) => row.referenceNumber ?? "—",
     cell: ({ row }) => <span className="text-sm">{row.original.referenceNumber ?? "—"}</span>,
   },
   {
     id: "reason",
     header: "Reason",
+    accessorFn: (row) => row.reason ?? "—",
     cell: ({ row }) => (
       <span className="block max-w-[260px] truncate text-sm" title={row.original.reason ?? undefined}>
         {row.original.reason ?? "—"}
       </span>
     ),
   },
-  { id: "by", header: "By", cell: ({ row }) => <span className="text-sm">{row.original.createdBy ?? "System"}</span> },
+  {
+    id: "by",
+    header: "By",
+    accessorFn: (row) => row.createdBy ?? "System",
+    cell: ({ row }) => <span className="text-sm">{row.original.createdBy ?? "System"}</span>,
+  },
 ];
 
 function MovementsContent() {

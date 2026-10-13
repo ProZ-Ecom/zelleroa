@@ -12,7 +12,7 @@
   margin: 0 auto;
   padding: 8mm;
   background: #fff;
-  color: #252525;
+  color: #000000;
   font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
   font-size: 11px;
   line-height: 1.5;
@@ -46,7 +46,7 @@
 
 .ti-box {
   width: 100%;
-  border: 1px solid #252525;
+  border: 1px solid #000000;
   border-collapse: collapse;
   border-top-width: 0;
 }
@@ -72,7 +72,7 @@
 }
 
 .ti-divider {
-  border-top: 1px solid #252525;
+  border-top: 1px solid #000000;
 }
 
 .ti-row-between {
@@ -84,7 +84,7 @@
 
 .ti-party {
   width: 60%;
-  border-right: 1px solid #252525;
+  border-right: 1px solid #000000;
   vertical-align: top;
   padding: 0;
 }
@@ -106,6 +106,7 @@
   width: 40%;
   vertical-align: top;
   padding: 0;
+  background: linear-gradient(#000, #000) 50% 0 / 1px 100% no-repeat;
 }
 
 .ti-meta-table {
@@ -118,17 +119,17 @@
   height: 46px;
   padding: 6px 8px;
   vertical-align: top;
-  border-bottom: 1px solid #252525;
-  border-right: 1px solid #252525;
+  border-bottom: 1px solid #000000;
+  /* border-right: 1px solid #000000; */
 }
 
 .ti-meta-table tr:last-child td {
   border-bottom: 0;
 }
 
-.ti-meta-table td:last-child {
+/* .ti-meta-table td:last-child {
   border-right: 0;
-}
+} */
 
 .ti-label {
   display: block;
@@ -148,7 +149,7 @@
 
 .ti-items td {
   padding: 4px 6px;
-  border-right: 1px solid #252525;
+  border-right: 1px solid #000000;
   vertical-align: top;
 }
 
@@ -158,7 +159,7 @@
 
 .ti-items thead td {
   background: #f1f1f1;
-  border-bottom: 1px solid #252525;
+  border-bottom: 1px solid #000000;
   text-align: center;
   font-weight: 600;
 }
@@ -210,11 +211,11 @@
 
 .ti-spacer td {
   height: 90px;
-  border-right: 1px solid #252525;
+  border-right: 1px solid #000000;
 }
 
 .ti-total td {
-  border-top: 1px solid #252525;
+  border-top: 1px solid #000000;
   background: #f7f7f7;
   font-weight: 700;
 }
@@ -225,7 +226,7 @@
 
 .ti-items thead td,
 .ti-items tbody td {
-  border-bottom: 1px solid #d4d4d4;
+  border-bottom: 1px solid #000000;
 }
 
 .ti-items .ti-spacer td {
@@ -240,13 +241,16 @@
 
 .ti-tax td {
   padding: 4px 6px;
-  border: 1px solid #252525;
+  border: 1px solid #000000;
   text-align: center;
 }
 
 .ti-tax thead td {
   background: #f1f1f1;
   font-weight: 600;
+}
+.ti-tax thead tr:first-child td {
+  border-top: 0;
 }
 
 /* --- Footer --- */
@@ -269,8 +273,8 @@
 .ti-sign {
   width: 40%;
   text-align: right;
-  border-left: 1px solid #252525;
-  border-top: 1px solid #252525;
+  border-left: 1px solid #000000;
+  border-top: 1px solid #000000;
 }
 
 .ti-sign-line {
@@ -309,7 +313,8 @@
     box-shadow: none;
   }
 
-  .ti-page,
+    .ti-page,
+  .ti-meta,
   .ti-items thead td,
   .ti-tax thead td,
   .ti-total td {
