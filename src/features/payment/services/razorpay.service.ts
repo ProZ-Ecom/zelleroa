@@ -328,7 +328,7 @@ export const razorpayService = {
             shippingAddressId: input.shippingAddressId,
             billingAddressId: input.billingAddressId || input.shippingAddressId,
             notes: input.notes,
-            deliveryMethod: input.deliveryMethod,
+            deliveryMethod: (input.deliveryMethod as "standard" | "express") || "standard",
             paymentMethod: "CARD",
             paymentDetails: {
               gateway: "RAZORPAY",

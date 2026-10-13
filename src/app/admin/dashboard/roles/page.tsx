@@ -197,8 +197,8 @@ export default function AdminRolesPage() {
             <Plus className="mr-2 h-4 w-4" />
             Add Role
           </Button>
-        </div>
-      </div>
+        }
+      />
 
       <AdminContent className="flex-1 min-h-0 overflow-hidden mt-4">
         <div className="flex-1 min-h-0 overflow-hidden flex flex-col rounded-2xl border border-neutral-200 bg-white shadow-xs">
