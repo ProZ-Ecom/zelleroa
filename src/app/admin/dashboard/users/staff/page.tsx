@@ -182,11 +182,10 @@ export default function AdminStaffPage() {
               <button
                 type="button"
                 onClick={() => handleOpenEditModal(staff)}
-                className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium text-secondary-700 bg-secondary-50 hover:bg-secondary-100 transition-colors border border-secondary-200/60 cursor-pointer"
+                className="inline-flex items-center justify-center h-8 w-8 rounded-lg text-xs font-medium text-secondary-700 bg-secondary-50 hover:bg-secondary-100 transition-colors border border-secondary-200/60 cursor-pointer"
                 title="Edit staff member"
               >
-                <Pencil className="h-3.5 w-3.5" />
-                <span>Edit</span>
+                <Pencil className="h-4 w-4" />
               </button>
             </div>
           );

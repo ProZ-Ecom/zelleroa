@@ -563,7 +563,11 @@ export const orderService = {
     if (!order) {
       throw ApiError.notFound("Order not found");
     }
-    return { ...order, referral: await orderRepository.findOrderReferral(uuid) };
+    const [referral, payments] = await Promise.all([
+      orderRepository.findOrderReferral(uuid),
+      orderRepository.findOrderPayments(uuid),
+    ]);
+    return { ...order, referral, payments };
   },
 
   async cancelCustomerOrder(

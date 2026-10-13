@@ -6,7 +6,7 @@ import { readPaging, readQuery } from "@/features/agents/lib/api-helpers";
 export const GET = createApiHandler(
   {
     GET: async (_request, context) => {
-      await commissionService.approveEligible();
+      await commissionService.markReadyForApproval();
       const result = await commissionService.list({
         ...readQuery(context.searchParams, ["agent", "customer", "status", "orderStatus", "referralCode", "order", "dateFrom", "dateTo"]),
         ...readPaging(context.searchParams),

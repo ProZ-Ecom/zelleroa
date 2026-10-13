@@ -60,6 +60,7 @@ export function customerSearchWhere(term: string): Prisma.UserWhereInput {
 
 const COMMISSION_STATUSES = new Set([
   "pending",
+  "pending_approval",
   "approved",
   "payout_requested",
   "payout_approved",

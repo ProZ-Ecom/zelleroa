@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { useSession } from "next-auth/react";
+import { useSignedIn } from "@/features/auth/hooks/use-signed-in";
 import { SnackCard, type SnackCardVariant } from "@/components/storefront/cards/SnackCard";
 import { useAddToCart } from "@/features/cart/hooks/use-cart";
 import {
@@ -21,7 +21,7 @@ export interface CustomerVariantCardProps {
 
 export function CustomerVariantCard({ variant }: CustomerVariantCardProps) {
   const router = useRouter();
-  const { data: session } = useSession();
+  const session = useSignedIn();
   const { wishlistedIds } = useWishlistedUnitPriceIds({ enabled: !!session });
   const addToCart = useAddToCart();
   const addToWishlist = useAddToWishlist();

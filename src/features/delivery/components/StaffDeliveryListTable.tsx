@@ -273,10 +273,9 @@ export function StaffDeliveryListTable({
                 onClick={() => handleAccept(row.original.id)}
                 disabled={isTransitionPending}
                 title="Accept Delivery"
-                className="inline-flex items-center gap-1 h-8 px-2.5 rounded-lg border border-amber-300 bg-amber-50 text-xs font-semibold text-amber-800 hover:bg-amber-100 transition-all cursor-pointer shadow-2xs"
+                className="inline-flex items-center gap-1 h-8 w-8 justify-center rounded-lg border border-amber-300 bg-amber-50 text-xs font-semibold text-amber-800 hover:bg-amber-100 transition-all cursor-pointer shadow-2xs"
               >
-                <Check className="h-3.5 w-3.5" />
-                <span>Accept</span>
+                <Check className="h-4 w-4" />
               </button>
             )}
 
@@ -287,10 +286,9 @@ export function StaffDeliveryListTable({
                 onClick={() => handleOutForDelivery(row.original.id)}
                 disabled={isTransitionPending}
                 title="Mark Out for Delivery"
-                className="inline-flex items-center gap-1 h-8 px-2.5 rounded-lg border border-indigo-300 bg-indigo-50 text-xs font-semibold text-indigo-800 hover:bg-indigo-100 transition-all cursor-pointer shadow-2xs"
+                className="inline-flex items-center gap-1 h-8 w-8 justify-center rounded-lg border border-indigo-300 bg-indigo-50 text-xs font-semibold text-indigo-800 hover:bg-indigo-100 transition-all cursor-pointer shadow-2xs"
               >
-                <Truck className="h-3.5 w-3.5" />
-                <span>Dispatch</span>
+                <Truck className="h-4 w-4" />
               </button>
             )}
 
@@ -306,10 +304,9 @@ export function StaffDeliveryListTable({
                   })
                 }
                 title="Mark as Delivered"
-                className="inline-flex items-center gap-1 h-8 px-2.5 rounded-lg border border-emerald-600 bg-emerald-600 text-xs font-semibold text-white hover:bg-emerald-700 transition-all cursor-pointer shadow-xs"
+                className="inline-flex items-center gap-1 h-8 w-8 justify-center rounded-lg border border-emerald-600 bg-emerald-600 text-xs font-semibold text-white hover:bg-emerald-700 transition-all cursor-pointer shadow-xs"
               >
-                <CheckCircle2 className="h-3.5 w-3.5" />
-                <span>Delivered</span>
+                <CheckCircle2 className="h-4 w-4" />
               </button>
             )}
 
@@ -320,7 +317,7 @@ export function StaffDeliveryListTable({
               title="View Delivery Details"
               className="grid h-8 w-8 place-items-center rounded-lg border border-cream-border-subtle bg-white text-xs text-neutral-600 hover:bg-cream-200 hover:text-secondary-800 transition-colors cursor-pointer"
             >
-              <Eye className="h-3.5 w-3.5" />
+              <Eye className="h-4 w-4" />
             </button>
           </div>
         );

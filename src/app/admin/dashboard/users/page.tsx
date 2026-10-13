@@ -292,7 +292,7 @@ export default function AdminUsersPage() {
         title="Users"
         description="Manage user accounts and permissions"
         actions={
-          <Button onClick={() => setModalMode("create")}>
+          <Button variant="gradient" onClick={() => setModalMode("create")}>
             <Plus className="mr-2 h-4 w-4" />
             Add User
           </Button>
@@ -322,7 +322,7 @@ export default function AdminUsersPage() {
             <Button variant="outline" onClick={handleCloseModal}>
               Cancel
             </Button>
-            <Button onClick={handleSubmit(onSubmit)} disabled={isMutating}>
+            <Button variant="gradient" onClick={handleSubmit(onSubmit)} disabled={isMutating}>
               {modalMode === "edit" ? "Update" : "Create"}
             </Button>
           </>

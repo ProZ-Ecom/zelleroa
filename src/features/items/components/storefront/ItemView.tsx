@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useSession } from "next-auth/react";
+import { useSignedIn } from "@/features/auth/hooks/use-signed-in";
 import {
   Heart,
   Loader2,
@@ -65,7 +65,7 @@ interface ItemViewProps {
  */
 export function ItemView({ item, returnUrl, eyebrow, brandName, className }: ItemViewProps) {
   const router = useRouter();
-  const { data: session } = useSession();
+  const session = useSignedIn();
 
   const {
     colors,

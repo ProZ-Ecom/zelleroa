@@ -19,7 +19,7 @@ interface Address {
   longitude?: number | null;
 }
 
-/** Orders a Sales Partner places on behalf of one of THEIR customers, or a walk-in buyer with no account. */
+/** Orders a Sales Partner places for themselves, on behalf of one of THEIR customers, or for a walk-in buyer with no account. */
 export const agentOrderService = {
   async placeOrder(agentId: bigint, input: AgentPlaceOrderInput) {
     const agent = await db.user.findUnique({
@@ -33,22 +33,28 @@ export const agentOrderService = {
     let manualCustomer: { name: string; phone: string; email: string | null } | null = null;
     let addressSource: Address;
 
-    if (input.customerId) {
-      const customer = await findAssignedCustomer(agentId, input.customerId);
-      if (!customer) throw ApiError.forbidden("This customer is not assigned to you");
-      if (!customer.is_active || customer.status !== "active") throw ApiError.badRequest("This customer's account is inactive");
-      buyerId = customer.id;
+    const forSelf = !!input.forSelf;
+
+    if (forSelf || input.customerId) {
+      let ownerId = agentId;
+      if (!forSelf) {
+        const customer = await findAssignedCustomer(agentId, input.customerId!);
+        if (!customer) throw ApiError.forbidden("This customer is not assigned to you");
+        if (!customer.is_active || customer.status !== "active") throw ApiError.badRequest("This customer's account is inactive");
+        ownerId = customer.id;
+      }
+      buyerId = ownerId;
       if (input.shippingAddressId) {
         const ref = input.shippingAddressId;
         const a = await db.customerAddress.findFirst({
           where: {
-            userId: customer.id,
+            userId: ownerId,
             is_active: true,
             deleted_at: null,
             OR: [{ uuid: ref }, ...(/^\d+$/.test(ref) ? [{ id: BigInt(ref) }] : [])],
           },
         });
-        if (!a) throw ApiError.badRequest("Delivery address not found for this customer");
+        if (!a) throw ApiError.badRequest(forSelf ? "Delivery address not found" : "Delivery address not found for this customer");
         addressSource = {
           fullName: a.full_name,
           phone: a.phone,
@@ -186,7 +192,7 @@ export const agentOrderService = {
       userId: buyerId,
       agentId,
       referralCode: agent.referral_code ?? agent.agent_profile?.agent_code ?? null,
-      orderSource: "AGENT_PLACED_FOR_CUSTOMER",
+      orderSource: forSelf ? "AGENT_OWN" : "AGENT_PLACED_FOR_CUSTOMER",
       orderedById: agentId,
       manualCustomer,
       cartId: null,

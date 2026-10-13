@@ -195,10 +195,9 @@ export function AdminDeliveryOrdersTable() {
                   })
                 }
                 title="Assign Delivery Staff"
-                className="inline-flex items-center gap-1 h-8 px-2.5 rounded-lg border border-secondary-600 bg-secondary-600 text-xs font-semibold text-white hover:bg-secondary-700 transition-all cursor-pointer shadow-xs"
+                className="inline-flex items-center gap-1 h-8 w-8 justify-center rounded-lg border border-secondary-600 bg-secondary-600 text-xs font-semibold text-white hover:bg-secondary-700 transition-all cursor-pointer shadow-xs"
               >
-                <UserCheck className="h-3.5 w-3.5" />
-                <span>Assign</span>
+                <UserCheck className="h-4 w-4" />
               </button>
             )}
           </div>

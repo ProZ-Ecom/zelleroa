@@ -16,10 +16,11 @@ import {
   replacementRequestInclude,
   returnRequestInclude,
 } from "@/features/returns/lib/includes";
-import { getIndiaPostTrackingUrl, INDIA_POST_PARTNER_CODE } from "@/lib/shipping/india-post";
+import { getCourierTrackingUrl } from "@/lib/shipping/couriers";
 import type {
   OrderDetailResponse,
   OrderReferralDto,
+  OrderPaymentDto,
   OrderListItemResponse,
   OrderItemResponse,
   OrderAddressResponse,
@@ -109,6 +110,9 @@ export const orderItemInclude = Prisma.validator<Prisma.OrderItemInclude>()({
 });
 
 export const orderDetailInclude = Prisma.validator<Prisma.OrderInclude>()({
+  ordered_by: {
+    select: { name: true, agent_profile: { select: { agent_code: true } } },
+  },
   user: {
     select: {
       id: true,
@@ -333,10 +337,7 @@ export function formatCourierShipment(
     id: shipment.uuid || String(shipment.id),
     carrier: shipment.delivery_partners.name,
     trackingNumber: shipment.tracking_number,
-    trackingUrl:
-      shipment.delivery_partners.code === INDIA_POST_PARTNER_CODE
-        ? getIndiaPostTrackingUrl(shipment.tracking_number)
-        : "",
+    trackingUrl: getCourierTrackingUrl(shipment.delivery_partners.code, shipment.tracking_number),
     status: shipment.status,
     timeline: (shipment.shipment_tracking || []).map((t) => ({
       status: t.status,
@@ -417,6 +418,13 @@ export function formatOrderDetail(
     delivery: formatOrderDelivery((order as any).shipments),
     courierShipment: formatCourierShipment((order as any).shipments),
     notes: order.notes ?? null,
+    placedByAgent:
+      order.order_source === "AGENT_PLACED_FOR_CUSTOMER" && order.ordered_by
+        ? {
+            name: order.ordered_by.name,
+            agentCode: order.ordered_by.agent_profile?.agent_code ?? null,
+          }
+        : null,
     placedAt: order.placed_at ?? null,
     deliveredAt,
     cancellation: formatCancellation(order),
@@ -553,6 +561,37 @@ export async function generateUniqueOrderNumber(
 }
 
 export const orderRepository = {
+  /** Payment attempts of one order with their method and gateway references (admin view). */
+  async findOrderPayments(orderUuid: string): Promise<OrderPaymentDto[]> {
+    const payments = await db.payment.findMany({
+      where: { order: { uuid: orderUuid } },
+      orderBy: { createdAt: "desc" },
+      select: {
+        id: true,
+        amount: true,
+        currency: true,
+        status: true,
+        gateway: true,
+        gateway_order_id: true,
+        gateway_payment_id: true,
+        createdAt: true,
+        payment_methods: { select: { name: true, code: true } },
+      },
+    });
+    return payments.map((p) => ({
+      id: p.id.toString(),
+      methodName: p.payment_methods.name,
+      methodCode: p.payment_methods.code,
+      amount: Number(p.amount),
+      currency: p.currency,
+      status: p.status,
+      gateway: p.gateway,
+      gatewayOrderId: p.gateway_order_id,
+      gatewayPaymentId: p.gateway_payment_id,
+      createdAt: p.createdAt,
+    }));
+  },
+
   /** Referral/commission summary of one order (admin view). Null when the order has no agent. */
   async findOrderReferral(orderUuid: string): Promise<OrderReferralDto | null> {
     const order = await db.order.findFirst({

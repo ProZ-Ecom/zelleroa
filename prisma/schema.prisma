@@ -3287,6 +3287,7 @@ enum commission_rate_scope {
 
 enum commission_status {
   pending
+  pending_approval
   approved
   payout_requested
   payout_approved

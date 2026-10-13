@@ -90,7 +90,7 @@ export const commissionReportService = {
     for (const c of commissions) {
       const r = ensure(c.agent_id);
       const amount = Number(c._sum.commission_amount ?? 0);
-      if (c.status === "pending") r.pending += amount;
+      if (c.status === "pending" || c.status === "pending_approval") r.pending += amount;
       else if (c.status === "paid") r.paid += amount;
       else if (c.status === "cancelled" || c.status === "reversed") r.cancelledOrReversed += amount;
       else r.approved += amount;

@@ -4,6 +4,8 @@ import * as React from "react";
 import { apiClient } from "@/lib/api/api-client";
 import { errorMessage } from "../hooks/use-admin-agents";
 import { fieldCls } from "./shared";
+import { AgentAddressFields } from "./AgentAddressFields";
+import { OrderField, focusFirstError, validateAddress, validateManualCustomer, type FieldErrors } from "./order-field";
 
 interface CustomerOption {
   id: string;
@@ -44,27 +46,17 @@ interface AddressForm {
 const EMPTY_ADDRESS: AddressForm = { fullName: "", phone: "", addressLine1: "", addressLine2: "", city: "", state: "", pincode: "" };
 const inr = (n: number) => `₹${n.toLocaleString("en-IN", { maximumFractionDigits: 2 })}`;
 
-function AddressFields({ value, onChange }: { value: AddressForm; onChange: (v: AddressForm) => void }) {
-  const set = (k: keyof AddressForm) => (e: React.ChangeEvent<HTMLInputElement>) => onChange({ ...value, [k]: e.target.value });
-  return (
-    <div className="grid gap-3 sm:grid-cols-2">
-      <input className={fieldCls} placeholder="Receiver name" value={value.fullName} onChange={set("fullName")} />
-      <input className={fieldCls} placeholder="Mobile (10 digits)" inputMode="numeric" maxLength={10} value={value.phone} onChange={set("phone")} />
-      <input className={`${fieldCls} sm:col-span-2`} placeholder="Address line 1" value={value.addressLine1} onChange={set("addressLine1")} />
-      <input className={`${fieldCls} sm:col-span-2`} placeholder="Address line 2 (optional)" value={value.addressLine2} onChange={set("addressLine2")} />
-      <input className={fieldCls} placeholder="City" value={value.city} onChange={set("city")} />
-      <input className={fieldCls} placeholder="State" value={value.state} onChange={set("state")} />
-      <input className={fieldCls} placeholder="Pincode" inputMode="numeric" maxLength={6} value={value.pincode} onChange={set("pincode")} />
-    </div>
-  );
-}
 
 /**
  * Agent order form. The customer list only ever contains customers assigned to this agent, and the
  * API re-checks that on submit - this UI restriction is a convenience, not the security boundary.
  */
 export function PlaceOrderForm() {
-  const [mode, setMode] = React.useState<"existing" | "manual">("existing");
+  const [orderFor, setOrderFor] = React.useState<"self" | "customer">("customer");
+  const [customerMode, setCustomerMode] = React.useState<"existing" | "manual">("existing");
+  const forSelf = orderFor === "self";
+  // Self orders use the same address handling as an existing customer, against the agent's own addresses.
+  const mode = forSelf ? "existing" : customerMode;
   const [customers, setCustomers] = React.useState<CustomerOption[]>([]);
   const [customerId, setCustomerId] = React.useState("");
   const [addresses, setAddresses] = React.useState<SavedAddress[]>([]);
@@ -78,6 +70,8 @@ export function PlaceOrderForm() {
   const [notes, setNotes] = React.useState("");
   const [busy, setBusy] = React.useState(false);
   const [msg, setMsg] = React.useState<{ ok: boolean; text: string } | null>(null);
+  const [errors, setErrors] = React.useState<FieldErrors>({});
+  const clearError = (name: string) => setErrors((cur) => ({ ...cur, [name]: "" }));
 
   React.useEffect(() => {
     apiClient
@@ -89,16 +83,16 @@ export function PlaceOrderForm() {
   React.useEffect(() => {
     setAddresses([]);
     setAddressChoice("");
-    if (!customerId) return;
+    if (!forSelf && !customerId) return;
     apiClient
-      .get<SavedAddress[]>(`/api/agent/customers/${encodeURIComponent(customerId)}/addresses`)
+      .get<SavedAddress[]>(forSelf ? "/api/agent/my-addresses" : `/api/agent/customers/${encodeURIComponent(customerId)}/addresses`)
       .then((res) => {
         const list = res.data ?? [];
         setAddresses(list);
         setAddressChoice(list.find((a) => a.isDefault)?.id ?? list[0]?.id ?? "new");
       })
       .catch(() => setAddressChoice("new"));
-  }, [customerId]);
+  }, [customerId, forSelf]);
 
   React.useEffect(() => {
     if (search.trim().length < 2) {
@@ -129,9 +123,17 @@ export function PlaceOrderForm() {
 
   async function submit() {
     setMsg(null);
-    if (lines.length === 0) return setMsg({ ok: false, text: "Add at least one product." });
-    if (mode === "existing" && !customerId) return setMsg({ ok: false, text: "Select a customer." });
-    if (mode === "manual" && (!manual.name.trim() || !manual.phone.trim())) return setMsg({ ok: false, text: "Enter the customer's name and mobile." });
+    const found: FieldErrors = {
+      ...(!forSelf && mode === "existing" && !customerId ? { customerId: "Select a customer" } : {}),
+      ...(mode === "manual" ? validateManualCustomer(manual) : {}),
+      ...(useSaved ? {} : validateAddress(address)),
+      ...(lines.length === 0 ? { search: "Add at least one product" } : {}),
+    };
+    setErrors(found);
+    if (Object.keys(found).length > 0) {
+      setMsg({ ok: false, text: "Please fix the highlighted fields." });
+      return focusFirstError(found);
+    }
     setBusy(true);
     try {
       const body: Record<string, unknown> = {
@@ -139,7 +141,11 @@ export function PlaceOrderForm() {
         deliveryMethod: delivery,
         notes: notes.trim() || undefined,
       };
-      if (mode === "existing") {
+      if (forSelf) {
+        body.forSelf = true;
+        if (useSaved) body.shippingAddressId = addressChoice;
+        else body.shippingAddress = address;
+      } else if (mode === "existing") {
         body.customerId = customerId;
         if (useSaved) body.shippingAddressId = addressChoice;
         else body.shippingAddress = address;
@@ -164,18 +170,30 @@ export function PlaceOrderForm() {
   return (
     <div className="space-y-4">
       <section className={card}>
-        <h2 className="text-sm font-semibold text-neutral-900">1. Customer</h2>
+        <h2 className="text-sm font-semibold text-neutral-900">1. Who is this order for?</h2>
         <div className="flex flex-wrap gap-4 text-sm">
           <label className="flex items-center gap-2">
-            <input type="radio" checked={mode === "existing"} onChange={() => setMode("existing")} /> Select existing customer
+            <input type="radio" checked={orderFor === "self"} onChange={() => setOrderFor("self")} /> Self (for myself)
           </label>
           <label className="flex items-center gap-2">
-            <input type="radio" checked={mode === "manual"} onChange={() => setMode("manual")} /> Enter customer details
+            <input type="radio" checked={orderFor === "customer"} onChange={() => setOrderFor("customer")} /> Customer
           </label>
         </div>
-        {mode === "existing" ? (
+        {forSelf ? (
+          <p className="text-xs text-neutral-500">The order is placed in your own name and delivered to your address. Commission applies as usual.</p>
+        ) : (
+          <div className="flex flex-wrap gap-4 text-sm">
+            <label className="flex items-center gap-2">
+              <input type="radio" checked={customerMode === "existing"} onChange={() => setCustomerMode("existing")} /> Select existing customer
+            </label>
+            <label className="flex items-center gap-2">
+              <input type="radio" checked={customerMode === "manual"} onChange={() => setCustomerMode("manual")} /> Enter customer details
+            </label>
+          </div>
+        )}
+        {forSelf ? null : mode === "existing" ? (
           <>
-            <select className={fieldCls} value={customerId} onChange={(e) => setCustomerId(e.target.value)}>
+            <select name="customerId" className={`${fieldCls} ${errors.customerId ? "!border-red-500" : ""}`} value={customerId} onChange={(e) => { setCustomerId(e.target.value); clearError("customerId"); }}>
               <option value="">Select one of your assigned customers…</option>
               {customers.map((c) => (
                 <option key={c.id} value={c.id}>
@@ -185,15 +203,16 @@ export function PlaceOrderForm() {
                 </option>
               ))}
             </select>
+            {errors.customerId && <p role="alert" className="text-xs text-red-600">{errors.customerId}</p>}
             {customers.length === 0 && <p className="text-xs text-neutral-500">No customers are assigned to you yet.</p>}
             <p className="text-xs text-neutral-500">The customer&apos;s profile is never changed. Phone and address below apply to this order only.</p>
           </>
         ) : (
           <>
             <div className="grid gap-3 sm:grid-cols-3">
-              <input className={fieldCls} placeholder="Customer name" value={manual.name} onChange={(e) => setManual({ ...manual, name: e.target.value })} />
-              <input className={fieldCls} placeholder="Mobile (10 digits)" inputMode="numeric" maxLength={10} value={manual.phone} onChange={(e) => setManual({ ...manual, phone: e.target.value })} />
-              <input className={fieldCls} placeholder="Email (optional)" value={manual.email} onChange={(e) => setManual({ ...manual, email: e.target.value })} />
+              <OrderField name="manualName" errors={errors} onClear={clearError} placeholder="Customer name" value={manual.name} onChange={(e) => setManual({ ...manual, name: e.target.value })} />
+              <OrderField name="manualPhone" errors={errors} onClear={clearError} placeholder="Mobile (10 digits)" inputMode="numeric" maxLength={10} value={manual.phone} onChange={(e) => setManual({ ...manual, phone: e.target.value })} />
+              <OrderField name="manualEmail" errors={errors} onClear={clearError} placeholder="Email (optional)" value={manual.email} onChange={(e) => setManual({ ...manual, email: e.target.value })} />
             </div>
             <p className="text-xs text-neutral-500">No customer account is created. These details are saved with the order only.</p>
           </>
@@ -212,7 +231,7 @@ export function PlaceOrderForm() {
             <option value="new">Use a different address / phone for this order</option>
           </select>
         )}
-        {!useSaved && <AddressFields value={address} onChange={setAddress} />}
+        {!useSaved && <AgentAddressFields value={address} onChange={setAddress} errors={errors} onClear={clearError} />}
         <div className="flex gap-4 text-sm">
           <label className="flex items-center gap-2">
             <input type="radio" checked={delivery === "standard"} onChange={() => setDelivery("standard")} /> Standard
@@ -225,7 +244,7 @@ export function PlaceOrderForm() {
 
       <section className={card}>
         <h2 className="text-sm font-semibold text-neutral-900">3. Products</h2>
-        <input className={fieldCls} placeholder="Search product name or SKU (min 2 letters)" value={search} onChange={(e) => setSearch(e.target.value)} />
+        <OrderField name="search" errors={errors} onClear={clearError} placeholder="Search product name or SKU (min 2 letters)" value={search} onChange={(e) => setSearch(e.target.value)} />
         {results.length > 0 && (
           <ul className="divide-y divide-neutral-100 rounded-xl border border-neutral-200">
             {results.map((r) => (

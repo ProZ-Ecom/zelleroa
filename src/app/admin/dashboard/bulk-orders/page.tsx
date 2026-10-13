@@ -216,11 +216,10 @@ export default function AdminBulkOrdersPage() {
             <button
               type="button"
               onClick={() => setSelectedEnquiry(item)}
-              className="inline-flex items-center h-8 gap-1 px-2.5 rounded-lg text-xs font-semibold text-secondary-600 hover:text-secondary-700 hover:bg-secondary-50 cursor-pointer transition-colors"
+              className="inline-flex items-center h-8 w-8 justify-center rounded-lg text-xs font-semibold text-secondary-600 hover:text-secondary-700 hover:bg-secondary-50 cursor-pointer transition-colors"
               title="View Enquiry"
             >
-              <Eye className="h-3.5 w-3.5" />
-              <span>View</span>
+              <Eye className="h-4 w-4" />
             </button>
           </div>
         );

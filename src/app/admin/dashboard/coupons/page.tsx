@@ -208,7 +208,7 @@ export default function AdminCouponsPage() {
         title="Coupons"
         description="Manage discount coupons"
         actions={
-          <Button onClick={() => handleOpenModal()}>
+          <Button variant="gradient" onClick={() => handleOpenModal()}>
             <Plus className="mr-2 h-4 w-4" />
             Add Coupon
           </Button>

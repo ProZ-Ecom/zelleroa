@@ -35,6 +35,17 @@ function PartyAddress({
   );
 }
 
+/** Empty cells (not colSpan) so the item table keeps its vertical column lines. */
+function Empty({ n }: { n: number }) {
+  return (
+    <>
+      {Array.from({ length: n }, (_, i) => (
+        <td key={i} />
+      ))}
+    </>
+  );
+}
+
 /** Used until a logo is uploaded in Company Settings. */
 const FALLBACK_LOGO = "/logo.png";
 
@@ -45,6 +56,7 @@ export function TaxInvoice({ invoice }: { invoice: InvoiceDto }) {
   return (
     <div className="ti-page">
       <h1 className="ti-title">Tax Invoice</h1>
+      <p className="ti-copy">(ORIGINAL FOR RECIPIENT)</p>
 
       {/* Parties + invoice meta */}
       <table className="ti-box ti-head">
@@ -148,81 +160,69 @@ export function TaxInvoice({ invoice }: { invoice: InvoiceDto }) {
       <table className="ti-box ti-items">
         <thead>
           <tr>
-            <td className="c">S.No</td>
-            <td>Description of Goods</td>
-            <td className="c">HSN/SAC</td>
-            <td className="c">Quantity</td>
-            <td className="r">Rate</td>
-            <td className="c">Per</td>
-            <td className="r">Amount</td>
+            <td className="c">Sl. No</td>
+            <td>Description</td>
+            <td className="r">Unit Price</td>
+            <td className="c">Qty</td>
+            <td className="r">Net Amount</td>
+            <td className="c">Tax Rate</td>
+            <td className="c">Tax Type</td>
+            <td className="r">Tax Amount</td>
+            <td className="r">Total Amount</td>
           </tr>
         </thead>
         <tbody>
-          {invoice.lines.map((line) => (
-            <tr key={line.serial}>
-              <td className="c">{line.serial}</td>
-              <td className="ti-name">{line.description}</td>
-              <td className="c">{line.hsn || "-"}</td>
-              <td className="c">{line.quantity} Nos</td>
-              <td className="r">{money(line.rate)}</td>
-              <td className="c">{line.per}</td>
-              <td className="r">{money(line.taxableValue)}</td>
-            </tr>
-          ))}
-
-          {sameState ? (
-            <>
-              <tr>
-                <td />
-                <td className="r">CGST</td>
-                <td colSpan={4} />
-                <td className="r">{money(invoice.totalCgst)}</td>
+          {invoice.lines.map((line) => {
+            const rate = line.cgstPercent + line.sgstPercent + line.igstPercent;
+            return (
+              <tr key={line.serial}>
+                <td className="c">{line.serial}</td>
+                <td>
+                  <span className="ti-name">{line.description}</span>
+                  <br />
+                  HSN: {line.hsn || "-"}
+                </td>
+                <td className="r">&#8377;{money(line.rate)}</td>
+                <td className="c">{line.quantity}</td>
+                <td className="r">&#8377;{money(line.taxableValue)}</td>
+                <td className="c">{Number(rate).toFixed(0)}%</td>
+                <td className="c">{sameState ? "CGST + SGST" : "IGST"}</td>
+                <td className="r">&#8377;{money(line.totalTaxAmount)}</td>
+                <td className="r">
+                  &#8377;{money(line.taxableValue + line.totalTaxAmount)}
+                </td>
               </tr>
-              <tr>
-                <td />
-                <td className="r">SGST</td>
-                <td colSpan={4} />
-                <td className="r">{money(invoice.totalSgst)}</td>
-              </tr>
-            </>
-          ) : (
-            <tr>
-              <td />
-              <td className="r">IGST</td>
-              <td colSpan={4} />
-              <td className="r">{money(invoice.totalIgst)}</td>
-            </tr>
-          )}
+            );
+          })}
 
           {invoice.deliveryCharge > 0 && (
             <tr>
-              <td />
-              <td className="r">Delivery Charges</td>
-              <td colSpan={4} />
-              <td className="r">{money(invoice.deliveryCharge)}</td>
-            </tr>
-          )}
-
-          {invoice.roundOff !== 0 && (
-            <tr>
-              <td />
-              <td className="r">Round Off</td>
-              <td colSpan={4} />
-              <td className="r">{money(invoice.roundOff)}</td>
+              <td className="c">{invoice.lines.length + 1}</td>
+              <td className="ti-name">Delivery Charges</td>
+              <td className="r">&#8377;{money(invoice.deliveryCharge)}</td>
+              <td className="c">1</td>
+              <td className="r">&#8377;{money(invoice.deliveryCharge)}</td>
+              <Empty n={3} />
+              <td className="r">&#8377;{money(invoice.deliveryCharge)}</td>
             </tr>
           )}
 
           <tr className="ti-spacer">
-            <td colSpan={7} />
+            <Empty n={9} />
           </tr>
 
           <tr className="ti-total">
             <td />
             <td className="r">Total</td>
             <td />
-            <td className="c">{invoice.totalQuantity} Nos</td>
-            <td colSpan={2} />
-            <td className="r">&#8377; {money(invoice.invoiceValue)}</td>
+            <td className="c">{invoice.totalQuantity}</td>
+            <td className="r">
+              &#8377;{money(invoice.taxableValue + invoice.deliveryCharge)}
+            </td>
+            <td />
+            <td />
+            <td className="r">&#8377;{money(invoice.totalTaxAmount)}</td>
+            <td className="r">&#8377;{money(invoice.invoiceValue)}</td>
           </tr>
         </tbody>
       </table>
@@ -233,7 +233,7 @@ export function TaxInvoice({ invoice }: { invoice: InvoiceDto }) {
           <span>Amount Chargeable (in words)</span>
           <span>E &amp; O.E</span>
         </div>
-        <p className="ti-name">
+        <p className="ti-name ti-words">
           Indian Rupees {invoice.invoiceValueInWords} Only
         </p>
       </div>

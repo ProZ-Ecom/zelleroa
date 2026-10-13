@@ -2,7 +2,7 @@ import NextAuth from "next-auth";
 import { NextResponse } from "next/server";
 import { authConfig } from "@/lib/auth/auth.config";
 import { getRoleHome } from "@/lib/auth/role-routes";
-import { captureReferralCookie } from "@/lib/referral/cookie";
+import { referralLandingRedirect } from "@/lib/referral/cookie";
 
 const { auth } = NextAuth(authConfig);
 
@@ -39,6 +39,11 @@ function parseJwtPayload(
 
 export default auth(async (req) => {
   const { pathname } = req.nextUrl;
+
+  // `?ref=<code>` on any page: validate the code on the server (see /ref/[code]) before it is stored.
+  const referralLanding = referralLandingRedirect(req);
+  if (referralLanding) return NextResponse.redirect(referralLanding);
+
   const nextAuthUser = req.auth?.user;
 
   // Check HttpOnly access_token cookie
@@ -69,9 +74,8 @@ export default auth(async (req) => {
     );
 
   const applyCookies = (res: NextResponse) => {
-    const out = captureReferralCookie(req, res);
-    if (isAuthSensitivePath) out.headers.set("Cache-Control", "no-store");
-    return out;
+    if (isAuthSensitivePath) res.headers.set("Cache-Control", "no-store");
+    return res;
   };
 
   const isStaffRole = userRole === "ADMIN" || userRole === "STAFF";

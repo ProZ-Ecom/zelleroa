@@ -88,7 +88,7 @@ export function AdminRequestsTable({ kind }: { kind: RequestKind }) {
               <th className="px-3 py-2.5">Requested</th>
               {isReturn && <th className="px-3 py-2.5">Deadline</th>}
               <th className="px-3 py-2.5">Status</th>
-              <th className="px-3 py-2.5 text-right">Actions</th>
+              <th className="sticky right-0 z-10 bg-neutral-50 px-3 py-2.5 text-center shadow-[-4px_0_6px_-2px_rgba(0,0,0,0.06)]">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-neutral-100">
@@ -121,7 +121,7 @@ export function AdminRequestsTable({ kind }: { kind: RequestKind }) {
             )}
 
             {rows.map((r) => (
-              <tr key={r.id} className="hover:bg-neutral-50/70">
+              <tr key={r.id} className="group hover:bg-neutral-50/70">
                 <td className="px-3 py-2.5 font-mono text-[11px]">{r.id.slice(0, 8).toUpperCase()}</td>
                 <td className="px-3 py-2.5 font-mono font-semibold">{r.orderNumber}</td>
                 <td className="px-3 py-2.5">
@@ -157,9 +157,9 @@ export function AdminRequestsTable({ kind }: { kind: RequestKind }) {
                 <td className="px-3 py-2.5">
                   <RequestStatusBadge status={r.status} />
                 </td>
-                <td className="px-3 py-2.5 text-right">
-                  <Button size="sm" variant="outline" onClick={() => setOpenId(r.id)}>
-                    <Eye className="mr-1 h-3.5 w-3.5" /> View
+                <td className="sticky right-0 z-10 bg-white px-3 py-2.5 text-center shadow-[-4px_0_6px_-2px_rgba(0,0,0,0.06)] group-hover:bg-neutral-50">
+                  <Button size="icon" variant="outline" title="View" aria-label="View" onClick={() => setOpenId(r.id)}>
+                    <Eye className="h-4 w-4" />
                   </Button>
                 </td>
               </tr>

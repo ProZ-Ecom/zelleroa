@@ -25,7 +25,6 @@ import { SearchInput } from "@/components/ui/search-input";
 import { Select } from "@/components/ui/select";
 import { ClearFiltersButton } from "@/components/common/clear-filters-button";
 import { formatDateTime, formatPrice } from "@/lib/utils";
-import { AssignStaffModal } from "@/features/orders/components/AssignStaffModal";
 import {
   useAdminOrders,
   useAdminOrder,
@@ -35,6 +34,7 @@ import {
   useCancelOrderAdmin,
 } from "@/features/orders/hooks";
 import { useShipViaCourier } from "@/features/delivery/hooks";
+import { COURIERS, DEFAULT_COURIER_CODE, getCourier } from "@/lib/shipping/couriers";
 import { OrderDetailView } from "@/features/orders/components/OrderDetailView";
 import {
   OrderStatusBadge,
@@ -63,7 +63,7 @@ export function AdminOrderListTable({
   const [paymentFilter, setPaymentFilter] = useState<string>("");
   const [viewOrderId, setViewOrderId] = useState<string | null>(null);
   const [cancelOrderId, setCancelOrderId] = useState<string | null>(null);
-  const [assignStaffOrder, setAssignStaffOrder] = useState<{
+  const [courierOrder, setCourierOrder] = useState<{
     id: string;
     orderNumber: string;
   } | null>(null);
@@ -84,7 +84,7 @@ export function AdminOrderListTable({
   const packOrder = usePackAdminOrder();
   const cancelOrder = useCancelOrderAdmin();
   const shipViaCourier = useShipViaCourier();
-  const [indiaPostOpen, setIndiaPostOpen] = useState(false);
+    const [courierCode, setCourierCode] = useState(DEFAULT_COURIER_CODE);
   const [consignmentNumber, setConsignmentNumber] = useState("");
 
   const orders = data?.data ?? [];
@@ -211,7 +211,7 @@ export function AdminOrderListTable({
       : []),
     {
       accessorKey: "delivery.staff",
-      header: "Assigned Staff",
+      header: "Delivery",
       cell: ({ row }) => {
         const delivery = row.original.delivery;
         const staff = delivery?.staff;
@@ -223,23 +223,8 @@ export function AdminOrderListTable({
             <div className="flex items-center gap-1.5">
               <span className="inline-flex items-center gap-1 text-[11px] font-medium text-neutral-500 bg-cream-100 px-2 py-0.5 rounded-full border border-cream-border">
                 <Package className="h-3 w-3 text-neutral-400" />
-                Unassigned
+                Not shipped
               </span>
-              {orderStatus === "packed" && (
-                <button
-                  type="button"
-                  onClick={() =>
-                    setAssignStaffOrder({
-                      id: row.original.id,
-                      orderNumber: row.original.orderNumber,
-                    })
-                  }
-                  title="Assign Staff"
-                  className="text-[11px] font-semibold text-secondary-600 hover:underline cursor-pointer ml-0.5"
-                >
-                  Assign
-                </button>
-              )}
             </div>
           );
         }
@@ -355,12 +340,12 @@ export function AdminOrderListTable({
               <button
                 type="button"
                 onClick={() =>
-                  setAssignStaffOrder({
+                  setCourierOrder({
                     id: row.original.id,
                     orderNumber: row.original.orderNumber,
                   })
                 }
-                title="Assign Delivery Staff"
+                title="Ship via Courier"
                 className="grid h-8 w-8 place-items-center rounded-lg border border-secondary-600 bg-secondary-600 text-xs font-semibold text-white hover:bg-secondary-700 transition-all cursor-pointer shadow-xs"
                 disabled={isTransitionPending}
               >
@@ -579,24 +564,12 @@ export function AdminOrderListTable({
                   <Button
                     size="sm"
                     className="bg-secondary-600 hover:bg-secondary-700 text-white"
-                    onClick={() => {
-                      setAssignStaffOrder({
+                    onClick={() =>
+                      setCourierOrder({
                         id: orderDetail.id,
                         orderNumber: orderDetail.orderNumber,
-                      });
-                    }}
-                    disabled={isTransitionPending}
-                  >
-                    <Truck className="mr-1.5 h-4 w-4" />
-                    Assign Delivery Staff
-                  </Button>
-                )}
-
-                {currentDetailStatus === "packed" && (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => setIndiaPostOpen(true)}
+                      })
+                    }
                     disabled={isTransitionPending}
                   >
                     {shipViaCourier.isPending ? (
@@ -604,7 +577,7 @@ export function AdminOrderListTable({
                     ) : (
                       <Package className="mr-1.5 h-4 w-4" />
                     )}
-                    Ship via India Post
+                    Ship via Courier
                   </Button>
                 )}
 
@@ -644,27 +617,31 @@ export function AdminOrderListTable({
         )}
       </FormModal>
 
-      {/* Assign Staff Modal */}
+      {/* Ship via Courier Modal */}
       <FormModal
-        open={indiaPostOpen}
-        onClose={() => setIndiaPostOpen(false)}
-        title="Ship via India Post"
-        description="Enter the Speed Post consignment number from the booking receipt."
+        open={!!courierOrder}
+        onClose={() => setCourierOrder(null)}
+        title={`Ship via Courier${courierOrder ? ` - ${courierOrder.orderNumber}` : ""}`}
+        description="Pick the courier and enter the tracking number from the booking receipt."
         size="sm"
         footer={
           <>
-            <Button variant="outline" onClick={() => setIndiaPostOpen(false)}>
+            <Button variant="outline" onClick={() => setCourierOrder(null)}>
               Cancel
             </Button>
             <Button
-              disabled={shipViaCourier.isPending || !consignmentNumber.trim()}
+              disabled={shipViaCourier.isPending || !courierOrder || !consignmentNumber.trim()}
               onClick={() => {
-                if (!orderDetail) return;
+                if (!courierOrder) return;
                 shipViaCourier.mutate(
-                  { orderId: orderDetail.id, trackingNumber: consignmentNumber.trim().toUpperCase() },
+                  {
+                    orderId: courierOrder.id,
+                    courier: courierCode,
+                    trackingNumber: consignmentNumber.trim().toUpperCase(),
+                  },
                   {
                     onSuccess: () => {
-                      setIndiaPostOpen(false);
+                      setCourierOrder(null);
                       setConsignmentNumber("");
                       refetch();
                     },
@@ -678,26 +655,20 @@ export function AdminOrderListTable({
           </>
         }
       >
-        <Input
-          placeholder="EE123456789IN"
-          value={consignmentNumber}
-          onChange={(e) => setConsignmentNumber(e.target.value)}
-          maxLength={13}
-        />
+        <div className="space-y-3">
+          <Select
+            value={courierCode}
+            onChange={(e) => setCourierCode(e.target.value)}
+            options={COURIERS.map((c) => ({ value: c.code, label: c.name }))}
+          />
+          <Input
+            placeholder={getCourier(courierCode)?.placeholder}
+            value={consignmentNumber}
+            onChange={(e) => setConsignmentNumber(e.target.value)}
+            maxLength={50}
+          />
+        </div>
       </FormModal>
-
-      <AssignStaffModal
-        open={!!assignStaffOrder}
-        onClose={() => setAssignStaffOrder(null)}
-        orderId={assignStaffOrder?.id ?? null}
-        orderNumber={assignStaffOrder?.orderNumber}
-        onSuccess={() => {
-          refetch();
-          if (viewOrderId) {
-            // refetch current detail if open
-          }
-        }}
-      />
 
       {/* Cancel Order Dialog */}
       <ConfirmDialog

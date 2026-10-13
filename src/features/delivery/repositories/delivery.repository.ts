@@ -2,7 +2,6 @@ import crypto from "crypto";
 import { syncCommissionsWithOrderStatus } from "@/features/agents/services/commission.service";
 import { db } from "@/lib/db/prisma";
 import { Prisma } from "@/generated/prisma";
-import { INDIA_POST_PARTNER_CODE, INDIA_POST_PARTNER_NAME } from "@/lib/shipping/india-post";
 import type {
   AdminDeliveryOrdersListInput,
   AdminDeliveryStaffListInput,
@@ -490,18 +489,21 @@ export const deliveryRepository = {
     });
   },
 
-  /* ----------------------- Courier (India Post) Shipments ----------------------- */
+  /* ----------------------- Courier Shipments ----------------------- */
 
-  async findOrCreateIndiaPostPartner(adminId?: bigint | null) {
+  async findOrCreateCourierPartner(
+    courier: { code: string; name: string },
+    adminId?: bigint | null
+  ) {
     const existing = await db.delivery_partners.findUnique({
-      where: { code: INDIA_POST_PARTNER_CODE },
+      where: { code: courier.code },
     });
     if (existing) return existing;
 
     return db.delivery_partners.create({
       data: {
-        name: INDIA_POST_PARTNER_NAME,
-        code: INDIA_POST_PARTNER_CODE,
+        name: courier.name,
+        code: courier.code,
         is_active: true,
         created_by: adminId,
         updated_by: adminId,

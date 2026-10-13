@@ -7,6 +7,7 @@ import { COMMISSION_STATUS_LABELS, PAYOUT_STATUS_LABELS } from "../constants";
 const STATUS_STYLES: Record<string, string> = {
   // commission
   pending: "bg-amber-50 text-amber-700 border-amber-200",
+  pending_approval: "bg-violet-50 text-violet-700 border-violet-200",
   approved: "bg-emerald-50 text-emerald-700 border-emerald-200",
   payout_requested: "bg-sky-50 text-sky-700 border-sky-200",
   payout_approved: "bg-indigo-50 text-indigo-700 border-indigo-200",
@@ -126,7 +127,11 @@ export interface Column<T> {
   header: string;
   cell: (row: T) => React.ReactNode;
   className?: string;
+  /** Pin this column to the right edge while the table scrolls horizontally. */
+  stickyRight?: boolean;
 }
+
+const STICKY_RIGHT = "sticky right-0 shadow-[-4px_0_6px_-2px_rgba(0,0,0,0.06)]";
 
 /** Plain responsive table: scrolls horizontally on small screens instead of breaking layout. */
 export function SimpleTable<T>({
@@ -156,7 +161,7 @@ export function SimpleTable<T>({
         <thead>
           <tr className="border-b border-neutral-100 bg-neutral-50 text-[11px] uppercase tracking-wider text-neutral-500">
             {columns.map((c, i) => (
-              <th key={`${i}-${c.header}`} className={cn("px-4 py-2.5 font-semibold", c.className)}>
+              <th key={`${i}-${c.header}`} className={cn("px-4 py-2.5 font-semibold", c.stickyRight && cn(STICKY_RIGHT, "z-10 bg-neutral-50"), c.className)}>
                 {c.header}
               </th>
             ))}
@@ -164,9 +169,9 @@ export function SimpleTable<T>({
         </thead>
         <tbody>
           {rows.map((row) => (
-            <tr key={rowKey(row)} className="border-b border-neutral-100 last:border-0 transition-colors hover:bg-neutral-50">
+            <tr key={rowKey(row)} className="group border-b border-neutral-100 last:border-0 transition-colors hover:bg-neutral-50">
               {columns.map((c, i) => (
-                <td key={`${i}-${c.header}`} className={cn("px-4 py-3 align-middle text-neutral-800", c.className)}>
+                <td key={`${i}-${c.header}`} className={cn("px-4 py-3 align-middle text-neutral-800", c.stickyRight && cn(STICKY_RIGHT, "z-10 bg-white transition-colors group-hover:bg-neutral-50"), c.className)}>
                   {c.cell(row)}
                 </td>
               ))}
@@ -335,10 +340,18 @@ export const ORDER_SOURCE_OPTIONS = Object.entries(ORDER_SOURCE_LABELS).map(([va
 
 /** Source of an order, plus who placed it when that was not the customer. */
 export function OrderSourceCell({ source, orderedBy }: { source: string; orderedBy: string | null }) {
+  const tone =
+    source === "AGENT_PLACED_FOR_CUSTOMER"
+      ? "border-violet-200 bg-violet-50 text-violet-700"
+      : source === "AGENT_OWN"
+        ? "border-amber-200 bg-amber-50 text-amber-700"
+        : "border-neutral-200 bg-neutral-50 text-neutral-600";
   return (
     <div className="min-w-[8rem]">
-      <p className="text-xs font-medium text-neutral-900">{ORDER_SOURCE_LABELS[source] ?? source}</p>
-      {source !== "CUSTOMER_DIRECT" && orderedBy ? <p className="text-xs text-neutral-500">Ordered by: {orderedBy}</p> : null}
+      <span className={`inline-flex items-center whitespace-nowrap rounded-full border px-2.5 py-0.5 text-xs font-semibold ${tone}`}>
+        {ORDER_SOURCE_LABELS[source] ?? source}
+      </span>
+      {source !== "CUSTOMER_DIRECT" && orderedBy ? <p className="mt-1 text-xs text-neutral-500">Ordered by: {orderedBy}</p> : null}
     </div>
   );
 }
@@ -355,6 +368,38 @@ export function PageHeader({ title, description, children }: { title: string; de
       </div>
       {children}
     </header>
+  );
+}
+
+/** Panel that stays folded until the header is clicked. Native <details>, so it works in Server Components. */
+export function CollapsiblePanel({
+  title,
+  action,
+  children,
+  defaultOpen = false,
+  className,
+}: {
+  title: React.ReactNode;
+  action?: React.ReactNode;
+  children: React.ReactNode;
+  defaultOpen?: boolean;
+  className?: string;
+}) {
+  return (
+    <details
+      open={defaultOpen}
+      className={cn("group overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-xs", className)}
+    >
+      <summary className="flex cursor-pointer list-none flex-wrap items-center justify-between gap-2 px-4 py-3 marker:hidden sm:px-5 [&::-webkit-details-marker]:hidden">
+        <h2 className="text-sm font-bold tracking-tight text-neutral-900">{title}</h2>
+        <span className="flex items-center gap-3">
+          {action}
+          <span className="text-xs font-semibold text-neutral-500 group-open:hidden">Show</span>
+          <span className="hidden text-xs font-semibold text-neutral-500 group-open:inline">Hide</span>
+        </span>
+      </summary>
+      <div className="border-t border-neutral-100">{children}</div>
+    </details>
   );
 }
 

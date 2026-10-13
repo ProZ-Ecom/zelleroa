@@ -179,7 +179,7 @@ export default function AdminBlogsPage() {
         title="Blogs"
         description="Manage your blog posts"
         actions={
-          <Button onClick={() => handleOpenModal()}>
+          <Button variant="gradient" onClick={() => handleOpenModal()}>
             <Plus className="mr-2 h-4 w-4" />
             Add Blog
           </Button>

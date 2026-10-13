@@ -1,6 +1,7 @@
 import { createApiHandler } from "@/lib/api/api-handler";
 import { apiSuccess } from "@/lib/api/api-response";
 import { clearAuthCookies } from "@/lib/auth/clear-auth-cookies";
+import { clearReferralCookie } from "@/lib/referral/cookie";
 
 export const POST = createApiHandler(
   {
@@ -13,6 +14,8 @@ export const POST = createApiHandler(
         response,
         request.cookies.getAll().map((c) => c.name)
       );
+      // A pending referral belongs to the session that is ending; the next login must not inherit it.
+      clearReferralCookie(response);
       response.headers.set("Cache-Control", "no-store");
 
       return response;

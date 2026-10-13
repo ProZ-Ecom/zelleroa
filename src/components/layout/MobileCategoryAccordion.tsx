@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { ChevronDown } from "lucide-react";
-import { categoryHref, withGenderParam } from "@/features/customers/utils/catalog-listing-query";
+import { categoryHref, withGenderParam, withNavParam } from "@/features/customers/utils/catalog-listing-query";
 import type { NavNode } from "./MegaMenu";
 
 interface MobileCategoryAccordionProps {
@@ -26,7 +26,10 @@ export function MobileCategoryAccordion({
   return (
     <div className={depth > 0 ? "pl-4 border-l border-white/10" : undefined}>
       {nodes.map((node) => {
-        const href = withGenderParam(node.href ?? categoryHref(node), gender ?? node.gender);
+        const href = withNavParam(
+          withGenderParam(node.href ?? categoryHref(node), gender ?? node.gender),
+          node.navId
+        );
         const hasChildren = node.children.length > 0;
         const isExpanded = expandedId === node.id;
 

@@ -1,7 +1,7 @@
 import { ApiError } from "@/lib/api/api-error";
 import { deliveryRepository } from "../repositories/delivery.repository";
 import { userRepository } from "@/features/users/repositories/user.repository";
-import { getIndiaPostTrackingUrl } from "@/lib/shipping/india-post";
+import { getCourier } from "@/lib/shipping/couriers";
 import type {
   AdminDeliveryOrdersListInput,
   AdminDeliveryStaffListInput,
@@ -551,10 +551,15 @@ export const deliveryService = {
     };
   },
 
-  async shipViaIndiaPost(
+  async shipViaCourier(
     input: ShipViaCourierInput,
     adminEmail?: string | null
   ): Promise<CourierShipmentResult> {
+    const courier = getCourier(input.courier);
+    if (!courier) {
+      throw ApiError.badRequest("Unsupported courier");
+    }
+
     const adminId = await getAdminInternalId(adminEmail);
 
     const order = await deliveryRepository.findOrderForCourierShipment(input.orderId);
@@ -579,7 +584,7 @@ export const deliveryService = {
       throw ApiError.badRequest("Order has no shipping address to ship to");
     }
 
-    const partner = await deliveryRepository.findOrCreateIndiaPostPartner(adminId);
+    const partner = await deliveryRepository.findOrCreateCourierPartner(courier, adminId);
 
     const { shipment } = await deliveryRepository.createCourierShipmentTransaction({
       orderId: order.id,
@@ -593,7 +598,7 @@ export const deliveryService = {
       orderId: order.uuid || String(order.id),
       carrier: partner.name,
       trackingNumber: input.trackingNumber,
-      trackingUrl: getIndiaPostTrackingUrl(input.trackingNumber),
+      trackingUrl: courier.trackingUrl(input.trackingNumber),
       status: shipment.status,
     };
   },

@@ -194,6 +194,45 @@ export const customerAssignmentService = {
     return { customerId: customer.uuid ?? String(customer.id), toAgentName: toAgent.name };
   },
 
+  /**
+   * Admin-only bulk move of customers OFF one agent (typically a blocked one) onto another. Each
+   * customer goes through `transferCustomer`, so every rule and history row still applies; one
+   * failure never stops the rest. `customerRefs` omitted = every customer the agent still has.
+   */
+  async reassignFromAgent(
+    input: { fromAgentRef: string; toAgentRef: string; customerRefs?: string[]; reason?: string | null },
+    actor: AuditActor
+  ) {
+    if (actor.role !== "ADMIN" || !actor.id) throw ApiError.forbidden("Only an admin can transfer customers");
+    const fromId = await resolveAgentRef(input.fromAgentRef);
+    if (!fromId) throw ApiError.notFound("Sales Partner not found");
+
+    let refs = input.customerRefs;
+    if (!refs?.length) {
+      const rows = await db.user.findMany({
+        where: { current_agent_id: fromId, deleted_at: null, role: { slug: "customer" } },
+        select: { uuid: true, id: true },
+        take: 500,
+      });
+      refs = rows.map((r) => r.uuid ?? String(r.id));
+    }
+
+    let moved = 0;
+    const failed: { customerId: string; message: string }[] = [];
+    for (const ref of refs) {
+      try {
+        await this.transferCustomer(
+          { customerRef: ref, toAgentRef: input.toAgentRef, fromAgentRef: input.fromAgentRef, reason: input.reason },
+          actor
+        );
+        moved += 1;
+      } catch (err) {
+        failed.push({ customerId: ref, message: err instanceof Error ? err.message : "Transfer failed" });
+      }
+    }
+    return { moved, failed };
+  },
+
   /** The customer's current Sales Partner (or null) - what the admin transfer card shows. */
   async getCurrentAgent(customerRef: string) {
     const customer = await db.user.findFirst({

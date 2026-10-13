@@ -17,6 +17,8 @@
     "db:seed:categories": "node --experimental-strip-types scripts/seed-zellora-categories.ts",
     "db:studio": "prisma studio",
     "db:clear-data": "node --experimental-strip-types scripts/clear-store-data.ts",
+    "db:backfill-referral-codes": "node --experimental-strip-types --import ./tests/register.mjs scripts/backfill-referral-codes.ts",
+    "test": "node --experimental-strip-types --import ./tests/register.mjs --test tests/referral/*.test.ts",
     "db:retire-deleted": "node --experimental-strip-types scripts/retire-deleted-unique-values.ts"
   },
   "dependencies": {
