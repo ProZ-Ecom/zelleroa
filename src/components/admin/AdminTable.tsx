@@ -11,6 +11,7 @@ interface AdminTableProps<TData, TValue>
   bulkActions?: React.ReactNode;
 }
 
+
 function AdminTable<TData, TValue>({
   columns,
   data,
