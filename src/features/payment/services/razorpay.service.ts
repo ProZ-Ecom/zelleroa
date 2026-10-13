@@ -76,6 +76,52 @@ export const razorpayService = {
         throw ApiError.badRequest("Your cart is empty. Please add items before checking out.");
       }
 
+      // Check real-time stock before creating Razorpay order
+      for (const item of cart.items) {
+        if (!item.variantUnitPriceId) continue;
+        const vup = await db.variantUnitPrice.findFirst({
+          where: {
+            OR: [
+              { uuid: item.variantUnitPriceId },
+              ...(isNaN(Number(item.variantUnitPriceId)) ? [] : [{ id: BigInt(item.variantUnitPriceId) }]),
+            ],
+            deleted_at: null,
+          },
+          include: {
+            variant: true,
+            inventories: {
+              select: { quantity_available: true, quantity_reserved: true },
+            },
+          },
+        });
+
+        if (!vup || !vup.isActive || vup.deleted_at !== null) {
+          throw ApiError.badRequest(
+            `"${item.productName}" is no longer available. Please remove it from your cart.`
+          );
+        }
+
+        const variant = vup.variant;
+        if (!variant || !variant.isActive || variant.deleted_at !== null || variant.out_of_stock) {
+          throw ApiError.badRequest(
+            `"${item.productName}" is out of stock. Please remove it from your cart.`
+          );
+        }
+
+        // If numerical inventory is explicitly tracked and positive, ensure sufficient available stock
+        if (vup.inventories && typeof vup.inventories.quantity_available === "number") {
+          const rawAvailable = vup.inventories.quantity_available;
+          const reserved = vup.inventories.quantity_reserved || 0;
+          const effectiveStock = Math.max(0, rawAvailable - reserved);
+
+          if (rawAvailable > 0 && effectiveStock < item.quantity) {
+            throw ApiError.badRequest(
+              `Only ${effectiveStock} unit${effectiveStock === 1 ? "" : "s"} left for "${item.productName}". Please update your cart.`
+            );
+          }
+        }
+      }
+
       const payableBeforeShipping = cart.total;
       const shippingCharge = await resolveShippingCharge(
         userId,
@@ -99,6 +145,7 @@ export const razorpayService = {
             userId: String(userId),
             checkoutType: "cart",
             shippingAddressId: input.shippingAddressId || "",
+            deliveryMethod: input.deliveryMethod || "standard",
           },
         });
       } catch (err: any) {
@@ -236,7 +283,12 @@ export const razorpayService = {
       .update(`${input.razorpay_order_id}|${input.razorpay_payment_id}`)
       .digest("hex");
 
-    const isSignatureValid = expectedSignature === input.razorpay_signature;
+    const expectedBuffer = Buffer.from(expectedSignature, "utf8");
+    const receivedBuffer = Buffer.from(input.razorpay_signature || "", "utf8");
+
+    const isSignatureValid =
+      expectedBuffer.length === receivedBuffer.length &&
+      crypto.timingSafeEqual(expectedBuffer, receivedBuffer);
 
     if (!isSignatureValid) {
       throw ApiError.badRequest("Invalid payment signature. Verification rejected.");
@@ -268,20 +320,54 @@ export const razorpayService = {
         throw ApiError.badRequest("Could not confirm the payment amount. Please contact support.");
       }
 
-      const createdOrder = await orderService.createCustomerOrder(sessionUserId, {
-        shippingAddressId: input.shippingAddressId,
-        billingAddressId: input.billingAddressId || input.shippingAddressId,
-        notes: input.notes,
-        deliveryMethod: input.deliveryMethod,
-        paymentMethod: "CARD",
-        paymentDetails: {
-          gateway: "RAZORPAY",
-          isPaid: true,
-          razorpay_order_id: input.razorpay_order_id,
-          razorpay_payment_id: input.razorpay_payment_id,
-          razorpay_signature: input.razorpay_signature,
-        },
-      }, request, undefined, { gatewayPaymentVerified: true, expectedPaidAmount: chargedAmount });
+      let createdOrder;
+      try {
+        createdOrder = await orderService.createCustomerOrder(
+          sessionUserId,
+          {
+            shippingAddressId: input.shippingAddressId,
+            billingAddressId: input.billingAddressId || input.shippingAddressId,
+            notes: input.notes,
+            deliveryMethod: input.deliveryMethod,
+            paymentMethod: "CARD",
+            paymentDetails: {
+              gateway: "RAZORPAY",
+              isPaid: true,
+              razorpay_order_id: input.razorpay_order_id,
+              razorpay_payment_id: input.razorpay_payment_id,
+              razorpay_signature: input.razorpay_signature,
+            },
+          },
+          request,
+          undefined,
+          { gatewayPaymentVerified: true, expectedPaidAmount: chargedAmount }
+        );
+      } catch (orderErr: any) {
+        // Stock reservation or order creation failed after payment capture.
+        // Automatically refund captured payment immediately so customer is protected.
+        try {
+          const razorpay = getRazorpayClient();
+          await razorpay.payments.refund(input.razorpay_payment_id, {
+            notes: {
+              reason: "Stock unavailable during checkout; automatic full refund initiated",
+              razorpay_order_id: input.razorpay_order_id,
+            },
+          });
+          console.warn(
+            `[Razorpay] Auto-refunded payment ${input.razorpay_payment_id} due to order placement failure: ${orderErr?.message}`
+          );
+        } catch (refundErr: any) {
+          console.error(
+            `[Razorpay] CRITICAL: Auto-refund failed for payment ${input.razorpay_payment_id}:`,
+            refundErr
+          );
+        }
+
+        const baseMsg = orderErr?.message || "Could not complete order due to stock unavailability.";
+        throw ApiError.badRequest(
+          `${baseMsg} A full refund has been automatically initiated to your payment method.`
+        );
+      }
 
       // Find the created order to retrieve internal BigInt ID
       const dbOrder = await db.order.findFirst({
