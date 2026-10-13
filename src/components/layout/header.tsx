@@ -58,7 +58,7 @@ function isNavItemActive(
  */
 function buildNavNode(item: HeaderNavItem): NavNode {
   if (item.categories.length === 1 && !item.link) {
-    return { ...item.categories[0], name: item.label, gender: item.gender };
+    return { ...item.categories[0], name: item.label, gender: item.gender, navId: item.id };
   }
   return {
     id: item.id,
@@ -66,8 +66,9 @@ function buildNavNode(item: HeaderNavItem): NavNode {
     slug: "",
     icon: null,
     children: item.categories,
-    href: item.link ?? "/products",
+    href: item.link ?? "/category/all",
     gender: item.gender,
+    navId: item.id,
   };
 }
 
@@ -93,14 +94,23 @@ export function Header({
   const cancelMegaMenuClose = React.useCallback(() => {
     if (megaMenuCloseTimer.current) clearTimeout(megaMenuCloseTimer.current);
   }, []);
+  // Longer close delay so a slightly wandering cursor doesn't dismiss the menu.
   const scheduleMegaMenuClose = React.useCallback(() => {
     cancelMegaMenuClose();
-    megaMenuCloseTimer.current = setTimeout(() => setOpenNavId(null), 150);
+    megaMenuCloseTimer.current = setTimeout(() => setOpenNavId(null), 300);
   }, [cancelMegaMenuClose]);
+  const openNavIdRef = React.useRef<string | null>(null);
+  openNavIdRef.current = openNavId;
+  // Hover intent: a short delay before the first open so sweeping the cursor
+  // across the nav doesn't flash menus; once one is open, switching is instant.
   const openMegaMenu = React.useCallback(
     (id: string) => {
       cancelMegaMenuClose();
-      setOpenNavId(id);
+      if (openNavIdRef.current) {
+        setOpenNavId(id);
+        return;
+      }
+      megaMenuCloseTimer.current = setTimeout(() => setOpenNavId(id), 120);
     },
     [cancelMegaMenuClose]
   );
@@ -481,17 +491,26 @@ export function Header({
         </div>
       </div>
 
-      {/* Mega-menu dropdown: in normal document flow (not absolutely
-          positioned) so opening it pushes the page content below the header
-          down instead of floating over it. */}
+      {/* Mega-menu dropdown: overlays the page directly under the header (no
+          layout shift), fades in, and dims the page behind it. */}
       {openNavItem && (
-        <div className="hidden lg:block" onMouseEnter={cancelMegaMenuClose} onMouseLeave={scheduleMegaMenuClose}>
-          <MegaMenuPanel
-            root={buildNavNode(openNavItem)}
-            enableProductPreview={openNavItem.categories.length === 1 && !openNavItem.link}
-            onNavigate={() => setOpenNavId(null)}
+        <>
+          <div
+            aria-hidden="true"
+            className="hidden lg:block pointer-events-none absolute left-0 right-0 top-full h-screen bg-black/25 mega-menu-enter"
           />
-        </div>
+          <div
+            className="hidden lg:block absolute left-0 right-0 top-full mega-menu-enter"
+            onMouseEnter={cancelMegaMenuClose}
+            onMouseLeave={scheduleMegaMenuClose}
+          >
+            <MegaMenuPanel
+              root={buildNavNode(openNavItem)}
+              enableProductPreview={openNavItem.categories.length === 1 && !openNavItem.link}
+              onNavigate={() => setOpenNavId(null)}
+            />
+          </div>
+        </>
       )}
 
       {/* Mobile Drawer Menu */}

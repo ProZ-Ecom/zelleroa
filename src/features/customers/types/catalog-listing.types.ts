@@ -14,6 +14,11 @@ export interface ListingCategoryRefDto {
   slug: string;
 }
 
+/** A category tile in the browse strip, with the image shown in its circle. */
+export interface ListingSubcategoryDto extends ListingCategoryRefDto {
+  image: string | null;
+}
+
 export interface ListingCategoryDto extends ListingCategoryRefDto {
   description: string | null;
   image: string | null;
@@ -93,8 +98,13 @@ export interface CategoryListingDto {
   /**
    * Categories to browse into: the category's active direct children (whose
    * products are already included here), or the root categories on "all".
+   * A leaf category lists its siblings instead, so the shopper can hop
+   * between them; `activeSubcategoryId` marks the current one.
    */
-  subcategories: ListingCategoryRefDto[];
+  subcategories: ListingSubcategoryDto[];
+  activeSubcategoryId: string | null;
+  /** Image per category UUID, for strips built from a header nav item's categories. */
+  categoryImages: Record<string, string | null>;
   items: ListingItemCardDto[];
   filters: ListingFiltersDto;
 }

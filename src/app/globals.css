@@ -1035,3 +1035,13 @@ textarea:focus-visible {
   pointer-events: none;
 }
 
+
+/* Header mega-menu: soft fade + slide so the panel doesn't snap open. */
+@keyframes megaMenuIn {
+  from { opacity: 0; transform: translateY(-6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.mega-menu-enter { animation: megaMenuIn 180ms ease-out both; }
+@media (prefers-reduced-motion: reduce) {
+  .mega-menu-enter { animation: none; }
+}
