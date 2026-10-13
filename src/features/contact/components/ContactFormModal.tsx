@@ -70,7 +70,18 @@ export function ContactFormModal({ open, onClose }: ContactFormModalProps) {
 
       const initialName = profile?.name || session?.user?.name || "";
       const initialEmail = session?.user?.email || "";
-      const initialPhone = profile?.phone || "";
+      const rawPhone = profile?.phone || "";
+      let initialPhone = rawPhone.replace(/\D/g, "");
+      if (initialPhone.length > 10) {
+        if (initialPhone.startsWith("91") && initialPhone.length === 12) {
+          initialPhone = initialPhone.slice(2);
+        } else if (initialPhone.startsWith("0") && initialPhone.length === 11) {
+          initialPhone = initialPhone.slice(1);
+        } else {
+          initialPhone = initialPhone.slice(-10);
+        }
+      }
+      initialPhone = initialPhone.slice(0, 10);
 
       setFormData({
         name: initialName,
@@ -125,7 +136,18 @@ export function ContactFormModal({ open, onClose }: ContactFormModalProps) {
   };
 
   const handlePhoneChange = (raw: string) => {
-    handleChange("phone", raw);
+    // Restrict input to digits only, maximum 10 digits
+    let digits = raw.replace(/\D/g, "");
+    if (digits.length > 10) {
+      if (digits.startsWith("91") && digits.length === 12) {
+        digits = digits.slice(2);
+      } else if (digits.startsWith("0") && digits.length === 11) {
+        digits = digits.slice(1);
+      } else {
+        digits = digits.slice(0, 10);
+      }
+    }
+    handleChange("phone", digits.slice(0, 10));
   };
 
   const handleBlur = (field: keyof CreateContactInput) => {
@@ -179,10 +201,23 @@ export function ContactFormModal({ open, onClose }: ContactFormModalProps) {
 
   const handleResetForm = () => {
     setIsSuccess(false);
+    const rawPhone = profile?.phone || "";
+    let resetPhone = rawPhone.replace(/\D/g, "");
+    if (resetPhone.length > 10) {
+      if (resetPhone.startsWith("91") && resetPhone.length === 12) {
+        resetPhone = resetPhone.slice(2);
+      } else if (resetPhone.startsWith("0") && resetPhone.length === 11) {
+        resetPhone = resetPhone.slice(1);
+      } else {
+        resetPhone = resetPhone.slice(-10);
+      }
+    }
+    resetPhone = resetPhone.slice(0, 10);
+
     setFormData({
       name: profile?.name || session?.user?.name || "",
       email: session?.user?.email || "",
-      phone: profile?.phone || "",
+      phone: resetPhone,
       subject: "",
       message: "",
     });
@@ -393,8 +428,9 @@ export function ContactFormModal({ open, onClose }: ContactFormModalProps) {
                     <input
                       id="contact-phone"
                       type="tel"
+                      inputMode="numeric"
                       placeholder="e.g. 9876543210"
-                      maxLength={20}
+                      maxLength={10}
                       value={formData.phone}
                       onChange={(e) => handlePhoneChange(e.target.value)}
                       onBlur={() => handleBlur("phone")}

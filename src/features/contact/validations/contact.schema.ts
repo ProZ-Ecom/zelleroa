@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { NAME_REGEX } from "@/lib/validations/name";
-import { emailField, EMAIL_MAX_LENGTH } from "@/lib/validations/email";
+import { emailField, getEmailError, EMAIL_MAX_LENGTH } from "@/lib/validations/email";
 import { normalizeIndianMobile } from "@/lib/phone";
 
 export const CONTACT_NAME_MAX_LENGTH = 150;
@@ -35,23 +35,10 @@ export function validateContactName(raw: string): string | null {
  * - Non-empty
  * - At least 5 chars, at most 254
  * - Valid RFC email syntax with domain
+ * - Rejects duplicated TLDs (e.g. .com.com) and provider typos
  */
 export function validateContactEmail(raw: string): string | null {
-  const val = (raw || "").trim();
-  if (!val) {
-    return "Email is required";
-  }
-  if (val.length > EMAIL_MAX_LENGTH) {
-    return `Email must not exceed ${EMAIL_MAX_LENGTH} characters`;
-  }
-  if (val.length < 5) {
-    return "Please enter a valid email address";
-  }
-  const res = emailField.safeParse(val);
-  if (!res.success) {
-    return res.error.issues[0]?.message || "Please enter a valid email address";
-  }
-  return null;
+  return getEmailError(raw);
 }
 
 /**
