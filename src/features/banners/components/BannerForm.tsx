@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { FormProvider, useForm, useWatch } from "react-hook-form";
+import { FormProvider, useForm, useWatch, type FieldErrors } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { AlertCircle, Info, RotateCcw } from "lucide-react";
@@ -168,6 +168,22 @@ function formatDateForInput(dateValue: unknown): string {
  * slots get an upload cropped to their exact size, video slots get a URL
  * field, and neither ever shows the other's inputs.
  */
+
+// Top-to-bottom order of the fields on screen.
+const FIELD_ORDER = [
+  "bannerPositionId",
+  "title",
+  "offerId",
+  "linkUrl",
+  "badgeLabel",
+  "subtitle",
+  "priceText",
+  "imageUrl",
+  "videoUrl",
+  "sortOrder",
+  "startsAt",
+  "endsAt",
+] as const;
 export function BannerForm({
   initialData,
   bannerPositions,
@@ -334,18 +350,37 @@ export function BannerForm({
     });
   };
 
-  const handleFormError = (errors: Record<string, any>) => {
-    const firstKey = Object.keys(errors)[0];
-    if (firstKey && typeof document !== "undefined") {
-      const el =
-        document.querySelector(`[name="${firstKey}"]`) ||
-        document.getElementById(firstKey);
-      if (el) {
-        el.scrollIntoView({ behavior: "smooth", block: "center" });
-        if ("focus" in el) (el as HTMLElement).focus();
-      }
-    }
-  };
+  // const handleFormError = (errors: Record<string, any>) => {
+  //   const firstKey = Object.keys(errors)[0];
+  //   if (firstKey && typeof document !== "undefined") {
+  //     const el =
+  //       document.querySelector(`[name="${firstKey}"]`) ||
+  //       document.getElementById(firstKey);
+  //     if (el) {
+  //       el.scrollIntoView({ behavior: "smooth", block: "center" });
+  //       if ("focus" in el) (el as HTMLElement).focus();
+  //     }
+  //   }
+  // };
+  const handleFormError = (errors: FieldErrors<BannerFormData>) => {
+  const firstKey = FIELD_ORDER.find((key) => errors[key]);
+  if (!firstKey || typeof document === "undefined") return;
+
+  const target =
+    document.querySelector<HTMLElement>(`[data-field="${firstKey}"]`) ??
+    document.getElementById(firstKey) ??
+    document.querySelector<HTMLElement>(`[name="${firstKey}"]`);
+  if (!target) return;
+
+  target.scrollIntoView({ behavior: "smooth", block: "center" });
+
+  const focusable = target.matches("input, textarea, select, button")
+    ? target
+    : target.querySelector<HTMLElement>(
+        "input:not([type=hidden]), textarea, select, button"
+      );
+  focusable?.focus({ preventScroll: true });
+};
 
   const hasType = Boolean(selectedPositionId);
   const imageSpec = typeConfig.image;
@@ -376,14 +411,16 @@ export function BannerForm({
           </p>
 
           <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
-            <FormSelect
-              name="bannerPositionId"
-              label="Banner Type"
-              placeholder="Select a banner type"
-              options={typeOptions}
-              required
-              description={hasType ? typeConfig.description : undefined}
-            />
+                       <div data-field="bannerPositionId">
+              <FormSelect
+                name="bannerPositionId"
+                label="Banner Type"
+                placeholder="Select a banner type"
+                options={typeOptions}
+                required
+                description={hasType ? typeConfig.description : undefined}
+              />
+            </div>
 
             <FormInput
               name="title"
@@ -394,14 +431,16 @@ export function BannerForm({
               maxLength={150}
             />
 
-            <FormSelect
-              name="offerId"
-              label="When shoppers click this banner"
-              placeholder="Select an offer"
-              options={offerOptions}
-              searchable
-              description="Pick an offer and shoppers see every product on that offer. No link to type."
-            />
+                        <div data-field="offerId">
+              <FormSelect
+                name="offerId"
+                label="When shoppers click this banner"
+                placeholder="Select an offer"
+                options={offerOptions}
+                searchable
+                description="Pick an offer and shoppers see every product on that offer. No link to type."
+              />
+            </div>
 
             {!hasOffer && (
               <FormInput
@@ -460,7 +499,7 @@ export function BannerForm({
               </p>
             </div>
           ) : typeConfig.media === "video" ? (
-            <div className="mt-4">
+            <div className="mt-4" data-field="videoUrl">
               <FormVideoUrl
                 name="videoUrl"
                 label="Video URL"
@@ -472,7 +511,8 @@ export function BannerForm({
             </div>
           ) : (
             imageSpec && (
-              <div className="mt-4">
+                            <div className="mt-4" data-field="imageUrl">
+                {/* Cropping to the slot's exact size
                 {/* Cropping to the slot's exact size is what guarantees the
                     aspect ratio, so each type just feeds its own dimensions in. */}
                 <FormImageUpload

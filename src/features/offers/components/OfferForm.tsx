@@ -62,7 +62,7 @@ function buildDefaults(offer?: OfferListItem | null): CreateOfferSchemaInput {
       maxQuantity: null,
       minCartValue: null,
       maxDiscountAmount: null,
-      priority: 0,
+      priority: "" as unknown as number,
       terms: "",
       startsAt: todayInputValue(),
       endsAt: todayInputValue(),
@@ -374,21 +374,33 @@ export function OfferForm({
         <section className="grid gap-4 sm:grid-cols-3">
           <FormInput name="startsAt" type="date" label="Start Date" required />
           <FormInput name="endsAt" type="date" label="End Date" required />
-          <FormInput
-            name="priority"
-            type="number"
-            min={0}
-            max={1000}
-            step={1}
-            label="Priority"
-            required
-            description="Higher wins when two offers of the same level compete."
-            onKeyDown={(e) => {
-              if (["e", "E", "+", "-", "."].includes(e.key)) {
-                e.preventDefault();
-              }
-            }}
-          />
+         <FormInput
+  name="priority"
+  type="number"
+  inputMode="numeric"
+  min={0}
+  max={1000}
+  step={1}
+  placeholder="0"
+  label="Priority"
+  required
+  description="Higher wins when two offers of the same level compete."
+  onFocus={(e) => e.target.select()}
+  onKeyDown={(e) => {
+    const allowed = [
+      "Backspace", "Delete", "Tab", "Enter", "Escape",
+      "ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Home", "End",
+    ];
+    if (allowed.includes(e.key) || e.ctrlKey || e.metaKey) return;
+    if (!/^\d$/.test(e.key)) e.preventDefault();
+  }}
+  onPaste={(e) => {
+    if (!/^\d+$/.test(e.clipboardData.getData("text").trim())) {
+      e.preventDefault();
+    }
+  }}
+  onDrop={(e) => e.preventDefault()}
+/>
         </section>
 
         {/* Terms & status ---------------------------------------------- */}

@@ -74,13 +74,13 @@ export default function AdminUsersPage() {
       roleId: z.number().int().positive("Please select a valid role").optional(),
       status: z.enum(["active", "inactive", "banned"]).optional(),
     }).superRefine((data, ctx) => {
-      if (modalMode === "create" && (!data.password || data.password.length < 6)) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          path: ["password"],
-          message: "Password must contain at least 6 characters",
-        });
-      }
+      if (modalMode === "create" && (!data.password || data.password.length < 8)) {
+  ctx.addIssue({
+    code: z.ZodIssueCode.custom,
+    path: ["password"],
+    message: "Password must contain at least 8 characters",
+  });
+}
     });
   }, [modalMode]);
 
@@ -140,7 +140,7 @@ export default function AdminUsersPage() {
       try {
         const { password: _, ...updateData } = formData;
         await updateMutation.mutateAsync({ id: selectedUser.id, data: updateData });
-        toast.success("User updated", `"${formData.name}" was updated successfully.`);
+        toast.success("User updated successfully", `"${formData.name}" was saved.`);
         setModalMode(null);
         setSelectedUser(null);
       } catch (err: any) {
@@ -368,7 +368,7 @@ export default function AdminUsersPage() {
                 {...register("password")}
                 type="password"
                 className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
-                placeholder="Minimum 6 characters"
+                placeholder="Minimum 8 characters"
               />
               {errors.password && (
                 <p className="mt-1 text-xs text-red-500 font-medium">{errors.password.message}</p>
@@ -460,7 +460,7 @@ export default function AdminUsersPage() {
               {...registerResetPassword("password")}
               type="password"
               className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
-              placeholder="Minimum 6 characters"
+              placeholder="Minimum 8 characters"
             />
             {resetPasswordErrors.password && (
               <p className="mt-1 text-xs text-red-500 font-medium">
