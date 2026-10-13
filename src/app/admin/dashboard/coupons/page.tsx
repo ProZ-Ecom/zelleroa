@@ -210,6 +210,12 @@ export default function AdminCouponsPage() {
       <AdminPageHeader
         title="Coupons"
         description="Manage discount coupons"
+        actions={
+          <Button variant="gradient" onClick={() => handleOpenModal()}>
+            <Plus className="mr-2 h-4 w-4" />
+            Add Coupon
+          </Button>
+        }
       />
       <AdminContent className="flex-1 min-h-0 overflow-hidden">
         <div className="flex h-full flex-col overflow-hidden bg-[var(--color-background)] py-1 rounded-2xl">

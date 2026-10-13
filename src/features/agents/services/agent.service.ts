@@ -5,6 +5,7 @@ import { db } from "@/lib/db/prisma";
 import { ApiError } from "@/lib/api/api-error";
 import { APP_URL } from "@/lib/constants";
 import { encryptField, maskAccountNumber } from "@/lib/security/field-crypto";
+import { allocateReferralCode } from "@/lib/referral/code";
 import { writeAudit } from "./commission-audit";
 import { customerSearchWhere, endOfDay, resolveAgentRef, startOfDay } from "./commission.queries";
 import type { AuditActor } from "../constants";
@@ -202,6 +203,10 @@ export const agentService = {
       try {
         const created = await db.$transaction(async (tx) => {
           const agentCode = await nextAgentCode(tx);
+          // Public referral code is random (ZEL-XXXXXX); agentCode stays the internal sequential id.
+          const referralCode = await allocateReferralCode(
+            async (c) => (await tx.user.count({ where: { referral_code: c } })) > 0
+          );
           const user = await tx.user.create({
             data: {
               uuid: crypto.randomUUID(),
@@ -212,7 +217,7 @@ export const agentService = {
               roleId: role.id,
               status: "active",
               email_verified_at: new Date(),
-              referral_code: agentCode,
+              referral_code: referralCode,
               created_by: actor.id,
               updated_by: actor.id,
             },

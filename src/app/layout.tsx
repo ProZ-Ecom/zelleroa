@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Inter, Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
 import { Providers } from "@/providers";
+import { NumberInputZeroSelect } from "@/components/ui/number-input-zero-select";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -29,6 +30,7 @@ export default function RootLayout({
         suppressHydrationWarning
         className={`${inter.className} ${inter.variable} ${hanken.variable}`}
       >
+        <NumberInputZeroSelect />
         <Providers>{children}</Providers>
       </body>
     </html>

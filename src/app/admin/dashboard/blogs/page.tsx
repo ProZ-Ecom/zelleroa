@@ -181,6 +181,12 @@ export default function AdminBlogsPage() {
       <AdminPageHeader
         title="Blogs"
         description="Manage your blog posts"
+        actions={
+          <Button variant="gradient" onClick={() => handleOpenModal()}>
+            <Plus className="mr-2 h-4 w-4" />
+            Add Blog
+          </Button>
+        }
       />
       <AdminContent className="flex-1 min-h-0 overflow-hidden">
         <div className="flex h-full flex-col overflow-hidden bg-[var(--color-background)] py-1 rounded-2xl">

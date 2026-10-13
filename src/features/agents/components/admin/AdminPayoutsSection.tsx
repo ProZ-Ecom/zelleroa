@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Loader2 } from "lucide-react";
+import { BadgeCheck, Ban, CheckCircle2, History, Landmark, Loader2 } from "lucide-react";
 import { apiClient } from "@/lib/api/api-client";
 import { Modal } from "@/components/ui/modal";
 import { toast } from "@/components/ui/Toast";
@@ -29,7 +29,7 @@ interface Destination {
 }
 
 const btn =
-  "inline-flex min-h-[32px] items-center rounded-lg px-2.5 text-xs font-semibold transition-colors disabled:opacity-50";
+  "inline-flex h-8 w-8 items-center justify-center rounded-lg transition-colors disabled:opacity-50";
 
 export function AdminPayoutsSection({ fixedAgent }: { fixedAgent?: string }) {
   const qc = useQueryClient();
@@ -107,30 +107,31 @@ export function AdminPayoutsSection({ fixedAgent }: { fixedAgent?: string }) {
               },
               {
                 header: "Actions",
+                stickyRight: true,
                 cell: (r) => (
                   <div className="flex flex-wrap items-center gap-1.5">
                     {r.status === "requested" && (
-                      <button type="button" disabled={busyId === r.id} onClick={() => setConfirmApprove(r)} className={`${btn} bg-emerald-600 text-white hover:bg-emerald-700`}>
-                        {busyId === r.id ? "…" : "Approve"}
+                      <button type="button" disabled={busyId === r.id} onClick={() => setConfirmApprove(r)} title="Approve" aria-label="Approve" className={`${btn} bg-emerald-600 text-white hover:bg-emerald-700`}>
+                        {busyId === r.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
                       </button>
                     )}
                     {r.status === "approved" && (
-                      <button type="button" onClick={() => setDialog({ kind: "paid", payout: r })} className={`${btn} bg-neutral-900 text-white hover:bg-neutral-800`}>
-                        Mark paid
+                      <button type="button" onClick={() => setDialog({ kind: "paid", payout: r })} title="Mark paid" aria-label="Mark paid" className={`${btn} bg-gradient-to-b from-[var(--color-primary-400)] to-[var(--color-primary-600)] shadow-[0_6px_16px_-6px_rgba(37,99,235,0.45),inset_0_1px_0_rgba(255,255,255,0.18)] transition-all text-white hover:-translate-y-px hover:shadow-[0_10px_20px_-8px_rgba(37,99,235,0.5),inset_0_1px_0_rgba(255,255,255,0.18)] active:translate-y-0`}>
+                        <BadgeCheck className="h-4 w-4" />
                       </button>
                     )}
                     {(r.status === "requested" || r.status === "approved") && (
-                      <button type="button" onClick={() => setDialog({ kind: "reject", payout: r })} className={`${btn} border border-red-200 text-red-700 hover:bg-red-50`}>
-                        Reject
+                      <button type="button" onClick={() => setDialog({ kind: "reject", payout: r })} title="Reject" aria-label="Reject" className={`${btn} border border-red-200 text-red-700 hover:bg-red-50`}>
+                        <Ban className="h-4 w-4" />
                       </button>
                     )}
                     {(r.status === "requested" || r.status === "approved") && (
-                      <button type="button" onClick={() => setDialog({ kind: "details", payout: r })} className={`${btn} border border-neutral-200 hover:bg-neutral-50`}>
-                        Pay-to details
+                      <button type="button" onClick={() => setDialog({ kind: "details", payout: r })} title="Pay-to details" aria-label="Pay-to details" className={`${btn} border border-neutral-200 hover:bg-neutral-50`}>
+                        <Landmark className="h-4 w-4" />
                       </button>
                     )}
-                    <button type="button" onClick={() => setAuditId(r.id)} className={`${btn} text-neutral-700 underline-offset-4 hover:underline`}>
-                      History
+                    <button type="button" onClick={() => setAuditId(r.id)} title="History" aria-label="History" className={`${btn} text-neutral-700 hover:bg-neutral-100`}>
+                      <History className="h-4 w-4" />
                     </button>
                   </div>
                 ),
@@ -249,7 +250,7 @@ function PaidDialog({ dialog, onClose, onDone }: { dialog: Dialog; onClose: () =
           <button type="button" onClick={onClose} className="h-10 rounded-xl border border-neutral-200 px-4 text-sm font-medium hover:bg-neutral-50">
             Cancel
           </button>
-          <button type="button" disabled={busy || reference.trim().length < 3} onClick={submit} className="inline-flex h-10 items-center gap-2 rounded-xl bg-neutral-900 px-4 text-sm font-semibold text-white hover:bg-neutral-800 disabled:opacity-50">
+          <button type="button" disabled={busy || reference.trim().length < 3} onClick={submit} className="inline-flex h-10 items-center gap-2 rounded-xl bg-gradient-to-b from-[var(--color-primary-400)] to-[var(--color-primary-600)] shadow-[0_6px_16px_-6px_rgba(37,99,235,0.45),inset_0_1px_0_rgba(255,255,255,0.18)] transition-all px-4 text-sm font-semibold text-white hover:-translate-y-px hover:shadow-[0_10px_20px_-8px_rgba(37,99,235,0.5),inset_0_1px_0_rgba(255,255,255,0.18)] active:translate-y-0 disabled:opacity-50">
             {busy && <Loader2 className="h-4 w-4 animate-spin" />}
             Confirm payment
           </button>
@@ -310,7 +311,7 @@ function DetailsDialog({ dialog, onClose }: { dialog: Dialog; onClose: () => voi
             ))}
           </dl>
         ) : (
-          <button type="button" onClick={reveal} disabled={busy} className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-neutral-900 px-4 text-sm font-semibold text-white hover:bg-neutral-800 disabled:opacity-50">
+          <button type="button" onClick={reveal} disabled={busy} className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-gradient-to-b from-[var(--color-primary-400)] to-[var(--color-primary-600)] shadow-[0_6px_16px_-6px_rgba(37,99,235,0.45),inset_0_1px_0_rgba(255,255,255,0.18)] transition-all px-4 text-sm font-semibold text-white hover:-translate-y-px hover:shadow-[0_10px_20px_-8px_rgba(37,99,235,0.5),inset_0_1px_0_rgba(255,255,255,0.18)] active:translate-y-0 disabled:opacity-50">
             {busy && <Loader2 className="h-4 w-4 animate-spin" />}
             Reveal full details
           </button>

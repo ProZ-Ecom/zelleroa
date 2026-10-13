@@ -331,82 +331,9 @@ export default function AdminUsersPage() {
       <AdminBreadcrumb items={[{ label: "Users" }]} />
       <AdminPageHeader
         title="Users"
-        description="Manage user accounts, roles, and access permissions"
-      />
-
-      {/* Filter Toolbar: Search Input + Status Filter on Left, Add User Button on Right */}
-      <div className="flex-shrink-0 mt-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div className="flex flex-1 flex-col sm:flex-row sm:items-center gap-3">
-          <SearchInput
-            placeholder="Search users by name, email, or phone..."
-            defaultValue={search}
-            onSearch={(val) => {
-              setSearch(val);
-              setPage(1);
-            }}
-            className="w-full sm:max-w-xs md:max-w-md"
-          />
-
-          <div className="w-full sm:w-44">
-            <Select
-              value={statusFilter}
-              onValueChange={(val) => {
-                setStatusFilter(val);
-                setPage(1);
-              }}
-              options={[
-                { value: "all", label: "All Statuses" },
-                { value: "active", label: "Active" },
-                { value: "inactive", label: "Inactive" },
-                { value: "banned", label: "Banned" },
-              ]}
-              placeholder="Filter by Status"
-              className="h-10 rounded-xl text-xs font-medium"
-            />
-          </div>
-
-          {(search.trim() !== "" || statusFilter !== "all") && (
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={() => {
-                setSearch("");
-                setStatusFilter("all");
-                setPage(1);
-              }}
-              className="h-10 px-3 text-xs font-semibold text-neutral-600 hover:text-neutral-900 hover:bg-neutral-100 rounded-xl flex items-center gap-1.5 self-start sm:self-auto cursor-pointer"
-            >
-              <RotateCcw className="h-3.5 w-3.5" />
-              <span>Reset</span>
-            </Button>
-          )}
-        </div>
-
-        <div className="flex items-center gap-2.5 shrink-0">
-          <ExportButton
-            onClick={() =>
-              exportDataToCsv(
-                users,
-                "users",
-                [
-                  { header: "Name", accessor: (u) => u.name || "-" },
-                  { header: "Email", accessor: (u) => u.email || "-" },
-                  { header: "Phone", accessor: (u) => u.phone || "-" },
-                  { header: "Role", accessor: (u) => u.roleName || "-" },
-                  { header: "Status", accessor: (u) => u.status || "-" },
-                  { header: "Created At", accessor: (u) => u.createdAt || "-" },
-                ]
-              )
-            }
-            disabled={!users.length}
-          />
-
-          <Button
-            type="button"
-            onClick={() => setModalMode("create")}
-            className="h-10 rounded-xl bg-secondary-600 px-4 text-sm font-semibold text-white hover:bg-secondary-700 shadow-xs cursor-pointer shrink-0"
-          >
+        description="Manage user accounts and permissions"
+        actions={
+          <Button variant="gradient" onClick={() => setModalMode("create")}>
             <Plus className="mr-2 h-4 w-4" />
             Add User
           </Button>
@@ -452,7 +379,7 @@ export default function AdminUsersPage() {
             <Button variant="outline" onClick={handleCloseModal}>
               Cancel
             </Button>
-            <Button onClick={handleSubmit(onSubmit)} disabled={isMutating}>
+            <Button variant="gradient" onClick={handleSubmit(onSubmit)} disabled={isMutating}>
               {modalMode === "edit" ? "Update" : "Create"}
             </Button>
           </>

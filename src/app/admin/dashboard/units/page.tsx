@@ -189,30 +189,13 @@ export default function AdminUnitsPage() {
               className="w-full max-w-md"
             />
 
-            <div className="flex items-center gap-3">
-              <ExportButton
-                onClick={() =>
-                  exportDataToCsv(
-                    units.map((u) => ({
-                      Name: u.name,
-                      Code: u.code,
-                      Type: u.type,
-                      ConversionFactor: u.conversionFactor,
-                      SortOrder: u.sortOrder,
-                    })),
-                    "units"
-                  )
-                }
-                disabled={units.length === 0}
-              />
-              <Button
-                onClick={() => setIsCreateOpen(true)}
-                className="h-11 rounded-xl bg-[var(--color-primary-500)] px-5 text-sm font-semibold text-white hover:bg-[var(--color-primary-600)]"
-              >
-                <Plus className="mr-2 h-4 w-4" />
-                Add Unit
-              </Button>
-            </div>
+            <Button
+              onClick={() => setIsCreateOpen(true)}
+              className="h-11 rounded-xl bg-gradient-to-b from-[var(--color-primary-400)] to-[var(--color-primary-600)] shadow-[0_6px_16px_-6px_rgba(37,99,235,0.45),inset_0_1px_0_rgba(255,255,255,0.18)] transition-all px-5 text-sm font-semibold text-white hover:-translate-y-px hover:shadow-[0_10px_20px_-8px_rgba(37,99,235,0.5),inset_0_1px_0_rgba(255,255,255,0.18)] active:translate-y-0"
+            >
+              <Plus className="mr-2 h-4 w-4" />
+              Add Unit
+            </Button>
           </div>
 
           <div className="mt-6 flex-1 min-h-0 overflow-hidden flex flex-col">

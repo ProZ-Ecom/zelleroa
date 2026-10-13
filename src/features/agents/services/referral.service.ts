@@ -1,7 +1,8 @@
 import type { NextRequest } from "next/server";
 import type { Prisma } from "@/generated/prisma";
 import { db } from "@/lib/db/prisma";
-import { REFERRAL_AGENT_COOKIE } from "@/lib/referral/cookie";
+import { REFERRAL_AGENT_COOKIE, REFERRAL_CODE_PATTERN } from "@/lib/referral/cookie";
+import { isGeneratedReferralCode } from "@/lib/referral/code";
 
 type Client = Prisma.TransactionClient | typeof db;
 
@@ -12,13 +13,23 @@ export interface ReferralAgent {
   referralCode: string;
 }
 
-/** Looks a public referral/agent code up. Only active AGENT users can be credited. */
+/**
+ * Pre-`ZEL-` links carry the sequential agent code (AGT001) and are already shared in the wild, so
+ * they keep resolving unless `REFERRAL_ACCEPT_LEGACY_CODES=false`. Once agents have re-shared their
+ * new links, turning that off removes the guessable codes entirely.
+ */
+const acceptLegacyCodes = () => process.env.REFERRAL_ACCEPT_LEGACY_CODES !== "false";
+
+/** Looks a public referral code up. Only active AGENT users can be credited. */
 export async function findAgentByReferralCode(
   code: string | null | undefined,
   client: Client = db
 ): Promise<ReferralAgent | null> {
-  const clean = (code ?? "").trim();
-  if (!clean || clean.length > 30) return null;
+  const raw = (code ?? "").trim();
+  if (!REFERRAL_CODE_PATTERN.test(raw)) return null;
+  const upper = raw.toUpperCase();
+  const clean = isGeneratedReferralCode(upper) ? upper : raw;
+  const legacy = acceptLegacyCodes() && !isGeneratedReferralCode(upper);
 
   const agent = await client.user.findFirst({
     where: {
@@ -26,7 +37,7 @@ export async function findAgentByReferralCode(
       status: "active",
       deleted_at: null,
       role: { slug: "agent" },
-      OR: [{ referral_code: clean }, { agent_profile: { agent_code: clean } }],
+      OR: legacy ? [{ referral_code: clean }, { agent_profile: { agent_code: clean } }] : [{ referral_code: clean }],
     },
     select: { id: true, name: true, referral_code: true, agent_profile: { select: { agent_code: true } } },
   });

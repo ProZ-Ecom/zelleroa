@@ -255,7 +255,7 @@ export default function WhatsAppReportsPage() {
                   <th className="p-4">Delivered</th>
                   <th className="p-4">Failed</th>
                   <th className="p-4">Date</th>
-                  <th className="p-4 text-right">Action</th>
+                  <th className="sticky right-0 z-10 bg-neutral-50 p-4 text-center shadow-[-4px_0_6px_-2px_rgba(0,0,0,0.06)]">Action</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-neutral-100">
@@ -263,7 +263,7 @@ export default function WhatsAppReportsPage() {
                   return (
                     <tr
                       key={c.id}
-                      className="hover:bg-neutral-50/70 transition-colors"
+                      className="group hover:bg-neutral-50/70 transition-colors"
                     >
                       <td className="p-4 font-semibold text-neutral-900">
                         {c.name}
@@ -306,15 +306,16 @@ export default function WhatsAppReportsPage() {
                           year: "numeric",
                         })}
                       </td>
-                      <td className="p-4 text-right">
+                      <td className="sticky right-0 z-10 bg-white p-4 text-center shadow-[-4px_0_6px_-2px_rgba(0,0,0,0.06)] group-hover:bg-neutral-50">
                         <Button
-                          size="sm"
+                          size="icon"
                           variant="outline"
+                          title="View Logs"
+                          aria-label="View Logs"
                           onClick={() => openDetailModal(c.id)}
-                          className="h-8 gap-1.5 text-xs border-neutral-200 hover:bg-neutral-50"
+                          className="h-8 w-8 border-neutral-200 hover:bg-neutral-50"
                         >
-                          <Eye className="w-3.5 h-3.5" />
-                          View Logs
+                          <Eye className="w-4 h-4" />
                         </Button>
                       </td>
                     </tr>

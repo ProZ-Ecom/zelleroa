@@ -306,7 +306,7 @@ export function ProfileWizard({ initial, initialStep }: { initial: AgentProfileD
 
   return (
     <div className="flex flex-col gap-5">
-      <ProfileCompletionCard completion={profile.completion} onNavigate={goTo} />
+      <ProfileCompletionCard completion={profile.completion} onNavigate={goTo} compact />
 
       <nav className="grid grid-cols-2 gap-2 sm:grid-cols-4" aria-label="Profile steps">
         {STEPS.map((s, i) => {

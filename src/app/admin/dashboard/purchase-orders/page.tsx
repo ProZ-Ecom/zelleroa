@@ -143,39 +143,21 @@ export default function PurchaseOrdersPage() {
                 ))}
               </select>
             </div>
-            <div className="flex items-center gap-3">
-              <ExportButton
-                onClick={() =>
-                  exportDataToCsv(
-                    orders.map((o) => ({
-                      PONumber: o.poNumber,
-                      Vendor: o.vendor.name,
-                      Items: o.itemCount,
-                      TotalAmount: o.totalAmount,
-                      InvoiceNumber: o.invoiceNumber || "—",
-                      PurchaseDate: o.purchaseDate || "—",
-                      Status: o.status,
-                      CreatedDate: new Date(o.createdAt).toLocaleDateString(),
-                    })),
-                    "purchase-orders"
-                  )
-                }
-                disabled={orders.length === 0}
-              />
-              <Button
-                variant="outline"
-                onClick={() => router.push("/admin/dashboard/purchase-orders/new")}
-                className="h-11 rounded-xl px-5 text-sm font-semibold"
-              >
-                New Purchase Order (draft)
-              </Button>
-              <Button
-                onClick={() => router.push("/admin/dashboard/purchase-orders/confirm")}
-                className="h-11 rounded-xl bg-[var(--color-primary-500)] px-5 text-sm font-semibold text-white hover:bg-[var(--color-primary-600)]"
-              >
-                <Plus className="mr-2 h-4 w-4" />
-                Create Purchase
-              </Button>
+            <div className="flex gap-3">
+            <Button
+              variant="outline"
+              onClick={() => router.push("/admin/dashboard/purchase-orders/new")}
+              className="h-11 rounded-xl px-5 text-sm font-semibold"
+            >
+              New Purchase Order (draft)
+            </Button>
+            <Button
+              onClick={() => router.push("/admin/dashboard/purchase-orders/confirm")}
+              className="h-11 rounded-xl bg-gradient-to-b from-[var(--color-primary-400)] to-[var(--color-primary-600)] shadow-[0_6px_16px_-6px_rgba(37,99,235,0.45),inset_0_1px_0_rgba(255,255,255,0.18)] transition-all px-5 text-sm font-semibold text-white hover:-translate-y-px hover:shadow-[0_10px_20px_-8px_rgba(37,99,235,0.5),inset_0_1px_0_rgba(255,255,255,0.18)] active:translate-y-0"
+            >
+              <Plus className="mr-2 h-4 w-4" />
+              Create Purchase
+            </Button>
             </div>
           </div>
 

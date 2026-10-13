@@ -192,61 +192,8 @@ export default function AdminRolesPage() {
       <AdminPageHeader
         title="Roles"
         description="Manage user roles and their permissions"
-      />
-
-      {/* Filter Toolbar: Search Input on Left, Add Role Button on Right */}
-      <div className="flex-shrink-0 mt-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div className="flex flex-1 flex-col sm:flex-row sm:items-center gap-3">
-          <SearchInput
-            placeholder="Search roles by name or description..."
-            defaultValue={search}
-            onSearch={(val) => {
-              setSearch(val);
-              setPage(1);
-            }}
-            className="w-full sm:max-w-xs md:max-w-md"
-          />
-
-          {search.trim() !== "" && (
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={() => {
-                setSearch("");
-                setPage(1);
-              }}
-              className="h-10 px-3 text-xs font-semibold text-neutral-600 hover:text-neutral-900 hover:bg-neutral-100 rounded-xl flex items-center gap-1.5 self-start sm:self-auto cursor-pointer"
-            >
-              <RotateCcw className="h-3.5 w-3.5" />
-              <span>Reset</span>
-            </Button>
-          )}
-        </div>
-
-        <div className="flex items-center gap-2.5 shrink-0">
-          <ExportButton
-            onClick={() =>
-              exportDataToCsv(
-                roles,
-                "roles",
-                [
-                  { header: "ID", accessor: (r) => r.id },
-                  { header: "Name", accessor: (r) => r.name },
-                  { header: "Description", accessor: (r) => r.description || "-" },
-                  { header: "Users Count", accessor: (r) => r._count?.users ?? 0 },
-                  { header: "Permissions Count", accessor: (r) => r._count?.rolePermissions ?? 0 },
-                ]
-              )
-            }
-            disabled={!roles.length}
-          />
-
-          <Button
-            type="button"
-            onClick={() => handleOpenModal()}
-            className="h-10 rounded-xl bg-secondary-600 px-4 text-sm font-semibold text-white hover:bg-secondary-700 shadow-xs cursor-pointer shrink-0"
-          >
+        actions={
+          <Button variant="gradient" onClick={() => handleOpenModal()}>
             <Plus className="mr-2 h-4 w-4" />
             Add Role
           </Button>
@@ -303,7 +250,7 @@ export default function AdminRolesPage() {
             >
               Cancel
             </Button>
-            <Button onClick={handleSubmit(onSubmit)} disabled={isMutating}>
+            <Button variant="gradient" onClick={handleSubmit(onSubmit)} disabled={isMutating}>
               {editingRole ? "Update" : "Create"}
             </Button>
           </>

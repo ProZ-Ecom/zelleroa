@@ -152,6 +152,25 @@ export default function AdminProductsPage() {
       ),
     },
     {
+      accessorKey: "gender",
+      header: "Gender",
+      cell: ({ row }) => {
+        const g = row.original.gender;
+        const labels: Record<string, string> = {
+          men: "Men",
+          women: "Women",
+          kids: "Kids",
+          unisex: "Unisex",
+          not_applicable: "N/A",
+        };
+        return (
+          <span className="text-[var(--color-neutral-700)]">
+            {g ? labels[g] ?? g : "—"}
+          </span>
+        );
+      },
+    },
+    {
       accessorKey: "hsnCodeName",
       header: "HSN Code",
       cell: ({ row }) => (
@@ -248,33 +267,13 @@ export default function AdminProductsPage() {
               {hasActiveFilters && <ClearFiltersButton onClick={handleClearFilters} />}
             </div>
 
-            <div className="flex items-center gap-2.5 shrink-0">
-              <ExportButton
-                onClick={() =>
-                  exportDataToCsv(
-                    products,
-                    "products",
-                    [
-                      { header: "Name", accessor: (p) => p.name },
-                      { header: "Slug", accessor: (p) => p.slug },
-                      { header: "Category", accessor: (p) => p.categoryName || "-" },
-                      { header: "HSN Code", accessor: (p) => p.hsnCodeName || "-" },
-                      { header: "Status", accessor: (p) => (p.isActive ? "Active" : "Inactive") },
-                      { header: "Created At", accessor: (p) => p.createdAt ? new Date(p.createdAt).toLocaleDateString("en-IN") : "-" },
-                    ]
-                  )
-                }
-                disabled={!products.length}
-              />
-
-              <Button
-                onClick={() => setIsCreateOpen(true)}
-                className="h-10 rounded-xl bg-[var(--color-primary-500)] px-5 text-sm font-semibold text-white hover:bg-[var(--color-primary-600)]"
-              >
-                <Plus className="mr-2 h-4 w-4" />
-                Add Product
-              </Button>
-            </div>
+            <Button
+              onClick={() => setIsCreateOpen(true)}
+              className="h-11 rounded-xl bg-gradient-to-b from-[var(--color-primary-400)] to-[var(--color-primary-600)] shadow-[0_6px_16px_-6px_rgba(37,99,235,0.45),inset_0_1px_0_rgba(255,255,255,0.18)] transition-all px-5 text-sm font-semibold text-white hover:-translate-y-px hover:shadow-[0_10px_20px_-8px_rgba(37,99,235,0.5),inset_0_1px_0_rgba(255,255,255,0.18)] active:translate-y-0"
+            >
+              <Plus className="mr-2 h-4 w-4" />
+              Add Product
+            </Button>
           </div>
 
           <div className="mt-6 flex-1 min-h-0 overflow-hidden flex flex-col">
@@ -333,7 +332,7 @@ export default function AdminProductsPage() {
                   setCreatedProductName("");
                   refetch();
                 }}
-                className="h-10 rounded-xl bg-[var(--color-primary-500)] px-5 text-sm font-semibold text-white hover:bg-[var(--color-primary-600)]"
+                className="h-10 rounded-xl bg-gradient-to-b from-[var(--color-primary-400)] to-[var(--color-primary-600)] shadow-[0_6px_16px_-6px_rgba(37,99,235,0.45),inset_0_1px_0_rgba(255,255,255,0.18)] transition-all px-5 text-sm font-semibold text-white hover:-translate-y-px hover:shadow-[0_10px_20px_-8px_rgba(37,99,235,0.5),inset_0_1px_0_rgba(255,255,255,0.18)] active:translate-y-0"
               >
                 Done
               </Button>

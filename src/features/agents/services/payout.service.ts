@@ -82,8 +82,8 @@ async function auditCommissionMoves(
 
 export const payoutService = {
   /** Commissions the agent could request a payout for right now. */
-  async availableBalance(agentId: bigint) {
-    await commissionService.markReadyForApproval({ agentId });
+  async availableBalance(agentId: bigint, opts: { skipSweep?: boolean } = {}) {
+    if (!opts.skipSweep) await commissionService.markReadyForApproval({ agentId });
     const agg = await db.commissions.aggregate({
       where: { agent_id: agentId, status: "approved", payout_id: null },
       _sum: { commission_amount: true },

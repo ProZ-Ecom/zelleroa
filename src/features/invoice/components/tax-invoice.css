@@ -14,8 +14,8 @@
   background: #fff;
   color: #252525;
   font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
-  font-size: 10px;
-  line-height: 1.45;
+  font-size: 11px;
+  line-height: 1.5;
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.15);
 }
 
@@ -24,10 +24,24 @@
 }
 
 .ti-title {
-  margin: 0 0 8px;
-  font-size: 18px;
-  font-weight: 600;
+  margin: 0;
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: 2px;
   text-align: center;
+  text-transform: uppercase;
+}
+
+.ti-page .ti-copy {
+  margin: 0 0 8px;
+  font-size: 9px;
+  letter-spacing: 1px;
+  text-align: center;
+  color: #555;
+}
+
+.ti-words {
+  font-size: 12px;
 }
 
 .ti-box {
@@ -143,6 +157,7 @@
 }
 
 .ti-items thead td {
+  background: #f1f1f1;
   border-bottom: 1px solid #252525;
   text-align: center;
   font-weight: 600;
@@ -150,27 +165,27 @@
 
 .ti-items thead td:nth-child(1),
 .ti-items tbody td:nth-child(1) {
-  width: 6%;
+  width: 5%;
 }
 
 .ti-items thead td:nth-child(2),
 .ti-items tbody td:nth-child(2) {
-  width: 38%;
+  width: 31%;
 }
 
 .ti-items thead td:nth-child(3),
 .ti-items tbody td:nth-child(3) {
-  width: 11%;
+  width: 10%;
 }
 
 .ti-items thead td:nth-child(4),
 .ti-items tbody td:nth-child(4) {
-  width: 12%;
+  width: 5%;
 }
 
 .ti-items thead td:nth-child(5),
 .ti-items tbody td:nth-child(5) {
-  width: 12%;
+  width: 11%;
 }
 
 .ti-items thead td:nth-child(6),
@@ -180,7 +195,17 @@
 
 .ti-items thead td:nth-child(7),
 .ti-items tbody td:nth-child(7) {
-  width: 14%;
+  width: 9%;
+}
+
+.ti-items thead td:nth-child(8),
+.ti-items tbody td:nth-child(8) {
+  width: 10%;
+}
+
+.ti-items thead td:nth-child(9),
+.ti-items tbody td:nth-child(9) {
+  width: 12%;
 }
 
 .ti-spacer td {
@@ -190,7 +215,21 @@
 
 .ti-total td {
   border-top: 1px solid #252525;
+  background: #f7f7f7;
   font-weight: 700;
+}
+
+.ti-items .ti-total td:last-child {
+  font-size: 13px;
+}
+
+.ti-items thead td,
+.ti-items tbody td {
+  border-bottom: 1px solid #d4d4d4;
+}
+
+.ti-items .ti-spacer td {
+  border-bottom: 0;
 }
 
 /* --- Tax summary --- */
@@ -206,6 +245,7 @@
 }
 
 .ti-tax thead td {
+  background: #f1f1f1;
   font-weight: 600;
 }
 
@@ -267,6 +307,19 @@
     margin: 0;
     padding: 0;
     box-shadow: none;
+  }
+
+  .ti-page,
+  .ti-items thead td,
+  .ti-tax thead td,
+  .ti-total td {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .ti-box,
+  .ti-footer {
+    break-inside: avoid;
   }
 
   .no-print {
