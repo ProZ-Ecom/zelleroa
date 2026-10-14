@@ -8,10 +8,11 @@ const req = (url: string, init?: ConstructorParameters<typeof NextRequest>[1]) =
 const live = async (c: string | null | undefined) => (c === "ZEL-A7K9P2" ? { id: BigInt(7), name: "Agent", agentCode: "AGT007", referralCode: "ZEL-A7K9P2" } : null);
 
 test("homepage and product pages: ?ref= hands off to /ref and returns to the same page, query kept", () => {
-  const home = referralLandingRedirect(req("/?ref=ZEL-A7K9P2"))!;
+  const parse = (p: string) => new URL(p, "http://x");
+  const home = parse(referralLandingRedirect(req("/?ref=ZEL-A7K9P2"))!);
   assert.equal(home.pathname, "/ref/ZEL-A7K9P2");
   assert.equal(home.searchParams.get("to"), "/");
-  const pdp = referralLandingRedirect(req("/products/blue-shirt?size=M&ref=ZEL-A7K9P2"))!;
+  const pdp = parse(referralLandingRedirect(req("/products/blue-shirt?size=M&ref=ZEL-A7K9P2"))!);
   assert.equal(pdp.searchParams.get("to"), "/products/blue-shirt?size=M");
 });
 
@@ -24,7 +25,7 @@ test("no ref, junk ref, non-GET, and /ref itself are not redirected (no loops)",
 
 test("valid code: cookie is HttpOnly, SameSite=Lax, 30 days, path /, and visitor is sent on", async () => {
   const res = await handleReferralLanding(req("/ref/ZEL-A7K9P2?to=%2Fproducts%2Fx"), "ZEL-A7K9P2", live);
-  assert.equal(res.headers.get("location"), "http://localhost:3000/products/x");
+  assert.equal(res.headers.get("location"), "/products/x");
   const c = res.cookies.get(REFERRAL_AGENT_COOKIE)!;
   assert.equal(c.value, "ZEL-A7K9P2");
   assert.equal(c.httpOnly, true);

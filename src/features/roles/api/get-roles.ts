@@ -1,8 +1,8 @@
 import { apiClient } from "@/lib/api/api-client";
 import type { RoleListItem, RoleDetail, PermissionListItem } from "../types";
 
-export async function getRoles() {
-  const response = await apiClient.get<RoleListItem[]>("/api/roles");
+export async function getRoles(params?: Record<string, string | number | boolean | undefined | null>) {
+  const response = await apiClient.get<RoleListItem[]>("/api/roles", { params });
   return response;
 }
 

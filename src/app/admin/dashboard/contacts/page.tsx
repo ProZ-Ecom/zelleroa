@@ -19,6 +19,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Select } from "@/components/ui/select";
 import { SearchInput } from "@/components/ui/search-input";
+import { ExportButton } from "@/components/common/export-button";
+import { exportDataToCsv } from "@/lib/export-csv";
 import {
   Mail,
   MessageSquare,
@@ -339,6 +341,24 @@ export default function AdminContactsPage() {
               </Button>
             )}
           </div>
+
+          <ExportButton
+            onClick={() =>
+              exportDataToCsv(
+                contacts.map((c) => ({
+                  Name: c.name || "Anonymous",
+                  Email: c.email,
+                  Phone: c.phone || "",
+                  Subject: c.subject || "",
+                  Message: c.message || "",
+                  Status: c.status,
+                  ReceivedAt: c.createdAt ? new Date(c.createdAt).toLocaleDateString("en-IN") : "",
+                })),
+                "contact-inquiries"
+              )
+            }
+            disabled={contacts.length === 0}
+          />
         </div>
 
         {/* Quick Filter Status Pills */}

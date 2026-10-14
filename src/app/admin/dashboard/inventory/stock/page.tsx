@@ -12,6 +12,8 @@ import { ErrorState } from "@/components/ui/error-state";
 import { SearchInput } from "@/components/ui/search-input";
 import { Button } from "@/components/ui/button";
 import { ClearFiltersButton } from "@/components/common/clear-filters-button";
+import { ExportButton } from "@/components/common/export-button";
+import { exportDataToCsv } from "@/lib/export-csv";
 import { StockStatusBadge, VariantLabel } from "@/features/inventory/components/StockBadges";
 import { useCurrentStock, useStockSettings } from "@/features/inventory/hooks/use-stock";
 import type { StockRow, StockStatus } from "@/features/inventory/types/stock";
@@ -103,50 +105,71 @@ function CurrentStockContent() {
       />
       <AdminContent className="flex-1 min-h-0 overflow-hidden">
         <div className="flex h-full flex-col overflow-hidden py-1">
-          <div className="flex-shrink-0 flex flex-col gap-3 md:flex-row md:items-center">
-            <SearchInput
-              placeholder="Search product, item or SKU..."
-              defaultValue={search}
-              onSearch={(v) => {
-                setSearch(v);
-                setPage(1);
-              }}
-              className="w-full max-w-md"
-            />
-            <SearchInput
-              placeholder="Colour..."
-              defaultValue={color}
-              onSearch={(v) => {
-                setColor(v);
-                setPage(1);
-              }}
-              className="w-full md:w-48"
-            />
-            <select
-              value={status}
-              onChange={(e) => {
-                setStatus(e.target.value as StockStatus | "");
-                setPage(1);
-              }}
-              className="h-11 rounded-xl border border-neutral-300 bg-white px-3 text-sm focus:border-secondary-600 focus:outline-none"
-              aria-label="Filter by stock status"
-            >
-              {STATUSES.map((s) => (
-                <option key={s.value} value={s.value}>
-                  {s.label}
-                </option>
-              ))}
-            </select>
-            {hasFilters && (
-              <ClearFiltersButton
-                onClick={() => {
-                  setSearch("");
-                  setColor("");
-                  setStatus("");
+          <div className="flex-shrink-0 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div className="flex flex-1 flex-col gap-3 sm:flex-row sm:items-center">
+              <SearchInput
+                placeholder="Search product, item or SKU..."
+                defaultValue={search}
+                onSearch={(v) => {
+                  setSearch(v);
                   setPage(1);
                 }}
+                className="w-full max-w-md"
               />
-            )}
+              <SearchInput
+                placeholder="Colour..."
+                defaultValue={color}
+                onSearch={(v) => {
+                  setColor(v);
+                  setPage(1);
+                }}
+                className="w-full sm:w-48"
+              />
+              <select
+                value={status}
+                onChange={(e) => {
+                  setStatus(e.target.value as StockStatus | "");
+                  setPage(1);
+                }}
+                className="h-11 rounded-xl border border-neutral-300 bg-white px-3 text-sm focus:border-secondary-600 focus:outline-none"
+                aria-label="Filter by stock status"
+              >
+                {STATUSES.map((s) => (
+                  <option key={s.value} value={s.value}>
+                    {s.label}
+                  </option>
+                ))}
+              </select>
+              {hasFilters && (
+                <ClearFiltersButton
+                  onClick={() => {
+                    setSearch("");
+                    setColor("");
+                    setStatus("");
+                    setPage(1);
+                  }}
+                />
+              )}
+            </div>
+
+            <ExportButton
+              onClick={() =>
+                exportDataToCsv(
+                  rows.map((r) => ({
+                    Product: r.productName,
+                    SKU: r.sku,
+                    Color: r.colorName || "—",
+                    Size: r.sizeName || "—",
+                    Available: r.available,
+                    Reserved: r.reserved,
+                    Threshold: r.threshold,
+                    Status: r.status,
+                  })),
+                  "current-stock"
+                )
+              }
+              disabled={rows.length === 0}
+            />
           </div>
 
           <div className="mt-6 flex-1 min-h-0 overflow-hidden flex flex-col">

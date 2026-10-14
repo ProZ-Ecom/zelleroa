@@ -26,6 +26,8 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { FormModal } from "@/components/common/FormModal";
 import { SearchInput } from "@/components/ui/search-input";
 import { ClearFiltersButton } from "@/components/common/clear-filters-button";
+import { ExportButton } from "@/components/common/export-button";
+import { exportDataToCsv } from "@/lib/export-csv";
 import {
   Plus,
   Pencil,
@@ -514,6 +516,24 @@ export default function AdminVariantsPage() {
                   <span className="hidden sm:inline">Card View</span>
                 </button>
               </div>
+
+              <ExportButton
+                onClick={() =>
+                  exportDataToCsv(
+                    variants,
+                    "items",
+                    [
+                      { header: "Variant Name", accessor: (v) => v.variantName || "-" },
+                      { header: "SKU", accessor: (v) => v.sku || "-" },
+                      { header: "Product", accessor: (v) => v.productName || "-" },
+                      { header: "Status", accessor: (v) => (v.isActive ? "Active" : "Inactive") },
+                      { header: "Created At", accessor: (v) => v.createdAt ? new Date(v.createdAt).toLocaleDateString("en-IN") : "-" },
+                    ]
+                  )
+                }
+                disabled={!variants.length}
+                className="h-11"
+              />
 
               <Button
                 onClick={() => {

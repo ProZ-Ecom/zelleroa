@@ -1,5 +1,5 @@
-import { NextRequest, NextResponse } from "next/server";
-import { safeLandingPath, setReferralCookie } from "./cookie";
+import { NextRequest } from "next/server";
+import { relativeRedirect, safeLandingPath, setReferralCookie } from "./cookie";
 import { findAgentByReferralCode } from "@/features/agents/services/referral.service";
 
 type Resolve = typeof findAgentByReferralCode;
@@ -12,7 +12,7 @@ type Resolve = typeof findAgentByReferralCode;
  */
 export async function handleReferralLanding(request: NextRequest, code: string, resolve: Resolve = findAgentByReferralCode) {
   const to = safeLandingPath(request.nextUrl.searchParams.get("to"));
-  const response = NextResponse.redirect(new URL(to, request.url));
+  const response = relativeRedirect(to);
   const agent = await resolve(code);
   if (agent) setReferralCookie(response, agent.referralCode);
   return response;

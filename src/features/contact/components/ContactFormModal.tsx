@@ -18,6 +18,8 @@ import {
 } from "lucide-react";
 import {
   createContactSchema,
+  validateContactField,
+  CONTACT_NAME_MAX_LENGTH,
   type CreateContactInput,
 } from "../validations/contact.schema";
 import { useSubmitContact } from "../hooks/use-submit-contact";
@@ -68,7 +70,18 @@ export function ContactFormModal({ open, onClose }: ContactFormModalProps) {
 
       const initialName = profile?.name || session?.user?.name || "";
       const initialEmail = session?.user?.email || "";
-      const initialPhone = profile?.phone || "";
+      const rawPhone = profile?.phone || "";
+      let initialPhone = rawPhone.replace(/\D/g, "");
+      if (initialPhone.length > 10) {
+        if (initialPhone.startsWith("91") && initialPhone.length === 12) {
+          initialPhone = initialPhone.slice(2);
+        } else if (initialPhone.startsWith("0") && initialPhone.length === 11) {
+          initialPhone = initialPhone.slice(1);
+        } else {
+          initialPhone = initialPhone.slice(-10);
+        }
+      }
+      initialPhone = initialPhone.slice(0, 10);
 
       setFormData({
         name: initialName,
@@ -104,17 +117,50 @@ export function ContactFormModal({ open, onClose }: ContactFormModalProps) {
     value: string
   ) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
-    // Clear specific field error on typing
-    if (fieldErrors[field]) {
-      setFieldErrors((prev) => {
-        const copy = { ...prev };
+
+    // Real-time validation: show error immediately while typing if field is invalid, or clear when valid
+    const error = validateContactField(field, value);
+    setFieldErrors((prev) => {
+      const copy = { ...prev };
+      if (error) {
+        copy[field] = error;
+      } else {
         delete copy[field];
-        return copy;
-      });
-    }
+      }
+      return copy;
+    });
+
     if (generalError) {
       setGeneralError(null);
     }
+  };
+
+  const handlePhoneChange = (raw: string) => {
+    // Restrict input to digits only, maximum 10 digits
+    let digits = raw.replace(/\D/g, "");
+    if (digits.length > 10) {
+      if (digits.startsWith("91") && digits.length === 12) {
+        digits = digits.slice(2);
+      } else if (digits.startsWith("0") && digits.length === 11) {
+        digits = digits.slice(1);
+      } else {
+        digits = digits.slice(0, 10);
+      }
+    }
+    handleChange("phone", digits.slice(0, 10));
+  };
+
+  const handleBlur = (field: keyof CreateContactInput) => {
+    const error = validateContactField(field, formData[field]);
+    setFieldErrors((prev) => {
+      const copy = { ...prev };
+      if (error) {
+        copy[field] = error;
+      } else {
+        delete copy[field];
+      }
+      return copy;
+    });
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -155,10 +201,23 @@ export function ContactFormModal({ open, onClose }: ContactFormModalProps) {
 
   const handleResetForm = () => {
     setIsSuccess(false);
+    const rawPhone = profile?.phone || "";
+    let resetPhone = rawPhone.replace(/\D/g, "");
+    if (resetPhone.length > 10) {
+      if (resetPhone.startsWith("91") && resetPhone.length === 12) {
+        resetPhone = resetPhone.slice(2);
+      } else if (resetPhone.startsWith("0") && resetPhone.length === 11) {
+        resetPhone = resetPhone.slice(1);
+      } else {
+        resetPhone = resetPhone.slice(-10);
+      }
+    }
+    resetPhone = resetPhone.slice(0, 10);
+
     setFormData({
       name: profile?.name || session?.user?.name || "",
       email: session?.user?.email || "",
-      phone: profile?.phone || "",
+      phone: resetPhone,
       subject: "",
       message: "",
     });
@@ -292,9 +351,11 @@ export function ContactFormModal({ open, onClose }: ContactFormModalProps) {
                     <input
                       id="contact-name"
                       type="text"
+                      maxLength={CONTACT_NAME_MAX_LENGTH}
                       placeholder="e.g. John Doe"
                       value={formData.name}
                       onChange={(e) => handleChange("name", e.target.value)}
+                      onBlur={() => handleBlur("name")}
                       disabled={submitContactMutation.isPending}
                       className={cn(
                         "w-full rounded-xl border pl-9 pr-3.5 py-2.5 text-xs sm:text-sm text-theme-text-primary bg-theme-surface placeholder:text-theme-text-muted transition-colors min-h-[44px]",
@@ -331,6 +392,7 @@ export function ContactFormModal({ open, onClose }: ContactFormModalProps) {
                       placeholder="e.g. name@example.com"
                       value={formData.email}
                       onChange={(e) => handleChange("email", e.target.value)}
+                      onBlur={() => handleBlur("email")}
                       disabled={submitContactMutation.isPending}
                       className={cn(
                         "w-full rounded-xl border pl-9 pr-3.5 py-2.5 text-xs sm:text-sm text-theme-text-primary bg-theme-surface placeholder:text-theme-text-muted transition-colors min-h-[44px]",
@@ -366,10 +428,12 @@ export function ContactFormModal({ open, onClose }: ContactFormModalProps) {
                     <input
                       id="contact-phone"
                       type="tel"
+                      inputMode="numeric"
                       placeholder="e.g. 9876543210"
-                      maxLength={15}
+                      maxLength={10}
                       value={formData.phone}
-                      onChange={(e) => handleChange("phone", e.target.value)}
+                      onChange={(e) => handlePhoneChange(e.target.value)}
+                      onBlur={() => handleBlur("phone")}
                       disabled={submitContactMutation.isPending}
                       className={cn(
                         "w-full rounded-xl border pl-9 pr-3.5 py-2.5 text-xs sm:text-sm text-theme-text-primary bg-theme-surface placeholder:text-theme-text-muted transition-colors min-h-[44px]",
@@ -402,9 +466,11 @@ export function ContactFormModal({ open, onClose }: ContactFormModalProps) {
                     <input
                       id="contact-subject"
                       type="text"
+                      maxLength={200}
                       placeholder="e.g. Order Inquiry / Bulk Order"
                       value={formData.subject}
                       onChange={(e) => handleChange("subject", e.target.value)}
+                      onBlur={() => handleBlur("subject")}
                       disabled={submitContactMutation.isPending}
                       className={cn(
                         "w-full rounded-xl border pl-9 pr-3.5 py-2.5 text-xs sm:text-sm text-theme-text-primary bg-theme-surface placeholder:text-theme-text-muted transition-colors min-h-[44px]",
@@ -435,9 +501,11 @@ export function ContactFormModal({ open, onClose }: ContactFormModalProps) {
                   <textarea
                     id="contact-message"
                     rows={4}
+                    maxLength={3000}
                     placeholder="Describe your inquiry, order requirement, or feedback in detail..."
                     value={formData.message}
                     onChange={(e) => handleChange("message", e.target.value)}
+                    onBlur={() => handleBlur("message")}
                     disabled={submitContactMutation.isPending}
                     className={cn(
                       "w-full rounded-xl border p-3 text-xs sm:text-sm text-theme-text-primary bg-theme-surface placeholder:text-theme-text-muted transition-colors resize-none",

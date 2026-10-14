@@ -29,7 +29,7 @@ function CategoryForm({
 }: CategoryFormProps) {
   const methods = useForm<CategoryFormData>({
     resolver: zodResolver(createCategorySchema) as any,
-    mode: "onChange",
+    mode: "onTouched",
     reValidateMode: "onChange",
     defaultValues: {
       name: (initialData?.name as string) || "",

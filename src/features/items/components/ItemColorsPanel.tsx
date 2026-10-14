@@ -98,7 +98,7 @@ function ItemColorsPanel({
   const [draftSelection, setDraftSelection] = useState<Set<string> | null>(null);
   const [showDefaults, setShowDefaults] = useState(false);
   const [pickedUnitId, setPickedUnitId] = useState("");
-  const [defaultStock, setDefaultStock] = useState("0");
+  const [defaultStock, setDefaultStock] = useState("");
   const [formError, setFormError] = useState<string | null>(null);
   const [result, setResult] = useState<GenerateVariantsResponse | null>(null);
   const [openVariantId, setOpenVariantId] = useState<string | null>(null);
@@ -488,8 +488,10 @@ function ItemColorsPanel({
                   type="number"
                   step="1"
                   min="0"
+                  placeholder="0"
                   value={defaultStock}
                   onChange={(e) => setDefaultStock(e.target.value)}
+                   onFocus={(e) => e.target.select()}
                   disabled={isBusy}
                   className="h-10 w-full rounded-lg border border-neutral-200 bg-white px-3 text-sm focus:border-secondary-600 focus:outline-none focus:ring-2 focus:ring-secondary-600/20 disabled:opacity-60"
                 />
