@@ -7,6 +7,7 @@ import {
   XCircle,
   Printer,
   CheckCircle,
+  CheckCircle2,
   PackageCheck,
   PlayCircle,
   Loader2,
@@ -24,6 +25,8 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { SearchInput } from "@/components/ui/search-input";
 import { Select } from "@/components/ui/select";
 import { ClearFiltersButton } from "@/components/common/clear-filters-button";
+import { ExportButton } from "@/components/common/export-button";
+import { exportDataToCsv } from "@/lib/export-csv";
 import { formatDateTime, formatPrice } from "@/lib/utils";
 import {
   useAdminOrders,
@@ -33,7 +36,7 @@ import {
   usePackAdminOrder,
   useCancelOrderAdmin,
 } from "@/features/orders/hooks";
-import { useShipViaCourier } from "@/features/delivery/hooks";
+import { useShipViaCourier, useUpdateCourierStatus } from "@/features/delivery/hooks";
 import { COURIERS, DEFAULT_COURIER_CODE, getCourier } from "@/lib/shipping/couriers";
 import { OrderDetailView } from "@/features/orders/components/OrderDetailView";
 import {
@@ -67,6 +70,15 @@ export function AdminOrderListTable({
     id: string;
     orderNumber: string;
   } | null>(null);
+  const [outForDeliveryModalOrder, setOutForDeliveryModalOrder] = useState<{
+    id: string;
+    orderNumber: string;
+  } | null>(null);
+  const [deliveryModalOrder, setDeliveryModalOrder] = useState<{
+    id: string;
+    orderNumber: string;
+  } | null>(null);
+  const [deliveryNote, setDeliveryNote] = useState("");
 
   const { data, isLoading, error, refetch } = useAdminOrders({
     page,
@@ -84,7 +96,8 @@ export function AdminOrderListTable({
   const packOrder = usePackAdminOrder();
   const cancelOrder = useCancelOrderAdmin();
   const shipViaCourier = useShipViaCourier();
-    const [courierCode, setCourierCode] = useState(DEFAULT_COURIER_CODE);
+  const updateCourierStatus = useUpdateCourierStatus();
+  const [courierCode, setCourierCode] = useState(DEFAULT_COURIER_CODE);
   const [consignmentNumber, setConsignmentNumber] = useState("");
 
   const orders = data?.data ?? [];
@@ -109,7 +122,8 @@ export function AdminOrderListTable({
     processOrder.isPending ||
     packOrder.isPending ||
     cancelOrder.isPending ||
-    shipViaCourier.isPending;
+    shipViaCourier.isPending ||
+    updateCourierStatus.isPending;
 
   const currentDetailStatus = orderDetail?.status?.toLowerCase();
   const isOrderLocked =
@@ -353,6 +367,56 @@ export function AdminOrderListTable({
               </button>
             )}
 
+            {orderStatus === "shipped" && (
+              <>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setOutForDeliveryModalOrder({
+                      id: row.original.id,
+                      orderNumber: row.original.orderNumber,
+                    })
+                  }
+                  title="Mark Out for Delivery"
+                  className="grid h-8 w-8 place-items-center rounded-lg border border-amber-300 bg-amber-50 text-xs font-semibold text-amber-700 hover:bg-amber-100 transition-all cursor-pointer shadow-xs"
+                  disabled={isTransitionPending}
+                >
+                  <Truck className="h-3.5 w-3.5" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setDeliveryModalOrder({
+                      id: row.original.id,
+                      orderNumber: row.original.orderNumber,
+                    })
+                  }
+                  title="Mark as Delivered"
+                  className="grid h-8 w-8 place-items-center rounded-lg border border-emerald-300 bg-emerald-50 text-xs font-semibold text-emerald-700 hover:bg-emerald-100 transition-all cursor-pointer shadow-xs"
+                  disabled={isTransitionPending}
+                >
+                  <CheckCircle2 className="h-3.5 w-3.5" />
+                </button>
+              </>
+            )}
+
+            {orderStatus === "out_for_delivery" && (
+              <button
+                type="button"
+                onClick={() =>
+                  setDeliveryModalOrder({
+                    id: row.original.id,
+                    orderNumber: row.original.orderNumber,
+                  })
+                }
+                title="Mark as Delivered"
+                className="grid h-8 w-8 place-items-center rounded-lg border border-emerald-300 bg-emerald-50 text-xs font-semibold text-emerald-700 hover:bg-emerald-100 transition-all cursor-pointer shadow-xs"
+                disabled={isTransitionPending}
+              >
+                <CheckCircle2 className="h-3.5 w-3.5" />
+              </button>
+            )}
+
             <button
               type="button"
               onClick={() => setViewOrderId(row.original.id)}
@@ -381,8 +445,8 @@ export function AdminOrderListTable({
   return (
     <div className="flex h-full flex-col overflow-hidden bg-[var(--color-background)] rounded-2xl">
       {/* Filter and Search Bar */}
-      <div className="flex-shrink-0 mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex flex-1 items-center gap-3">
+      <div className="flex-shrink-0 mb-4 flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-1 flex-wrap items-center gap-3 min-w-0">
           <SearchInput
             placeholder="Search by order number, customer name, email, phone..."
             value={search}
@@ -390,31 +454,56 @@ export function AdminOrderListTable({
               setSearch(val.trim());
               setPage(1);
             }}
-            className="w-full max-w-md bg-cream-50 border-cream-border-subtle"
+            className="w-full sm:w-80 md:w-96 max-w-md bg-cream-50 border-cream-border-subtle"
           />
+
+          <div className="w-full sm:w-48 shrink-0">
+            <Select
+              size="sm"
+              value={paymentFilter}
+              onValueChange={(val) => {
+                setPaymentFilter(val);
+                setPage(1);
+              }}
+              options={[
+                { value: "", label: "All Payments" },
+                ...PAYMENT_STATUSES.map((ps) => ({
+                  value: ps,
+                  label: PAYMENT_STATUS_LABELS[ps] || ps,
+                })),
+              ]}
+              placeholder="All Payments"
+              className="h-10 rounded-xl"
+              searchable={false}
+            />
+          </div>
+
+          {hasActiveFilters && (
+            <ClearFiltersButton onClick={handleClearFilters} />
+          )}
         </div>
 
-        <div className="flex items-center gap-2 w-full sm:w-48">
-          <Select
-            size="sm"
-            value={paymentFilter}
-            onChange={(e) => {
-              setPaymentFilter(e.target.value);
-              setPage(1);
-            }}
-            options={[
-              { value: "", label: "All Payments" },
-              ...PAYMENT_STATUSES.map((ps) => ({
-                value: ps,
-                label: PAYMENT_STATUS_LABELS[ps] || ps,
-              })),
-            ]}
-            placeholder="All Payments"
-            className="h-10 rounded-xl"
-            searchable={false}
+        <div className="flex items-center gap-2.5 shrink-0">
+          <ExportButton
+            onClick={() =>
+              exportDataToCsv(
+                orders,
+                `orders-${status || "all"}`,
+                [
+                  { header: "Order Number", accessor: (o) => o.orderNumber },
+                  { header: "Customer", accessor: (o) => o.customer?.name || "-" },
+                  { header: "Phone", accessor: (o) => o.customer?.phone || "-" },
+                  { header: "Email", accessor: (o) => o.customer?.email || "-" },
+                  { header: "Items Count", accessor: (o) => o.totalItems },
+                  { header: "Total (₹)", accessor: (o) => Number(o.totalAmount || 0).toFixed(2) },
+                  { header: "Order Status", accessor: (o) => o.status },
+                  { header: "Payment Status", accessor: (o) => o.paymentStatus || "-" },
+                  { header: "Placed At", accessor: (o) => o.placedAt || o.createdAt },
+                ]
+              )
+            }
+            disabled={!orders.length}
           />
-
-          {hasActiveFilters && <ClearFiltersButton onClick={handleClearFilters} />}
         </div>
       </div>
 
@@ -581,6 +670,56 @@ export function AdminOrderListTable({
                   </Button>
                 )}
 
+                {currentDetailStatus === "shipped" && (
+                  <>
+                    <Button
+                      size="sm"
+                      className="bg-amber-600 hover:bg-amber-700 text-white"
+                      onClick={() =>
+                        setOutForDeliveryModalOrder({
+                          id: orderDetail.id,
+                          orderNumber: orderDetail.orderNumber,
+                        })
+                      }
+                      disabled={isTransitionPending}
+                    >
+                      <Truck className="mr-1.5 h-4 w-4" />
+                      Mark Out for Delivery
+                    </Button>
+                    <Button
+                      size="sm"
+                      className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                      onClick={() =>
+                        setDeliveryModalOrder({
+                          id: orderDetail.id,
+                          orderNumber: orderDetail.orderNumber,
+                        })
+                      }
+                      disabled={isTransitionPending}
+                    >
+                      <CheckCircle2 className="mr-1.5 h-4 w-4" />
+                      Mark as Delivered
+                    </Button>
+                  </>
+                )}
+
+                {currentDetailStatus === "out_for_delivery" && (
+                  <Button
+                    size="sm"
+                    className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                    onClick={() =>
+                      setDeliveryModalOrder({
+                        id: orderDetail.id,
+                        orderNumber: orderDetail.orderNumber,
+                      })
+                    }
+                    disabled={isTransitionPending}
+                  >
+                    <CheckCircle2 className="mr-1.5 h-4 w-4" />
+                    Mark as Delivered
+                  </Button>
+                )}
+
                 <Button
                   variant="outline"
                   size="sm"
@@ -666,6 +805,94 @@ export function AdminOrderListTable({
             value={consignmentNumber}
             onChange={(e) => setConsignmentNumber(e.target.value)}
             maxLength={50}
+          />
+        </div>
+      </FormModal>
+
+      {/* Mark Out for Delivery Dialog */}
+      <ConfirmDialog
+        open={!!outForDeliveryModalOrder}
+        onClose={() => setOutForDeliveryModalOrder(null)}
+        onConfirm={() => {
+          if (!outForDeliveryModalOrder) return;
+          updateCourierStatus.mutate(
+            {
+              orderId: outForDeliveryModalOrder.id,
+              status: "out_for_delivery",
+            },
+            {
+              onSuccess: () => {
+                setOutForDeliveryModalOrder(null);
+                refetch();
+              },
+            }
+          );
+        }}
+        title="Mark Out for Delivery"
+        description={`Confirm that order #${outForDeliveryModalOrder?.orderNumber ?? ""} is out for delivery with the courier.`}
+        confirmText="Confirm Out for Delivery"
+        isLoading={updateCourierStatus.isPending}
+      />
+
+      {/* Mark Delivered Modal */}
+      <FormModal
+        open={!!deliveryModalOrder}
+        onClose={() => {
+          setDeliveryModalOrder(null);
+          setDeliveryNote("");
+        }}
+        title={`Mark as Delivered${deliveryModalOrder ? ` - #${deliveryModalOrder.orderNumber}` : ""}`}
+        description="Confirm that this courier parcel has been successfully delivered to the customer."
+        size="sm"
+        footer={
+          <>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setDeliveryModalOrder(null);
+                setDeliveryNote("");
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              className="bg-emerald-600 hover:bg-emerald-700 text-white"
+              disabled={updateCourierStatus.isPending}
+              onClick={() => {
+                if (!deliveryModalOrder) return;
+                updateCourierStatus.mutate(
+                  {
+                    orderId: deliveryModalOrder.id,
+                    status: "delivered",
+                    note: deliveryNote.trim() || undefined,
+                  },
+                  {
+                    onSuccess: () => {
+                      setDeliveryModalOrder(null);
+                      setDeliveryNote("");
+                      refetch();
+                    },
+                  }
+                );
+              }}
+            >
+              {updateCourierStatus.isPending && (
+                <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+              )}
+              Confirm Delivery
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-3">
+          <label className="text-xs font-semibold text-neutral-700">
+            Delivery Note (optional)
+          </label>
+          <Input
+            placeholder="e.g. Delivered by ST Courier to customer"
+            value={deliveryNote}
+            onChange={(e) => setDeliveryNote(e.target.value)}
+            maxLength={100}
           />
         </div>
       </FormModal>

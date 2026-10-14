@@ -580,6 +580,91 @@ export const deliveryRepository = {
     });
   },
 
+  async updateCourierShipmentStatusTransaction(params: {
+    orderId: bigint;
+    targetStatus: "out_for_delivery" | "delivered";
+    note?: string;
+    adminId?: bigint | null;
+  }) {
+    return db.$transaction(async (tx) => {
+      const now = new Date();
+
+      const shipment = await tx.shipments.findFirst({
+        where: {
+          order_id: params.orderId,
+          status: { in: ["pending", "picked_up", "in_transit", "out_for_delivery"] },
+        },
+        include: {
+          delivery_partners: true,
+        },
+      });
+
+      const partnerName = shipment?.delivery_partners?.name ?? "Courier";
+
+      let updatedShipment = null;
+      if (shipment) {
+        updatedShipment = await tx.shipments.update({
+          where: { id: shipment.id },
+          data: {
+            status: params.targetStatus,
+            ...(params.targetStatus === "out_for_delivery" && !shipment.shipped_at
+              ? { shipped_at: now }
+              : {}),
+            ...(params.targetStatus === "delivered" ? { delivered_at: now } : {}),
+            updated_by: params.adminId,
+          },
+        });
+
+        await tx.shipment_tracking.create({
+          data: {
+            shipment_id: shipment.id,
+            status: params.targetStatus,
+            note:
+              params.note ||
+              (params.targetStatus === "out_for_delivery"
+                ? `Order is out for delivery with ${partnerName}`
+                : `Delivered by ${partnerName}`),
+            created_by: params.adminId,
+            updated_by: params.adminId,
+          },
+        });
+      }
+
+      const updatedOrder = await tx.order.update({
+        where: { id: params.orderId },
+        data: {
+          order_status: params.targetStatus,
+          ...(params.targetStatus === "delivered" ? { delivered_at: now } : {}),
+          updated_by: params.adminId,
+        },
+      });
+
+      await syncCommissionsWithOrderStatus(
+        tx,
+        params.orderId,
+        params.targetStatus,
+        { id: params.adminId ?? null, role: "USER" }
+      );
+
+      await tx.order_status_history.create({
+        data: {
+          order_id: params.orderId,
+          status: params.targetStatus,
+          note:
+            params.note ||
+            (params.targetStatus === "out_for_delivery"
+              ? `Order is out for delivery with ${partnerName}`
+              : `Order delivered successfully`),
+          changed_by: params.adminId,
+          created_by: params.adminId,
+          updated_by: params.adminId,
+        },
+      });
+
+      return { shipment: updatedShipment, order: updatedOrder };
+    });
+  },
+
   async acceptDeliveryTransaction(
     shipmentId: bigint,
     staffInternalId: bigint

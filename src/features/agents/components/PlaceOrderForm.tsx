@@ -3,6 +3,8 @@
 import * as React from "react";
 import { apiClient } from "@/lib/api/api-client";
 import { errorMessage } from "../hooks/use-admin-agents";
+import { Select } from "@/components/ui/select";
+import { cn } from "@/lib/utils";
 import { fieldCls } from "./shared";
 import { AgentAddressFields } from "./AgentAddressFields";
 import { OrderField, focusFirstError, validateAddress, validateManualCustomer, type FieldErrors } from "./order-field";
@@ -193,16 +195,22 @@ export function PlaceOrderForm() {
         )}
         {forSelf ? null : mode === "existing" ? (
           <>
-            <select name="customerId" className={`${fieldCls} ${errors.customerId ? "!border-red-500" : ""}`} value={customerId} onChange={(e) => { setCustomerId(e.target.value); clearError("customerId"); }}>
-              <option value="">Select one of your assigned customers…</option>
-              {customers.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                  {c.customerCode ? ` (${c.customerCode})` : ""}
-                  {c.phone ? ` · ${c.phone}` : ""}
-                </option>
-              ))}
-            </select>
+            <Select
+              name="customerId"
+              portal={true}
+              searchable={customers.length > 5}
+              className={cn("w-full", errors.customerId && "[&_.ui-dropdown-trigger]:!border-red-500")}
+              placeholder="Select one of your assigned customers…"
+              options={customers.map((c) => ({
+                value: c.id,
+                label: `${c.name}${c.customerCode ? ` (${c.customerCode})` : ""}${c.phone ? ` · ${c.phone}` : ""}`,
+              }))}
+              value={customerId}
+              onValueChange={(val) => {
+                setCustomerId(val);
+                clearError("customerId");
+              }}
+            />
             {errors.customerId && <p role="alert" className="text-xs text-red-600">{errors.customerId}</p>}
             {customers.length === 0 && <p className="text-xs text-neutral-500">No customers are assigned to you yet.</p>}
             <p className="text-xs text-neutral-500">The customer&apos;s profile is never changed. Phone and address below apply to this order only.</p>
@@ -222,14 +230,21 @@ export function PlaceOrderForm() {
       <section className={card}>
         <h2 className="text-sm font-semibold text-neutral-900">2. Delivery address &amp; phone</h2>
         {mode === "existing" && addresses.length > 0 && (
-          <select className={fieldCls} value={addressChoice} onChange={(e) => setAddressChoice(e.target.value)}>
-            {addresses.map((a) => (
-              <option key={a.id} value={a.id}>
-                {a.fullName} · {a.phone} · {a.line}
-              </option>
-            ))}
-            <option value="new">Use a different address / phone for this order</option>
-          </select>
+          <Select
+            portal={true}
+            searchable={false}
+            className="w-full"
+            placeholder="Select delivery address…"
+            options={[
+              ...addresses.map((a) => ({
+                value: a.id,
+                label: `${a.fullName} · ${a.phone} · ${a.line}`,
+              })),
+              { value: "new", label: "Use a different address / phone for this order" },
+            ]}
+            value={addressChoice}
+            onValueChange={(val) => setAddressChoice(val)}
+          />
         )}
         {!useSaved && <AgentAddressFields value={address} onChange={setAddress} errors={errors} onClear={clearError} />}
         <div className="flex gap-4 text-sm">

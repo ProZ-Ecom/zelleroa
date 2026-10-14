@@ -58,7 +58,7 @@ function DataTable<TData, TValue>({
   onPageChange,
   className,
   emptyMessage = "No results found.",
-  exportable = true,
+  exportable = false,
   exportFileName,
   onExport,
   isExporting = false,
@@ -101,7 +101,7 @@ function DataTable<TData, TValue>({
   const [rowSelection, setRowSelection] = React.useState({});
   const [globalFilter, setGlobalFilter] = React.useState("");
 
-  const isServerSide = totalItems !== undefined && totalItems > data.length;
+  const isServerSide = totalItems !== undefined || onPageChange !== undefined;
   const paginatedData = React.useMemo(() => {
     if (isServerSide || data.length <= effectivePageSize) {
       return data;
@@ -288,6 +288,7 @@ function DataTable<TData, TValue>({
               <Select
                 size="sm"
                 value={String(effectivePageSize)}
+                onValueChange={(val) => handlePageSizeChange(Number(val))}
                 onChange={(e) => handlePageSizeChange(Number(e.target.value))}
                 options={pageSizeOptions.map((opt) => ({
                   value: String(opt),

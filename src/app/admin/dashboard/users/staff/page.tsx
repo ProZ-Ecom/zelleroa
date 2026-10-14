@@ -15,6 +15,8 @@ import { AdminPageHeader, AdminContent } from "@/components/admin/AdminPageHeade
 import { DataTable } from "@/components/admin/data-table/DataTable";
 import { StatsCard } from "@/components/admin/StatsCard";
 import { Button } from "@/components/ui/button";
+import { ExportButton } from "@/components/common/export-button";
+import { exportDataToCsv } from "@/lib/export-csv";
 import { SearchInput } from "@/components/ui/search-input";
 import { Select } from "@/components/ui/select";
 import { AdminTableSkeleton } from "@/components/admin/AdminTableSkeleton";
@@ -274,14 +276,34 @@ export default function AdminStaffPage() {
           )}
         </div>
 
-        <Button
-          type="button"
-          onClick={handleOpenCreateModal}
-          className="h-10 rounded-xl bg-secondary-600 px-4 text-sm font-semibold text-white hover:bg-secondary-700 shadow-xs cursor-pointer shrink-0"
-        >
-          <Plus className="mr-2 h-4 w-4" />
-          Create Staff
-        </Button>
+        <div className="flex items-center gap-2.5 shrink-0">
+          <ExportButton
+            onClick={() =>
+              exportDataToCsv(
+                staffList,
+                "staff-members",
+                [
+                  { header: "Name", accessor: (s) => s.name },
+                  { header: "Email", accessor: (s) => s.email },
+                  { header: "Phone", accessor: (s) => s.phone || "-" },
+                  { header: "Role", accessor: (s) => s.role || "-" },
+                  { header: "Status", accessor: (s) => (s.isActive ? "Active" : "Inactive") },
+                  { header: "Created At", accessor: (s) => s.createdAt || "-" },
+                ]
+              )
+            }
+            disabled={!staffList.length}
+          />
+
+          <Button
+            type="button"
+            onClick={handleOpenCreateModal}
+            className="h-10 rounded-xl bg-secondary-600 px-4 text-sm font-semibold text-white hover:bg-secondary-700 shadow-xs cursor-pointer shrink-0"
+          >
+            <Plus className="mr-2 h-4 w-4" />
+            Create Staff
+          </Button>
+        </div>
       </div>
 
       {/* Main Content: Fixed viewport height with scrolling table records */}

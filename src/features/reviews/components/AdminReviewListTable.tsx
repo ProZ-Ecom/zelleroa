@@ -22,6 +22,8 @@ import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
 import { SearchInput } from "@/components/ui/search-input";
 import { ClearFiltersButton } from "@/components/common/clear-filters-button";
+import { ExportButton } from "@/components/common/export-button";
+import { exportDataToCsv } from "@/lib/export-csv";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { formatDateTime } from "@/lib/utils";
 import { ReviewRatingStars } from "./ReviewRatingStars";
@@ -374,6 +376,27 @@ export function AdminReviewListTable({
               aria-label="Sort reviews"
             />
           </div>
+
+          {/* Export Button */}
+          <ExportButton
+            onClick={() =>
+              exportDataToCsv(
+                reviews.map((r) => ({
+                  Customer: r.customer?.name || "Verified Customer",
+                  Product: r.product?.name || "Product",
+                  SKU: r.variant?.sku || "",
+                  Rating: r.rating,
+                  Title: r.title || "",
+                  Comment: r.comment || "",
+                  Status: r.isApproved ? "Approved" : "Unapproved",
+                  Date: r.createdAt ? new Date(r.createdAt).toLocaleDateString("en-IN") : "",
+                })),
+                "reviews"
+              )
+            }
+            disabled={reviews.length === 0}
+            className="h-9.5"
+          />
 
           {/* Refresh Button */}
           <Button

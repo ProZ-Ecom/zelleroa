@@ -6,6 +6,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { useParams, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
+import { ExportButton } from "@/components/common/export-button";
 import {
   ChevronRight,
   Package,
@@ -1149,6 +1150,12 @@ export default function AdminProductDetailsPage() {
                   <span>Card View</span>
                 </button>
               </div>
+
+              <ExportButton
+                onClick={handleExportVariants}
+                disabled={!variants.length}
+                className="h-8 rounded-md"
+              />
 
               <button
                 type="button"

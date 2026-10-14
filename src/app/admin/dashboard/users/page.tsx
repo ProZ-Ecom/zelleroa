@@ -22,7 +22,10 @@ import { Badge } from "@/components/ui/badge";
 import { Select } from "@/components/ui/select";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { FormModal } from "@/components/common/FormModal";
-import { Plus, Pencil, Trash2, KeyRound } from "lucide-react";
+import { ExportButton } from "@/components/common/export-button";
+import { exportDataToCsv } from "@/lib/export-csv";
+import { SearchInput } from "@/components/ui/search-input";
+import { Plus, Pencil, Trash2, KeyRound, RotateCcw } from "lucide-react";
 import { z } from "zod";
    import { cn } from "@/lib/utils";
 import {
@@ -78,8 +81,22 @@ export default function AdminUsersPage() {
         .email("Please enter a valid email address")
         .transform((val) => val.toLowerCase()),
       phone: indiaPhoneSchema,
-      password: z.string().optional(),
-      roleId: z.number().int().positive("Please select a valid role").optional(),
+      password: z
+        .string()
+        .optional()
+        .refine(
+          (val) => {
+            if (modalMode === "create") {
+              return typeof val === "string" && val.length >= 8 && val.length <= 100;
+            }
+            return true;
+          },
+          { message: "Password must contain at least 8 characters" }
+        ),
+      roleId: z
+        .union([z.number().int().positive("Please select a valid role"), z.nan()])
+        .optional()
+        .transform((val) => (typeof val === "number" && !isNaN(val) ? val : undefined)),
       status: z.enum(["active", "inactive", "banned"]).optional(),
     }).superRefine((data, ctx) => {
       if (modalMode === "create" && (!data.password || data.password.length < 8)) {
@@ -101,6 +118,8 @@ export default function AdminUsersPage() {
     formState: { errors },
   } = useForm<UserFormValues>({
     resolver: zodResolver(userFormSchema),
+    mode: "onChange",
+    reValidateMode: "onChange",
     defaultValues: {
       name: "",
       email: "",
@@ -118,6 +137,8 @@ export default function AdminUsersPage() {
     formState: { errors: resetPasswordErrors },
   } = useForm<{ password: string }>({
     resolver: zodResolver(resetPasswordSchema),
+    mode: "onChange",
+    reValidateMode: "onChange",
     defaultValues: { password: "" },
   });
 
@@ -185,20 +206,6 @@ export default function AdminUsersPage() {
     setSelectedUser(null);
     reset();
     resetResetPassword();
-  };
-
-  const statusBadgeVariant = (status: string) => {
-    switch (status?.toLowerCase()) {
-      case "active":
-        return "success";
-      case "inactive":
-        return "secondary";
-      case "banned":
-      case "blocked":
-        return "destructive";
-      default:
-        return "secondary";
-    }
   };
 
   const columns: ColumnDef<UserListItem, unknown>[] = [
@@ -304,7 +311,7 @@ export default function AdminUsersPage() {
     },
   ];
 
-  if (isLoading) return <AdminTableSkeleton />;
+  if (isLoading && !data) return <AdminTableSkeleton />;
   if (error) return <ErrorState message="Failed to load users" onRetry={() => refetch()} />;
 
   const isMutating = createMutation.isPending || updateMutation.isPending;
@@ -323,15 +330,31 @@ export default function AdminUsersPage() {
           </Button>
         }
       />
-      <AdminContent className="flex-1 min-h-0 overflow-hidden">
-        <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
+
+      <AdminContent className="flex-1 min-h-0 overflow-hidden mt-4">
+        <div className="flex-1 min-h-0 overflow-hidden flex flex-col rounded-2xl border border-neutral-200 bg-white shadow-xs">
           <DataTable
             columns={columns}
             data={users}
-            searchKey="name"
-            searchPlaceholder="Search users..."
-            pageSize={20}
-            className="bg-white border border-neutral-200"
+            pageSize={pageSize}
+            pageSizeOptions={[10, 20, 30, 50]}
+            page={data?.meta?.page ?? page}
+            totalPages={
+              data?.meta?.totalPages ??
+              Math.max(1, Math.ceil((data?.meta?.total ?? users.length) / pageSize))
+            }
+            totalItems={data?.meta?.total ?? users.length}
+            onPageChange={setPage}
+            onPageSizeChange={(newSize) => {
+              setPageSize(newSize);
+              setPage(1);
+            }}
+            className="bg-white border-0"
+            emptyMessage={
+              search.trim() || statusFilter !== "all"
+                ? "No users matched your filter criteria."
+                : "No users found. Click '+ Add User' to create a new user account."
+            }
           />
         </div>
       </AdminContent>
@@ -393,6 +416,7 @@ export default function AdminUsersPage() {
                 {...register("password")}
                 type="password"
                 className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+                placeholder="Minimum 8 characters"
                 placeholder="Minimum 8 characters"
               />
               {errors.password && (
@@ -492,6 +516,7 @@ export default function AdminUsersPage() {
               {...registerResetPassword("password")}
               type="password"
               className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+              placeholder="Minimum 8 characters"
               placeholder="Minimum 8 characters"
             />
             {resetPasswordErrors.password && (

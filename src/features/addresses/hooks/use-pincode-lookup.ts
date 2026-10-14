@@ -14,6 +14,10 @@ export function usePincodeLookup() {
   const [lookupError, setLookupError] = useState<string | null>(null);
   const [postOffices, setPostOffices] = useState<PostOfficeDropdownOption[]>([]);
   const [rawPostOffices, setRawPostOffices] = useState<PostOfficeOption[]>([]);
+  const [district, setDistrict] = useState<string>("");
+  const [state, setState] = useState<string>("");
+  const [country, setCountry] = useState<string>("");
+  const [cities, setCities] = useState<string[]>([]);
   const [selectedPostOffice, setSelectedPostOffice] = useState<string>("");
   const activeLookupRef = useRef<string>("");
 
@@ -23,6 +27,10 @@ export function usePincodeLookup() {
     setPostOffices([]);
     setRawPostOffices([]);
     setSelectedPostOffice("");
+    setDistrict("");
+    setState("");
+    setCountry("");
+    setCities([]);
     activeLookupRef.current = "";
   }, []);
 
@@ -30,11 +38,18 @@ export function usePincodeLookup() {
     async (
       pincode: string,
       callbacks?: {
-        onSuccess?: (data: { city: string; state: string; postOffices: PostOfficeOption[] }) => void;
+        onSuccess?: (data: {
+          city: string;
+          state: string;
+          district: string;
+          country: string;
+          cities: string[];
+          postOffices: PostOfficeOption[];
+        }) => void;
         onClear?: () => void;
       }
     ): Promise<PincodeLookupResponse | null> => {
-      const cleanPin = pincode.replace(/\D/g, "").trim();
+      const cleanPin = pincode.replace(/\D/g, "").trim().slice(0, 6);
 
       // If pincode is not 6 digits, immediately clear city, state, and post offices
       if (cleanPin.length !== 6) {
@@ -59,6 +74,10 @@ export function usePincodeLookup() {
       if (result.success) {
         setLookupError(null);
         setRawPostOffices(result.postOffices);
+        setDistrict(result.district);
+        setState(result.state);
+        setCountry(result.country);
+        setCities(result.cities);
 
         const options: PostOfficeDropdownOption[] = result.postOffices.map((po) => ({
           value: po.name,
@@ -77,6 +96,9 @@ export function usePincodeLookup() {
         callbacks?.onSuccess?.({
           city: result.city,
           state: result.state,
+          district: result.district,
+          country: result.country,
+          cities: result.cities,
           postOffices: result.postOffices,
         });
 
@@ -86,6 +108,10 @@ export function usePincodeLookup() {
         setPostOffices([]);
         setRawPostOffices([]);
         setSelectedPostOffice("");
+        setDistrict("");
+        setState("");
+        setCountry("");
+        setCities([]);
         callbacks?.onClear?.();
         return result;
       }
@@ -99,6 +125,10 @@ export function usePincodeLookup() {
     postOffices,
     rawPostOffices,
     selectedPostOffice,
+    district,
+    state,
+    country,
+    cities,
     setSelectedPostOffice,
     triggerLookup,
     resetLookup,

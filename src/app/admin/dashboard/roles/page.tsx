@@ -20,7 +20,10 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { FormModal } from "@/components/common/FormModal";
-import { Plus, Pencil, Trash2 } from "lucide-react";
+import { ExportButton } from "@/components/common/export-button";
+import { exportDataToCsv } from "@/lib/export-csv";
+import { SearchInput } from "@/components/ui/search-input";
+import { Plus, Pencil, Trash2, RotateCcw } from "lucide-react";
 import {
   createRoleSchema,
   type CreateRoleSchemaInput,
@@ -33,14 +36,27 @@ export default function AdminRolesPage() {
   const [editingRole, setEditingRole] = useState<RoleListItem | null>(null);
   const [deleteId, setDeleteId] = useState<number | null>(null);
   const [selectedPermissionIds, setSelectedPermissionIds] = useState<number[]>([]);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const [search, setSearch] = useState("");
 
-  const { data: rolesData, isLoading: rolesLoading, error: rolesError, refetch } = useRoles();
+  const queryParams = useMemo(
+    () => ({
+      page,
+      limit: pageSize,
+      search: search.trim() || undefined,
+    }),
+    [page, pageSize, search]
+  );
+
+  const { data: rolesResult, isLoading: rolesLoading, error: rolesError, refetch } = useRoles(queryParams);
   const { data: permissions } = usePermissions();
   const createMutation = useCreateRole();
   const updateMutation = useUpdateRole();
   const deleteMutation = useDeleteRole();
 
-  const roles = rolesData ?? [];
+  const roles = rolesResult?.data ?? [];
+  const meta = rolesResult?.meta;
 
   const permissionsByModule = useMemo(() => {
     if (!permissions) return {};
@@ -59,6 +75,8 @@ export default function AdminRolesPage() {
     formState: { errors },
   } = useForm<CreateRoleSchemaInput>({
     resolver: zodResolver(createRoleSchema),
+    mode: "onChange",
+    reValidateMode: "onChange",
     defaultValues: {
       name: "",
       description: "",
@@ -163,7 +181,7 @@ export default function AdminRolesPage() {
     },
   ];
 
-  if (rolesLoading) return <AdminTableSkeleton />;
+  if (rolesLoading && !rolesResult) return <AdminTableSkeleton />;
   if (rolesError) return <ErrorState message="Failed to load roles" onRetry={() => refetch()} />;
 
   const isMutating = createMutation.isPending || updateMutation.isPending;
@@ -181,15 +199,31 @@ export default function AdminRolesPage() {
           </Button>
         }
       />
-      <AdminContent className="flex-1 min-h-0 overflow-hidden">
-        <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
+
+      <AdminContent className="flex-1 min-h-0 overflow-hidden mt-4">
+        <div className="flex-1 min-h-0 overflow-hidden flex flex-col rounded-2xl border border-neutral-200 bg-white shadow-xs">
           <DataTable
             columns={columns}
             data={roles}
-            searchKey="name"
-            searchPlaceholder="Search roles..."
-            pageSize={20}
-            className="bg-white border border-neutral-200"
+            pageSize={pageSize}
+            pageSizeOptions={[10, 20, 30, 50]}
+            page={meta?.page ?? page}
+            totalPages={
+              meta?.totalPages ??
+              Math.max(1, Math.ceil((meta?.total ?? roles.length) / pageSize))
+            }
+            totalItems={meta?.total ?? roles.length}
+            onPageChange={setPage}
+            onPageSizeChange={(newSize) => {
+              setPageSize(newSize);
+              setPage(1);
+            }}
+            className="bg-white border-0"
+            emptyMessage={
+              search.trim()
+                ? "No roles matched your search criteria."
+                : "No roles found. Click '+ Add Role' to create a new role."
+            }
           />
         </div>
       </AdminContent>

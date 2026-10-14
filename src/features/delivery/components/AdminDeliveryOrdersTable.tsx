@@ -15,6 +15,8 @@ import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
 import { SearchInput } from "@/components/ui/search-input";
 import { formatDateTime, formatPrice } from "@/lib/utils";
+import { ExportButton } from "@/components/common/export-button";
+import { exportDataToCsv } from "@/lib/export-csv";
 import { useAdminDeliveryOrders, useAdminDeliveryStaff } from "../hooks";
 import { DeliveryStatusBadge, AssignmentStatusBadge } from "./DeliveryStatusBadge";
 import { AssignStaffModal } from "@/features/orders/components/AssignStaffModal";
@@ -276,16 +278,36 @@ export function AdminDeliveryOrdersTable() {
           </div>
         </div>
 
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => refetch()}
-          disabled={isFetching}
-          className="h-10 px-3 rounded-xl border-cream-border hover:bg-cream-100 cursor-pointer self-end sm:self-auto"
-        >
-          <RotateCcw className={`mr-1.5 h-3.5 w-3.5 ${isFetching ? "animate-spin" : ""}`} />
-          Refresh
-        </Button>
+        <div className="flex items-center gap-2 self-end sm:self-auto">
+          <ExportButton
+            onClick={() =>
+              exportDataToCsv(
+                orders.map((o) => ({
+                  OrderNumber: o.orderNumber,
+                  Customer: o.customer?.name || "Customer",
+                  Phone: o.customer?.phone || "",
+                  Address: `${o.shippingAddress?.addressLine1 || ""}, ${o.shippingAddress?.city || ""} - ${o.shippingAddress?.pincode || ""}`,
+                  AssignedStaff: o.shipment?.deliveryStaff?.name || "Unassigned",
+                  TotalAmount: o.totalAmount,
+                  ShipmentStatus: o.shipment?.status || o.orderStatus,
+                  PlacedAt: formatDateTime(o.createdAt),
+                })),
+                "delivery-orders"
+              )
+            }
+            disabled={orders.length === 0}
+          />
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => refetch()}
+            disabled={isFetching}
+            className="h-10 px-3 rounded-xl border-cream-border hover:bg-cream-100 cursor-pointer"
+          >
+            <RotateCcw className={`mr-1.5 h-3.5 w-3.5 ${isFetching ? "animate-spin" : ""}`} />
+            Refresh
+          </Button>
+        </div>
       </div>
 
       {/* Data Table */}
