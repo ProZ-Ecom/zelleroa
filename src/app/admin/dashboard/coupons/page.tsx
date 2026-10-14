@@ -15,6 +15,9 @@ import { Badge } from "@/components/ui/badge";
 import { Select } from "@/components/ui/select";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { FormModal } from "@/components/common/FormModal";
+import { ExportButton } from "@/components/common/export-button";
+import { exportDataToCsv } from "@/lib/export-csv";
+import { SearchInput } from "@/components/ui/search-input";
 import { Plus, Pencil, Trash2 } from "lucide-react";
 import { createCouponSchema, type CreateCouponSchemaInput } from "@/features/coupons/validations/coupon.schema";
 import type { ColumnDef } from "@tanstack/react-table";
@@ -215,15 +218,51 @@ export default function AdminCouponsPage() {
         }
       />
       <AdminContent className="flex-1 min-h-0 overflow-hidden">
-        <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
-          <DataTable
-            columns={columns}
-            data={coupons}
-            searchKey="code"
-            searchPlaceholder="Search coupons..."
-            pageSize={20}
-            className="bg-white border border-neutral-200"
-          />
+        <div className="flex h-full flex-col overflow-hidden bg-[var(--color-background)] py-1 rounded-2xl">
+          <div className="flex-shrink-0 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            <SearchInput
+              placeholder="Search coupons..."
+              defaultValue={search}
+              onSearch={(val) => setSearch(val)}
+              className="w-full max-w-md"
+            />
+
+            <div className="flex items-center gap-3">
+              <ExportButton
+                onClick={() =>
+                  exportDataToCsv(
+                    coupons.map((c) => ({
+                      Code: c.code,
+                      Type: c.type,
+                      Value: c.value,
+                      UsedCount: c.usedCount,
+                      UsageLimit: c.usageLimit || "Unlimited",
+                      Status: c.isActive ? "Active" : "Inactive",
+                      ExpiresAt: c.expiresAt ? new Date(c.expiresAt).toLocaleDateString("en-IN") : "No expiry",
+                    })),
+                    "coupons"
+                  )
+                }
+                disabled={coupons.length === 0}
+              />
+              <Button
+                onClick={() => handleOpenModal()}
+                className="h-11 rounded-xl bg-[var(--color-primary-500)] px-5 text-sm font-semibold text-white hover:bg-[var(--color-primary-600)]"
+              >
+                <Plus className="mr-2 h-4 w-4" />
+                Add Coupon
+              </Button>
+            </div>
+          </div>
+
+          <div className="mt-6 flex-1 min-h-0 overflow-hidden flex flex-col">
+            <DataTable
+              columns={columns}
+              data={coupons}
+              pageSize={20}
+              className="bg-white border border-neutral-200"
+            />
+          </div>
         </div>
       </AdminContent>
 

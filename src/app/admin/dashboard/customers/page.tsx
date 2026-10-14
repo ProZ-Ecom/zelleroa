@@ -19,6 +19,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Select } from "@/components/ui/select";
 import { SearchInput } from "@/components/ui/search-input";
+import { ExportButton } from "@/components/common/export-button";
+import { exportDataToCsv } from "@/lib/export-csv";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { BlockReasonDialog } from "@/components/ui/block-reason-dialog";
 import {
@@ -563,6 +565,28 @@ export default function AdminCustomersPage() {
                 <span>Reset</span>
               </Button>
             )}
+          </div>
+
+          <div className="flex items-center gap-2.5 shrink-0 self-end lg:self-center">
+            <ExportButton
+              onClick={() =>
+                exportDataToCsv(
+                  customers,
+                  "customers",
+                  [
+                    { header: "Name", accessor: (c) => c.name },
+                    { header: "Email", accessor: (c) => c.email || "-" },
+                    { header: "Phone", accessor: (c) => c.phone || "-" },
+                    { header: "Status", accessor: (c) => (c.isActive ? "Active" : "Inactive") },
+                    { header: "Email Verified", accessor: (c) => (c.emailVerified ? "Yes" : "No") },
+                    { header: "Phone Verified", accessor: (c) => (c.phoneVerified ? "Yes" : "No") },
+                    { header: "Gender", accessor: (c) => c.gender || "-" },
+                    { header: "Registered At", accessor: (c) => c.createdAt || "-" },
+                  ]
+                )
+              }
+              disabled={!customers.length}
+            />
           </div>
         </div>
       </div>

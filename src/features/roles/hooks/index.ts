@@ -1,6 +1,6 @@
 "use client";
 
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import { roleKeys, permissionKeys } from "@/lib/api/query-keys";
 import {
   getRoles,
@@ -15,13 +15,30 @@ import {
   deletePermission,
 } from "../api/get-roles";
 
-export function useRoles() {
+export interface GetRolesParams {
+  page?: number;
+  limit?: number;
+  pageSize?: number;
+  search?: string;
+}
+
+export function useRoles(params?: GetRolesParams) {
+  const queryParams: Record<string, string | number | boolean | undefined> = {};
+  if (params?.search) queryParams.search = params.search;
+  if (params?.page) queryParams.page = params.page;
+  if (params?.limit ?? params?.pageSize) queryParams.limit = params?.limit ?? params?.pageSize;
+
   return useQuery({
-    queryKey: roleKeys.list(),
+    queryKey: roleKeys.list(queryParams),
     queryFn: async () => {
-      const response = await getRoles();
-      return response.data!;
+      const response = await getRoles(queryParams);
+      return {
+        data: response.data ?? [],
+        meta: response.meta,
+      };
     },
+    placeholderData: keepPreviousData,
+    staleTime: 30 * 1000,
   });
 }
 

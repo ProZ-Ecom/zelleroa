@@ -22,7 +22,10 @@ import { Badge } from "@/components/ui/badge";
 import { Select } from "@/components/ui/select";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { FormModal } from "@/components/common/FormModal";
-import { Plus, Pencil, Trash2, KeyRound } from "lucide-react";
+import { ExportButton } from "@/components/common/export-button";
+import { exportDataToCsv } from "@/lib/export-csv";
+import { SearchInput } from "@/components/ui/search-input";
+import { Plus, Pencil, Trash2, KeyRound, RotateCcw } from "lucide-react";
 import { z } from "zod";
 import {
   createUserSchema,
@@ -48,8 +51,22 @@ export default function AdminUsersPage() {
   const [modalMode, setModalMode] = useState<ModalMode>(null);
   const [selectedUser, setSelectedUser] = useState<UserListItem | null>(null);
   const [deleteId, setDeleteId] = useState<string | number | null>(null);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
 
-  const { data, isLoading, error, refetch } = useUsers();
+  const queryParams = useMemo(
+    () => ({
+      page,
+      limit: pageSize,
+      search: search.trim() || undefined,
+      status: statusFilter !== "all" ? statusFilter : undefined,
+    }),
+    [page, pageSize, search, statusFilter]
+  );
+
+  const { data, isLoading, error, refetch } = useUsers(queryParams);
   const createMutation = useCreateUser();
   const updateMutation = useUpdateUser();
   const deleteMutation = useDeleteUser();
@@ -70,17 +87,23 @@ export default function AdminUsersPage() {
         .email("Please enter a valid email address")
         .transform((val) => val.toLowerCase()),
       phone: indiaPhoneSchema,
-      password: z.string().optional(),
-      roleId: z.number().int().positive("Please select a valid role").optional(),
+      password: z
+        .string()
+        .optional()
+        .refine(
+          (val) => {
+            if (modalMode === "create") {
+              return typeof val === "string" && val.length >= 8 && val.length <= 100;
+            }
+            return true;
+          },
+          { message: "Password must contain at least 8 characters" }
+        ),
+      roleId: z
+        .union([z.number().int().positive("Please select a valid role"), z.nan()])
+        .optional()
+        .transform((val) => (typeof val === "number" && !isNaN(val) ? val : undefined)),
       status: z.enum(["active", "inactive", "banned"]).optional(),
-    }).superRefine((data, ctx) => {
-      if (modalMode === "create" && (!data.password || data.password.length < 6)) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          path: ["password"],
-          message: "Password must contain at least 6 characters",
-        });
-      }
     });
   }, [modalMode]);
 
@@ -93,6 +116,8 @@ export default function AdminUsersPage() {
     formState: { errors },
   } = useForm<UserFormValues>({
     resolver: zodResolver(userFormSchema),
+    mode: "onChange",
+    reValidateMode: "onChange",
     defaultValues: {
       name: "",
       email: "",
@@ -110,6 +135,8 @@ export default function AdminUsersPage() {
     formState: { errors: resetPasswordErrors },
   } = useForm<{ password: string }>({
     resolver: zodResolver(resetPasswordSchema),
+    mode: "onChange",
+    reValidateMode: "onChange",
     defaultValues: { password: "" },
   });
 
@@ -179,20 +206,6 @@ export default function AdminUsersPage() {
     resetResetPassword();
   };
 
-  const statusBadgeVariant = (status: string) => {
-    switch (status?.toLowerCase()) {
-      case "active":
-        return "success";
-      case "inactive":
-        return "secondary";
-      case "banned":
-      case "blocked":
-        return "destructive";
-      default:
-        return "secondary";
-    }
-  };
-
   const columns: ColumnDef<UserListItem, unknown>[] = [
     {
       accessorKey: "name",
@@ -223,11 +236,39 @@ export default function AdminUsersPage() {
     {
       accessorKey: "status",
       header: "Status",
-      cell: ({ row }) => (
-        <Badge variant={statusBadgeVariant(row.original.status) as "success" | "secondary" | "destructive"}>
-          {row.original.status}
-        </Badge>
-      ),
+      cell: ({ row }) => {
+        const status = (row.original.status || "").toLowerCase();
+        if (status === "active") {
+          return (
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700 border border-emerald-200">
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+              Active
+            </span>
+          );
+        }
+        if (status === "inactive") {
+          return (
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-red-50 px-2.5 py-1 text-xs font-semibold text-red-700 border border-red-200">
+              <span className="h-1.5 w-1.5 rounded-full bg-red-500" />
+              Inactive
+            </span>
+          );
+        }
+        if (status === "banned" || status === "blocked") {
+          return (
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-red-50 px-2.5 py-1 text-xs font-semibold text-red-700 border border-red-200">
+              <span className="h-1.5 w-1.5 rounded-full bg-red-500" />
+              Banned
+            </span>
+          );
+        }
+        return (
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-neutral-100 px-2.5 py-1 text-xs font-semibold text-neutral-700 border border-neutral-200">
+            <span className="h-1.5 w-1.5 rounded-full bg-neutral-400" />
+            {row.original.status || "Unknown"}
+          </span>
+        );
+      },
     },
     {
       accessorKey: "createdAt",
@@ -279,7 +320,7 @@ export default function AdminUsersPage() {
     },
   ];
 
-  if (isLoading) return <AdminTableSkeleton />;
+  if (isLoading && !data) return <AdminTableSkeleton />;
   if (error) return <ErrorState message="Failed to load users" onRetry={() => refetch()} />;
 
   const isMutating = createMutation.isPending || updateMutation.isPending;
@@ -298,15 +339,31 @@ export default function AdminUsersPage() {
           </Button>
         }
       />
-      <AdminContent className="flex-1 min-h-0 overflow-hidden">
-        <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
+
+      <AdminContent className="flex-1 min-h-0 overflow-hidden mt-4">
+        <div className="flex-1 min-h-0 overflow-hidden flex flex-col rounded-2xl border border-neutral-200 bg-white shadow-xs">
           <DataTable
             columns={columns}
             data={users}
-            searchKey="name"
-            searchPlaceholder="Search users..."
-            pageSize={20}
-            className="bg-white border border-neutral-200"
+            pageSize={pageSize}
+            pageSizeOptions={[10, 20, 30, 50]}
+            page={data?.meta?.page ?? page}
+            totalPages={
+              data?.meta?.totalPages ??
+              Math.max(1, Math.ceil((data?.meta?.total ?? users.length) / pageSize))
+            }
+            totalItems={data?.meta?.total ?? users.length}
+            onPageChange={setPage}
+            onPageSizeChange={(newSize) => {
+              setPageSize(newSize);
+              setPage(1);
+            }}
+            className="bg-white border-0"
+            emptyMessage={
+              search.trim() || statusFilter !== "all"
+                ? "No users matched your filter criteria."
+                : "No users found. Click '+ Add User' to create a new user account."
+            }
           />
         </div>
       </AdminContent>
@@ -368,7 +425,7 @@ export default function AdminUsersPage() {
                 {...register("password")}
                 type="password"
                 className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
-                placeholder="Minimum 6 characters"
+                placeholder="Minimum 8 characters"
               />
               {errors.password && (
                 <p className="mt-1 text-xs text-red-500 font-medium">{errors.password.message}</p>
@@ -460,7 +517,7 @@ export default function AdminUsersPage() {
               {...registerResetPassword("password")}
               type="password"
               className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
-              placeholder="Minimum 6 characters"
+              placeholder="Minimum 8 characters"
             />
             {resetPasswordErrors.password && (
               <p className="mt-1 text-xs text-red-500 font-medium">

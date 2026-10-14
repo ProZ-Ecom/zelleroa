@@ -6,20 +6,22 @@ export const createRazorpayOrderSchema = z.object({
   deliveryMethod: z.enum(["standard", "express"]).default("standard").optional(),
 });
 
-export type CreateRazorpayOrderInput = z.infer<typeof createRazorpayOrderSchema>;
+export type CreateRazorpayOrderInput = z.input<typeof createRazorpayOrderSchema>;
+export type CreateRazorpayOrderOutput = z.output<typeof createRazorpayOrderSchema>;
 
 export const verifyRazorpayPaymentSchema = z.object({
   orderId: z.string().optional(),
   shippingAddressId: z.string().optional(),
   billingAddressId: z.string().optional(),
-  notes: z.string().optional(),
   deliveryMethod: z.enum(["standard", "express"]).default("standard").optional(),
+  notes: z.string().optional(),
   razorpay_order_id: z.string().min(1, "Razorpay Order ID is required"),
   razorpay_payment_id: z.string().min(1, "Razorpay Payment ID is required"),
   razorpay_signature: z.string().min(1, "Razorpay Signature is required"),
 });
 
-export type VerifyRazorpayPaymentInput = z.infer<typeof verifyRazorpayPaymentSchema>;
+export type VerifyRazorpayPaymentInput = z.input<typeof verifyRazorpayPaymentSchema>;
+export type VerifyRazorpayPaymentOutput = z.output<typeof verifyRazorpayPaymentSchema>;
 
 
 export interface RazorpayOrderResponse {

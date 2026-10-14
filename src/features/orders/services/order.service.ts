@@ -332,7 +332,9 @@ export const orderService = {
     const paymentMethod = input.paymentMethod || "CARD";
     const isOnlinePayment = paymentMethod === "CARD" || paymentMethod === "UPI" || (paymentMethod as string) === "ONLINE" || (paymentMethod as string) === "RAZORPAY";
     // If explicitly verified through Razorpay, mark paid and confirmed; if COD, confirm order with payment pending; otherwise pending.
-    const isVerifiedPaid = options.gatewayPaymentVerified === true && isOnlinePayment;
+    const isVerifiedPaid =
+      (options.gatewayPaymentVerified === true || input.paymentDetails?.isPaid === true) &&
+      isOnlinePayment;
     const paymentStatus: "paid" | "pending" = isVerifiedPaid ? "paid" : "pending";
     const orderStatus: "confirmed" | "pending" = paymentMethod === "COD" || isVerifiedPaid ? "confirmed" : "pending";
 

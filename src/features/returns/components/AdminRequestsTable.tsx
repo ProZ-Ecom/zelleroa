@@ -5,6 +5,9 @@ import { Eye, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
+import { ClearFiltersButton } from "@/components/common/clear-filters-button";
+import { ExportButton } from "@/components/common/export-button";
+import { exportDataToCsv } from "@/lib/export-csv";
 import { formatDateTime } from "@/lib/utils";
 import {
   REPLACEMENT_STATUSES,
@@ -39,7 +42,7 @@ export function AdminRequestsTable({ kind }: { kind: RequestKind }) {
   return (
     <div className="flex h-full min-h-0 flex-col gap-3">
       <form
-        className="flex flex-wrap items-center gap-2"
+        className="flex flex-wrap items-center gap-3"
         onSubmit={(e) => {
           e.preventDefault();
           setPage(1);
@@ -55,20 +58,50 @@ export function AdminRequestsTable({ kind }: { kind: RequestKind }) {
             className="pl-9"
           />
         </div>
-        <Select
-          value={status || "all"}
-          onValueChange={(v) => {
-            setPage(1);
-            setStatus(v === "all" ? "" : v);
-          }}
-          options={[
-            { value: "all", label: "All statuses" },
-            ...statuses.map((s) => ({ value: s, label: statusLabel(s) })),
-          ]}
-        />
-        <Button type="submit" variant="outline" size="sm">
+        <div className="w-full sm:w-48 shrink-0">
+          <Select
+            value={status || "all"}
+            onValueChange={(v) => {
+              setPage(1);
+              setStatus(v === "all" ? "" : v);
+            }}
+            options={[
+              { value: "all", label: "All statuses" },
+              ...statuses.map((s) => ({ value: s, label: statusLabel(s) })),
+            ]}
+          />
+        </div>
+        <Button type="submit" variant="outline" size="sm" className="h-10 px-4 shrink-0">
           Search
         </Button>
+        <ExportButton
+          onClick={() =>
+            exportDataToCsv(
+              rows.map((r) => ({
+                RequestId: r.id.slice(0, 8).toUpperCase(),
+                OrderNumber: r.orderNumber,
+                Customer: r.customer.name,
+                CustomerContact: r.customer.phone || r.customer.email || "",
+                Products: r.items.map((i) => i.productName).join(", "),
+                Reason: r.reason,
+                RequestedAt: formatDateTime(r.requestedAt),
+                Status: statusLabel(r.status),
+              })),
+              `${kind}-requests`
+            )
+          }
+          disabled={rows.length === 0}
+        />
+        {(search.trim() || status || query) && (
+          <ClearFiltersButton
+            onClick={() => {
+              setSearch("");
+              setQuery("");
+              setStatus("");
+              setPage(1);
+            }}
+          />
+        )}
       </form>
 
       <div className="min-h-0 flex-1 overflow-auto rounded-xl border border-cream-border-subtle bg-white">
