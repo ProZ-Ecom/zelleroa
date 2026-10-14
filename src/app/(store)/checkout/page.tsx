@@ -732,7 +732,7 @@ export default function CheckoutPage() {
                 {isGuest && (
                   <div>
                     <label className="block text-xs font-semibold text-theme-text-secondary mb-1">
-                      Email Address *
+                      Email Address <span className="text-red-600">*</span>
                     </label>
                     <input
                       type="email"
@@ -752,7 +752,7 @@ export default function CheckoutPage() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                   <div>
                     <label className="block text-xs font-semibold text-theme-text-secondary mb-1">
-                      Recipient Name *
+                      Recipient Name <span className="text-red-600">*</span>
                     </label>
                     <input
                       type="text"
@@ -771,7 +771,7 @@ export default function CheckoutPage() {
 
                   <div>
                     <label className="block text-xs font-semibold text-theme-text-secondary mb-1">
-                      Phone Number (10 digits) *
+                      Phone Number (10 digits) <span className="text-red-600">*</span>
                     </label>
                     <input
                       type="tel"
@@ -790,7 +790,7 @@ export default function CheckoutPage() {
 
                   <div className="sm:col-span-2">
                     <label className="block text-xs font-semibold text-theme-text-secondary mb-1">
-                      PIN Code (6 digits) *
+                      PIN Code (6 digits) <span className="text-red-600">*</span>
                     </label>
                     <div className="relative">
                       <input
@@ -842,7 +842,7 @@ export default function CheckoutPage() {
 
                   <div className="sm:col-span-2">
                     <label className="block text-xs font-semibold text-theme-text-secondary mb-1">
-                      Flat / House No., Building, Street *
+                      FFlat / House No., Building, Street <span className="text-red-600">*</span>
                     </label>
                     <input
                       type="text"
@@ -861,7 +861,7 @@ export default function CheckoutPage() {
 
                   <div>
                     <label className="block text-xs font-semibold text-theme-text-secondary mb-1">
-                      City *
+                      City <span className="text-red-600">*</span>
                     </label>
                     <input
                       type="text"
@@ -880,7 +880,7 @@ export default function CheckoutPage() {
 
                   <div>
                     <label className="block text-xs font-semibold text-theme-text-secondary mb-1">
-                      State *
+                      State <span className="text-red-600">*</span>
                     </label>
                     <input
                       type="text"

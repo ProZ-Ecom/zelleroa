@@ -24,6 +24,7 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { FormModal } from "@/components/common/FormModal";
 import { Plus, Pencil, Trash2, KeyRound } from "lucide-react";
 import { z } from "zod";
+   import { cn } from "@/lib/utils";
 import {
   createUserSchema,
   resetPasswordSchema,
@@ -44,12 +45,19 @@ interface UserFormValues {
   status?: "active" | "inactive" | "banned";
 }
 
+const roleColors: Record<string, string> = {
+  ADMIN: "!bg-purple-100 !text-purple-700 !border-purple-300",
+  STAFF: "!bg-blue-100 !text-blue-700 !border-blue-300",
+  AGENT: "!bg-orange-100 !text-orange-700 !border-orange-300",
+ CUSTOMER: "!bg-slate-100 !text-slate-700 !border-slate-300",
+};
+
 export default function AdminUsersPage() {
   const [modalMode, setModalMode] = useState<ModalMode>(null);
   const [selectedUser, setSelectedUser] = useState<UserListItem | null>(null);
   const [deleteId, setDeleteId] = useState<string | number | null>(null);
 
-  const { data, isLoading, error, refetch } = useUsers();
+ const { data, isLoading, error, refetch } = useUsers({ page: 1, limit: 100 });
   const createMutation = useCreateUser();
   const updateMutation = useUpdateUser();
   const deleteMutation = useDeleteUser();
@@ -213,21 +221,38 @@ export default function AdminUsersPage() {
         return phone.replace(/^\+91/, "");
       },
     },
-    {
+     {
       accessorKey: "roleName",
       header: "Role",
-      cell: ({ row }) => (
-        <Badge variant="outline">{row.original.roleName || "Unknown"}</Badge>
-      ),
+      cell: ({ row }) => {
+        const role = row.original.roleName || "Unknown";
+        return (
+          <Badge
+            variant="outline"
+            className={cn(roleColors[role.toUpperCase()] ?? "!bg-gray-100 !text-gray-700 !border-gray-300")}
+          >
+            {role}
+          </Badge>
+        );
+      },
     },
     {
       accessorKey: "status",
       header: "Status",
-      cell: ({ row }) => (
-        <Badge variant={statusBadgeVariant(row.original.status) as "success" | "secondary" | "destructive"}>
-          {row.original.status}
-        </Badge>
-      ),
+      cell: ({ row }) => {
+  const status = row.original.status?.toLowerCase();
+  return (
+    <Badge
+      variant={statusBadgeVariant(row.original.status) as "success" | "secondary" | "destructive"}
+      className={cn(
+  status === "inactive" && "!bg-red-100 !text-red-700",
+  status === "banned" && "!bg-red-200 !text-red-800"
+)}
+    >
+      {row.original.status}
+    </Badge>
+  );
+},
     },
     {
       accessorKey: "createdAt",
@@ -380,11 +405,18 @@ export default function AdminUsersPage() {
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Phone <span className="text-error-600">*</span>
             </label>
-            <input
-              {...register("phone")}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
-              placeholder="Phone number"
-            />
+           <input
+  {...register("phone", {
+    onChange: (e) => {
+      e.target.value = e.target.value.replace(/\D/g, "").slice(0, 10);
+    },
+  })}
+  type="tel"
+  inputMode="numeric"
+  maxLength={10}
+  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+  placeholder="10-digit phone number"
+/>
             {errors.phone && (
               <p className="mt-1 text-xs text-red-500 font-medium">{errors.phone.message}</p>
             )}

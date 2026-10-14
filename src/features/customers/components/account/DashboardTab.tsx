@@ -2,7 +2,8 @@
 
 import React, { useState } from "react";
 import { Check } from "lucide-react";
-import { formatPrice } from "@/lib/utils";
+import { formatPrice, getImageUrl } from "@/lib/utils";
+import { ProductImage } from "@/components/common/ProductImage";
 import type { CustomerProfileResponse } from "../../types";
 import type { OrderDetailResponse } from "@/features/orders/types";
 import { useAddToCartMutation } from "../../hooks/use-customer-cart";
@@ -127,23 +128,27 @@ export function DashboardTab({
   );
 
   // Extract past ordered items for "Buy Again"
-  const pastItemsMap = new Map<string, { variantId?: string; name: string; price: number }>();
+  const pastItemsMap = new Map<
+  string,
+  { variantId?: string; name: string; price: number; image: string | null }
+>();
   orders.forEach((o) => {
     o.items?.forEach((item) => {
       const key = item.productName || "";
       const vId = item.variantId ? String(item.variantId) : undefined;
       if (key && !pastItemsMap.has(key)) {
-        pastItemsMap.set(key, {
+       pastItemsMap.set(key, {
           variantId: vId,
           name: key,
           price: typeof item.unitPrice === "number" ? item.unitPrice : Number(item.unitPrice || 0),
+          image: (item as any).primaryImage || (item as any).image || null,
         });
       }
     });
   });
   const buyAgainItems = Array.from(pastItemsMap.values()).slice(0, 4);
 
-  const handleBuyAgain = async (item: { variantId?: string; name: string; price: number }) => {
+  const handleBuyAgain = async (item: { variantId?: string; name: string; price: number; image: string | null }) => {
     if (!item.variantId) {
       onNavigateTab("orders");
       return;
@@ -477,10 +482,15 @@ export function DashboardTab({
                 key={`${item.name}-${idx}`}
                 className="border border-theme-border-subtle rounded-xl overflow-hidden bg-theme-surface-warm flex flex-col justify-between"
               >
-                <div className="h-28 bg-[repeating-linear-gradient(45deg,#F6ECDC,#F6ECDC_8px,#EFE2CD_8px,#EFE2CD_16px)] flex items-center justify-center">
-                  <span className="text-[10px] font-mono text-theme-text-muted uppercase tracking-wider">
-                    {item.name.slice(0, 14)}
-                  </span>
+                <div className="h-28 overflow-hidden bg-theme-surface-alt">
+                  <ProductImage
+                    src={item.image ? getImageUrl(item.image) : null}
+                    alt={item.name}
+                    fallbackText={item.name}
+                    fallbackSize="compact"
+                    containerClassName="w-full h-full"
+                    className="w-full h-full object-cover"
+                  />
                 </div>
 
                 <div className="p-3.5 flex flex-col justify-between flex-1 gap-3">
