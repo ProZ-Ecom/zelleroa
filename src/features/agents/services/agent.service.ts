@@ -15,7 +15,7 @@ import type { CreateAgentInput, PaymentDetailsInput, UpdateAgentInput } from "..
 const DEAD_ORDER_STATUSES = ["cancelled", "returned"] as const;
 
 export function buildReferralLink(code: string) {
-  return `${APP_URL}/?ref=${encodeURIComponent(code)}`;
+  return `${APP_URL}/ref/${encodeURIComponent(code)}`;
 }
 
 function emptySummary(): AgentSummary {
