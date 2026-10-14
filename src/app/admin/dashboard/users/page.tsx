@@ -104,6 +104,14 @@ export default function AdminUsersPage() {
         .optional()
         .transform((val) => (typeof val === "number" && !isNaN(val) ? val : undefined)),
       status: z.enum(["active", "inactive", "banned"]).optional(),
+    }).superRefine((data, ctx) => {
+      if (modalMode === "create" && (!data.password || data.password.length < 8)) {
+  ctx.addIssue({
+    code: z.ZodIssueCode.custom,
+    path: ["password"],
+    message: "Password must contain at least 8 characters",
+  });
+}
     });
   }, [modalMode]);
 
@@ -167,7 +175,7 @@ export default function AdminUsersPage() {
       try {
         const { password: _, ...updateData } = formData;
         await updateMutation.mutateAsync({ id: selectedUser.id, data: updateData });
-        toast.success("User updated", `"${formData.name}" was updated successfully.`);
+        toast.success("User updated successfully", `"${formData.name}" was saved.`);
         setModalMode(null);
         setSelectedUser(null);
       } catch (err: any) {

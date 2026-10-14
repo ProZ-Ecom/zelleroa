@@ -109,7 +109,7 @@ export function HeaderMenuForm({
       categoryIds: initialData?.categoryIds ?? [],
       link: initialData?.link ?? "",
       gender: (initialData?.gender ?? "") as HeaderMenuFormData["gender"],
-      sortOrder: initialData?.sortOrder ?? 0,
+      sortOrder: initialData?.sortOrder ?? "",
       isActive: initialData?.isActive ?? true,
     },
   });
@@ -187,13 +187,14 @@ export function HeaderMenuForm({
         />
 
         <FormInput
-          name="sortOrder"
-          label="Sort Order"
-          type="number"
-          min="0"
-          step="1"
-          placeholder="0"
-        />
+  name="sortOrder"
+  label="Sort Order"
+  type="number"
+  min="0"
+  step="1"
+  placeholder="0"
+  onFocus={(e) => e.target.select()}
+/>
 
         <div className="flex items-center justify-between gap-4 rounded-xl border border-theme-border bg-theme-surface-alt p-4">
           <div>
