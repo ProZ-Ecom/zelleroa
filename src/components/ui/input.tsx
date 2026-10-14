@@ -59,18 +59,17 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
             ref={ref}
             type={inputType}
             maxLength={type === "email" ? EMAIL_MAX_LENGTH : undefined}
-            className={cn(
-              "w-full border border-theme-border bg-theme-surface text-theme-text-primary placeholder:text-theme-text-muted transition-all outline-none",
-              sizeClasses[size],
-              "focus:outline-none hover:border-theme-border-accent",
-              error
-                ? "border-red-500 focus:border-red-500 focus:ring-2 focus:ring-red-500/20 ring-1 ring-red-500/20"
-                : "focus:border-theme-primary focus:ring-2 focus:ring-theme-primary/20",
-              leftIcon && "pl-10",
-              inputPrefix && "pl-20",
-              (rightIcon || isPassword) && "pr-11",
-              className
-            )}
+           className={cn(
+  "w-full border bg-theme-surface text-theme-text-primary placeholder:text-theme-text-muted transition-all outline-none focus:outline-none focus-visible:outline-none",
+  sizeClasses[size],
+  error
+    ? "!border-red-500 hover:!border-red-500 focus:!border-red-500 focus:!ring-2 focus:!ring-red-500/30 focus-visible:!ring-red-500/30"
+    : "border-theme-border hover:border-theme-border-accent focus:border-theme-primary focus:ring-2 focus:ring-theme-primary/20",
+  leftIcon && "pl-10",
+  inputPrefix && "pl-20",
+  (rightIcon || isPassword) && "pr-11",
+  className
+)}
             {...props}
           />
 

@@ -17,6 +17,7 @@ import { AdminTableSkeleton } from "@/components/admin/AdminTableSkeleton";
 import { ErrorState } from "@/components/ui/error-state";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { formatPhone } from "@/lib/utils/format-phone";
 import { Select } from "@/components/ui/select";
 import { SearchInput } from "@/components/ui/search-input";
 import { ExportButton } from "@/components/common/export-button";
@@ -210,7 +211,7 @@ export default function AdminCustomersPage() {
           <div className="space-y-0.5">
             <p className="text-sm text-neutral-800">{item.email || "-"}</p>
             <div className="flex items-center gap-1.5 text-xs text-neutral-500">
-              <span>{item.phone || "-"}</span>
+              <span>{formatPhone(item.phone)}</span>
               {item.isWhatsapp && (
                 <span className="inline-flex items-center gap-0.5 text-success-600 bg-success-50 px-1.5 py-0.5 rounded text-[10px] font-medium" title="WhatsApp Enabled">
                   <MessageSquare className="h-3 w-3" />

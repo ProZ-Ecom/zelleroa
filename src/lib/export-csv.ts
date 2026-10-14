@@ -16,6 +16,27 @@ function escapeCsv(value: string): string {
   return /[",\n\r]/.test(safe) ? `"${safe.replace(/"/g, '""')}"` : safe;
 }
 
+/** Directly downloads raw rows with headers as a UTF-8 BOM CSV. */
+export function downloadCsv(
+  headers: string[],
+  rows: (string | number | null | undefined)[][],
+  fileName: string
+): void {
+  const headerLine = headers.map((h) => escapeCsv(String(h)));
+  const lines = rows.map((row) => row.map((cell) => escapeCsv(formatCell(cell))).join(","));
+  const csv = "\uFEFF" + [headerLine.join(","), ...lines].join("\r\n");
+  const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8;" }));
+  const a = document.createElement("a");
+  a.href = url;
+  const dateStr = new Date().toISOString().slice(0, 10);
+  const cleanName = fileName.replace(/\.csv$/i, "").replace(new RegExp(`-${dateStr}$`), "");
+  a.download = `${cleanName}-${dateStr}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
 /** Exports the table's rows (selected rows if any, else all rows currently listed) as CSV. */
 export function exportTableToCsv<TData>(table: Table<TData>, fileName: string): void {
   const columns = table
@@ -23,8 +44,7 @@ export function exportTableToCsv<TData>(table: Table<TData>, fileName: string): 
     .filter(
       (c) =>
         c.getIsVisible() &&
-        !SKIPPED_COLUMNS.has(c.id.toLowerCase()) &&
-        typeof c.accessorFn === "function"
+        !SKIPPED_COLUMNS.has(c.id.toLowerCase())
     );
 
   const selected = table.getSelectedRowModel().rows;
@@ -35,14 +55,32 @@ export function exportTableToCsv<TData>(table: Table<TData>, fileName: string): 
     return escapeCsv(typeof h === "string" ? h : c.id);
   });
   const lines = rows.map((row) =>
-    columns.map((c) => escapeCsv(formatCell(row.getValue(c.id)))).join(",")
+    columns
+      .map((c) => {
+        let val: unknown;
+        if (typeof c.accessorFn === "function") {
+          try {
+            val = row.getValue(c.id);
+          } catch {
+            val = undefined;
+          }
+        }
+        if (val === undefined || val === null) {
+          const orig = row.original as Record<string, unknown> | undefined;
+          val = orig?.[c.id];
+        }
+        return escapeCsv(formatCell(val));
+      })
+      .join(",")
   );
 
-  const csv = "﻿" + [headerLine.join(","), ...lines].join("\r\n");
+  const csv = "\uFEFF" + [headerLine.join(","), ...lines].join("\r\n");
   const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8;" }));
   const a = document.createElement("a");
   a.href = url;
-  a.download = `${fileName}-${new Date().toISOString().slice(0, 10)}.csv`;
+  const dateStr = new Date().toISOString().slice(0, 10);
+  const cleanName = fileName.replace(/\.csv$/i, "").replace(new RegExp(`-${dateStr}$`), "");
+  a.download = `${cleanName}-${dateStr}.csv`;
   document.body.appendChild(a);
   a.click();
   a.remove();

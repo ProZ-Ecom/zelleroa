@@ -56,13 +56,14 @@ function FormImageUpload({
   const [cropSrc, setCropSrc] = useState<string | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
-  const {
-    field,
-    fieldState: { error },
-  } = useController({
-    name,
-    control,
-  });
+const {
+  field,
+  fieldState: { error, isTouched },
+  formState: { isSubmitted },
+} = useController({
+  name,
+  control,
+});
 
   const imageUrl = field.value as string;
 
@@ -161,16 +162,17 @@ function FormImageUpload({
     }
   };
 
-  const displayError = fileError || error?.message;
+  const displayError =
+  fileError || (isTouched || isSubmitted ? error?.message : undefined);
 
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-1.5">
-          <label className="text-sm font-medium text-[var(--color-neutral-700)]">
-            {label}
-            {required && <span className="text-error-600 font-bold ml-1">*</span>}
-          </label>
+         <label className="flex items-center gap-1">
+  {label}
+  {required && <span className="text-error-600 font-bold ml-1">*</span>}
+</label>
           {infoMessage && (
             <div className="relative inline-flex items-center" ref={infoRef}>
               <button
@@ -213,7 +215,7 @@ function FormImageUpload({
         className={cn(
           "relative flex cursor-pointer items-center justify-center rounded-xl border-2 border-dashed border-[var(--color-neutral-300)] bg-[var(--color-neutral-50)] transition-all hover:border-[var(--color-primary-500)] hover:bg-white overflow-hidden",
           aspectRatioClassName,
-          displayError && "border-[var(--color-error-500)]",
+          displayError && "border-red-500 hover:border-red-500",
           className
         )}
       >
@@ -233,6 +235,7 @@ function FormImageUpload({
               onClick={(e) => {
                 e.stopPropagation();
                 field.onChange("");
+                  field.onBlur();
                 setFileError(null);
               }}
               className="absolute right-3 top-3 rounded-full bg-white p-2 shadow-md hover:bg-neutral-100 transition-colors z-10"

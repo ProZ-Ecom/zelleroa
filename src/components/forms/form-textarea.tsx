@@ -21,7 +21,7 @@ function FormTextarea({
   required,
   ...props
 }: FormTextareaProps) {
-  const { control, formState } = useFormContext();
+  const { control} = useFormContext();
 
   return (
     <Controller

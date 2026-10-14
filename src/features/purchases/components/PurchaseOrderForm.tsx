@@ -42,6 +42,12 @@ interface Props {
 
 const labelCls = "mb-1.5 block text-sm font-medium text-neutral-700";
 
+/**
+ * Drops leading zeros as the user types (e.g. "022" -> "22") while leaving
+ * decimals ("0.5") and negatives ("-02" -> "-2") intact.
+ */
+const stripLeadingZeros = (raw: string) => raw.replace(/^(-?)0+(?=\d)/, "$1");
+
 function useDebounced(value: string, ms = 300) {
   const [v, setV] = useState(value);
   useEffect(() => {
@@ -273,7 +279,12 @@ export function PurchaseOrderForm({ initial, isLoading, submitLabel, mode = "dra
                     min={1}
                     step={1}
                     value={l.quantity || ""}
-                    onChange={(e) => patch(l.variantUnitPriceId, { quantity: Number(e.target.value) })}
+                    onFocus={(e) => e.target.select()}
+                    onChange={(e) => {
+                      const cleaned = stripLeadingZeros(e.target.value);
+                      if (cleaned !== e.target.value) e.target.value = cleaned;
+                      patch(l.variantUnitPriceId, { quantity: Number(cleaned) });
+                    }}
                   />
                 </td>
                 <td className="px-4 py-2.5">
@@ -281,8 +292,14 @@ export function PurchaseOrderForm({ initial, isLoading, submitLabel, mode = "dra
                     type="number"
                     min={0}
                     step="0.01"
-                    value={l.unitCost}
-                    onChange={(e) => patch(l.variantUnitPriceId, { unitCost: Number(e.target.value) })}
+                    placeholder="0"
+                    value={l.unitCost || ""}
+                    onFocus={(e) => e.target.select()}
+                    onChange={(e) => {
+                      const cleaned = stripLeadingZeros(e.target.value);
+                      if (cleaned !== e.target.value) e.target.value = cleaned;
+                      patch(l.variantUnitPriceId, { unitCost: Number(cleaned) });
+                    }}
                   />
                 </td>
                 <td className="px-4 py-2.5 text-right font-medium">
@@ -319,8 +336,13 @@ export function PurchaseOrderForm({ initial, isLoading, submitLabel, mode = "dra
                     type="number"
                     min={0}
                     step="0.01"
-                    value={additionalCharges}
-                    onChange={(e) => setAdditionalCharges(Number(e.target.value))}
+                    value={additionalCharges || ""}
+                    onFocus={(e) => e.target.select()}
+                    onChange={(e) => {
+                      const cleaned = stripLeadingZeros(e.target.value);
+                      if (cleaned !== e.target.value) e.target.value = cleaned;
+                      setAdditionalCharges(Number(cleaned));
+                    }}
                   />
                 </td>
                 <td />

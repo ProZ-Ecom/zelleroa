@@ -4,7 +4,7 @@ import * as React from "react";
 import Link from "next/link";
 import { ChevronRight } from "lucide-react";
 import type { CategoryTreeNode } from "@/features/categories/types";
-import { categoryHref, withGenderParam } from "@/features/customers/utils/catalog-listing-query";
+import { categoryHref, withGenderParam, withNavParam } from "@/features/customers/utils/catalog-listing-query";
 import { itemHref } from "@/features/customers/utils/style-default-item";
 import { useCategoryMenu, useCategoryMenus } from "@/features/customers/hooks/use-customer-catalog";
 import { ItemCard } from "@/features/customers/components/catalog/ItemCard";
@@ -14,6 +14,8 @@ export interface NavNode extends CategoryTreeNode {
   href?: string;
   /** Audience this nav item targets - appended as ?gender= to every link resolved under it. */
   gender?: string | null;
+  /** Header nav item id - set on the item's own link so its category strip shows on the page. */
+  navId?: string;
 }
 
 interface MegaMenuTriggerProps {
@@ -39,7 +41,10 @@ export function MegaMenuTrigger({
   onMouseLeave,
   onFocus,
 }: MegaMenuTriggerProps) {
-  const href = withGenderParam(root.href ?? categoryHref(root), root.gender);
+  const href = withNavParam(
+    withGenderParam(root.href ?? categoryHref(root), root.gender),
+    root.navId
+  );
 
   return (
     <div onMouseEnter={onMouseEnter} onMouseLeave={onMouseLeave}>

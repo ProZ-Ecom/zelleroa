@@ -95,7 +95,12 @@ function ReceiveModal({
                         step={1}
                         value={qty[i.id] ?? ""}
                         placeholder="0"
-                        onChange={(e) => setQty((p) => ({ ...p, [i.id]: Number(e.target.value) }))}
+                        onFocus={(e) => e.target.select()}
+                        onChange={(e) => {
+                          const cleaned = e.target.value.replace(/^(-?)0+(?=\d)/, "$1");
+                          if (cleaned !== e.target.value) e.target.value = cleaned;
+                          setQty((p) => ({ ...p, [i.id]: Number(cleaned) }));
+                        }}
                       />
                     </td>
                   </tr>

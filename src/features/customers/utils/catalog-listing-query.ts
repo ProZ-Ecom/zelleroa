@@ -39,6 +39,7 @@ export const RESERVED_LISTING_KEYS = new Set([
   "inStock",
   "brand",
   "gender",
+  "nav",
 ]);
 
 export interface ListingQuery {
@@ -179,6 +180,19 @@ export function categoryHref(category: { slug?: string | null; id: string }): st
  * onto the page it links to, even when the destination category is also
  * linked from a different nav item with a different (or no) audience.
  */
+/**
+ * Marks a category link as reached through a header nav item (`?nav=<item id>`),
+ * which is what makes the listing show that item's category image strip.
+ * Links to anything other than a category page are left alone.
+ */
+export function withNavParam(href: string, navId?: string | null): string {
+  if (!navId || !href.startsWith("/category/")) return href;
+  const [path, query] = href.split("?");
+  const params = new URLSearchParams(query);
+  params.set("nav", navId);
+  return `${path}?${params.toString()}`;
+}
+
 export function withGenderParam(href: string, gender?: string | null): string {
   if (!gender) return href;
   const [path, query] = href.split("?");

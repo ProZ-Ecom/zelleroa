@@ -14,6 +14,7 @@ import type {
   ListingAttributeFilterDto,
   ListingCategoryDto,
   ListingCategoryRefDto,
+  ListingSubcategoryDto,
   ListingFilterValueDto,
   ListingFiltersDto,
   ListingStockStatus,
@@ -576,6 +577,8 @@ const toRef = (c: ListingCategoryRow): ListingCategoryRefDto => ({
   slug: c.slug,
 });
 
+const toTile = (c: ListingCategoryRow): ListingSubcategoryDto => ({ ...toRef(c), image: c.image });
+
 function describeCategory(category: ListingCategoryRow, all: ListingCategoryRow[]): {
   dto: ListingCategoryDto;
   subtreeIds: bigint[];
@@ -633,7 +636,8 @@ export const catalogListingService = {
     const allCategories = await catalogListingRepository.findActiveCategories();
     let category: ListingCategoryDto | null = null;
     let categoryIds: bigint[] | null = null;
-    let subcategories = allCategories.filter((c) => c.parentId === null).map(toRef);
+    let subcategories = allCategories.filter((c) => c.parentId === null).map(toTile);
+    let activeSubcategoryId: string | null = null;
 
     if (params.categoryKey && params.categoryKey.toLowerCase() !== "all") {
       const row = catalogListingRepository.resolveCategoryKey(allCategories, params.categoryKey);
@@ -641,7 +645,16 @@ export const catalogListingService = {
       const described = describeCategory(row, allCategories);
       category = described.dto;
       categoryIds = described.subtreeIds;
-      subcategories = allCategories.filter((c) => c.parentId === row.id).map(toRef);
+      const children = allCategories.filter((c) => c.parentId === row.id);
+      if (children.length > 0) {
+        subcategories = children.map(toTile);
+      } else if (row.parentId !== null) {
+        // Leaf: show its siblings with this one highlighted.
+        subcategories = allCategories.filter((c) => c.parentId === row.parentId).map(toTile);
+        activeSubcategoryId = toRef(row).id;
+      } else {
+        subcategories = [];
+      }
     }
 
     const rows = await catalogListingRepository.findListingStyles({
@@ -730,6 +743,8 @@ export const catalogListingService = {
       data: {
         category,
         subcategories,
+        activeSubcategoryId,
+        categoryImages: Object.fromEntries(allCategories.map((c) => [toRef(c).id, c.image])),
         items: listed.slice((page - 1) * pageSize, page * pageSize).map((l) => l.card),
         filters: buildFilters(candidates, filters, [...attributesById.values()], facetValues),
       },

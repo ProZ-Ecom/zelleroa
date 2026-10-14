@@ -53,15 +53,17 @@ export function formatMeasurementLabel(measurement: VariantMeasurement | null | 
   const lowerUnit = unit.toLowerCase();
 
   // If the unit is a clothing size (e.g. XS, S, M, L, XL, XXL)
-  if (CLOTHING_SIZES.has(lowerUnit)) {
-    return unit.toUpperCase();
+  if (unit && (measurement.type === "size" || CLOTHING_SIZES.has(lowerUnit))) {
+    return CLOTHING_SIZES.has(lowerUnit) ? unit.toUpperCase() : unit; // "XL" or "32"
   }
 
   if (unit) {
+    if (String(value) === unit) return unit;
     return value && value !== 1 ? `${value} ${unit}` : unit;
   }
 
   return value ? `${value}` : "Standard";
+
 }
 
 export function getMeasurementFieldConfig(

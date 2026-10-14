@@ -1,17 +1,21 @@
 "use client";
 
 import * as React from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Loader2, PackageSearch, SlidersHorizontal, X } from "lucide-react";
 import { Breadcrumb } from "@/components/ui/breadcrumb";
 import { Select } from "@/components/ui/select";
 import { formatPrice } from "@/lib/utils";
+import { useHeaderMenu } from "@/features/header-menu/hooks";
 import { useCategoryListing } from "../../../hooks/use-customer-catalog";
 import {
   EMPTY_LISTING_QUERY,
   LISTING_SORT_OPTIONS,
   categoryHref,
+  withGenderParam,
+  withNavParam,
   countActiveListingFilters,
   parseListingQuery,
   serializeListingQuery,
@@ -133,6 +137,26 @@ export function CategoryListingView({ categoryKey, initialTitle }: CategoryListi
   const firstPage = listing.data?.pages[0];
   const category = firstPage?.data.category ?? null;
   const subcategories = firstPage?.data.subcategories ?? [];
+  const serverActiveId = firstPage?.data.activeSubcategoryId ?? null;
+  const categoryImages = firstPage?.data.categoryImages;
+
+  // The image strip only appears when the shopper arrived through a header nav
+  // link (`?nav=<item id>`); links inside the dropdown don't carry it.
+  const navId = searchParams.get("nav");
+  const { data: headerMenu = [] } = useHeaderMenu();
+  const navItem = navId ? headerMenu.find((item) => item.id === navId) : undefined;
+  const isGroupedNav = !!navItem && navItem.categories.length > 1;
+  const stripTiles = !navItem
+    ? []
+    : isGroupedNav
+      ? navItem.categories.map((c) => ({
+          id: c.id,
+          name: c.name,
+          slug: c.slug,
+          image: categoryImages?.[c.id] ?? c.icon ?? null,
+        }))
+      : subcategories;
+  const activeSubcategoryId = isGroupedNav ? (category?.id ?? null) : serverActiveId;
   const filters = firstPage?.data.filters;
   const total = firstPage?.meta?.total;
   const items = React.useMemo(
@@ -141,7 +165,7 @@ export function CategoryListingView({ categoryKey, initialTitle }: CategoryListi
   );
 
   const isAll = categoryKey === "all";
-  const title = category?.name ?? (isAll ? "All Products" : initialTitle);
+  const title = category?.name ?? (isAll ? navItem?.label ?? "All Products" : initialTitle);
   const activeCount = countActiveListingFilters(query);
   const chips = buildActiveChips(query, filters);
   const isRefreshing = listing.isPlaceholderData;
@@ -149,7 +173,11 @@ export function CategoryListingView({ categoryKey, initialTitle }: CategoryListi
   const applyQuery = React.useCallback(
     (next: ListingQuery) => {
       const qs = serializeListingQuery(next).toString();
-      router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+      // The serializer only knows filter params; carry the nav marker over.
+      const params = new URLSearchParams(qs);
+      if (navId) params.set("nav", navId);
+      const nextQs = params.toString();
+      router.replace(nextQs ? `${pathname}?${nextQs}` : pathname, { scroll: false });
 
       // Bring the top of the results into view if the shopper has scrolled past it.
       const top = resultsRef.current?.getBoundingClientRect().top;
@@ -157,7 +185,7 @@ export function CategoryListingView({ categoryKey, initialTitle }: CategoryListi
         window.scrollTo({ top: window.scrollY + top - 96, behavior: "smooth" });
       }
     },
-    [pathname, router]
+    [navId, pathname, router]
   );
 
   const clearAll = React.useCallback(
@@ -182,47 +210,98 @@ export function CategoryListingView({ categoryKey, initialTitle }: CategoryListi
     return () => observer.disconnect();
   }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
 
+  // A nav item's landing page (e.g. Mens) is introduced by its image strip alone.
+  const hideTitle = isAll && isGroupedNav;
+
+  // The current page is the <h1> right below, so the trail stops at its parent
+  // (or at Home when there is none) instead of repeating the title.
   const breadcrumb = [
     ...(isAll ? [] : [{ label: "Shop All", href: categoryHref({ slug: "all", id: "all" }) }]),
     ...(category?.ancestors ?? []).map((a) => ({ label: a.name, href: categoryHref(a) })),
-    { label: title },
   ];
 
   return (
     <div className="min-h-screen bg-theme-bg">
       {/* Header */}
-      <header className="border-b border-theme-border bg-theme-surface">
-        <div className="mx-auto w-full max-w-7xl 2xl:max-w-[1600px] px-4 sm:px-6 lg:px-8 py-5 sm:py-7">
-          <Breadcrumb items={breadcrumb} className="text-xs sm:text-sm" />
-          <div className="mt-3 flex flex-wrap items-end justify-between gap-2">
+      <header className="border-b border-theme-border bg-gradient-to-b from-theme-primary-light/60 via-theme-surface to-theme-surface">
+        <div className="mx-auto w-full max-w-7xl 2xl:max-w-[1600px] px-4 sm:px-6 lg:px-8 pt-5 pb-4 sm:pt-7 sm:pb-6">
+          {breadcrumb.length > 0 && <Breadcrumb items={breadcrumb} className="text-xs sm:text-sm" />}
+          <div className={`${hideTitle ? "" : "mt-3 "}flex flex-wrap items-end justify-between gap-2`}>
             <div className="min-w-0">
-              <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-theme-text-primary">
+              <h1
+                className={
+                  hideTitle
+                    ? "sr-only"
+                    : "text-2xl sm:text-4xl font-extrabold tracking-tight text-theme-text-primary"
+                }
+              >
                 {title}
               </h1>
+              {!hideTitle && (
+                <span className="mt-2 block h-1 w-12 rounded-full bg-theme-primary" aria-hidden />
+              )}
               {category?.description && (
                 <p className="mt-1.5 max-w-3xl text-sm text-theme-text-subtle line-clamp-2">
                   {category.description}
                 </p>
               )}
             </div>
-            {total !== undefined && (
-              <p className="text-sm text-theme-text-muted" aria-live="polite">
-                {total} product{total === 1 ? "" : "s"}
-              </p>
-            )}
           </div>
 
-          {subcategories.length > 0 && (
-            <nav aria-label={isAll ? "Categories" : "Subcategories"} className="mt-4 -mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
-              {subcategories.map((sub) => (
-                <Link
-                  key={sub.id}
-                  href={categoryHref(sub)}
-                  className="shrink-0 rounded-full border border-theme-border-input bg-theme-surface px-3.5 py-1.5 text-xs font-semibold text-theme-text-secondary transition-colors hover:border-theme-primary hover:text-theme-primary"
-                >
-                  {sub.name}
-                </Link>
-              ))}
+          {stripTiles.length > 0 && (
+            <nav
+              aria-label={isAll ? "Categories" : "Subcategories"}
+              className="mt-6 -mx-4 flex gap-4 overflow-x-auto px-4 pb-3 pt-2 sm:-mx-6 sm:px-6 sm:gap-7 lg:-mx-8 lg:px-8 scrollbar-hide"
+            >
+              {stripTiles.map((sub) => {
+                const isActive = sub.id === activeSubcategoryId;
+                return (
+                  <Link
+                    key={sub.id}
+                    href={withNavParam(withGenderParam(categoryHref(sub), navItem?.gender), navId)}
+                    aria-current={isActive ? "page" : undefined}
+                    className="group flex w-[76px] shrink-0 flex-col items-center gap-2.5 sm:w-28"
+                  >
+                    <span
+                      className={`relative flex h-[68px] w-[68px] items-center justify-center overflow-hidden rounded-full bg-theme-surface-alt shadow-sm transition-all duration-300 sm:h-24 sm:w-24 ${
+                        isActive
+                          ? "scale-105 ring-[3px] ring-theme-primary ring-offset-[3px] shadow-lg"
+                          : "ring-1 ring-theme-border group-hover:-translate-y-1 group-hover:shadow-lg group-hover:ring-2 group-hover:ring-theme-primary"
+                      }`}
+                    >
+                      {sub.image ? (
+                        <Image
+                          src={sub.image}
+                          alt={sub.name}
+                          fill
+                          sizes="96px"
+                          unoptimized
+                          className="object-cover object-top transition-transform duration-500 group-hover:scale-110"
+                        />
+                      ) : (
+                        <span className="text-xl font-bold text-theme-text-muted sm:text-2xl">
+                          {sub.name.charAt(0).toUpperCase()}
+                        </span>
+                      )}
+                    </span>
+                    <span
+                      className={`text-center text-[11px] uppercase tracking-wider transition-colors sm:text-[13px] ${
+                        isActive
+                          ? "font-extrabold text-theme-primary"
+                          : "font-semibold text-theme-text-secondary group-hover:text-theme-primary"
+                      }`}
+                    >
+                      {sub.name}
+                    </span>
+                    <span
+                      aria-hidden
+                      className={`-mt-1 h-0.5 rounded-full bg-theme-primary transition-all duration-300 ${
+                        isActive ? "w-6 opacity-100" : "w-0 opacity-0 group-hover:w-4 group-hover:opacity-60"
+                      }`}
+                    />
+                  </Link>
+                );
+              })}
             </nav>
           )}
         </div>

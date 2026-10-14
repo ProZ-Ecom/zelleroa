@@ -134,7 +134,7 @@ function buildDefaults(initialData?: Partial<ItemEntityFormValues>): ItemEntityF
     sku: initialData?.sku || "",
     shortDescription: initialData?.shortDescription || "",
     description: initialData?.description || "",
-    basePrice: initialData?.basePrice ?? 0,
+    basePrice: initialData?.basePrice ?? "" as unknown as number,
     isFeatured: initialData?.isFeatured ?? false,
     isNewArrival: initialData?.isNewArrival ?? false,
     newArrivalUntil: initialData?.newArrivalUntil ?? "",
@@ -245,7 +245,8 @@ function ItemEntityForm({
               name="basePrice"
               type="number"
               label="Price (₹)"
-              placeholder="e.g. 599"
+              placeholder="0"
+               onFocus={(e) => e.target.select()}
               description={`What customers pay for every color and size of this ${entityLower}. Only sizes that cost more or less need their own price later.`}
               required
             />

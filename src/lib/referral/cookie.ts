@@ -41,6 +41,15 @@ export function clearReferralCookie<T>(response: NextResponse<T>): NextResponse<
   return response;
 }
 
+/**
+ * Redirect with a host-less `Location` (e.g. `/ref/ZEL-X`), so the browser stays on whichever
+ * domain it used. Behind a reverse proxy the server only knows its internal address
+ * (e.g. http://localhost:3012), so an absolute URL built from `request.url` would send visitors there.
+ */
+export function relativeRedirect(path: string, status: 302 | 307 = 307): NextResponse {
+  return new NextResponse(null, { status, headers: { Location: path } });
+}
+
 /** Only same-site relative paths may be used as a post-landing destination (no open redirect). */
 export function safeLandingPath(to: string | null | undefined): string {
   if (!to || !to.startsWith("/") || to.startsWith("//") || to.startsWith("/\\") || /[\r\n]/.test(to)) return "/";
@@ -54,7 +63,7 @@ export function safeLandingPath(to: string | null | undefined): string {
  * (Edge), so it only hands off; it never writes the cookie itself, which is what stops a junk
  * code from overwriting a valid attribution.
  */
-export function referralLandingRedirect(request: NextRequest): URL | null {
+export function referralLandingRedirect(request: NextRequest): string | null {
   if (request.method !== "GET" && request.method !== "HEAD") return null;
   if (request.nextUrl.pathname.startsWith("/ref/")) return null;
   const params = request.nextUrl.searchParams;
@@ -65,8 +74,6 @@ export function referralLandingRedirect(request: NextRequest): URL | null {
   rest.delete("ref");
   rest.delete("agent");
   const qs = rest.toString();
-  const url = request.nextUrl.clone();
-  url.pathname = `/ref/${encodeURIComponent(ref)}`;
-  url.search = `?to=${encodeURIComponent(request.nextUrl.pathname + (qs ? `?${qs}` : ""))}`;
-  return url;
+  const to = encodeURIComponent(request.nextUrl.pathname + (qs ? `?${qs}` : ""));
+  return `/ref/${encodeURIComponent(ref)}?to=${to}`;
 }

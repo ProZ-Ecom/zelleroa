@@ -42,7 +42,14 @@ export default auth(async (req) => {
 
   // `?ref=<code>` on any page: validate the code on the server (see /ref/[code]) before it is stored.
   const referralLanding = referralLandingRedirect(req);
-  if (referralLanding) return NextResponse.redirect(referralLanding);
+  if (referralLanding) {
+    // Middleware must return an absolute URL; `nextUrl` carries the host the visitor used.
+    const url = req.nextUrl.clone();
+    const [path, search = ""] = referralLanding.split("?");
+    url.pathname = path;
+    url.search = search ? `?${search}` : "";
+    return NextResponse.redirect(url);
+  }
 
   const nextAuthUser = req.auth?.user;
 
