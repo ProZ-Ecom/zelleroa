@@ -2,7 +2,7 @@ import NextAuth from "next-auth";
 import { NextResponse } from "next/server";
 import { authConfig } from "@/lib/auth/auth.config";
 import { getRoleHome } from "@/lib/auth/role-routes";
-import { referralLandingRedirect } from "@/lib/referral/cookie";
+import { referralLandingRedirect, relativeRedirect } from "@/lib/referral/cookie";
 
 const { auth } = NextAuth(authConfig);
 
@@ -42,7 +42,7 @@ export default auth(async (req) => {
 
   // `?ref=<code>` on any page: validate the code on the server (see /ref/[code]) before it is stored.
   const referralLanding = referralLandingRedirect(req);
-  if (referralLanding) return NextResponse.redirect(referralLanding);
+  if (referralLanding) return relativeRedirect(referralLanding);
 
   const nextAuthUser = req.auth?.user;
 
