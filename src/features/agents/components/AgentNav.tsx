@@ -74,6 +74,23 @@ export function AgentShell({
   const view = useSearchParams()?.get("view") === "own" ? "own" : "customers";
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [percent, setPercent] = useState(completionPercent);
+
+  useEffect(() => {
+    setPercent(completionPercent);
+  }, [completionPercent]);
+
+  useEffect(() => {
+    const handler = (event: Event) => {
+      const detail = (event as CustomEvent).detail as { completion?: { percent?: number }; percent?: number } | undefined;
+      const next = detail?.completion?.percent ?? (typeof detail?.percent === "number" ? detail.percent : null);
+      if (typeof next === "number") {
+        setPercent(next);
+      }
+    };
+    window.addEventListener("agent-profile-updated", handler);
+    return () => window.removeEventListener("agent-profile-updated", handler);
+  }, []);
 
   useEffect(() => {
     try {
@@ -171,7 +188,7 @@ export function AgentShell({
 
       <div className="shrink-0 border-t border-neutral-800 p-3">
         <div className={cn("flex items-center gap-3 rounded-lg px-2 py-2", compact && "justify-center px-0")}>
-          <ProfileAvatarRing percent={completionPercent} size={44} hideBadge={compact}>
+          <ProfileAvatarRing percent={percent} size={44} hideBadge={compact}>
             <span className="flex h-full w-full items-center justify-center bg-neutral-700 text-sm font-bold text-white">
               {initial}
             </span>
@@ -249,7 +266,7 @@ export function AgentShell({
           <h1 className="min-w-0 flex-1 truncate text-base font-semibold text-neutral-900">{current?.label ?? "Sales Partner Portal"}</h1>
           <div className="flex items-center gap-2">
             <span className="hidden text-sm text-neutral-600 sm:inline">{name}</span>
-            <ProfileAvatarRing percent={completionPercent} size={44}>
+            <ProfileAvatarRing percent={percent} size={44}>
               <span className="flex h-full w-full items-center justify-center bg-neutral-900 text-sm font-bold text-white">{initial}</span>
             </ProfileAvatarRing>
           </div>

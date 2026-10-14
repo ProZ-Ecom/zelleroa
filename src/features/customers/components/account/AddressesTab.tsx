@@ -781,7 +781,7 @@ export function AddressesTab() {
                 tabIndex={-1}
                 placeholder={isPincodeLoading ? "Fetching city..." : "Auto-filled from PIN Code"}
                 value={formData.city}
-                className={`border rounded-lg px-3.5 py-2.5 text-xs text-theme-text-primary bg-theme-surface-warm transition-colors outline-none cursor-default select-none shadow-none ${
+                className={`border rounded-lg px-3.5 py-2.5 text-xs text-theme-text-muted bg-theme-surface-alt/70 transition-colors outline-none cursor-not-allowed select-none shadow-none ${
                   fieldErrors.city
                     ? "border-red-500 bg-red-50/20 ring-1 ring-red-500/40"
                     : "border-theme-border-input"
@@ -794,7 +794,7 @@ export function AddressesTab() {
               )}
             </div>
 
-            {/* State (Auto-filled, ReadOnly, Normal Background) */}
+            {/* State (Auto-filled, ReadOnly, Disabled Styling) */}
             <div className="flex flex-col gap-1.5">
               <label className="text-xs font-semibold text-theme-text-primary flex items-center justify-between">
                 <span>
@@ -808,7 +808,7 @@ export function AddressesTab() {
                 tabIndex={-1}
                 placeholder={isPincodeLoading ? "Fetching state..." : "Auto-filled from PIN Code"}
                 value={formData.state}
-                className={`border rounded-lg px-3.5 py-2.5 text-xs text-theme-text-primary bg-theme-surface-warm transition-colors outline-none cursor-default select-none shadow-none ${
+                className={`border rounded-lg px-3.5 py-2.5 text-xs text-theme-text-muted bg-theme-surface-alt/70 transition-colors outline-none cursor-not-allowed select-none shadow-none ${
                   fieldErrors.state
                     ? "border-red-500 bg-red-50/20 ring-1 ring-red-500/40"
                     : "border-theme-border-input"

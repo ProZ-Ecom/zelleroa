@@ -287,14 +287,14 @@ export default function CheckoutPage() {
     });
   };
 
-  // Auto-fill city and state from the PIN code; user can still edit them afterwards.
+  // Auto-fill city and state from the PIN code. City and state are disabled/readOnly.
   const handlePincodeChange = (value: string) => {
     const pincode = value.replace(/\D/g, "").slice(0, 6);
     setArea("");
     setNewAddressForm((prev) => ({
       ...prev,
       pincode,
-      ...(pincode.length < 6 ? { city: "", state: "Tamil Nadu" } : {}),
+      ...(pincode.length < 6 ? { city: "", state: "" } : {}),
     }));
 
     if (fieldErrors.pincode) {
@@ -1094,20 +1094,23 @@ export default function CheckoutPage() {
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-theme-text-secondary mb-1">
-                      City <span className="text-red-500 font-bold">*</span>
+                    <label className="block text-xs font-semibold text-theme-text-secondary mb-1 flex items-center justify-between">
+                      <span>
+                        City <span className="text-red-500 font-bold">*</span>
+                      </span>
+                      <span className="text-[10px] text-theme-text-muted font-normal">Auto-filled</span>
                     </label>
                     <input
                       type="text"
-                      placeholder="e.g. Salem"
+                      readOnly
+                      tabIndex={-1}
+                      placeholder={isPincodeLoading ? "Fetching city..." : "Auto-filled from pincode"}
                       value={newAddressForm.city}
-                      onChange={(e) => handleFieldChange("city", e.target.value)}
-                      onBlur={() => handleFieldBlur("city")}
                       className={cn(
-                        "w-full min-h-[44px] rounded-xl border bg-white px-3 text-xs text-theme-text-primary placeholder:text-theme-text-muted focus:outline-none transition-colors",
+                        "w-full min-h-[44px] rounded-xl border bg-theme-surface-alt/70 px-3 text-xs text-theme-text-primary cursor-not-allowed select-none shadow-none focus:outline-none transition-colors",
                         fieldErrors.city
-                          ? "border-red-500 bg-red-50/10 focus:border-red-500 focus:ring-1 focus:ring-red-500/50 ring-1 ring-red-500/40"
-                          : "border-theme-border-input focus:border-theme-primary"
+                          ? "border-red-500 bg-red-50/10 ring-1 ring-red-500/40"
+                          : "border-theme-border-input"
                       )}
                     />
                     {fieldErrors.city && (
@@ -1118,20 +1121,23 @@ export default function CheckoutPage() {
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-theme-text-secondary mb-1">
-                      State <span className="text-red-500 font-bold">*</span>
+                    <label className="block text-xs font-semibold text-theme-text-secondary mb-1 flex items-center justify-between">
+                      <span>
+                        State <span className="text-red-500 font-bold">*</span>
+                      </span>
+                      <span className="text-[10px] text-theme-text-muted font-normal">Auto-filled</span>
                     </label>
                     <input
                       type="text"
-                      placeholder="e.g. Tamil Nadu"
+                      readOnly
+                      tabIndex={-1}
+                      placeholder={isPincodeLoading ? "Fetching state..." : "Auto-filled from pincode"}
                       value={newAddressForm.state}
-                      onChange={(e) => handleFieldChange("state", e.target.value)}
-                      onBlur={() => handleFieldBlur("state")}
                       className={cn(
-                        "w-full min-h-[44px] rounded-xl border bg-white px-3 text-xs text-theme-text-primary placeholder:text-theme-text-muted focus:outline-none transition-colors",
+                        "w-full min-h-[44px] rounded-xl border bg-theme-surface-alt/70 px-3 text-xs text-theme-text-primary cursor-not-allowed select-none shadow-none focus:outline-none transition-colors",
                         fieldErrors.state
-                          ? "border-red-500 bg-red-50/10 focus:border-red-500 focus:ring-1 focus:ring-red-500/50 ring-1 ring-red-500/40"
-                          : "border-theme-border-input focus:border-theme-primary"
+                          ? "border-red-500 bg-red-50/10 ring-1 ring-red-500/40"
+                          : "border-theme-border-input"
                       )}
                     />
                     {fieldErrors.state && (

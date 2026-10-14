@@ -2,12 +2,13 @@
 
 import React, { useState } from "react";
 import { Check } from "lucide-react";
-import { formatPrice } from "@/lib/utils";
+import { formatPrice, getImageUrl } from "@/lib/utils";
 import type { CustomerProfileResponse } from "../../types";
 import type { OrderDetailResponse } from "@/features/orders/types";
 import { useAddToCartMutation } from "../../hooks/use-customer-cart";
 import { ProfileCompletionMeter } from "@/components/ui/ProfileCompletionMeter";
 import { calculateCustomerCompletion } from "../../lib/profile-completion";
+import { ProductImage } from "@/components/common/ProductImage";
 
 interface DashboardTabProps {
   profile?: CustomerProfileResponse | null;
@@ -127,23 +128,41 @@ export function DashboardTab({
   );
 
   // Extract past ordered items for "Buy Again"
-  const pastItemsMap = new Map<string, { variantId?: string; name: string; price: number }>();
+  interface BuyAgainItem {
+    variantId?: string;
+    name: string;
+    price: number;
+    image: string | null;
+    variantName?: string | null;
+  }
+
+  const pastItemsMap = new Map<string, BuyAgainItem>();
   orders.forEach((o) => {
-    o.items?.forEach((item) => {
-      const key = item.productName || "";
+    o.items?.forEach((item: any) => {
+      const key = item.productName || item.product_name_snapshot || "";
       const vId = item.variantId ? String(item.variantId) : undefined;
+      const imgSrc =
+        item.primaryImage ||
+        item.image ||
+        item.productImage ||
+        item.variant?.product_variant_images?.[0]?.image_url ||
+        item.product?.images?.[0]?.image_url ||
+        null;
+
       if (key && !pastItemsMap.has(key)) {
         pastItemsMap.set(key, {
           variantId: vId,
           name: key,
           price: typeof item.unitPrice === "number" ? item.unitPrice : Number(item.unitPrice || 0),
+          image: imgSrc,
+          variantName: item.variantName || item.variant_snapshot || null,
         });
       }
     });
   });
   const buyAgainItems = Array.from(pastItemsMap.values()).slice(0, 4);
 
-  const handleBuyAgain = async (item: { variantId?: string; name: string; price: number }) => {
+  const handleBuyAgain = async (item: BuyAgainItem) => {
     if (!item.variantId) {
       onNavigateTab("orders");
       return;
@@ -475,12 +494,16 @@ export function DashboardTab({
             {buyAgainItems.map((item, idx) => (
               <div
                 key={`${item.name}-${idx}`}
-                className="border border-theme-border-subtle rounded-xl overflow-hidden bg-theme-surface-warm flex flex-col justify-between"
+                className="border border-theme-border-subtle rounded-xl overflow-hidden bg-theme-surface-warm flex flex-col justify-between shadow-2xs hover:shadow-xs transition-shadow"
               >
-                <div className="h-28 bg-[repeating-linear-gradient(45deg,#F6ECDC,#F6ECDC_8px,#EFE2CD_8px,#EFE2CD_16px)] flex items-center justify-center">
-                  <span className="text-[10px] font-mono text-theme-text-muted uppercase tracking-wider">
-                    {item.name.slice(0, 14)}
-                  </span>
+                <div className="relative h-36 w-full overflow-hidden bg-theme-surface-alt border-b border-theme-border-subtle">
+                  <ProductImage
+                    src={item.image ? getImageUrl(item.image) : null}
+                    alt={item.name}
+                    fallbackText={item.name}
+                    containerClassName="w-full h-full"
+                    className="w-full h-full object-cover transition-transform duration-300 hover:scale-105"
+                  />
                 </div>
 
                 <div className="p-3.5 flex flex-col justify-between flex-1 gap-3">
@@ -488,6 +511,11 @@ export function DashboardTab({
                     <div className="text-xs font-semibold uppercase text-theme-text-primary line-clamp-2 min-h-[32px]">
                       {item.name}
                     </div>
+                    {item.variantName && item.variantName !== item.name && (
+                      <div className="text-[11px] text-theme-text-muted truncate mt-0.5">
+                        {item.variantName}
+                      </div>
+                    )}
                     <div className="text-sm font-semibold text-theme-primary mt-1.5">
                       {formatPrice(item.price)}
                     </div>

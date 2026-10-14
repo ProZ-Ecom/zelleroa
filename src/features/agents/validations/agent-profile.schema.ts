@@ -6,7 +6,7 @@ export const aadhaarRegex = /^[2-9]\d{11}$/;
 export const panRegex = /^[A-Z]{5}\d{4}[A-Z]$/;
 export const ifscRegex = /^[A-Z]{4}0[A-Z0-9]{6}$/;
 export const accountNumberRegex = /^\d{9,18}$/;
-export const pincodeRegex = /^\d{6}$/;
+export const pincodeRegex = /^[1-9]\d{5}$/;
 
 export const GENDERS = ["male", "female", "other", "prefer_not_to_say"] as const;
 export const GENDER_LABELS: Record<(typeof GENDERS)[number], string> = {
@@ -55,13 +55,36 @@ export const personalSchema = z.object({
 });
 
 export const addressSchema = z.object({
-  line1: opt(text("Address line 1", 200)),
+  line1: opt(z.string().trim().min(3, "Address line 1 must be at least 3 characters").max(200, "Address line 1 is too long")),
   line2: opt(z.string().trim().max(200)),
-  area: opt(text("Area / street")),
+  area: opt(z.string().trim().max(100)),
   city: opt(text("City", 100)),
   district: opt(text("District", 100)),
   state: opt(text("State", 100)),
-  pincode: opt(z.string().trim().regex(pincodeRegex, "Pincode must be 6 digits")),
+  pincode: opt(
+    z
+      .string()
+      .transform(digitsOnly)
+      .superRefine((v, ctx) => {
+        if (!/^\d+$/.test(v)) {
+          ctx.addIssue({ code: "custom", message: "Pincode must contain only numbers" });
+          return;
+        }
+        if (v.length !== 6) {
+          ctx.addIssue({
+            code: "custom",
+            message:
+              v.length > 6
+                ? `Pincode cannot exceed 6 digits (entered ${v.length} digits)`
+                : `Pincode must be exactly 6 digits (entered ${v.length} digits)`,
+          });
+          return;
+        }
+        if (!/^[1-9]/.test(v)) {
+          ctx.addIssue({ code: "custom", message: "Invalid PIN code: Indian PIN codes cannot start with 0" });
+        }
+      })
+  ),
   country: opt(text("Country", 100)),
 });
 
@@ -70,14 +93,32 @@ export const kycSchema = z.object({
     z
       .string()
       .transform(digitsOnly)
-      .refine((v) => aadhaarRegex.test(v), "Aadhaar number must be 12 digits")
+      .superRefine((v, ctx) => {
+        if (!/^\d+$/.test(v)) {
+          ctx.addIssue({ code: "custom", message: "Aadhaar number must contain only numbers" });
+          return;
+        }
+        if (v.length !== 12) {
+          ctx.addIssue({
+            code: "custom",
+            message:
+              v.length > 12
+                ? `Aadhaar number cannot exceed 12 digits (entered ${v.length} digits)`
+                : `Aadhaar number must be exactly 12 digits (entered ${v.length} digits)`,
+          });
+          return;
+        }
+        if (!/^[2-9]/.test(v)) {
+          ctx.addIssue({ code: "custom", message: "Aadhaar number cannot start with 0 or 1" });
+        }
+      })
   ),
   pan: opt(
     z
       .string()
       .trim()
       .toUpperCase()
-      .refine((v) => panRegex.test(v), "PAN must look like ABCDE1234F")
+      .refine((v) => panRegex.test(v), "PAN must be 10 characters (e.g. ABCDE1234F)")
   ),
 });
 

@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { usePincodeLookup } from "@/features/addresses/hooks/use-pincode-lookup";
+import { Select } from "@/components/ui/select";
 import { fieldCls } from "./shared";
 import { OrderField, type AddressValues, type FieldErrors } from "./order-field";
 
@@ -50,11 +51,10 @@ export function AgentAddressFields({
     // Editing the pincode invalidates whatever the previous one filled in.
     onChange({ ...value, pincode: digits, city: "", state: "" });
   };
-  const onArea = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const next = e.target.value;
+  const onAreaChange = (next: string) => {
     setArea(next);
     const prevWasArea = !value.addressLine2.trim() || value.addressLine2 === area;
-    if (next && prevWasArea) onChange({ ...value, addressLine2: next });
+    if (next && prevWasArea) onChange({ ...latest.current, addressLine2: next });
   };
 
   const f = { errors, onClear };
@@ -67,22 +67,53 @@ export function AgentAddressFields({
       <div className="sm:col-span-2">
         <OrderField name="pincode" {...f} placeholder="Pincode (enter this first)" inputMode="numeric" maxLength={6} value={value.pincode} onChange={onPincode} />
         {isLoading && <p className="mt-1 text-xs text-neutral-500">Checking pincode…</p>}
-        {lookupError && !isLoading && <p className="mt-1 text-xs text-amber-600">{lookupError}. You can type the city and state yourself.</p>}
+        {lookupError && !isLoading && <p className="mt-1 text-xs text-red-600">{lookupError}. Please enter a valid 6-digit pincode.</p>}
       </div>
 
       {postOffices.length > 0 && (
-        <select className={`${fieldCls} sm:col-span-2`} value={area} onChange={onArea} aria-label="Post office / area">
-          <option value="">Select your area / post office ({postOffices.length} found)…</option>
-          {postOffices.map((po) => (
-            <option key={po.value} value={po.value}>
-              {po.label}
-            </option>
-          ))}
-        </select>
+        <div className="sm:col-span-2">
+          <Select
+            portal={true}
+            options={postOffices.map((po) => ({
+              value: po.value,
+              label: `${po.label}${po.description ? ` (${po.description})` : ""}`,
+            }))}
+            value={area}
+            onValueChange={onAreaChange}
+            placeholder={`Select your area / post office (${postOffices.length} found)…`}
+            aria-label="Post office / area"
+          />
+        </div>
       )}
 
-      <OrderField name="state" {...f} placeholder="State" value={value.state} onChange={set("state")} disabled={!ready} />
-      <OrderField name="city" {...f} placeholder="City / District" value={value.city} onChange={set("city")} disabled={!ready} />
+      <div>
+        <label className="mb-1 block text-xs font-semibold text-neutral-600">
+          State <span className="text-[10px] font-normal text-neutral-400">(Auto-filled from pincode)</span>
+        </label>
+        <OrderField
+          name="state"
+          {...f}
+          placeholder={isLoading ? "Fetching state..." : "State (auto-filled)"}
+          value={value.state}
+          readOnly
+          tabIndex={-1}
+          className="pointer-events-none opacity-80"
+        />
+      </div>
+      <div>
+        <label className="mb-1 block text-xs font-semibold text-neutral-600">
+          City / District <span className="text-[10px] font-normal text-neutral-400">(Auto-filled from pincode)</span>
+        </label>
+        <OrderField
+          name="city"
+          {...f}
+          placeholder={isLoading ? "Fetching city..." : "City / District (auto-filled)"}
+          value={value.city}
+          readOnly
+          tabIndex={-1}
+          className="pointer-events-none opacity-80"
+        />
+      </div>
       <OrderField name="addressLine1" {...f} className="sm:col-span-2" placeholder={ready ? "Address line 1 (house no, street)" : "Enter pincode first"} value={value.addressLine1} onChange={set("addressLine1")} disabled={!ready} />
       <OrderField name="addressLine2" {...f} className="sm:col-span-2" placeholder="Address line 2 (optional)" value={value.addressLine2} onChange={set("addressLine2")} disabled={!ready} />
     </div>

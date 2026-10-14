@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { apiClient } from "@/lib/api/api-client";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { Select } from "@/components/ui/select";
 import type { AgentCustomerRow } from "../../services/agent.service";
 import { errorMessage, useAdminList, useAgentOptions } from "../../hooks/use-admin-agents";
 import { ButtonPager, Panel, SimpleTable, StatusBadge, TableSkeleton, dateOnly, money } from "../shared";
@@ -80,15 +81,19 @@ export function AdminAssignedCustomersSection({ agentId, agentActive }: { agentI
         <div className="grid items-end gap-2 p-4 sm:grid-cols-[1fr_1fr_auto_auto] sm:p-5">
           <label className="text-xs text-neutral-600">
             Move to
-            <select value={toAgent} onChange={(e) => setToAgent(e.target.value)} className="mt-1 w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm">
-              <option value="">Select active Sales Partner…</option>
-              {choices.map((o) => (
-                <option key={o.id} value={o.id}>
-                  {o.name}
-                  {o.agentCode ? ` (${o.agentCode})` : ""}
-                </option>
-              ))}
-            </select>
+            <div className="mt-1">
+              <Select
+                portal={true}
+                searchable={choices.length > 5}
+                placeholder="Select active Sales Partner…"
+                options={choices.map((o) => ({
+                  value: o.id,
+                  label: `${o.name}${o.agentCode ? ` (${o.agentCode})` : ""}`,
+                }))}
+                value={toAgent}
+                onValueChange={(val) => setToAgent(val)}
+              />
+            </div>
           </label>
           <label className="text-xs text-neutral-600">
             Reason (optional)
