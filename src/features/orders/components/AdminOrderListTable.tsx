@@ -763,6 +763,7 @@ export function AdminOrderListTable({
         title={`Ship via Courier${courierOrder ? ` - ${courierOrder.orderNumber}` : ""}`}
         description="Pick the courier and enter the tracking number from the booking receipt."
         size="sm"
+        bodyClassName="overflow-visible"
         footer={
           <>
             <Button variant="outline" onClick={() => setCourierOrder(null)}>
@@ -794,18 +795,30 @@ export function AdminOrderListTable({
           </>
         }
       >
-        <div className="space-y-3">
-          <Select
-            value={courierCode}
-            onChange={(e) => setCourierCode(e.target.value)}
-            options={COURIERS.map((c) => ({ value: c.code, label: c.name }))}
-          />
-          <Input
-            placeholder={getCourier(courierCode)?.placeholder}
-            value={consignmentNumber}
-            onChange={(e) => setConsignmentNumber(e.target.value)}
-            maxLength={50}
-          />
+        <div className="space-y-4">
+          <div className="space-y-1.5">
+            <label className="block text-xs font-semibold text-neutral-700">
+              Courier Partner
+            </label>
+            <Select
+              portal={true}
+              value={courierCode}
+              onValueChange={(val) => setCourierCode(val)}
+              onChange={(e) => setCourierCode(e.target.value)}
+              options={COURIERS.map((c) => ({ value: c.code, label: c.name }))}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <label className="block text-xs font-semibold text-neutral-700">
+              Tracking / Consignment Number
+            </label>
+            <Input
+              placeholder={getCourier(courierCode)?.placeholder}
+              value={consignmentNumber}
+              onChange={(e) => setConsignmentNumber(e.target.value)}
+              maxLength={50}
+            />
+          </div>
         </div>
       </FormModal>
 

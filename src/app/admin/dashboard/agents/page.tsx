@@ -78,21 +78,22 @@ export default function AdminAgentsPage() {
               Search
               <input className={fieldCls} value={draftSearch} onChange={(e) => setDraftSearch(e.target.value)} placeholder="Name, email, phone or AGT001" />
             </label>
-            <label className="flex min-w-[9rem] flex-1 flex-col gap-1 text-xs font-medium text-neutral-600 sm:flex-none">
-              Status
-              <select
-                className={fieldCls}
+            <div className="flex min-w-[9rem] flex-1 flex-col gap-1 text-xs font-medium text-neutral-600 sm:flex-none">
+              <span>Status</span>
+              <Select
                 value={status}
-                onChange={(e) => {
-                  setStatus(e.target.value);
+                onValueChange={(val) => {
+                  setStatus(val);
                   setPage(1);
                 }}
-              >
-                <option value="">All</option>
-                <option value="active">Active</option>
-                <option value="inactive">Blocked</option>
-              </select>
-            </label>
+                options={[
+                  { value: "", label: "All" },
+                  { value: "active", label: "Active" },
+                  { value: "inactive", label: "Blocked" },
+                ]}
+                className="w-full"
+              />
+            </div>
             <button type="submit" className="h-10 rounded-xl bg-neutral-900 px-4 text-sm font-semibold text-white hover:bg-neutral-800">
               Search
             </button>
@@ -127,15 +128,13 @@ export default function AdminAgentsPage() {
                   { header: "Approved", cell: (r) => money(r.summary.approvedCommission) },
                   { header: "Paid", cell: (r) => money(r.summary.paidCommission) },
                   { header: "Open payouts", cell: (r) => r.summary.openPayouts },
-                  { header: "Status", cell: (r) => (
-                      <div className="flex max-w-[220px] flex-col items-start gap-1">
-                        <StatusBadge status={r.isActive ? "active" : "blocked"} />
-                        {!r.isActive && r.blockReason && (
-                          <span className="line-clamp-2 text-[11px] leading-snug text-neutral-500" title={r.blockReason}>
-                            Reason: {r.blockReason}
-                          </span>
-                        )}
-                      </div>
+                  {
+                    header: "Status",
+                    cell: (r) => (
+                      <StatusBadge
+                        status={r.isActive ? "active" : "blocked"}
+                        title={!r.isActive && r.blockReason ? `Blocked reason: ${r.blockReason}` : undefined}
+                      />
                     ),
                   },
                   {
@@ -146,7 +145,25 @@ export default function AdminAgentsPage() {
                         <Link href={`/admin/dashboard/agents/${r.id}`} title="View" aria-label="View" className="rounded-lg p-1.5 text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900">
                           <Eye className="h-4 w-4" />
                         </Link>
-                        <button type="button" title="Edit" aria-label="Edit" onClick={() => setModal({ open: true, agent: { id: r.id, name: r.name, phone: r.phone, notes: r.notes } })} className="rounded-lg p-1.5 text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900">
+                        <button
+                          type="button"
+                          title="Edit"
+                          aria-label="Edit"
+                          onClick={() =>
+                            setModal({
+                              open: true,
+                              agent: {
+                                id: r.id,
+                                name: r.name,
+                                phone: r.phone,
+                                notes: r.notes,
+                                isActive: r.isActive,
+                                blockReason: r.blockReason,
+                              },
+                            })
+                          }
+                          className="rounded-lg p-1.5 text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900"
+                        >
                           <Pencil className="h-4 w-4" />
                         </button>
                         <button type="button" title={r.isActive ? "Block" : "Unblock"} aria-label={r.isActive ? "Block" : "Unblock"} onClick={() => (r.isActive ? setBlockTarget(r) : toggleActive(r))} className={r.isActive ? "rounded-lg p-1.5 text-red-600 hover:bg-red-50" : "rounded-lg p-1.5 text-emerald-700 hover:bg-emerald-50"}>

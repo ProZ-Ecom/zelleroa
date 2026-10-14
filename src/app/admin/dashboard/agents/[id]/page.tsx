@@ -103,8 +103,16 @@ export default function AdminAgentDetailPage() {
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2">
                   <h2 className="truncate text-lg font-bold tracking-tight text-neutral-900">{agent.name}</h2>
-                  <StatusBadge status={agent.isActive ? "active" : "blocked"} />
+                  <StatusBadge
+                    status={agent.isActive ? "active" : "blocked"}
+                    title={!agent.isActive && agent.blockReason ? `Blocked reason: ${agent.blockReason}` : undefined}
+                  />
                 </div>
+                {!agent.isActive && agent.blockReason && (
+                  <div className="mt-2 inline-flex max-w-xl items-center gap-2 rounded-xl border border-red-200 bg-red-50/80 px-3 py-1.5 text-xs text-red-800">
+                    <span className="font-semibold">Reason for blocking:</span> {agent.blockReason}
+                  </div>
+                )}
                 <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 text-sm text-neutral-600">
                   <span className="inline-flex items-center gap-1.5"><BadgeCheck className="h-3.5 w-3.5 text-neutral-400" />{agent.agentCode ?? "—"}</span>
                   <span className="inline-flex items-center gap-1.5"><Mail className="h-3.5 w-3.5 text-neutral-400" />{agent.email ?? "—"}</span>
@@ -231,7 +239,18 @@ export default function AdminAgentDetailPage() {
       <AgentFormModal
         open={editing}
         onClose={() => setEditing(false)}
-        agent={agent ? { id: agent.id, name: agent.name, phone: agent.phone, notes: agent.notes } : null}
+        agent={
+          agent
+            ? {
+                id: agent.id,
+                name: agent.name,
+                phone: agent.phone,
+                notes: agent.notes,
+                isActive: agent.isActive,
+                blockReason: agent.blockReason,
+              }
+            : null
+        }
       />
     </PageContainer>
   );

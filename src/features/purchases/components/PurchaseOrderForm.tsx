@@ -5,6 +5,7 @@ import { Plus, Trash2, Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
+import { Select } from "@/components/ui/select";
 import { useVendors, usePurchaseProducts } from "../hooks";
 import type { PurchaseOrderResponse, PurchaseProductOption } from "../types";
 
@@ -142,18 +143,17 @@ export function PurchaseOrderForm({ initial, isLoading, submitLabel, mode = "dra
       <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
         <div>
           <label className={labelCls}>Vendor *</label>
-          <select
+          <Select
             value={vendorId}
-            onChange={(e) => setVendorId(e.target.value)}
-            className="h-11 w-full rounded-lg border border-neutral-200 bg-white px-3 text-sm outline-none focus:border-secondary-600"
-          >
-            <option value="">Select vendor</option>
-            {vendors.map((v) => (
-              <option key={v.id} value={v.id}>
-                {v.name} ({v.code})
-              </option>
-            ))}
-          </select>
+            onValueChange={(val) => setVendorId(val)}
+            options={vendors.map((v) => ({
+              value: v.id,
+              label: `${v.name} (${v.code})`,
+            }))}
+            placeholder="Select vendor"
+            searchable={vendors.length > 5}
+            className="w-full"
+          />
         </div>
         <div>
           <label className={labelCls}>Invoice number</label>

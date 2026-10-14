@@ -37,10 +37,11 @@ export function humanize(value: string | null | undefined) {
   return COMMISSION_STATUS_LABELS[value] ?? PAYOUT_STATUS_LABELS[value] ?? value.replace(/_/g, " ").replace(/^\w/, (c) => c.toUpperCase());
 }
 
-export function StatusBadge({ status, className }: { status: string | null | undefined; className?: string }) {
+export function StatusBadge({ status, className, title }: { status: string | null | undefined; className?: string; title?: string }) {
   if (!status) return <span className="text-neutral-400">—</span>;
   return (
     <span
+      title={title}
       className={cn(
         "inline-flex items-center whitespace-nowrap rounded-full border px-2.5 py-0.5 text-xs font-semibold",
         STATUS_STYLES[status] ?? "bg-neutral-100 text-neutral-700 border-neutral-200",

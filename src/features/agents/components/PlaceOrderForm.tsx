@@ -201,10 +201,13 @@ export function PlaceOrderForm() {
               searchable={customers.length > 5}
               className={cn("w-full", errors.customerId && "[&_.ui-dropdown-trigger]:!border-red-500")}
               placeholder="Select one of your assigned customers…"
-              options={customers.map((c) => ({
-                value: c.id,
-                label: `${c.name}${c.customerCode ? ` (${c.customerCode})` : ""}${c.phone ? ` · ${c.phone}` : ""}`,
-              }))}
+              options={customers.map((c) => {
+                const code = c.customerCode ? (c.customerCode.length > 12 ? c.customerCode.slice(0, 8) + "…" : c.customerCode) : "";
+                return {
+                  value: c.id,
+                  label: `${c.name}${code ? ` (${code})` : ""}${c.phone ? ` · ${c.phone}` : ""}`,
+                };
+              })}
               value={customerId}
               onValueChange={(val) => {
                 setCustomerId(val);

@@ -483,7 +483,7 @@ export const agentService = {
         return {
           id: u.uuid ?? String(u.id),
           name: u.name,
-          customerCode: u.cust_id,
+          customerCode: u.cust_id ?? u.uuid ?? String(u.id),
           phone: u.phone,
           email: u.email,
           contact: u.email ?? u.phone ?? null,

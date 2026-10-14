@@ -135,7 +135,14 @@ export function AdminAssignedCustomersSection({ agentId, agentActive }: { agentI
                 cell: (r) => <input type="checkbox" aria-label={`Select ${r.name}`} checked={selected.has(r.id)} onChange={() => toggle(r.id)} />,
               },
               { header: "Customer", cell: (r) => <strong>{r.name}</strong> },
-              { header: "ID", cell: (r) => <span className="font-mono text-xs">{r.customerCode ?? "—"}</span> },
+              {
+                header: "ID",
+                cell: (r) => (
+                  <span className="font-mono text-xs text-neutral-700" title={r.customerCode || r.id}>
+                    {r.customerCode || r.id || "—"}
+                  </span>
+                ),
+              },
               { header: "Mobile", cell: (r) => r.phone ?? "—" },
               { header: "Email", cell: (r) => r.email ?? "—" },
               { header: "Orders", cell: (r) => r.totalOrders },

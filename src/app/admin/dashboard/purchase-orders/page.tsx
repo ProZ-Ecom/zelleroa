@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { ExportButton } from "@/components/common/export-button";
 import { exportDataToCsv } from "@/lib/export-csv";
 import { SearchInput } from "@/components/ui/search-input";
+import { Select } from "@/components/ui/select";
 import { usePurchaseOrders } from "@/features/purchases/hooks";
 import {
   PurchaseStatusBadge,
@@ -127,21 +128,18 @@ export default function PurchaseOrdersPage() {
                 }}
                 className="w-full max-w-md"
               />
-              <select
+              <Select
                 value={status}
-                onChange={(e) => {
-                  setStatus(e.target.value as PurchaseStatus | "");
+                onValueChange={(val) => {
+                  setStatus(val as PurchaseStatus | "");
                   setPage(1);
                 }}
-                className="h-11 rounded-lg border border-neutral-200 bg-white px-3 text-sm outline-none focus:border-secondary-600"
-              >
-                <option value="">All statuses</option>
-                {purchaseStatusOptions.map((o) => (
-                  <option key={o.value} value={o.value}>
-                    {o.label}
-                  </option>
-                ))}
-              </select>
+                options={[
+                  { value: "", label: "All statuses" },
+                  ...purchaseStatusOptions,
+                ]}
+                className="w-full sm:w-52"
+              />
             </div>
             <div className="flex gap-3">
             <Button

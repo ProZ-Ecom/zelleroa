@@ -10,6 +10,7 @@ import { AdminTableSkeleton } from "@/components/admin/AdminTableSkeleton";
 import { DataTable } from "@/components/admin/data-table/DataTable";
 import { ErrorState } from "@/components/ui/error-state";
 import { SearchInput } from "@/components/ui/search-input";
+import { Select } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { ClearFiltersButton } from "@/components/common/clear-filters-button";
 import { ExportButton } from "@/components/common/export-button";
@@ -121,21 +122,16 @@ function CurrentStockContent() {
                 }}
                 className="w-full sm:w-48"
               />
-              <select
+              <Select
                 value={status}
-                onChange={(e) => {
-                  setStatus(e.target.value as StockStatus | "");
+                onValueChange={(val) => {
+                  setStatus(val as StockStatus | "");
                   setPage(1);
                 }}
-                className="h-11 rounded-xl border border-neutral-300 bg-white px-3 text-sm focus:border-secondary-600 focus:outline-none"
+                options={STATUSES}
+                className="w-full sm:w-48"
                 aria-label="Filter by stock status"
-              >
-                {STATUSES.map((s) => (
-                  <option key={s.value} value={s.value}>
-                    {s.label}
-                  </option>
-                ))}
-              </select>
+              />
               {hasFilters && (
                 <ClearFiltersButton
                   onClick={() => {

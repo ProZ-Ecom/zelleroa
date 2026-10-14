@@ -8,6 +8,7 @@ import { AdminTableSkeleton } from "@/components/admin/AdminTableSkeleton";
 import { DataTable } from "@/components/admin/data-table/DataTable";
 import { ErrorState } from "@/components/ui/error-state";
 import { SearchInput } from "@/components/ui/search-input";
+import { Select } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { ClearFiltersButton } from "@/components/common/clear-filters-button";
 import { ExportButton } from "@/components/common/export-button";
@@ -118,21 +119,16 @@ function MovementsContent() {
                 }}
                 className="w-full max-w-md"
               />
-              <select
+              <Select
                 value={type}
-                onChange={(e) => {
-                  setType(e.target.value as MovementType | "");
+                onValueChange={(val) => {
+                  setType(val as MovementType | "");
                   setPage(1);
                 }}
-                className="h-11 rounded-xl border border-neutral-300 bg-white px-3 text-sm focus:border-secondary-600 focus:outline-none"
+                options={TYPES}
+                className="w-full sm:w-48"
                 aria-label="Filter by movement type"
-              >
-                {TYPES.map((t) => (
-                  <option key={t.value} value={t.value}>
-                    {t.label}
-                  </option>
-                ))}
-              </select>
+              />
               <div className="flex items-center gap-2">
                 <Input
                   type="date"
