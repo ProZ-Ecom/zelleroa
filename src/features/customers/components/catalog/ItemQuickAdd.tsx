@@ -141,16 +141,16 @@ function SelectionBody({
 
         <Button
           type="button"
-          className="w-full"
+          className="w-full gap-2"
           onClick={submit}
           disabled={addToCart.isPending || !sel.purchasable}
         >
           {addToCart.isPending ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
+            <Loader2 className="h-4 w-4 animate-spin mr-2" />
           ) : (
-            <ShoppingBag className="h-4 w-4" />
+            <ShoppingBag className="h-4 w-4 mr-2" />
           )}
-          Add to Cart
+          <span>Add to Cart</span>
         </Button>
       </div>
     </>
@@ -228,10 +228,14 @@ export function ItemQuickAdd({
         type="button"
         onClick={handleClick}
         disabled={loading}
-        className="inline-flex w-full items-center justify-center gap-1.5 rounded-lg bg-theme-primary px-3 py-1.5 text-xs font-bold text-theme-primary-fg transition-colors hover:bg-theme-primary-hover disabled:opacity-60"
+        className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-theme-primary px-3 py-1.5 text-xs font-bold text-theme-primary-fg transition-colors hover:bg-theme-primary-hover disabled:opacity-60"
       >
-        {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ShoppingBag className="h-3.5 w-3.5" />}
-        Add to Cart
+        {loading ? (
+          <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />
+        ) : (
+          <ShoppingBag className="h-3.5 w-3.5 mr-1.5" />
+        )}
+        <span>Add to Cart</span>
       </button>
       {dialog && <SelectionDialog {...dialog} onClose={() => setDialog(null)} />}
     </>

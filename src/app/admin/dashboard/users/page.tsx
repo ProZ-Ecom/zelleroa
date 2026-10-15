@@ -56,11 +56,23 @@ const roleColors: Record<string, string> = {
 };
 
 export default function AdminUsersPage() {
+  const statusBadgeVariant = (status?: string) => {
+  switch (status?.toLowerCase()) {
+    case "active":
+      return "success";
+    case "inactive":
+      return "secondary";
+    default:
+      return "destructive";
+  }
+};
   const [modalMode, setModalMode] = useState<ModalMode>(null);
   const [selectedUser, setSelectedUser] = useState<UserListItem | null>(null);
   const [deleteId, setDeleteId] = useState<string | number | null>(null);
 
- const { data, isLoading, error, refetch } = useUsers({ page: 1, limit: 100 });
+  const [page, setPage] = useState(1);
+const [pageSize, setPageSize] = useState(20);
+const { data, isLoading, error, refetch } = useUsers({ page, limit: pageSize });
   const createMutation = useCreateUser();
   const updateMutation = useUpdateUser();
   const deleteMutation = useDeleteUser();
@@ -350,11 +362,7 @@ export default function AdminUsersPage() {
               setPage(1);
             }}
             className="bg-white border-0"
-            emptyMessage={
-              search.trim() || statusFilter !== "all"
-                ? "No users matched your filter criteria."
-                : "No users found. Click '+ Add User' to create a new user account."
-            }
+           emptyMessage="No users found. Click '+ Add User' to create a new user account."
           />
         </div>
       </AdminContent>
@@ -417,7 +425,7 @@ export default function AdminUsersPage() {
                 type="password"
                 className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
                 placeholder="Minimum 8 characters"
-                placeholder="Minimum 8 characters"
+      
               />
               {errors.password && (
                 <p className="mt-1 text-xs text-red-500 font-medium">{errors.password.message}</p>
@@ -517,7 +525,7 @@ export default function AdminUsersPage() {
               type="password"
               className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
               placeholder="Minimum 8 characters"
-              placeholder="Minimum 8 characters"
+             
             />
             {resetPasswordErrors.password && (
               <p className="mt-1 text-xs text-red-500 font-medium">

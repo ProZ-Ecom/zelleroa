@@ -445,7 +445,18 @@ async function main() {
       status: true,
     },
   });
-  console.log(`✓ Created 6 Zellora brands\n`);
+
+  const brandKids = await prisma.productBrand.create({
+    data: {
+      uuid: crypto.randomUUID(),
+      name: "Zellora Kids",
+      slug: "zellora-kids",
+      description: "Comfortable, playful, and festive couture apparel designed with love for little ones.",
+      isActive: true,
+      status: true,
+    },
+  });
+  console.log(`✓ Created 7 Zellora brands\n`);
 
   // 6. ATTRIBUTES & ATTRIBUTE VALUES
   console.log("6. SEEDING PRODUCT ATTRIBUTES & VALUES...");
@@ -517,6 +528,8 @@ async function main() {
     children?: CategoryNode[];
   }
 
+    const DEFAULT_CATEGORY_IMAGE =
+    "https://images.unsplash.com/photo-1441986300917-64674bd600d8?auto=format&fit=crop&w=800&q=80";
   const TAXONOMY: CategoryNode[] = [
     {
       name: "Women",
@@ -526,7 +539,8 @@ async function main() {
       children: [
         {
           name: "Clothing",
-          slug: "women-clothing",
+                    slug: "women-clothing",
+          image: "https://images.unsplash.com/photo-1595777457583-95e059d581b8?w=800&auto=format&fit=crop&q=80",
           description: "Elevated women's apparel from dresses to handloom ethnic wear.",
           children: [
             { name: "Dresses", slug: "women-dresses" },
@@ -544,7 +558,8 @@ async function main() {
         },
         {
           name: "Footwear",
-          slug: "women-footwear",
+                    slug: "women-footwear",
+          image: "https://images.unsplash.com/photo-1543163521-1bf539c55dd2?w=800&auto=format&fit=crop&q=80",
           children: [
             { name: "Heels", slug: "women-heels" },
             { name: "Flats", slug: "women-flats" },
@@ -554,7 +569,8 @@ async function main() {
         },
         {
           name: "Bags",
-          slug: "women-bags",
+                    slug: "women-bags",
+          image: "https://images.unsplash.com/photo-1584917865442-de89df76afd3?w=800&auto=format&fit=crop&q=80",
           children: [
             { name: "Handbags", slug: "women-handbags" },
             { name: "Shoulder Bags", slug: "women-shoulder-bags" },
@@ -564,7 +580,8 @@ async function main() {
         },
         {
           name: "Accessories",
-          slug: "women-accessories",
+                    slug: "women-accessories",
+          image: "https://images.unsplash.com/photo-1535632066927-ab7c9ab60908?w=800&auto=format&fit=crop&q=80",
           children: [
             { name: "Jewellery", slug: "women-jewellery" },
             { name: "Sunglasses", slug: "women-sunglasses" },
@@ -582,7 +599,8 @@ async function main() {
       children: [
         {
           name: "Clothing",
-          slug: "men-clothing",
+                    slug: "men-clothing",
+          image: "https://images.unsplash.com/photo-1602810318383-e386cc2a3ccf?w=800&auto=format&fit=crop&q=80",
           children: [
             { name: "Shirts", slug: "men-shirts" },
             { name: "T-Shirts", slug: "men-t-shirts" },
@@ -594,7 +612,8 @@ async function main() {
         },
         {
           name: "Footwear",
-          slug: "men-footwear",
+                    slug: "men-footwear",
+          image: "https://images.unsplash.com/photo-1614252235316-8c857d38b5f4?w=800&auto=format&fit=crop&q=80",
           children: [
             { name: "Loafers", slug: "men-loafers" },
             { name: "Sneakers", slug: "men-sneakers" },
@@ -603,7 +622,8 @@ async function main() {
         },
         {
           name: "Accessories",
-          slug: "men-accessories",
+                    slug: "men-accessories",
+          image: "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800&auto=format&fit=crop&q=80",
           children: [
             { name: "Watches", slug: "men-watches" },
             { name: "Belts", slug: "men-belts" },
@@ -619,9 +639,21 @@ async function main() {
       description: "Adorable, comfortable, and festive outfits for boys, girls, and infants.",
       image: "https://images.unsplash.com/photo-1503944583220-79d8926ad5e2?auto=format&fit=crop&w=800&q=80",
       children: [
-        { name: "Boys Clothing", slug: "kids-boys" },
-        { name: "Girls Clothing", slug: "kids-girls" },
-        { name: "Infants & Baby", slug: "kids-baby" },
+        {
+          name: "Boys Clothing",
+          slug: "kids-boys",
+          image: "https://images.unsplash.com/photo-1519457431-44ccd64a579b?auto=format&fit=crop&w=800&q=80",
+        },
+        {
+          name: "Girls Clothing",
+          slug: "kids-girls",
+          image: "https://images.unsplash.com/photo-1622290291468-a28f7a7dc6a8?auto=format&fit=crop&w=800&q=80",
+        },
+        {
+          name: "Infants & Baby",
+          slug: "kids-baby",
+          image: "https://images.unsplash.com/photo-1522771930-78848d9293e8?auto=format&fit=crop&w=800&q=80",
+        },
       ],
     },
     {
@@ -666,13 +698,14 @@ async function main() {
   async function seedCategoryTree(nodes: CategoryNode[], parentId: bigint | null = null) {
     for (let i = 0; i < nodes.length; i++) {
       const node = nodes[i];
+          const imageUrl = node.image || DEFAULT_CATEGORY_IMAGE;
       const created = await prisma.productCategory.create({
         data: {
           uuid: crypto.randomUUID(),
           name: node.name,
           slug: node.slug,
           description: node.description || `${node.name} collection at Zellora.`,
-          icon: node.image || null,
+          icon: imageUrl,
           parentId: parentId,
           sortOrder: i,
           isActive: true,
@@ -680,17 +713,16 @@ async function main() {
         },
       });
 
-      if (node.image) {
-        try {
-          await prisma.$executeRawUnsafe(
-            `INSERT INTO \`product_category_images\` (\`category_id\`, \`image_url\`, \`is_primary\`, \`sort_order\`, \`created_at\`, \`updated_at\`)
-             VALUES (?, ?, 1, 0, NOW(), NOW())`,
-            created.id,
-            node.image
-          );
-        } catch (e: any) {}
+            try {
+        await prisma.$executeRawUnsafe(
+          `INSERT INTO \`product_category_images\` (\`category_id\`, \`image_url\`, \`is_primary\`, \`sort_order\`, \`created_at\`, \`updated_at\`)
+           VALUES (?, ?, 1, 0, NOW(), NOW())`,
+          created.id,
+          imageUrl
+        );
+           } catch (e: any) {
+        throw new Error(`Category image insert failed for ${node.slug}: ${e.message}`);
       }
-
       categoryMap.set(node.slug, created);
 
       if (node.children && node.children.length > 0) {
@@ -701,6 +733,17 @@ async function main() {
 
   await seedCategoryTree(TAXONOMY);
   console.log(`✓ Seeded complete categories hierarchy (${categoryMap.size} categories created)\n`);
+    const missingImages = await prisma.$queryRawUnsafe<{ slug: string }[]>(`
+    SELECT c.slug
+    FROM product_categories c
+    LEFT JOIN product_category_images i ON i.category_id = c.id
+    WHERE i.category_id IS NULL OR c.icon IS NULL
+  `);
+  if (missingImages.length > 0) {
+    throw new Error(
+      `Categories missing images: ${missingImages.map((c) => c.slug).join(", ")}`
+    );
+  }
 
   // 8. BANNER POSITIONS & PROMOTIONAL BANNERS
   console.log("8. SEEDING BANNER POSITIONS & HERO SLIDERS...");
@@ -1152,8 +1195,10 @@ async function main() {
       categorySlug: "men-jeans",
       brand: brandMen,
       gender: "men",
-      primaryImage: "https://images.unsplash.com/photo-1542272604-780c96856592?w=800&auto=format&fit=crop&q=80",
-      galleryImages: [],
+      primaryImage: "https://images.unsplash.com/photo-1542272454315-4c01d7abdf4a?w=800&auto=format&fit=crop&q=80",
+      galleryImages: [
+        "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?w=800&auto=format&fit=crop&q=80",
+      ],
       shortDescription: "13.5oz shuttle-loom woven Japanese selvedge denim.",
       description: "13.5oz shuttle-loom woven Japanese selvedge denim. Finished with red ID ticker, solid copper rivets, and a classic regular-straight cut.",
       basePrice: 2799,
@@ -1353,6 +1398,130 @@ async function main() {
         { unit: unitOneSize, unitValue: 1, price: 2299, sku: "ZEL-JWL-02-STD", isDefault: true },
       ],
     },
+
+    // --- Category: Kids ---
+    {
+      name: "Boys Tailored Linen Nehru Jacket & Kurta Set",
+      slug: "boys-tailored-linen-kurta-set",
+      productName: "Boys Festive Kurta Sets",
+      productSlug: "boys-festive-kurta-sets",
+      categorySlug: "kids-boys",
+      brand: brandKids,
+      gender: "kids",
+      primaryImage: "https://images.unsplash.com/photo-1519457431-44ccd64a579b?auto=format&fit=crop&w=800&q=80",
+      galleryImages: [],
+      shortDescription: "Pure breathable linen kurta set with embroidered Nehru jacket for festive celebrations.",
+      description: "Crafted from gentle organic cotton-linen with hand-finished coconut shell buttons and a mandarin collar. Tailored for unrestricted movement and festive comfort.",
+      basePrice: 1499,
+      colorName: "Royal Navy",
+      colorHex: "#1B263B",
+      sizes: [
+        { unit: unitS, unitValue: 1, price: 1499, sku: "ZEL-KID-01-S", isDefault: false },
+        { unit: unitM, unitValue: 1, price: 1499, sku: "ZEL-KID-01-M", isDefault: true },
+        { unit: unitL, unitValue: 1, price: 1599, sku: "ZEL-KID-01-L", isDefault: false },
+      ],
+    },
+    {
+      name: "Boys Classic Check Cotton Oxford Shirt",
+      slug: "boys-classic-check-oxford-shirt",
+      productName: "Boys Casual Shirts",
+      productSlug: "boys-casual-shirts",
+      categorySlug: "kids-boys",
+      brand: brandKids,
+      gender: "kids",
+      primaryImage: "https://images.unsplash.com/photo-1503919545889-aef636e10ad4?auto=format&fit=crop&w=800&q=80",
+      galleryImages: [],
+      shortDescription: "100% pre-washed combed cotton shirt with button-down collar.",
+      description: "Classic yarn-dyed plaid pattern on soft, skin-friendly cotton. Featuring durable cross-stitched buttons and curved hem for casual elegance.",
+      basePrice: 999,
+      colorName: "Sky Blue",
+      colorHex: "#87CEEB",
+      sizes: [
+        { unit: unitS, unitValue: 1, price: 999, sku: "ZEL-KID-02-S", isDefault: false },
+        { unit: unitM, unitValue: 1, price: 999, sku: "ZEL-KID-02-M", isDefault: true },
+        { unit: unitL, unitValue: 1, price: 1099, sku: "ZEL-KID-02-L", isDefault: false },
+      ],
+    },
+    {
+      name: "Girls Tiered Floral Chiffon Party Dress",
+      slug: "girls-tiered-floral-party-dress",
+      productName: "Girls Occasion Dresses",
+      productSlug: "girls-occasion-dresses",
+      categorySlug: "kids-girls",
+      brand: brandKids,
+      gender: "kids",
+      primaryImage: "https://images.unsplash.com/photo-1622290291468-a28f7a7dc6a8?auto=format&fit=crop&w=800&q=80",
+      galleryImages: [],
+      shortDescription: "Delicate floral print chiffon with soft cotton lining and flutter sleeves.",
+      description: "Whimsical tiered silhouette in pastel blossoms with a concealed back zipper and pure hypoallergenic cotton inner lining. Ideal for birthdays and family gatherings.",
+      basePrice: 1699,
+      colorName: "Blush Pink",
+      colorHex: "#FFB6C1",
+      sizes: [
+        { unit: unitS, unitValue: 1, price: 1699, sku: "ZEL-KID-03-S", isDefault: false },
+        { unit: unitM, unitValue: 1, price: 1699, sku: "ZEL-KID-03-M", isDefault: true },
+        { unit: unitL, unitValue: 1, price: 1799, sku: "ZEL-KID-03-L", isDefault: false },
+      ],
+    },
+    {
+      name: "Girls Embroidered Cotton Anarkali Frock",
+      slug: "girls-embroidered-cotton-anarkali-frock",
+      productName: "Girls Ethnic Wear",
+      productSlug: "girls-ethnic-wear",
+      categorySlug: "kids-girls",
+      brand: brandKids,
+      gender: "kids",
+      primaryImage: "https://images.unsplash.com/photo-1518831959646-742c3a14ebf7?auto=format&fit=crop&w=800&q=80",
+      galleryImages: [],
+      shortDescription: "Twirl-ready lightweight cotton frock with zari embroidery and gota patti trim.",
+      description: "Festive sunshine yellow Anarkali dress accented with gentle gold zari embroidery and a lightweight dupatta. Designed to be itch-free and comfortable all day.",
+      basePrice: 1399,
+      colorName: "Marigold Yellow",
+      colorHex: "#EAA221",
+      sizes: [
+        { unit: unitS, unitValue: 1, price: 1399, sku: "ZEL-KID-04-S", isDefault: false },
+        { unit: unitM, unitValue: 1, price: 1399, sku: "ZEL-KID-04-M", isDefault: true },
+        { unit: unitL, unitValue: 1, price: 1499, sku: "ZEL-KID-04-L", isDefault: false },
+      ],
+    },
+    {
+      name: "Organic Cotton Ribbed Baby Romper & Hat Set",
+      slug: "organic-cotton-baby-romper-set",
+      productName: "Infant Cotton Rompers",
+      productSlug: "infant-cotton-rompers",
+      categorySlug: "kids-baby",
+      brand: brandKids,
+      gender: "kids",
+      primaryImage: "https://images.unsplash.com/photo-1522771930-78848d9293e8?auto=format&fit=crop&w=800&q=80",
+      galleryImages: [],
+      shortDescription: "Ultra-soft GOTS certified organic ribbed cotton romper with matching knot hat.",
+      description: "Gentle on delicate newborn skin, this 100% organic cotton romper features nickel-free snaps for effortless diaper changes and foldable scratch mittens.",
+      basePrice: 899,
+      colorName: "Oatmeal Beige",
+      colorHex: "#E3DAC9",
+      sizes: [
+        { unit: unitOneSize, unitValue: 1, price: 899, sku: "ZEL-KID-05-STD", isDefault: true },
+      ],
+    },
+    {
+      name: "Pastel Animal Print Kimono Onesie",
+      slug: "pastel-animal-print-kimono-onesie",
+      productName: "Baby Sleepsuits & Onesies",
+      productSlug: "baby-sleepsuits-onesies",
+      categorySlug: "kids-baby",
+      brand: brandKids,
+      gender: "kids",
+      primaryImage: "https://images.unsplash.com/photo-1515488042361-ee00e0ddd4e4?auto=format&fit=crop&w=800&q=80",
+      galleryImages: [],
+      shortDescription: "Side-snap kimono onesie in whisper-soft breathable bamboo-cotton jersey.",
+      description: "Wrap-style crossover kimono design avoids pulling over baby's head. Adorned with non-toxic watercolor woodland illustrations.",
+      basePrice: 799,
+      colorName: "Sage Mint",
+      colorHex: "#9CAF88",
+      sizes: [
+        { unit: unitOneSize, unitValue: 1, price: 799, sku: "ZEL-KID-06-STD", isDefault: true },
+      ],
+    },
   ];
 
   let totalProducts = 0;
@@ -1440,8 +1609,8 @@ async function main() {
       data: {
         uuid: crypto.randomUUID(),
         styleId: style.id,
-        name: "Standard Fit",
-        slug: `${itemDef.slug}-standard-fit`,
+        name: itemDef.name,
+        slug: `${itemDef.slug}-item`,
         sku: `ITM-${itemDef.slug.slice(0, 15).toUpperCase()}`,
         short_description: itemDef.shortDescription,
         description: itemDef.description,
@@ -1479,8 +1648,11 @@ async function main() {
         variant.id,
         itemDef.primaryImage
       );
-    } catch (e: any) {}
+          } catch (e: any) {
+      console.warn(`! Variant image failed for ${itemDef.slug}: ${e.message}`);
+    }
 
+    // 6. Create VariantUnitPrices (Sizes & SKUs) & Inventories
     // 6. Create VariantUnitPrices (Sizes & SKUs) & Inventories
     for (const size of itemDef.sizes) {
       const unitPrice = await prisma.variantUnitPrice.create({

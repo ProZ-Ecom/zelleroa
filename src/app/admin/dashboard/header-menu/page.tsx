@@ -19,8 +19,9 @@ import { ExportButton } from "@/components/common/export-button";
 import { exportDataToCsv } from "@/lib/export-csv";
 import { StatusToggle } from "@/components/admin/StatusToggle";
 import { Plus, Pencil, Trash2, FolderTree, Link2 } from "lucide-react";
+import { toast } from "@/components/ui/Toast";
 import type { ColumnDef } from "@tanstack/react-table";
-import type { AdminHeaderMenuItemResponse } from "@/features/header-menu/types";
+import { type AdminHeaderMenuItemResponse, MAX_HEADER_MENU_ITEMS } from "@/features/header-menu/types";
 
 export default function AdminHeaderMenuPage() {
   const [page, setPage] = useState(1);
@@ -37,6 +38,8 @@ export default function AdminHeaderMenuPage() {
   const deleteMutation = useDeleteHeaderMenuItem();
 
   const items = data?.data ?? [];
+  const totalItems = data?.meta?.total ?? items.length;
+  const isLimitReached = totalItems >= MAX_HEADER_MENU_ITEMS;
 
   const columns: ColumnDef<AdminHeaderMenuItemResponse, unknown>[] = [
     {
@@ -152,11 +155,40 @@ export default function AdminHeaderMenuPage() {
       />
       <AdminContent className="flex-1 min-h-0 overflow-hidden">
         <div className="flex h-full flex-col overflow-hidden bg-[var(--color-background)] py-1 rounded-2xl">
-          <div className="flex-shrink-0 mt-6 flex flex-col gap-4 md:flex-row md:items-center md:justify-end">
+          <div className="flex-shrink-0 mt-6 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            {/* Header Menu Limit Indicator */}
+            <div className="flex items-center gap-2">
+              <span
+                className={`inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-semibold ${
+                  isLimitReached
+                    ? "bg-amber-50 text-amber-900 border border-amber-300"
+                    : "bg-blue-50 text-theme-primary border border-blue-200"
+                }`}
+              >
+                <span>{totalItems} / {MAX_HEADER_MENU_ITEMS} Items</span>
+                {isLimitReached ? (
+                  <span className="font-bold text-amber-700">(Max Limit Reached)</span>
+                ) : (
+                  <span className="text-slate-500 font-normal">({MAX_HEADER_MENU_ITEMS - totalItems} remaining)</span>
+                )}
+              </span>
+            </div>
+
             <Button
               type="button"
-              onClick={() => setIsCreateOpen(true)}
-              className="h-11 rounded-xl bg-gradient-to-b from-[var(--color-primary-400)] to-[var(--color-primary-600)] shadow-[0_6px_16px_-6px_rgba(37,99,235,0.45),inset_0_1px_0_rgba(255,255,255,0.18)] transition-all px-5 text-sm font-semibold text-white hover:-translate-y-px hover:shadow-[0_10px_20px_-8px_rgba(37,99,235,0.5),inset_0_1px_0_rgba(255,255,255,0.18)] active:translate-y-0"
+              disabled={isLimitReached}
+              onClick={() => {
+                if (isLimitReached) {
+                  toast.error(`A maximum of ${MAX_HEADER_MENU_ITEMS} header menu items can exist. Please delete or modify an existing item.`);
+                  return;
+                }
+                setIsCreateOpen(true);
+              }}
+              className={`h-11 rounded-xl transition-all px-5 text-sm font-semibold shadow-xs ${
+                isLimitReached
+                  ? "bg-slate-200 text-slate-500 cursor-not-allowed opacity-75 shadow-none"
+                  : "bg-gradient-to-b from-[var(--color-primary-400)] to-[var(--color-primary-600)] text-white hover:-translate-y-px hover:shadow-[0_10px_20px_-8px_rgba(37,99,235,0.5),inset_0_1px_0_rgba(255,255,255,0.18)] active:translate-y-0"
+              }`}
             >
               <Plus className="mr-2 h-4 w-4" />
               Add Menu Item
@@ -207,14 +239,23 @@ export default function AdminHeaderMenuPage() {
         open={isCreateOpen}
         onClose={() => setIsCreateOpen(false)}
         title="Add Menu Item"
-        description="Add a new item to the storefront header menu"
+        description={`Add a new item to the storefront header menu (${totalItems}/${MAX_HEADER_MENU_ITEMS})`}
       >
         <HeaderMenuForm
           isLoading={createMutation.isPending}
           submitLabel="Create Menu Item"
           onSubmit={async (payload) => {
-            await createMutation.mutateAsync({ ...payload });
-            setIsCreateOpen(false);
+            try {
+              await createMutation.mutateAsync({ ...payload });
+              toast.success("Header menu item created successfully");
+              setIsCreateOpen(false);
+            } catch (err: any) {
+              const msg =
+                err?.response?.data?.message ||
+                err?.message ||
+                "Failed to create header menu item";
+              toast.error(msg);
+            }
           }}
         />
       </FormModal>

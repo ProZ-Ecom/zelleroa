@@ -3,14 +3,12 @@
 import React, { useState } from "react";
 import { Check } from "lucide-react";
 import { formatPrice, getImageUrl } from "@/lib/utils";
-import { formatPrice, getImageUrl } from "@/lib/utils";
 import { ProductImage } from "@/components/common/ProductImage";
 import type { CustomerProfileResponse } from "../../types";
 import type { OrderDetailResponse } from "@/features/orders/types";
 import { useAddToCartMutation } from "../../hooks/use-customer-cart";
 import { ProfileCompletionMeter } from "@/components/ui/ProfileCompletionMeter";
 import { calculateCustomerCompletion } from "../../lib/profile-completion";
-import { ProductImage } from "@/components/common/ProductImage";
 
 interface DashboardTabProps {
   profile?: CustomerProfileResponse | null;
@@ -139,10 +137,6 @@ export function DashboardTab({
   }
 
   const pastItemsMap = new Map<string, BuyAgainItem>();
-  const pastItemsMap = new Map<
-  string,
-  { variantId?: string; name: string; price: number; image: string | null }
->();
   orders.forEach((o) => {
     o.items?.forEach((item: any) => {
       const key = item.productName || item.product_name_snapshot || "";
@@ -170,7 +164,6 @@ export function DashboardTab({
   const buyAgainItems = Array.from(pastItemsMap.values()).slice(0, 4);
 
   const handleBuyAgain = async (item: BuyAgainItem) => {
-  const handleBuyAgain = async (item: { variantId?: string; name: string; price: number; image: string | null }) => {
     if (!item.variantId) {
       onNavigateTab("orders");
       return;
@@ -511,15 +504,6 @@ export function DashboardTab({
                     fallbackText={item.name}
                     containerClassName="w-full h-full"
                     className="w-full h-full object-cover transition-transform duration-300 hover:scale-105"
-                  />
-                <div className="h-28 overflow-hidden bg-theme-surface-alt">
-                  <ProductImage
-                    src={item.image ? getImageUrl(item.image) : null}
-                    alt={item.name}
-                    fallbackText={item.name}
-                    fallbackSize="compact"
-                    containerClassName="w-full h-full"
-                    className="w-full h-full object-cover"
                   />
                 </div>
 

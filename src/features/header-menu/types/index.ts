@@ -3,6 +3,8 @@ import type { HeaderMenuGender } from "../validations/admin-header-menu.schema";
 
 export type { HeaderMenuGender };
 
+export const MAX_HEADER_MENU_ITEMS = 10;
+
 export interface AdminHeaderMenuItemCategory {
   id: string; // Public UUID
   name: string;

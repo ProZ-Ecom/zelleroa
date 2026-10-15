@@ -2,11 +2,13 @@
 
 import { Suspense, useState, useMemo, useEffect, useRef } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { useSearchParams } from "next/navigation";
-import { Sparkles, ChevronRight, SlidersHorizontal, Loader2 } from "lucide-react";
+import { Sparkles, ChevronRight, ChevronLeft, SlidersHorizontal, Loader2, ShoppingBag } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { FilterSidebar } from "@/components/storefront/filters/FilterSidebar";
 import { CustomerProductGrid } from "@/features/customers/components/catalog/CustomerProductGrid";
+import { useHeaderMenu } from "@/features/header-menu/hooks";
 import {
   useCustomerStyles,
   useCustomerCategories,
@@ -124,6 +126,111 @@ function ShopAllContent() {
   // Fetch all categories (supports 250 categories)
   const { data: categoriesData, isLoading: isLoadingCategories } = useCustomerCategories({ pageSize: 250 });
   const categories = categoriesData?.data ?? [];
+
+  // Curated storefront header navigation menu to dynamically populate round category carousel
+  const { data: headerMenu = [] } = useHeaderMenu();
+
+  // Carousel tiles:
+  // If gender is selected, show all categories and subcategories for that gender
+  // Otherwise, show all available categories and subcategories across the entire store
+  const carouselTiles = useMemo(() => {
+    const list: { id: string; name: string; slug: string; image: string | null }[] = [];
+
+    const categoryImageMap = new Map<string, string | null>();
+    for (const cat of categories) {
+      if (cat.image) {
+        categoryImageMap.set(cat.id, cat.image);
+        if ((cat as any).slug) categoryImageMap.set((cat as any).slug, cat.image);
+      }
+    }
+
+    const addUnique = (c: { id: string; name: string; slug: string; image: string | null }) => {
+      if (!c.id || !c.name) return;
+      if (!list.some((existing) => existing.id === c.id || existing.name.toLowerCase() === c.name.toLowerCase())) {
+        const resolvedImage = c.image || categoryImageMap.get(c.id) || (c.slug ? categoryImageMap.get(c.slug) : null) || null;
+        list.push({
+          ...c,
+          image: resolvedImage,
+        });
+      }
+    };
+
+    if (genderFilter && genderFilter !== "all") {
+      const matchedMenu = headerMenu.find(
+        (m) =>
+          m.gender === genderFilter ||
+          m.label.toLowerCase() === genderFilter.toLowerCase()
+      );
+      if (matchedMenu && matchedMenu.categories.length > 0) {
+        for (const cat of matchedMenu.categories) {
+          if (cat.children && cat.children.length > 0) {
+            for (const sub of cat.children) {
+              addUnique({
+                id: sub.id,
+                name: sub.name,
+                slug: sub.slug,
+                image: sub.icon || (sub as any).image || null,
+              });
+            }
+          }
+          addUnique({
+            id: cat.id,
+            name: cat.name,
+            slug: cat.slug,
+            image: cat.icon || (cat as any).image || null,
+          });
+        }
+      }
+    } else {
+      // Gather all categories & subcategories across all departments
+      for (const menu of headerMenu) {
+        if (menu.label.toLowerCase() === "sale" || menu.label.toLowerCase() === "home") continue;
+        for (const cat of menu.categories) {
+          addUnique({
+            id: cat.id,
+            name: cat.name,
+            slug: cat.slug,
+            image: cat.icon || (cat as any).image || null,
+          });
+          if (cat.children && cat.children.length > 0) {
+            for (const sub of cat.children) {
+              addUnique({
+                id: sub.id,
+                name: sub.name,
+                slug: sub.slug,
+                image: sub.icon || (sub as any).image || null,
+              });
+            }
+          }
+        }
+      }
+
+      // Also merge any categories from categoriesData that have images
+      for (const cat of categories) {
+        if (cat.image) {
+          addUnique({
+            id: cat.id,
+            name: cat.name,
+            slug: (cat as any).slug || cat.id,
+            image: cat.image,
+          });
+        }
+      }
+    }
+
+    return list;
+  }, [genderFilter, headerMenu, categories]);
+
+  const carouselRef = useRef<HTMLDivElement>(null);
+
+  const scrollCarousel = (direction: "left" | "right") => {
+    if (!carouselRef.current) return;
+    const amount = Math.max(280, Math.floor(carouselRef.current.clientWidth * 0.6));
+    carouselRef.current.scrollBy({
+      left: direction === "left" ? -amount : amount,
+      behavior: "smooth",
+    });
+  };
 
   const currentCategory = useMemo(() => {
     if (selectedCategoryIds.length !== 1) return null;
@@ -299,71 +406,145 @@ function ShopAllContent() {
 
   return (
     <div className="min-h-screen bg-white">
-      {/* Hero / Header Banner */}
-      <div className="border-b border-[#F0E4D8] bg-gradient-to-b from-[#FFFDF9] via-[#FAF4ED] to-[#F5ECE1] py-8 sm:py-12">
-        <div className="w-full max-w-7xl 2xl:max-w-[1600px] 3xl:max-w-[1800px] mx-auto px-4 sm:px-6 lg:px-8">
+      {/* Category Round Carousel Strip (replacing old text banner) */}
+      <header className="border-b border-slate-200 bg-gradient-to-b from-blue-50/40 via-white to-white">
+        <div className="mx-auto w-full max-w-7xl 2xl:max-w-[1600px] 3xl:max-w-[1800px] px-4 sm:px-6 lg:px-8 pt-4 pb-4 sm:pt-6 sm:pb-6">
           {/* Breadcrumb navigation */}
-          <nav className="flex items-center justify-center gap-2 text-xs sm:text-sm text-[#7A6258] mb-3">
-            <Link href="/" className="hover:text-[#7A2224] transition-colors">
+          <nav className="flex items-center gap-2 text-xs sm:text-sm text-slate-500 mb-3 sm:mb-4">
+            <Link href="/" className="hover:text-theme-primary transition-colors">
               Home
             </Link>
-            <ChevronRight className="w-3.5 h-3.5" />
-            <span className="text-[#7A6258]">
+            <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
+            <button
+              type="button"
+              onClick={() => handleCategorySelect([])}
+              className={`transition-colors cursor-pointer ${
+                selectedCategoryIds.length === 0 ? "font-bold text-slate-900" : "text-slate-500 hover:text-slate-800"
+              }`}
+            >
               Shop All
-            </span>
+            </button>
             {selectedCategoryIds.length === 1 && currentCategory && (
               <>
-                <ChevronRight className="w-3.5 h-3.5" />
-                <span className="font-bold text-[#2D1810]">
+                <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
+                <span className="font-bold text-theme-primary">
                   {currentCategory.name}
                 </span>
               </>
             )}
             {selectedCategoryIds.length > 1 && (
               <>
-                <ChevronRight className="w-3.5 h-3.5" />
-                <span className="font-bold text-[#2D1810]">
-                  Selected Collections
+                <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
+                <span className="font-bold text-theme-primary">
+                  {selectedCategoryIds.length} Selected
                 </span>
               </>
             )}
           </nav>
 
-          <div className="text-center max-w-3xl mx-auto">
-            <div className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full bg-[#7A2224]/10 text-[#7A2224] text-xs font-bold uppercase tracking-wider mb-2">
-              <Sparkles className="h-3.5 w-3.5 text-[#F8BE15]" />
-              Authentic Collection
-            </div>
-            <h1 className="text-2xl sm:text-3xl md:text-4xl font-extrabold text-[#2D1810] font-serif tracking-tight">
-              {pageTitle}
-            </h1>
-            <p className="mt-2 text-xs sm:text-sm text-[#7A6258] max-w-2xl mx-auto leading-relaxed">
-              Explore bespoke dresses, ethnic silhouettes, modern kurtis, and timeless apparel curated with craftsmanship.
-            </p>
+          {/* Round Carousel Navigation */}
+          <div className="relative group/carousel px-2 sm:px-4">
+            {/* Always-visible Previous Button */}
+            <button
+              type="button"
+              onClick={() => scrollCarousel("left")}
+              aria-label="Previous categories"
+              className="absolute left-0 top-1/2 -translate-y-1/2 z-20 flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-full bg-white text-slate-800 border border-slate-200 shadow-[0_2px_8px_rgba(0,0,0,0.12)] transition-all hover:bg-white hover:text-black hover:border-slate-300 hover:shadow-[0_4px_16px_rgba(0,0,0,0.25)] hover:scale-105 active:scale-95 cursor-pointer"
+            >
+              <ChevronLeft className="h-5 w-5" />
+            </button>
+
+            <nav
+              ref={carouselRef}
+              aria-label="Category Carousel"
+              className="flex items-center gap-4 sm:gap-7 overflow-x-auto px-6 sm:px-8 py-2 scroll-smooth scrollbar-hide"
+            >
+              {/* Dynamic Category Avatars */}
+              {carouselTiles.map((tile) => {
+                const isActive = selectedCategoryIds.includes(tile.id);
+                return (
+                  <button
+                    key={tile.id}
+                    type="button"
+                    onClick={() => handleCategorySelect(isActive ? [] : [tile.id])}
+                    className="group flex w-[76px] shrink-0 flex-col items-center gap-2.5 sm:w-28 cursor-pointer select-none"
+                  >
+                    <span
+                      className={`relative flex h-[68px] w-[68px] items-center justify-center overflow-hidden rounded-full bg-slate-100 shadow-sm transition-all duration-300 sm:h-24 sm:w-24 ${
+                        isActive
+                          ? "scale-105 ring-[3px] ring-theme-primary ring-offset-[3px] shadow-lg"
+                          : "ring-1 ring-slate-200 group-hover:-translate-y-1 group-hover:shadow-lg group-hover:ring-2 group-hover:ring-theme-primary"
+                      }`}
+                    >
+                      {tile.image ? (
+                        <Image
+                          src={tile.image}
+                          alt={tile.name}
+                          fill
+                          sizes="96px"
+                          unoptimized
+                          className="object-cover object-top transition-transform duration-500 group-hover:scale-110"
+                        />
+                      ) : (
+                        <span className="text-xl font-bold text-slate-400 sm:text-2xl">
+                          {tile.name.charAt(0).toUpperCase()}
+                        </span>
+                      )}
+                    </span>
+                    <span
+                      className={`text-center text-[11px] uppercase tracking-wider transition-colors sm:text-[13px] truncate max-w-full ${
+                        isActive
+                          ? "font-extrabold text-theme-primary"
+                          : "font-semibold text-slate-600 group-hover:text-theme-primary"
+                      }`}
+                      title={tile.name}
+                    >
+                      {tile.name}
+                    </span>
+                    <span
+                      aria-hidden
+                      className={`-mt-1 h-0.5 rounded-full bg-theme-primary transition-all duration-300 ${
+                        isActive ? "w-6 opacity-100" : "w-0 opacity-0 group-hover:w-4 group-hover:opacity-60"
+                      }`}
+                    />
+                  </button>
+                );
+              })}
+            </nav>
+
+            {/* Always-visible Next Button */}
+            <button
+              type="button"
+              onClick={() => scrollCarousel("right")}
+              aria-label="Next categories"
+              className="absolute right-0 top-1/2 -translate-y-1/2 z-20 flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-full bg-white text-slate-800 border border-slate-200 shadow-[0_2px_8px_rgba(0,0,0,0.12)] transition-all hover:bg-white hover:text-black hover:border-slate-300 hover:shadow-[0_4px_16px_rgba(0,0,0,0.25)] hover:scale-105 active:scale-95 cursor-pointer"
+            >
+              <ChevronRight className="h-5 w-5" />
+            </button>
           </div>
         </div>
-      </div>
+      </header>
 
       <div className="w-full bg-white">
         <div className="w-full max-w-7xl 2xl:max-w-[1600px] 3xl:max-w-[1800px] mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-10 bg-white">
           {/* Mobile Filter Toggle Button */}
-          <div className="lg:hidden mb-6 flex items-center justify-between gap-3 bg-white border border-[#E8D9CD] rounded-xl p-3 shadow-xs">
+          <div className="lg:hidden mb-6 flex items-center justify-between gap-3 bg-white border border-slate-200 rounded-xl p-3 shadow-xs">
             <button
               type="button"
               onClick={() => setIsMobileFilterOpen(true)}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-[#7A2224] text-white font-bold text-xs shadow-xs cursor-pointer"
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-theme-primary hover:bg-theme-primary-hover text-white font-bold text-xs shadow-xs cursor-pointer transition-colors"
             >
               <SlidersHorizontal className="w-3.5 h-3.5" />
               Filters
               {activeFilterCount > 0 && (
-                <span className="w-4.5 h-4.5 rounded-full bg-[#F8BE15] text-[#2D1810] font-black text-[10px] flex items-center justify-center">
+                <span className="w-4.5 h-4.5 rounded-full bg-white text-theme-primary font-black text-[10px] flex items-center justify-center">
                   {activeFilterCount}
                 </span>
               )}
             </button>
 
-            <span className="text-xs text-[#7A6258] font-medium">
-              Showing <strong className="text-[#2D1810]">{meta?.total ?? displayedVariants.length}</strong> items
+            <span className="text-xs text-slate-500 font-medium">
+              Showing <strong className="text-slate-900">{meta?.total ?? displayedVariants.length}</strong> items
             </span>
           </div>
 
