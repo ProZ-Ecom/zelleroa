@@ -9,11 +9,10 @@ import { apiClient } from "@/lib/api/api-client";
 import { toast } from "@/components/ui/Toast";
 import { Select } from "@/components/ui/select";
 import { PageContainer } from "@/components/admin/PageContainer";
-import { BlockReasonDialog } from "@/components/ui/block-reason-dialog";
 import type { AgentDto } from "@/features/agents/services/agent.service";
 import { errorMessage, useAdminList } from "@/features/agents/hooks/use-admin-agents";
 import { AgentFormModal, type EditableAgent } from "@/features/agents/components/admin/AgentFormModal";
-import { ButtonPager, Panel, SimpleTable, StatusBadge, TableSkeleton, fieldCls, money } from "@/features/agents/components/shared";
+import { BlockAgentDialog, type BlockAgentPayload, ButtonPager, Panel, SimpleTable, StatusBadge, TableSkeleton, Tooltip, fieldCls, money } from "@/features/agents/components/shared";
 
 export default function AdminAgentsPage() {
   const qc = useQueryClient();
@@ -28,21 +27,36 @@ export default function AdminAgentsPage() {
   const [blockTarget, setBlockTarget] = useState<AgentDto | null>(null);
   const [blocking, setBlocking] = useState(false);
 
-  const toggleActive = async (a: AgentDto, blockReason?: string) => {
+  const handleUnblock = async (a: AgentDto) => {
     try {
-      await apiClient.put(`/api/admin/agents/${a.id}`, a.isActive ? { isActive: false, blockReason } : { isActive: true });
-      toast.success(a.isActive ? "Sales Partner blocked" : "Sales Partner unblocked");
+      await apiClient.put(`/api/admin/agents/${a.id}`, { isActive: true });
+      toast.success("Sales Partner unblocked successfully");
       await qc.invalidateQueries({ queryKey: ["agents-admin"] });
     } catch (err) {
-      toast.error("Could not update the Sales Partner", errorMessage(err));
+      toast.error("Could not unblock the Sales Partner", errorMessage(err));
     }
   };
 
-  const confirmBlock = async (reason: string) => {
+  const confirmBlock = async (payload: BlockAgentPayload) => {
     if (!blockTarget) return;
     setBlocking(true);
     try {
-      await toggleActive(blockTarget, reason);
+      await apiClient.put(`/api/admin/agents/${blockTarget.id}`, {
+        isActive: false,
+        blockReason: payload.reason,
+        customerAction: payload.customerAction,
+        transferToAgentId: payload.transferToAgentId,
+      });
+      toast.success(
+        payload.customerAction === "transfer"
+          ? "Sales Partner blocked and customers transferred successfully"
+          : payload.customerAction === "release"
+          ? "Sales Partner blocked and customers released to open pool"
+          : "Sales Partner blocked successfully"
+      );
+      await qc.invalidateQueries({ queryKey: ["agents-admin"] });
+    } catch (err) {
+      toast.error("Could not block the Sales Partner", errorMessage(err));
     } finally {
       setBlocking(false);
       setBlockTarget(null);
@@ -142,33 +156,43 @@ export default function AdminAgentsPage() {
                     stickyRight: true,
                     cell: (r) => (
                       <div className="flex items-center gap-1">
-                        <Link href={`/admin/dashboard/agents/${r.id}`} title="View" aria-label="View" className="rounded-lg p-1.5 text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900">
-                          <Eye className="h-4 w-4" />
-                        </Link>
-                        <button
-                          type="button"
-                          title="Edit"
-                          aria-label="Edit"
-                          onClick={() =>
-                            setModal({
-                              open: true,
-                              agent: {
-                                id: r.id,
-                                name: r.name,
-                                phone: r.phone,
-                                notes: r.notes,
-                                isActive: r.isActive,
-                                blockReason: r.blockReason,
-                              },
-                            })
-                          }
-                          className="rounded-lg p-1.5 text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900"
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </button>
-                        <button type="button" title={r.isActive ? "Block" : "Unblock"} aria-label={r.isActive ? "Block" : "Unblock"} onClick={() => (r.isActive ? setBlockTarget(r) : toggleActive(r))} className={r.isActive ? "rounded-lg p-1.5 text-red-600 hover:bg-red-50" : "rounded-lg p-1.5 text-emerald-700 hover:bg-emerald-50"}>
-                          {r.isActive ? <Ban className="h-4 w-4" /> : <CheckCircle2 className="h-4 w-4" />}
-                        </button>
+                        <Tooltip content="View Sales Partner Details" side="top">
+                          <Link href={`/admin/dashboard/agents/${r.id}`} aria-label="View Sales Partner Details" className="rounded-lg p-1.5 text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900">
+                            <Eye className="h-4 w-4" />
+                          </Link>
+                        </Tooltip>
+                        <Tooltip content="Edit Sales Partner" side="top">
+                          <button
+                            type="button"
+                            aria-label="Edit Sales Partner"
+                            onClick={() =>
+                              setModal({
+                                open: true,
+                                agent: {
+                                  id: r.id,
+                                  name: r.name,
+                                  phone: r.phone,
+                                  notes: r.notes,
+                                  isActive: r.isActive,
+                                  blockReason: r.blockReason,
+                                },
+                              })
+                            }
+                            className="rounded-lg p-1.5 text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900"
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </button>
+                        </Tooltip>
+                        <Tooltip content={r.isActive ? "Block Sales Partner" : "Unblock Sales Partner"} side="top">
+                          <button
+                            type="button"
+                            aria-label={r.isActive ? "Block Sales Partner" : "Unblock Sales Partner"}
+                            onClick={() => (r.isActive ? setBlockTarget(r) : handleUnblock(r))}
+                            className={r.isActive ? "rounded-lg p-1.5 text-red-600 hover:bg-red-50" : "rounded-lg p-1.5 text-emerald-700 hover:bg-emerald-50"}
+                          >
+                            {r.isActive ? <Ban className="h-4 w-4" /> : <CheckCircle2 className="h-4 w-4" />}
+                          </button>
+                        </Tooltip>
                       </div>
                     ),
                   },
@@ -180,10 +204,9 @@ export default function AdminAgentsPage() {
         </Panel>
       </div>
 
-      <BlockReasonDialog
+      <BlockAgentDialog
         open={Boolean(blockTarget)}
-        subject="Agent"
-        name={blockTarget?.name}
+        agent={blockTarget}
         isLoading={blocking}
         onClose={() => setBlockTarget(null)}
         onConfirm={confirmBlock}

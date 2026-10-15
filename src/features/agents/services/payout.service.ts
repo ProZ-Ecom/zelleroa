@@ -98,6 +98,14 @@ export const payoutService = {
    * onto the payout, so nothing sensitive travels in the request itself.
    */
   async requestPayout(agentId: bigint, input: RequestPayoutInput) {
+    const user = await db.user.findUnique({
+      where: { id: agentId },
+      select: { is_active: true, status: true },
+    });
+    if (!user || !user.is_active || user.status !== "active") {
+      throw ApiError.forbidden("Your Sales Partner account is currently suspended / blocked. Payout requests are disabled.");
+    }
+
     await commissionService.markReadyForApproval({ agentId });
 
     const profile = await db.agent_profiles.findUnique({ where: { user_id: agentId } });

@@ -10,10 +10,21 @@ export const POST = createApiHandler(
     POST: async (_request, context) => {
       const actor = await resolveActor(context.session);
       const body = context.body as ReassignCustomersInput;
+      if (body.action === "release") {
+        const result = await customerAssignmentService.releaseCustomersFromAgent(
+          {
+            fromAgentRef: context.params?.uuid ?? "",
+            customerRefs: body.customerIds,
+            reason: body.reason,
+          },
+          actor
+        );
+        return apiSuccess(result, "Customers released to open pool");
+      }
       const result = await customerAssignmentService.reassignFromAgent(
         {
           fromAgentRef: context.params?.uuid ?? "",
-          toAgentRef: body.toAgentId,
+          toAgentRef: body.toAgentId!,
           customerRefs: body.customerIds,
           reason: body.reason,
         },

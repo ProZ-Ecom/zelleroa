@@ -526,7 +526,7 @@ export function OrderDetailView({
             )}
 
             {/* Assigned Delivery Staff */}
-            <div className="rounded-2xl border border-theme-border bg-theme-surface shadow-2xs overflow-hidden">
+            {/* <div className="rounded-2xl border border-theme-border bg-theme-surface shadow-2xs overflow-hidden">
               <div className="bg-theme-surface-alt border-b border-theme-border-subtle px-4 py-3 flex items-center gap-2">
                 <Truck className="h-4 w-4 text-theme-secondary" />
                 <h3 className="text-xs font-bold uppercase tracking-wider text-theme-text-primary">
@@ -581,7 +581,7 @@ export function OrderDetailView({
                   </div>
                 )}
               </div>
-            </div>
+            </div> */}
 
             {/* Courier Shipment Tracking */}
             {courierShipment && (

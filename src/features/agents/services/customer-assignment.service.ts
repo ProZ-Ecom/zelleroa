@@ -233,6 +233,74 @@ export const customerAssignmentService = {
     return { moved, failed };
   },
 
+  /**
+   * Admin-only: release customers from one Sales Partner (e.g. when blocked).
+   * If customerRefs is omitted, releases ALL customers currently assigned to the agent.
+   * Sets current_agent_id = null and agent_assigned_at = null, releasing them to the open pool.
+   * Full audit log written for each customer for compliance and historical tracking.
+   */
+  async releaseCustomersFromAgent(
+    input: { fromAgentRef: string; customerRefs?: string[]; reason?: string | null },
+    actor: AuditActor
+  ) {
+    if (actor.role !== "ADMIN" || !actor.id) throw ApiError.forbidden("Only an admin can release customers");
+    const fromId = await resolveAgentRef(input.fromAgentRef);
+    if (!fromId) throw ApiError.notFound("Sales Partner not found");
+
+    let where: Prisma.UserWhereInput = {
+      current_agent_id: fromId,
+      deleted_at: null,
+      role: { slug: "customer" },
+    };
+
+    if (input.customerRefs?.length) {
+      where = {
+        ...where,
+        OR: [
+          { uuid: { in: input.customerRefs } },
+          { cust_id: { in: input.customerRefs } },
+          ...input.customerRefs.filter((r) => /^\d+$/.test(r)).map((r) => ({ id: BigInt(r) })),
+        ],
+      };
+    }
+
+    const customers = await db.user.findMany({
+      where,
+      select: { id: true, uuid: true },
+    });
+
+    if (customers.length === 0) return { released: 0 };
+
+    await db.$transaction(async (tx) => {
+      await tx.user.updateMany({
+        where: { id: { in: customers.map((c) => c.id) } },
+        data: { current_agent_id: null, agent_assigned_at: null, updated_by: actor.id },
+      });
+
+      for (const c of customers) {
+        await writeAudit(tx, {
+          entityType: "assignment",
+          entityId: c.id,
+          agentId: fromId,
+          action: "customer_unassigned",
+          actor,
+          note: input.reason?.trim().slice(0, 255) || "Released to open pool upon Sales Partner blocking",
+          metadata: {
+            fromAgentId: String(fromId),
+            toAgentId: null,
+            reason: input.reason || "Sales Partner blocked",
+          },
+        });
+      }
+    });
+
+    return { released: customers.length };
+  },
+
+  async releaseAllCustomersFromAgent(fromAgentRef: string, reason: string | null | undefined, actor: AuditActor) {
+    return this.releaseCustomersFromAgent({ fromAgentRef, reason }, actor);
+  },
+
   /** The customer's current Sales Partner (or null) - what the admin transfer card shows. */
   async getCurrentAgent(customerRef: string) {
     const customer = await db.user.findFirst({

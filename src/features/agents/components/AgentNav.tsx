@@ -24,6 +24,7 @@ import { cn } from "@/lib/utils";
 import { APP_NAME } from "@/lib/constants";
 import { useLogout } from "@/features/auth/hooks/use-auth-mutations";
 import { ProfileAvatarRing } from "@/components/ui/ProfileAvatarRing";
+import { Tooltip } from "./Tooltip";
 
 type NavItem = { href: string; label: string; icon: LucideIcon };
 
@@ -143,14 +144,16 @@ export function AgentShell({
           )}
         </Link>
         {mobile && (
-          <button
-            type="button"
-            onClick={() => setMobileOpen(false)}
-            aria-label="Close menu"
-            className="rounded-lg p-2 text-neutral-400 hover:bg-neutral-800 hover:text-white"
-          >
-            <X className="h-5 w-5" />
-          </button>
+          <Tooltip content="Close navigation menu" side="left">
+            <button
+              type="button"
+              onClick={() => setMobileOpen(false)}
+              aria-label="Close navigation menu"
+              className="rounded-lg p-2 text-neutral-400 hover:bg-neutral-800 hover:text-white"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </Tooltip>
         )}
       </div>
 
@@ -164,20 +167,36 @@ export function AgentShell({
                 const Icon = l.icon;
                 return (
                   <li key={l.href}>
-                    <Link
-                      href={l.href}
-                      title={compact ? l.label : undefined}
-                      aria-current={active ? "page" : undefined}
-                      className={cn(
-                        "group relative flex min-h-[42px] items-center gap-3 rounded-lg px-3 text-sm font-medium transition-colors",
-                        compact && "justify-center px-0",
-                        active ? "bg-white/10 text-white" : "text-neutral-400 hover:bg-white/5 hover:text-white"
-                      )}
-                    >
-                      {active && <span className="absolute left-0 top-2 bottom-2 w-1 rounded-r bg-white" />}
-                      <Icon className="h-[18px] w-[18px] shrink-0" />
-                      {!compact && <span className="truncate">{l.label}</span>}
-                    </Link>
+                    {compact ? (
+                      <Tooltip content={l.label} side="right">
+                        <Link
+                          href={l.href}
+                          aria-label={l.label}
+                          aria-current={active ? "page" : undefined}
+                          className={cn(
+                            "group relative flex min-h-[42px] items-center gap-3 rounded-lg px-3 text-sm font-medium transition-colors",
+                            "justify-center px-0",
+                            active ? "bg-white/10 text-white" : "text-neutral-400 hover:bg-white/5 hover:text-white"
+                          )}
+                        >
+                          {active && <span className="absolute left-0 top-2 bottom-2 w-1 rounded-r bg-white" />}
+                          <Icon className="h-[18px] w-[18px] shrink-0" />
+                        </Link>
+                      </Tooltip>
+                    ) : (
+                      <Link
+                        href={l.href}
+                        aria-current={active ? "page" : undefined}
+                        className={cn(
+                          "group relative flex min-h-[42px] items-center gap-3 rounded-lg px-3 text-sm font-medium transition-colors",
+                          active ? "bg-white/10 text-white" : "text-neutral-400 hover:bg-white/5 hover:text-white"
+                        )}
+                      >
+                        {active && <span className="absolute left-0 top-2 bottom-2 w-1 rounded-r bg-white" />}
+                        <Icon className="h-[18px] w-[18px] shrink-0" />
+                        <span className="truncate">{l.label}</span>
+                      </Link>
+                    )}
                   </li>
                 );
               })}
@@ -200,19 +219,34 @@ export function AgentShell({
             </div>
           )}
         </div>
-        <button
-          type="button"
-          onClick={handleLogout}
-          disabled={logout.isPending}
-          title={compact ? "Sign out" : undefined}
-          className={cn(
-            "mt-1 flex min-h-[40px] w-full items-center gap-3 rounded-lg px-3 text-sm font-medium text-neutral-400 transition-colors hover:bg-red-500/10 hover:text-red-400",
-            compact && "justify-center px-0"
-          )}
-        >
-          <LogOut className="h-[18px] w-[18px] shrink-0" />
-          {!compact && "Sign out"}
-        </button>
+        {compact ? (
+          <Tooltip content="Sign out of portal" side="right">
+            <button
+              type="button"
+              onClick={handleLogout}
+              disabled={logout.isPending}
+              aria-label="Sign out of portal"
+              className={cn(
+                "mt-1 flex min-h-[40px] w-full items-center gap-3 rounded-lg px-3 text-sm font-medium text-neutral-400 transition-colors hover:bg-red-500/10 hover:text-red-400",
+                "justify-center px-0"
+              )}
+            >
+              <LogOut className="h-[18px] w-[18px] shrink-0" />
+            </button>
+          </Tooltip>
+        ) : (
+          <button
+            type="button"
+            onClick={handleLogout}
+            disabled={logout.isPending}
+            className={cn(
+              "mt-1 flex min-h-[40px] w-full items-center gap-3 rounded-lg px-3 text-sm font-medium text-neutral-400 transition-colors hover:bg-red-500/10 hover:text-red-400"
+            )}
+          >
+            <LogOut className="h-[18px] w-[18px] shrink-0" />
+            Sign out
+          </button>
+        )}
       </div>
     </div>
   );
@@ -247,22 +281,26 @@ export function AgentShell({
 
       <div className={cn("flex min-h-screen flex-col transition-[padding] duration-200", collapsed ? "lg:pl-[72px]" : "lg:pl-64")}>
         <header className="sticky top-0 z-30 flex h-16 items-center gap-3 border-b border-neutral-200 bg-white/90 px-4 backdrop-blur sm:px-6">
-          <button
-            type="button"
-            onClick={() => setMobileOpen(true)}
-            aria-label="Open menu"
-            className="rounded-lg p-2 text-neutral-700 hover:bg-neutral-100 lg:hidden"
-          >
-            <Menu className="h-5 w-5" />
-          </button>
-          <button
-            type="button"
-            onClick={toggleCollapsed}
-            aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-            className="hidden rounded-lg p-2 text-neutral-600 hover:bg-neutral-100 lg:block"
-          >
-            {collapsed ? <PanelLeftOpen className="h-5 w-5" /> : <PanelLeftClose className="h-5 w-5" />}
-          </button>
+          <Tooltip content="Open navigation menu" side="bottom">
+            <button
+              type="button"
+              onClick={() => setMobileOpen(true)}
+              aria-label="Open navigation menu"
+              className="rounded-lg p-2 text-neutral-700 hover:bg-neutral-100 lg:hidden"
+            >
+              <Menu className="h-5 w-5" />
+            </button>
+          </Tooltip>
+          <Tooltip content={collapsed ? "Expand sidebar" : "Collapse sidebar"} side="bottom">
+            <button
+              type="button"
+              onClick={toggleCollapsed}
+              aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+              className="hidden rounded-lg p-2 text-neutral-600 hover:bg-neutral-100 lg:block"
+            >
+              {collapsed ? <PanelLeftOpen className="h-5 w-5" /> : <PanelLeftClose className="h-5 w-5" />}
+            </button>
+          </Tooltip>
           <h1 className="min-w-0 flex-1 truncate text-base font-semibold text-neutral-900">{current?.label ?? "Sales Partner Portal"}</h1>
           <div className="flex items-center gap-2">
             <span className="hidden text-sm text-neutral-600 sm:inline">{name}</span>

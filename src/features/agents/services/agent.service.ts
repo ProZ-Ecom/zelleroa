@@ -1,3 +1,4 @@
+
 import crypto from "crypto";
 import bcrypt from "bcryptjs";
 import type { Prisma } from "@/generated/prisma";
@@ -11,6 +12,7 @@ import { customerSearchWhere, endOfDay, resolveAgentRef, startOfDay } from "./co
 import type { AuditActor } from "../constants";
 import type { AgentSummary, PaginatedResult } from "../types";
 import type { CreateAgentInput, PaymentDetailsInput, UpdateAgentInput } from "../validations/agent.schema";
+import { customerAssignmentService } from "./customer-assignment.service";
 
 const DEAD_ORDER_STATUSES = ["cancelled", "returned"] as const;
 
@@ -295,10 +297,33 @@ export const agentService = {
         metadata: {
           fields: Object.keys(input).filter((k) => k !== "password"),
           passwordReset: Boolean(input.password),
-          ...(input.isActive === false ? { blockReason: input.blockReason } : {}),
+          ...(input.isActive === false
+            ? {
+                blockReason: input.blockReason,
+                customerAction: input.customerAction ?? "keep",
+                transferToAgentId: input.transferToAgentId ?? null,
+              }
+            : {}),
         },
       });
     });
+
+    // Execute customer handling action after the agent status transaction succeeds
+    if (input.isActive === false) {
+      if (input.customerAction === "release") {
+        await customerAssignmentService.releaseAllCustomersFromAgent(String(agentId), input.blockReason, actor);
+      } else if (input.customerAction === "transfer" && input.transferToAgentId) {
+        await customerAssignmentService.reassignFromAgent(
+          {
+            fromAgentRef: String(agentId),
+            toAgentRef: input.transferToAgentId,
+            reason: `Reassigned upon Sales Partner blocking: ${input.blockReason ?? ""}`.trim().slice(0, 255),
+          },
+          actor
+        );
+      }
+    }
+
     return this.getAgentDetail(String(agentId));
   },
 

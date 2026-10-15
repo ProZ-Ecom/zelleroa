@@ -414,3 +414,7 @@ export function TableSkeleton({ rows = 5 }: { rows?: number }) {
     </div>
   );
 }
+
+export { Tooltip, type TooltipProps, type TooltipSide } from "./Tooltip";
+export { BlockAgentDialog, type BlockAgentPayload, type BlockAgentDialogAgent } from "./admin/BlockAgentDialog";
+

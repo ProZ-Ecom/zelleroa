@@ -9,7 +9,7 @@ import { toast } from "@/components/ui/Toast";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import type { PayoutRow } from "../../types";
 import { errorMessage, useAdminList } from "../../hooks/use-admin-agents";
-import { ButtonPager, PAYOUT_STATUS_OPTIONS, Panel, SimpleTable, StatusBadge, TableSkeleton, dateOnly, fieldCls, money } from "../shared";
+import { ButtonPager, PAYOUT_STATUS_OPTIONS, Panel, SimpleTable, StatusBadge, TableSkeleton, Tooltip, dateOnly, fieldCls, money } from "../shared";
 import { AdminFilterBar, type FilterField } from "./AdminFilterBar";
 import { AuditModal } from "./AuditModal";
 
@@ -111,28 +111,64 @@ export function AdminPayoutsSection({ fixedAgent }: { fixedAgent?: string }) {
                 cell: (r) => (
                   <div className="flex flex-wrap items-center gap-1.5">
                     {r.status === "requested" && (
-                      <button type="button" disabled={busyId === r.id} onClick={() => setConfirmApprove(r)} title="Approve" aria-label="Approve" className={`${btn} bg-emerald-600 text-white hover:bg-emerald-700`}>
-                        {busyId === r.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
-                      </button>
+                      <Tooltip content="Approve payout request" side="top">
+                        <button
+                          type="button"
+                          disabled={busyId === r.id}
+                          onClick={() => setConfirmApprove(r)}
+                          aria-label="Approve payout request"
+                          className={`${btn} bg-emerald-600 text-white hover:bg-emerald-700`}
+                        >
+                          {busyId === r.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+                        </button>
+                      </Tooltip>
                     )}
                     {r.status === "approved" && (
-                      <button type="button" onClick={() => setDialog({ kind: "paid", payout: r })} title="Mark paid" aria-label="Mark paid" className={`${btn} bg-gradient-to-b from-[var(--color-primary-400)] to-[var(--color-primary-600)] shadow-[0_6px_16px_-6px_rgba(37,99,235,0.45),inset_0_1px_0_rgba(255,255,255,0.18)] transition-all text-white hover:-translate-y-px hover:shadow-[0_10px_20px_-8px_rgba(37,99,235,0.5),inset_0_1px_0_rgba(255,255,255,0.18)] active:translate-y-0`}>
-                        <BadgeCheck className="h-4 w-4" />
-                      </button>
+                      <Tooltip content="Mark payout as paid" side="top">
+                        <button
+                          type="button"
+                          onClick={() => setDialog({ kind: "paid", payout: r })}
+                          aria-label="Mark payout as paid"
+                          className={`${btn} bg-gradient-to-b from-[var(--color-primary-400)] to-[var(--color-primary-600)] shadow-[0_6px_16px_-6px_rgba(37,99,235,0.45),inset_0_1px_0_rgba(255,255,255,0.18)] transition-all text-white hover:-translate-y-px hover:shadow-[0_10px_20px_-8px_rgba(37,99,235,0.5),inset_0_1px_0_rgba(255,255,255,0.18)] active:translate-y-0`}
+                        >
+                          <BadgeCheck className="h-4 w-4" />
+                        </button>
+                      </Tooltip>
                     )}
                     {(r.status === "requested" || r.status === "approved") && (
-                      <button type="button" onClick={() => setDialog({ kind: "reject", payout: r })} title="Reject" aria-label="Reject" className={`${btn} border border-red-200 text-red-700 hover:bg-red-50`}>
-                        <Ban className="h-4 w-4" />
-                      </button>
+                      <Tooltip content="Reject payout request" side="top">
+                        <button
+                          type="button"
+                          onClick={() => setDialog({ kind: "reject", payout: r })}
+                          aria-label="Reject payout request"
+                          className={`${btn} border border-red-200 text-red-700 hover:bg-red-50`}
+                        >
+                          <Ban className="h-4 w-4" />
+                        </button>
+                      </Tooltip>
                     )}
                     {(r.status === "requested" || r.status === "approved") && (
-                      <button type="button" onClick={() => setDialog({ kind: "details", payout: r })} title="Pay-to details" aria-label="Pay-to details" className={`${btn} border border-neutral-200 hover:bg-neutral-50`}>
-                        <Landmark className="h-4 w-4" />
-                      </button>
+                      <Tooltip content="View bank & UPI pay-to details" side="top">
+                        <button
+                          type="button"
+                          onClick={() => setDialog({ kind: "details", payout: r })}
+                          aria-label="View bank and UPI pay-to details"
+                          className={`${btn} border border-neutral-200 hover:bg-neutral-50`}
+                        >
+                          <Landmark className="h-4 w-4" />
+                        </button>
+                      </Tooltip>
                     )}
-                    <button type="button" onClick={() => setAuditId(r.id)} title="History" aria-label="History" className={`${btn} text-neutral-700 hover:bg-neutral-100`}>
-                      <History className="h-4 w-4" />
-                    </button>
+                    <Tooltip content="View payout audit history" side="top">
+                      <button
+                        type="button"
+                        onClick={() => setAuditId(r.id)}
+                        aria-label="View payout audit history"
+                        className={`${btn} text-neutral-700 hover:bg-neutral-100`}
+                      >
+                        <History className="h-4 w-4" />
+                      </button>
+                    </Tooltip>
                   </div>
                 ),
               },

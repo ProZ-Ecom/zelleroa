@@ -37,6 +37,7 @@ import {
   useCancelOrderAdmin,
 } from "@/features/orders/hooks";
 import { useShipViaCourier, useUpdateCourierStatus } from "@/features/delivery/hooks";
+import { isManualDeliveryStatusEnabled } from "@/features/delivery/lib/delivery-config";
 import { COURIERS, DEFAULT_COURIER_CODE, getCourier } from "@/lib/shipping/couriers";
 import { OrderDetailView } from "@/features/orders/components/OrderDetailView";
 import {
@@ -97,6 +98,7 @@ export function AdminOrderListTable({
   const cancelOrder = useCancelOrderAdmin();
   const shipViaCourier = useShipViaCourier();
   const updateCourierStatus = useUpdateCourierStatus();
+  const canManuallyUpdateDelivery = isManualDeliveryStatusEnabled();
   const [courierCode, setCourierCode] = useState(DEFAULT_COURIER_CODE);
   const [consignmentNumber, setConsignmentNumber] = useState("");
 
@@ -367,7 +369,7 @@ export function AdminOrderListTable({
               </button>
             )}
 
-            {orderStatus === "shipped" && (
+            {orderStatus === "shipped" && canManuallyUpdateDelivery && (
               <>
                 <button
                   type="button"
@@ -400,7 +402,7 @@ export function AdminOrderListTable({
               </>
             )}
 
-            {orderStatus === "out_for_delivery" && (
+            {orderStatus === "out_for_delivery" && canManuallyUpdateDelivery && (
               <button
                 type="button"
                 onClick={() =>
@@ -670,7 +672,7 @@ export function AdminOrderListTable({
                   </Button>
                 )}
 
-                {currentDetailStatus === "shipped" && (
+                {currentDetailStatus === "shipped" && canManuallyUpdateDelivery && (
                   <>
                     <Button
                       size="sm"
@@ -703,7 +705,7 @@ export function AdminOrderListTable({
                   </>
                 )}
 
-                {currentDetailStatus === "out_for_delivery" && (
+                {currentDetailStatus === "out_for_delivery" && canManuallyUpdateDelivery && (
                   <Button
                     size="sm"
                     className="bg-emerald-600 hover:bg-emerald-700 text-white"
@@ -822,93 +824,97 @@ export function AdminOrderListTable({
         </div>
       </FormModal>
 
-      {/* Mark Out for Delivery Dialog */}
-      <ConfirmDialog
-        open={!!outForDeliveryModalOrder}
-        onClose={() => setOutForDeliveryModalOrder(null)}
-        onConfirm={() => {
-          if (!outForDeliveryModalOrder) return;
-          updateCourierStatus.mutate(
-            {
-              orderId: outForDeliveryModalOrder.id,
-              status: "out_for_delivery",
-            },
-            {
-              onSuccess: () => {
-                setOutForDeliveryModalOrder(null);
-                refetch();
+      {/* Mark Out for Delivery Dialog (Testing only, disabled in production) */}
+      {canManuallyUpdateDelivery && (
+        <ConfirmDialog
+          open={!!outForDeliveryModalOrder}
+          onClose={() => setOutForDeliveryModalOrder(null)}
+          onConfirm={() => {
+            if (!outForDeliveryModalOrder) return;
+            updateCourierStatus.mutate(
+              {
+                orderId: outForDeliveryModalOrder.id,
+                status: "out_for_delivery",
               },
-            }
-          );
-        }}
-        title="Mark Out for Delivery"
-        description={`Confirm that order #${outForDeliveryModalOrder?.orderNumber ?? ""} is out for delivery with the courier.`}
-        confirmText="Confirm Out for Delivery"
-        isLoading={updateCourierStatus.isPending}
-      />
+              {
+                onSuccess: () => {
+                  setOutForDeliveryModalOrder(null);
+                  refetch();
+                },
+              }
+            );
+          }}
+          title="Mark Out for Delivery"
+          description={`Confirm that order #${outForDeliveryModalOrder?.orderNumber ?? ""} is out for delivery with the courier.`}
+          confirmText="Confirm Out for Delivery"
+          isLoading={updateCourierStatus.isPending}
+        />
+      )}
 
-      {/* Mark Delivered Modal */}
-      <FormModal
-        open={!!deliveryModalOrder}
-        onClose={() => {
-          setDeliveryModalOrder(null);
-          setDeliveryNote("");
-        }}
-        title={`Mark as Delivered${deliveryModalOrder ? ` - #${deliveryModalOrder.orderNumber}` : ""}`}
-        description="Confirm that this courier parcel has been successfully delivered to the customer."
-        size="sm"
-        footer={
-          <>
-            <Button
-              variant="outline"
-              onClick={() => {
-                setDeliveryModalOrder(null);
-                setDeliveryNote("");
-              }}
-            >
-              Cancel
-            </Button>
-            <Button
-              className="bg-emerald-600 hover:bg-emerald-700 text-white"
-              disabled={updateCourierStatus.isPending}
-              onClick={() => {
-                if (!deliveryModalOrder) return;
-                updateCourierStatus.mutate(
-                  {
-                    orderId: deliveryModalOrder.id,
-                    status: "delivered",
-                    note: deliveryNote.trim() || undefined,
-                  },
-                  {
-                    onSuccess: () => {
-                      setDeliveryModalOrder(null);
-                      setDeliveryNote("");
-                      refetch();
+      {/* Mark Delivered Modal (Testing only, disabled in production) */}
+      {canManuallyUpdateDelivery && (
+        <FormModal
+          open={!!deliveryModalOrder}
+          onClose={() => {
+            setDeliveryModalOrder(null);
+            setDeliveryNote("");
+          }}
+          title={`Mark as Delivered${deliveryModalOrder ? ` - #${deliveryModalOrder.orderNumber}` : ""}`}
+          description="Confirm that this courier parcel has been successfully delivered to the customer."
+          size="sm"
+          footer={
+            <>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setDeliveryModalOrder(null);
+                  setDeliveryNote("");
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                disabled={updateCourierStatus.isPending}
+                onClick={() => {
+                  if (!deliveryModalOrder) return;
+                  updateCourierStatus.mutate(
+                    {
+                      orderId: deliveryModalOrder.id,
+                      status: "delivered",
+                      note: deliveryNote.trim() || undefined,
                     },
-                  }
-                );
-              }}
-            >
-              {updateCourierStatus.isPending && (
-                <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
-              )}
-              Confirm Delivery
-            </Button>
-          </>
-        }
-      >
-        <div className="space-y-3">
-          <label className="text-xs font-semibold text-neutral-700">
-            Delivery Note (optional)
-          </label>
-          <Input
-            placeholder="e.g. Delivered by ST Courier to customer"
-            value={deliveryNote}
-            onChange={(e) => setDeliveryNote(e.target.value)}
-            maxLength={100}
-          />
-        </div>
-      </FormModal>
+                    {
+                      onSuccess: () => {
+                        setDeliveryModalOrder(null);
+                        setDeliveryNote("");
+                        refetch();
+                      },
+                    }
+                  );
+                }}
+              >
+                {updateCourierStatus.isPending && (
+                  <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+                )}
+                Confirm Delivery
+              </Button>
+            </>
+          }
+        >
+          <div className="space-y-3">
+            <label className="text-xs font-semibold text-neutral-700">
+              Delivery Note (optional)
+            </label>
+            <Input
+              placeholder="e.g. Delivered by ST Courier to customer"
+              value={deliveryNote}
+              onChange={(e) => setDeliveryNote(e.target.value)}
+              maxLength={100}
+            />
+          </div>
+        </FormModal>
+      )}
 
       {/* Cancel Order Dialog */}
       <ConfirmDialog

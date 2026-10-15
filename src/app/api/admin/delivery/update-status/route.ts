@@ -1,6 +1,8 @@
 import { createApiHandler } from "@/lib/api/api-handler";
 import { apiSuccess } from "@/lib/api/api-response";
+import { ApiError } from "@/lib/api/api-error";
 import { deliveryService } from "@/features/delivery/services/delivery.service";
+import { isManualDeliveryStatusEnabled } from "@/features/delivery/lib/delivery-config";
 import {
   updateCourierStatusSchema,
   type UpdateCourierStatusInput,
@@ -9,6 +11,12 @@ import {
 export const POST = createApiHandler(
   {
     POST: async (_request, context) => {
+      if (!isManualDeliveryStatusEnabled()) {
+        throw ApiError.forbidden(
+          "Manual courier delivery status updates are disabled in production mode. Status updates are managed automatically by the courier partner."
+        );
+      }
+
       const body = context.body as UpdateCourierStatusInput;
       const adminEmail = context.session?.user?.email;
       const result = await deliveryService.updateCourierStatus(body, adminEmail);

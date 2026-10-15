@@ -78,14 +78,14 @@ function ReviewBar({
         <StatusBadge status={status} />
         {remarks && <span className="text-xs text-neutral-500">Remarks: {remarks}</span>}
         <div className="ml-auto flex gap-2">
-          <button
+          {/* <button
             type="button"
             disabled={busy !== null || status === "verified"}
             onClick={() => run("verify")}
             className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-emerald-600 px-3 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-50"
           >
             {busy === "verify" ? <Loader2 className="h-4 w-4 animate-spin" /> : <BadgeCheck className="h-4 w-4" />} Verify
-          </button>
+          </button> */}
           <button
             type="button"
             disabled={busy !== null}

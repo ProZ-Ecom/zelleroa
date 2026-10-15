@@ -8,7 +8,7 @@ import { toast } from "@/components/ui/Toast";
 import { Select } from "@/components/ui/select";
 import { PageContainer } from "@/components/admin/PageContainer";
 import { errorMessage, useAdminObject } from "@/features/agents/hooks/use-admin-agents";
-import { Panel, SimpleTable, StatusBadge, TableSkeleton, dateOnly, fieldCls } from "@/features/agents/components/shared";
+import { Panel, SimpleTable, StatusBadge, TableSkeleton, Tooltip, dateOnly, fieldCls } from "@/features/agents/components/shared";
 
 interface RateRow {
   id: string;
@@ -197,9 +197,11 @@ export default function CommissionRatesPage() {
                 {
                   header: "",
                   cell: (r) => (
-                    <button type="button" onClick={() => removeRate(r)} className="inline-flex items-center gap-1 text-xs font-semibold text-red-600 hover:underline">
-                      <Trash2 className="h-3.5 w-3.5" /> Remove
-                    </button>
+                    <Tooltip content="Remove this commission rate" side="left">
+                      <button type="button" onClick={() => removeRate(r)} aria-label="Remove this commission rate" className="inline-flex items-center gap-1 text-xs font-semibold text-red-600 hover:underline">
+                        <Trash2 className="h-3.5 w-3.5" /> Remove
+                      </button>
+                    </Tooltip>
                   ),
                 },
               ]}

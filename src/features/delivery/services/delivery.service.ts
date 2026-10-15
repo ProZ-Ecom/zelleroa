@@ -1,4 +1,5 @@
 import { ApiError } from "@/lib/api/api-error";
+import { isManualDeliveryStatusEnabled } from "../lib/delivery-config";
 import { deliveryRepository } from "../repositories/delivery.repository";
 import { userRepository } from "@/features/users/repositories/user.repository";
 import { getCourier } from "@/lib/shipping/couriers";
@@ -609,6 +610,12 @@ export const deliveryService = {
     input: UpdateCourierStatusInput,
     adminEmail?: string | null
   ): Promise<UpdateCourierStatusResult> {
+    if (!isManualDeliveryStatusEnabled()) {
+      throw ApiError.forbidden(
+        "Manual courier delivery status updates are disabled in production mode. Status updates are managed automatically by the courier partner."
+      );
+    }
+
     const adminId = await getAdminInternalId(adminEmail);
 
     const order = await deliveryRepository.findOrderForCourierShipment(input.orderId);
