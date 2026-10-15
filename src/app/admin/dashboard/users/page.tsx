@@ -27,6 +27,7 @@ import { exportDataToCsv } from "@/lib/export-csv";
 import { SearchInput } from "@/components/ui/search-input";
 import { Plus, Pencil, Trash2, KeyRound, RotateCcw } from "lucide-react";
 import { z } from "zod";
+   import { cn } from "@/lib/utils";
 import {
   createUserSchema,
   resetPasswordSchema,
@@ -47,26 +48,31 @@ interface UserFormValues {
   status?: "active" | "inactive" | "banned";
 }
 
+const roleColors: Record<string, string> = {
+  ADMIN: "!bg-purple-100 !text-purple-700 !border-purple-300",
+  STAFF: "!bg-blue-100 !text-blue-700 !border-blue-300",
+  AGENT: "!bg-orange-100 !text-orange-700 !border-orange-300",
+ CUSTOMER: "!bg-slate-100 !text-slate-700 !border-slate-300",
+};
+
 export default function AdminUsersPage() {
+  const statusBadgeVariant = (status?: string) => {
+  switch (status?.toLowerCase()) {
+    case "active":
+      return "success";
+    case "inactive":
+      return "secondary";
+    default:
+      return "destructive";
+  }
+};
   const [modalMode, setModalMode] = useState<ModalMode>(null);
   const [selectedUser, setSelectedUser] = useState<UserListItem | null>(null);
   const [deleteId, setDeleteId] = useState<string | number | null>(null);
+
   const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
-  const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState<string>("all");
-
-  const queryParams = useMemo(
-    () => ({
-      page,
-      limit: pageSize,
-      search: search.trim() || undefined,
-      status: statusFilter !== "all" ? statusFilter : undefined,
-    }),
-    [page, pageSize, search, statusFilter]
-  );
-
-  const { data, isLoading, error, refetch } = useUsers(queryParams);
+const [pageSize, setPageSize] = useState(20);
+const { data, isLoading, error, refetch } = useUsers({ page, limit: pageSize });
   const createMutation = useCreateUser();
   const updateMutation = useUpdateUser();
   const deleteMutation = useDeleteUser();
@@ -234,49 +240,38 @@ export default function AdminUsersPage() {
         return phone.replace(/^\+91/, "");
       },
     },
-    {
+     {
       accessorKey: "roleName",
       header: "Role",
-      cell: ({ row }) => (
-        <Badge variant="outline">{row.original.roleName || "Unknown"}</Badge>
-      ),
+      cell: ({ row }) => {
+        const role = row.original.roleName || "Unknown";
+        return (
+          <Badge
+            variant="outline"
+            className={cn(roleColors[role.toUpperCase()] ?? "!bg-gray-100 !text-gray-700 !border-gray-300")}
+          >
+            {role}
+          </Badge>
+        );
+      },
     },
     {
       accessorKey: "status",
       header: "Status",
       cell: ({ row }) => {
-        const status = (row.original.status || "").toLowerCase();
-        if (status === "active") {
-          return (
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700 border border-emerald-200">
-              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-              Active
-            </span>
-          );
-        }
-        if (status === "inactive") {
-          return (
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-red-50 px-2.5 py-1 text-xs font-semibold text-red-700 border border-red-200">
-              <span className="h-1.5 w-1.5 rounded-full bg-red-500" />
-              Inactive
-            </span>
-          );
-        }
-        if (status === "banned" || status === "blocked") {
-          return (
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-red-50 px-2.5 py-1 text-xs font-semibold text-red-700 border border-red-200">
-              <span className="h-1.5 w-1.5 rounded-full bg-red-500" />
-              Banned
-            </span>
-          );
-        }
-        return (
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-neutral-100 px-2.5 py-1 text-xs font-semibold text-neutral-700 border border-neutral-200">
-            <span className="h-1.5 w-1.5 rounded-full bg-neutral-400" />
-            {row.original.status || "Unknown"}
-          </span>
-        );
-      },
+  const status = row.original.status?.toLowerCase();
+  return (
+    <Badge
+      variant={statusBadgeVariant(row.original.status) as "success" | "secondary" | "destructive"}
+      className={cn(
+  status === "inactive" && "!bg-red-100 !text-red-700",
+  status === "banned" && "!bg-red-200 !text-red-800"
+)}
+    >
+      {row.original.status}
+    </Badge>
+  );
+},
     },
     {
       accessorKey: "createdAt",
@@ -367,11 +362,7 @@ export default function AdminUsersPage() {
               setPage(1);
             }}
             className="bg-white border-0"
-            emptyMessage={
-              search.trim() || statusFilter !== "all"
-                ? "No users matched your filter criteria."
-                : "No users found. Click '+ Add User' to create a new user account."
-            }
+           emptyMessage="No users found. Click '+ Add User' to create a new user account."
           />
         </div>
       </AdminContent>
@@ -434,6 +425,7 @@ export default function AdminUsersPage() {
                 type="password"
                 className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
                 placeholder="Minimum 8 characters"
+      
               />
               {errors.password && (
                 <p className="mt-1 text-xs text-red-500 font-medium">{errors.password.message}</p>
@@ -445,11 +437,18 @@ export default function AdminUsersPage() {
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Phone <span className="text-error-600">*</span>
             </label>
-            <input
-              {...register("phone")}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
-              placeholder="Phone number"
-            />
+           <input
+  {...register("phone", {
+    onChange: (e) => {
+      e.target.value = e.target.value.replace(/\D/g, "").slice(0, 10);
+    },
+  })}
+  type="tel"
+  inputMode="numeric"
+  maxLength={10}
+  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+  placeholder="10-digit phone number"
+/>
             {errors.phone && (
               <p className="mt-1 text-xs text-red-500 font-medium">{errors.phone.message}</p>
             )}
@@ -526,6 +525,7 @@ export default function AdminUsersPage() {
               type="password"
               className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
               placeholder="Minimum 8 characters"
+             
             />
             {resetPasswordErrors.password && (
               <p className="mt-1 text-xs text-red-500 font-medium">

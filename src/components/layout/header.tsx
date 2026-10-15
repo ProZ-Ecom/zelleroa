@@ -250,50 +250,50 @@ export function Header({
       </div>
 
       <header className="sticky top-0 z-50 w-full bg-white shadow-xs header-font">
-      <div className="w-full max-w-[1400px] 2xl:max-w-[1600px] 3xl:max-w-[1800px] mx-auto h-20 sm:h-24 px-4 sm:px-6 md:px-8 flex items-center justify-between">
-        {/* Left Section (Logo + Brand Title) */}
-        <div className="flex items-center gap-1 sm:gap-2 md:gap-3">
-          <Link href="/" className="inline-block">
+      <div className="w-full max-w-[1400px] 2xl:max-w-[1600px] 3xl:max-w-[1800px] mx-auto h-20 sm:h-24 px-2.5 sm:px-4 lg:px-2.5 xl:px-6 2xl:px-8 flex items-center justify-between gap-1.5 lg:gap-2 xl:gap-4 2xl:gap-6">
+        {/* Left Section (Logo + Brand Title) - Fixed aspect ratio & prevented flex compression */}
+        <div className="flex items-center gap-1 sm:gap-1.5 md:gap-2 xl:gap-3 shrink-0 select-none">
+          <Link href="/" className="inline-flex items-center shrink-0">
             <Image
               src={LOGOS.logo}
               alt="logo"
               width={100}
               height={100}
               priority
-              className="w-[55px] sm:w-[65px] md:w-[80px] hover:scale-105 transition-transform duration-300 active:scale-95"
+              className="h-8 sm:h-9 xl:h-10 w-auto aspect-square object-contain hover:scale-105 transition-transform duration-300 active:scale-95 shrink-0"
             />
           </Link>
 
           {/* Mobile Title */}
-          <Link href="/" className="block md:hidden">
+          <Link href="/" className="flex md:hidden items-center shrink-0 min-w-[95px] sm:min-w-[110px]">
             <Image
               src={LOGOS.mobileTitle}
               alt="mobile title"
-              width={80}
+              width={120}
               height={40}
               priority
-              className="w-[95px] sm:w-[120px] h-auto hover:scale-105 transition-transform duration-300"
+              className="h-7 sm:h-8 w-auto min-w-[95px] sm:min-w-[110px] object-contain hover:scale-105 transition-transform duration-300 shrink-0"
             />
           </Link>
 
           {/* Desktop Title */}
-          <Link href="/" className="hidden md:block">
+          <Link href="/" className="hidden md:flex items-center shrink-0 min-w-[95px] lg:min-w-[105px] xl:min-w-[125px]">
             <Image
               src={LOGOS.title}
               alt="title"
-              width={80}
-              height={80}
+              width={160}
+              height={48}
               priority
-              className="w-auto h-auto hover:scale-105 transition-transform duration-300"
+              className="h-7 sm:h-8 lg:h-7.5 xl:h-9 2xl:h-10 w-auto object-contain hover:scale-105 transition-transform duration-300 shrink-0"
             />
           </Link>
         </div>
 
         {/* Desktop Navigation */}
-        <nav className="hidden lg:flex items-center gap-1">
+        <nav className="hidden lg:flex items-center gap-0.5 xl:gap-1 2xl:gap-1.5 min-w-0 flex-1 justify-center py-1 mx-0.5 xl:mx-2 2xl:mx-3">
           <Link
             href="/"
-            className={`rounded-full px-3.5 py-2 text-sm font-medium transition-colors ${
+            className={`rounded-full px-1.5 xl:px-2.5 2xl:px-3.5 py-1 xl:py-1.5 text-[11px] xl:text-xs 2xl:text-sm font-medium transition-colors whitespace-nowrap shrink-0 tracking-tight xl:tracking-normal ${
               pathname === "/"
                 ? "bg-theme-primary text-theme-primary-fg font-semibold"
                 : "text-hover-primary hover:text-theme-primary"
@@ -327,7 +327,7 @@ export function Header({
                 <Link
                   key={item.id}
                   href={item.link ?? "#"}
-                  className={`flex items-center gap-1.5 rounded-full px-3.5 py-2 text-sm font-medium transition-colors ${
+                  className={`flex items-center gap-1 rounded-full px-1.5 xl:px-2.5 2xl:px-3.5 py-1 xl:py-1.5 text-[11px] xl:text-xs 2xl:text-sm font-medium transition-colors whitespace-nowrap shrink-0 tracking-tight xl:tracking-normal ${
                     isNavItemActive(item, pathname, activeGender)
                       ? "bg-theme-primary text-theme-primary-fg font-semibold"
                       : "text-red-600 hover:bg-red-50"
@@ -341,8 +341,8 @@ export function Header({
         </nav>
 
         {/* Right Section (Icons & Hamburger) */}
-        <div className="flex items-center gap-2 sm:gap-3 md:gap-5">
-          <div className="hidden lg:flex items-center gap-5">
+        <div className="flex items-center gap-1.5 sm:gap-2 md:gap-3 xl:gap-4 shrink-0">
+          <div className="hidden lg:flex items-center gap-1.5 sm:gap-2 xl:gap-3.5 2xl:gap-5">
             {/* Inline search */}
             <div ref={searchWrapRef} className="relative">
             <form onSubmit={handleSearchSubmit} className="relative flex items-center">
@@ -436,8 +436,8 @@ export function Header({
                 icon beside it. A fixed slot keeps the swap contained: siblings
                 never move, whichever state wins. */}
             <div
-              className={`flex justify-end ${
-                isAuthLoading || isAuthenticated ? "" : "min-w-[92px]"
+              className={`flex justify-end shrink-0 ${
+                isAuthLoading || isAuthenticated ? "" : "min-w-[66px] xl:min-w-[92px]"
               }`}
             >
               {isAuthLoading ? (
@@ -448,12 +448,12 @@ export function Header({
               ) : !isAuthenticated ? (
                 <Link
                   href="/login"
-                  className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-sm bg-theme-primary hover:bg-theme-primary-hover text-theme-primary-fg border border-theme-primary text-xs sm:text-sm font-semibold transition-all duration-150 shadow-xs hover:shadow-sm active:scale-95 cursor-pointer"
+                  className="flex items-center gap-1 xl:gap-1.5 px-2 xl:px-3.5 py-1 xl:py-1.5 rounded-sm bg-theme-primary hover:bg-theme-primary-hover text-theme-primary-fg border border-theme-primary text-[11px] xl:text-sm font-semibold transition-all duration-150 shadow-xs hover:shadow-sm active:scale-95 cursor-pointer shrink-0"
                   aria-label="Login"
                 >
                   <span>Login</span>
                   <LogIn
-                    className="w-4 h-4 text-inherit shrink-0"
+                    className="w-3.5 h-3.5 xl:w-4 xl:h-4 text-inherit shrink-0"
                     strokeWidth={2}
                   />
                 </Link>

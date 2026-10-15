@@ -147,17 +147,15 @@ export default function AdminStaffPage() {
         header: "Status",
         cell: ({ row }) => {
           const isActive = row.original.isActive;
-          return isActive ? (
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700 border border-emerald-200">
-              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-              Active
-            </span>
-          ) : (
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-red-50 px-2.5 py-1 text-xs font-semibold text-red-700 border border-red-200">
-              <span className="h-1.5 w-1.5 rounded-full bg-red-500" />
-              Inactive
-            </span>
-          );
+         return isActive ? (
+  <span className="inline-flex items-center rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700 border border-emerald-200">
+    Active
+  </span>
+) : (
+  <span className="inline-flex items-center rounded-full bg-red-100 px-2.5 py-1 text-xs font-semibold text-red-700 border border-red-300">
+    Inactive
+  </span>
+);
         },
       },
       {
@@ -201,7 +199,6 @@ export default function AdminStaffPage() {
     <div className="flex flex-1 min-h-0 flex-col">
       <AdminBreadcrumb
         items={[
-          { label: "Team & Access", href: "/admin/dashboard/users" },
           { label: "Staff" },
         ]}
       />

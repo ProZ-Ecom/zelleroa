@@ -157,16 +157,10 @@ export default function AdminPermissionsPage() {
   return (
     <div className="flex flex-1 min-h-0 flex-col">
       <AdminBreadcrumb items={[{ label: "Permissions" }]} />
-      <AdminPageHeader
-        title="Permissions"
-        description="Manage granular permissions for roles"
-        actions={
-          <Button variant="gradient" onClick={() => handleOpenModal()}>
-            <Plus className="mr-2 h-4 w-4" />
-            Add Permission
-          </Button>
-        }
-      />
+     <AdminPageHeader
+  title="Permissions"
+  description="Manage granular permissions for roles"
+/>
       <AdminContent className="flex-1 min-h-0 overflow-hidden">
         <div className="flex h-full flex-col overflow-hidden bg-[var(--color-background)] py-1 rounded-2xl">
           <div className="flex-shrink-0 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
@@ -191,13 +185,10 @@ export default function AdminPermissionsPage() {
                 }
                 disabled={filteredPermissions.length === 0}
               />
-              <Button
-                onClick={() => handleOpenModal()}
-                className="h-11 rounded-xl bg-[var(--color-primary-500)] px-5 text-sm font-semibold text-white hover:bg-[var(--color-primary-600)]"
-              >
-                <Plus className="mr-2 h-4 w-4" />
-                Add Permission
-              </Button>
+              <Button variant="gradient" onClick={() => handleOpenModal()}>
+  <Plus className="mr-2 h-4 w-4" />
+  Add Permission
+</Button>
             </div>
           </div>
 

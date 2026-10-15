@@ -3,12 +3,12 @@
 import React, { useState } from "react";
 import { Check } from "lucide-react";
 import { formatPrice, getImageUrl } from "@/lib/utils";
+import { ProductImage } from "@/components/common/ProductImage";
 import type { CustomerProfileResponse } from "../../types";
 import type { OrderDetailResponse } from "@/features/orders/types";
 import { useAddToCartMutation } from "../../hooks/use-customer-cart";
 import { ProfileCompletionMeter } from "@/components/ui/ProfileCompletionMeter";
 import { calculateCustomerCompletion } from "../../lib/profile-completion";
-import { ProductImage } from "@/components/common/ProductImage";
 
 interface DashboardTabProps {
   profile?: CustomerProfileResponse | null;
@@ -150,12 +150,13 @@ export function DashboardTab({
         null;
 
       if (key && !pastItemsMap.has(key)) {
-        pastItemsMap.set(key, {
+       pastItemsMap.set(key, {
           variantId: vId,
           name: key,
           price: typeof item.unitPrice === "number" ? item.unitPrice : Number(item.unitPrice || 0),
           image: imgSrc,
           variantName: item.variantName || item.variant_snapshot || null,
+          image: (item as any).primaryImage || (item as any).image || null,
         });
       }
     });

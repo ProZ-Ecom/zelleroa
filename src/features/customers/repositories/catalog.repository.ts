@@ -58,6 +58,30 @@ function styleBrandWhere(brandIds: bigint[]): Prisma.StyleWhereInput {
 }
 
 /**
+ * Resolves category UUIDs to database IDs, including all descendant subcategories.
+ * When a customer filters by a root or parent category (e.g. "Women" or "Kids"),
+ * products linked to any of its subcategories (e.g. "Dresses", "Kurtas") are included.
+ */
+async function resolveCategoryAndDescendantIds(categoryUuids: string[]): Promise<bigint[]> {
+  const matchingCategories = await db.productCategory.findMany({
+    where: { uuid: { in: categoryUuids }, isActive: true, deleted_at: null },
+    select: { id: true },
+  });
+  if (matchingCategories.length === 0) return [];
+  const allCategoryIds = new Set<bigint>(matchingCategories.map((c) => c.id));
+  let currentParentIds = matchingCategories.map((c) => c.id);
+  while (currentParentIds.length > 0) {
+    const children = await db.productCategory.findMany({
+      where: { parentId: { in: currentParentIds }, isActive: true, deleted_at: null },
+      select: { id: true },
+    });
+    currentParentIds = children.map((c) => c.id).filter((id) => !allCategoryIds.has(id));
+    currentParentIds.forEach((id) => allCategoryIds.add(id));
+  }
+  return Array.from(allCategoryIds);
+}
+
+/**
  * Selling price is not stored on the unit price row - it is basePrice minus
  * any active offer/discount, computed here at read time. No offer/discount
  * engine is wired up for the storefront yet, so this currently returns
@@ -575,13 +599,10 @@ export const catalogRepository = {
       where.AND = [{ styles: { some: { deleted_at: null, ...styleBrandWhere(brandIds) } } }];
     }
 
-    // Filter by Category UUIDs
+    // Filter by Category UUIDs (including all descendant subcategories)
     if (params.categoryIds && params.categoryIds.length > 0) {
-      const matchingCategories = await db.productCategory.findMany({
-        where: { uuid: { in: params.categoryIds }, isActive: true, deleted_at: null },
-        select: { id: true },
-      });
-      where.categoryId = { in: matchingCategories.map((c) => c.id) };
+      const categoryIds = await resolveCategoryAndDescendantIds(params.categoryIds);
+      where.categoryId = { in: categoryIds };
     }
 
     // Filter by Product UUIDs
@@ -809,11 +830,8 @@ export const catalogRepository = {
     }
 
     if (params.categoryIds && params.categoryIds.length > 0) {
-      const matchingCategories = await db.productCategory.findMany({
-        where: { uuid: { in: params.categoryIds }, isActive: true, deleted_at: null },
-        select: { id: true },
-      });
-      where.product = { ...productWhere(), categoryId: { in: matchingCategories.map((c) => c.id) } };
+      const categoryIds = await resolveCategoryAndDescendantIds(params.categoryIds);
+      where.product = { ...productWhere(), categoryId: { in: categoryIds } };
     }
 
     if (params.search) {
@@ -1540,10 +1558,7 @@ export const catalogRepository = {
           })
         : null,
       params.categoryIds && params.categoryIds.length > 0
-        ? db.productCategory.findMany({
-            where: { uuid: { in: params.categoryIds }, isActive: true, deleted_at: null },
-            select: { id: true },
-          })
+        ? resolveCategoryAndDescendantIds(params.categoryIds)
         : null,
     ]);
 
@@ -1576,7 +1591,7 @@ export const catalogRepository = {
           ...itemStyleWhere(),
           product: {
             ...itemStyleProductWhere(),
-            categoryId: { in: matchingCategories.map((c) => c.id) },
+            categoryId: { in: matchingCategories },
           },
         },
       };

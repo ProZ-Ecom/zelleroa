@@ -90,6 +90,8 @@ export function ItemCard(props: ItemCardProps | CompactItemCardProps) {
   const { item, onClick } = props;
   const isOut = item.stockStatus === "out_of_stock";
   const extraColours = item.colors.length - MAX_SWATCHES;
+  const displayName = item.styleName || item.name;
+  const subtitle = item.brand?.name ?? item.category?.name ?? "Zellora";
 
   return (
     <div className="group relative flex flex-col overflow-hidden rounded-xl border border-theme-border bg-theme-surface shadow-2xs transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md">
@@ -102,7 +104,7 @@ export function ItemCard(props: ItemCardProps | CompactItemCardProps) {
       <div className="relative aspect-[5/4] w-full overflow-hidden bg-theme-surface-alt">
         <ProductImage
           src={item.image}
-          alt={item.selectedColor ? `${item.name} in ${item.selectedColor.name}` : item.name}
+          alt={item.selectedColor ? `${displayName} in ${item.selectedColor.name}` : displayName}
           fill
           sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
           className={`object-cover transition-transform duration-300 group-hover:scale-105 ${
@@ -131,13 +133,13 @@ export function ItemCard(props: ItemCardProps | CompactItemCardProps) {
       </div>
 
       <div className="flex flex-1 flex-col gap-1 p-2.5 sm:p-3">
-        {(item.brand || item.styleName) && (
+        {subtitle && (
           <span className="text-[10px] font-semibold uppercase tracking-wide text-theme-text-muted line-clamp-1">
-            {item.brand?.name ?? item.styleName}
+            {subtitle}
           </span>
         )}
         <h3 className="text-[13px] font-semibold text-theme-text-primary line-clamp-2 leading-snug sm:text-sm">
-          {item.name}
+          {displayName}
         </h3>
 
         {item.rating && (

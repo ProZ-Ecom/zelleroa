@@ -21,68 +21,61 @@ export interface ProductImageProps {
   fallbackSize?: "default" | "compact";
 }
 
-function SnackBowlIcon({ className }: { className?: string }) {
+function FashionMonogramIcon({ className }: { className?: string }) {
   return (
     <svg
       viewBox="0 0 64 64"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
-      className={cn("text-[#8B1D1D]", className)}
+      className={cn("text-theme-primary", className)}
     >
-      {/* Urli / Bowl */}
+      {/* Luxury Coat Hanger / Garment Silhouette */}
       <path
-        d="M8 36C8 47.0457 18.7452 56 32 56C45.2548 56 56 47.0457 56 36H8Z"
-        fill="#E3A857"
-        fillOpacity="0.3"
-        stroke="#8B1D1D"
-        strokeWidth="2.5"
-        strokeLinejoin="round"
-      />
-      <ellipse
-        cx="32"
-        cy="36"
-        rx="24"
-        ry="7"
-        fill="#F4D39B"
-        stroke="#8B1D1D"
-        strokeWidth="2.5"
-      />
-      {/* Murukku / Ribbon pakoda spirals */}
-      <path
-        d="M24 33C24 28 28 24 32 24C36 24 40 28 38 33C37 36 34 37 32 37"
-        stroke="#8B1D1D"
-        strokeWidth="2.5"
-        strokeLinecap="round"
-      />
-      <path
-        d="M18 34C19 26 26 20 33 20C41 20 46 25 45 32"
-        stroke="#C97A1E"
+        d="M32 14C30 14 28 15.5 28 17.5C28 19.5 30 21 32 23V25"
+        stroke="currentColor"
         strokeWidth="2.2"
         strokeLinecap="round"
       />
-      {/* Steam / Aroma curls */}
       <path
-        d="M28 16C27 13 29 11 29 9"
-        stroke="#8B1D1D"
+        d="M32 25L14 34C11 35.5 12 40 15.5 40H48.5C52 40 53 35.5 50 34L32 25Z"
+        fill="currentColor"
+        fillOpacity="0.12"
+        stroke="currentColor"
+        strokeWidth="2.2"
+        strokeLinejoin="round"
+      />
+      {/* Central Diamond / Crest */}
+      <path
+        d="M32 30L35 34L32 38L29 34L32 30Z"
+        fill="currentColor"
+        stroke="currentColor"
+        strokeWidth="1.2"
+        strokeLinejoin="round"
+      />
+      {/* Delicate horizontal bottom strut */}
+      <path
+        d="M16 40H48"
+        stroke="currentColor"
         strokeWidth="2"
         strokeLinecap="round"
-        opacity="0.6"
+      />
+      {/* Subtle sparkle accents */}
+      <path
+        d="M48 18L49 21L52 22L49 23L48 26L47 23L44 22L47 21L48 18Z"
+        fill="#C97A1E"
       />
       <path
-        d="M35 15C36 12 34 10 35 7"
-        stroke="#8B1D1D"
-        strokeWidth="2"
-        strokeLinecap="round"
-        opacity="0.6"
+        d="M16 22L16.5 23.5L18 24L16.5 24.5L16 26L15.5 24.5L14 24L15.5 23.5L16 22Z"
+        fill="#C97A1E"
       />
     </svg>
   );
 }
 
 /**
- * Beautiful authentic South Indian snack SVG fallback illustration
+ * Premium Zellora Fashion & Lifestyle SVG fallback illustration
  */
-export function SnackFallbackIllustration({
+export function ProductFallbackIllustration({
   className,
   title,
   size = "default",
@@ -95,13 +88,13 @@ export function SnackFallbackIllustration({
     return (
       <div
         className={cn(
-          "flex items-center justify-center overflow-hidden select-none bg-gradient-to-br from-[#FFF9F2] via-[#FFF1E5] to-[#FDE8D4]",
+          "flex items-center justify-center overflow-hidden select-none bg-gradient-to-br from-theme-surface via-theme-surface-alt to-theme-border/40 text-theme-primary",
           className
         )}
         role="img"
-        aria-label={title || "Authentic Snack"}
+        aria-label={title || "Zellora Collection"}
       >
-        <SnackBowlIcon className="h-3/5 w-3/5" />
+        <FashionMonogramIcon className="h-3/5 w-3/5" />
       </div>
     );
   }
@@ -109,37 +102,40 @@ export function SnackFallbackIllustration({
   return (
     <div
       className={cn(
-        "relative flex flex-col items-center justify-center overflow-hidden select-none bg-gradient-to-br from-[#FFF9F2] via-[#FFF1E5] to-[#FDE8D4] text-[#8B1D1D] p-4 text-center",
+        "relative flex flex-col items-center justify-center overflow-hidden select-none bg-gradient-to-br from-[#FAF8F5] via-[#F4EFEA] to-[#EBE4DC] text-theme-primary p-4 text-center",
         className
       )}
-      aria-label={title || "Authentic Snack"}
+      aria-label={title || "Zellora Collection"}
     >
-      {/* Decorative background radial pattern */}
-      <div className="absolute inset-0 bg-[radial-gradient(#8B1D1D_0.75px,transparent_0.75px)] opacity-[0.07] [background-size:12px_12px]" />
+      {/* Decorative background subtle pattern */}
+      <div className="absolute inset-0 bg-[radial-gradient(#8B1D1D_0.6px,transparent_0.6px)] opacity-[0.05] [background-size:14px_14px]" />
 
       {/* Decorative corner accents */}
-      <div className="absolute top-2 left-2 w-3 h-3 border-t-2 border-l-2 border-[#8B1D1D]/20 rounded-tl-sm pointer-events-none" />
-      <div className="absolute top-2 right-2 w-3 h-3 border-t-2 border-r-2 border-[#8B1D1D]/20 rounded-tr-sm pointer-events-none" />
-      <div className="absolute bottom-2 left-2 w-3 h-3 border-b-2 border-l-2 border-[#8B1D1D]/20 rounded-bl-sm pointer-events-none" />
-      <div className="absolute bottom-2 right-2 w-3 h-3 border-b-2 border-r-2 border-[#8B1D1D]/20 rounded-br-sm pointer-events-none" />
+      <div className="absolute top-2 left-2 w-3 h-3 border-t-2 border-l-2 border-theme-primary/25 rounded-tl-sm pointer-events-none" />
+      <div className="absolute top-2 right-2 w-3 h-3 border-t-2 border-r-2 border-theme-primary/25 rounded-tr-sm pointer-events-none" />
+      <div className="absolute bottom-2 left-2 w-3 h-3 border-b-2 border-l-2 border-theme-primary/25 rounded-bl-sm pointer-events-none" />
+      <div className="absolute bottom-2 right-2 w-3 h-3 border-b-2 border-r-2 border-theme-primary/25 rounded-br-sm pointer-events-none" />
 
       {/* Center Illustration */}
       <div className="relative z-10 flex flex-col items-center justify-center max-w-[85%]">
-        <div className="w-16 h-16 md:w-20 md:h-20 mb-3 rounded-full bg-white/80 shadow-sm border border-[#8B1D1D]/15 flex items-center justify-center p-2.5 backdrop-blur-xs">
-          <SnackBowlIcon className="w-full h-full" />
+        <div className="w-16 h-16 md:w-20 md:h-20 mb-3 rounded-2xl bg-white/90 shadow-sm border border-theme-primary/15 flex items-center justify-center p-3 backdrop-blur-xs">
+          <FashionMonogramIcon className="w-full h-full" />
         </div>
 
         {/* Brand signature & label */}
         <span className="font-serif font-bold text-sm md:text-base tracking-wide text-theme-primary">
           Zellora
         </span>
-        <span className="text-[11px] md:text-xs text-theme-muted font-medium mt-0.5 line-clamp-1">
-          {title || "Couture & Lifestyle"}
+        <span className="text-[11px] md:text-xs text-theme-text-muted font-medium mt-0.5 line-clamp-1">
+          {title || "Fashion & Lifestyle"}
         </span>
       </div>
     </div>
   );
 }
+
+// Backward compatibility alias for any existing callers
+export const SnackFallbackIllustration = ProductFallbackIllustration;
 
 // Global cache of URLs that failed to load, preventing repeated slow network timeouts across cards
 const FAILED_IMAGE_URLS = new Set<string>();

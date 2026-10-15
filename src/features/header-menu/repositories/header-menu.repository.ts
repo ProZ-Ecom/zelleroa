@@ -71,7 +71,18 @@ export const headerMenuRepository = {
     });
   },
 
+  async countNonDeleted() {
+    return db.headerMenuItem.count({
+      where: { deleted_at: null },
+    });
+  },
+
   async create(data: Prisma.HeaderMenuItemUncheckedCreateInput, categoryIds: bigint[]) {
+    const currentCount = await this.countNonDeleted();
+    if (currentCount >= 10) {
+      throw new Error("A maximum of 10 header menu items can exist. Cannot add more.");
+    }
+
     return db.headerMenuItem.create({
       data: {
         ...data,
