@@ -605,7 +605,7 @@ export function BannerForm({
         <div className="flex flex-col-reverse gap-2 border-t border-theme-border pt-4 sm:flex-row sm:items-center sm:justify-between">
           <Button
             type="button"
-            variant="ghost"
+            variant="outline"
             onClick={() => onCancel?.()}
             disabled={isLoading || formState.isSubmitting}
             className="sm:w-auto"

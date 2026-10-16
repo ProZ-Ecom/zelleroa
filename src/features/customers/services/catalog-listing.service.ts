@@ -1,4 +1,5 @@
 import { ApiError } from "@/lib/api/api-error";
+import { toTitleCase } from "@/lib/utils";
 import type { PaginationMeta } from "@/lib/api/api-response";
 import { offerService } from "@/features/offers/services/offer.service";
 import {
@@ -510,8 +511,8 @@ function toCard(
 
   return {
     id: c.item.uuid || String(c.item.id),
-    name: c.item.name,
-    styleName: c.row.name,
+    name: toTitleCase(c.item.name),
+    styleName: toTitleCase(c.row.name),
     description: c.item.short_description || c.row.short_description || null,
     image,
     brand: c.brand ? { id: c.brand.id, name: c.brand.name } : null,
@@ -782,12 +783,12 @@ export const catalogListingService = {
     return {
       products: products.map((product) => ({
         id: product.uuid || String(product.id),
-        name: product.name,
+        name: toTitleCase(product.name),
         items: product.styles
           .flatMap((style) =>
             style.items.map((item) => ({
               id: item.uuid,
-              name: item.name,
+              name: toTitleCase(item.name),
               image:
                 item.variants[0]?.product_variant_images[0]?.image_url ||
                 style.images[0]?.image_url ||

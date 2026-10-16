@@ -91,8 +91,12 @@ export function ManageBannerPositionsModal({
                       </span>
                     )}
                     <Badge
-                      variant={position.isActive ? "success" : "secondary"}
-                      className="text-xs"
+                      variant={position.isActive ? "success" : "destructive"}
+                      className={
+                        position.isActive
+                          ? "border-emerald-200 bg-emerald-50 text-emerald-700 text-xs font-semibold"
+                          : "border-red-200 bg-red-50 text-red-700 text-xs font-semibold"
+                      }
                     >
                       {position.isActive ? "Active" : "Inactive"}
                     </Badge>

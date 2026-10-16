@@ -182,7 +182,14 @@ const numberField = (name: NumericField) => {
       accessorKey: "isActive",
       header: "Status",
       cell: ({ row }) => (
-        <Badge variant={row.original.isActive ? "success" : "secondary"}>
+        <Badge
+          variant={row.original.isActive ? "success" : "destructive"}
+          className={
+            row.original.isActive
+              ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+              : "border-red-200 bg-red-50 text-red-700"
+          }
+        >
           {row.original.isActive ? "Active" : "Inactive"}
         </Badge>
       ),

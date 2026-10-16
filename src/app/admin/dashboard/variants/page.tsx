@@ -366,7 +366,7 @@ export default function AdminVariantsPage() {
             className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold cursor-pointer border transition-all hover:opacity-80 active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed ${
               isActive
                 ? "bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100"
-                : "bg-neutral-100 text-neutral-600 border-neutral-200 hover:bg-neutral-200"
+                : "bg-red-50 text-red-700 border-red-200 hover:bg-red-100"
             }`}
           >
             {isRowPending ? (
@@ -374,7 +374,7 @@ export default function AdminVariantsPage() {
             ) : (
               <span
                 className={`w-1.5 h-1.5 rounded-full ${
-                  isActive ? "bg-emerald-600" : "bg-neutral-400"
+                  isActive ? "bg-emerald-600" : "bg-red-500"
                 }`}
               />
             )}
