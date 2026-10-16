@@ -1,4 +1,6 @@
 import { ApiError } from "@/lib/api/api-error";
+import { db } from "@/lib/db/prisma";
+import { encryptField } from "@/lib/security/field-crypto";
 import { userRepository } from "@/features/users/repositories/user.repository";
 import { resolveDeliveredAt } from "@/features/orders/repositories/order.repository";
 import { returnRepository, type Actor } from "../repositories/return.repository";
@@ -89,6 +91,46 @@ export const returnService = {
 
     const videoUrl = await videoService.assertOwnedVideo(customerId, input.unboxingVideoUrl);
 
+    // Determine if the order was paid via Cash on Delivery
+    const payment = await db.payment.findFirst({
+      where: { orderId: order.id },
+      include: { payment_methods: true },
+      orderBy: { createdAt: "desc" },
+    });
+    const paymentMethodCode = payment?.payment_methods?.code?.toUpperCase();
+    const isCod = !payment || paymentMethodCode === "COD" || payment.gateway === "COD";
+
+    let codRefundDetails: {
+      method: "bank_transfer" | "upi";
+      accountHolderName?: string;
+      bankName?: string;
+      accountNumberEnc?: string;
+      accountLast4?: string;
+      ifscCode?: string;
+      upiId?: string;
+    } | undefined = undefined;
+
+    if (isCod && input.codRefundDetails) {
+      if (input.codRefundDetails.method === "bank_transfer") {
+        const rawAcc = input.codRefundDetails.accountNumber!.trim();
+        codRefundDetails = {
+          method: "bank_transfer",
+          accountHolderName: input.codRefundDetails.accountHolderName?.trim(),
+          bankName: input.codRefundDetails.bankName?.trim() || undefined,
+          accountNumberEnc: encryptField(rawAcc),
+          accountLast4: rawAcc.slice(-4),
+          ifscCode: input.codRefundDetails.ifscCode?.trim().toUpperCase(),
+        };
+      } else if (input.codRefundDetails.method === "upi") {
+        codRefundDetails = {
+          method: "upi",
+          upiId: input.codRefundDetails.upiId?.trim(),
+        };
+      }
+    } else if (isCod && !input.codRefundDetails) {
+      throw ApiError.badRequest("Bank or UPI details are required for refunding a Cash on Delivery order.");
+    }
+
     const created = await returnRepository.create({
       orderId: order.id,
       userId: customerId,
@@ -96,6 +138,7 @@ export const returnService = {
       description: input.description,
       unboxingVideoUrl: videoUrl,
       items: lines,
+      codRefundDetails,
     });
     return formatRequest(created);
   },
@@ -163,6 +206,7 @@ export const returnService = {
       comment: input.comment,
       rejectionReason: action === "reject" ? rejectionReason : undefined,
       pickupAt,
+      transactionRef: input.transactionRef,
       note: input.note,
     });
     return formatRequest(updated);

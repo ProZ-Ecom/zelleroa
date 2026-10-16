@@ -25,6 +25,8 @@ export interface ReturnEligibility {
   orderId: string;
   orderNumber: string;
   orderStatus: string;
+  isCod?: boolean;
+  paymentMethod?: string;
   window: {
     eligible: boolean;
     code: string;
@@ -51,14 +53,25 @@ export interface AdminRequest extends RequestSummary {
   customer: { id: string; name: string; email: string | null; phone: string | null };
 }
 
+export interface CodRefundDetailsPayload {
+  method: "bank_transfer" | "upi";
+  accountHolderName?: string;
+  bankName?: string;
+  accountNumber?: string;
+  confirmAccountNumber?: string;
+  ifscCode?: string;
+  upiId?: string;
+}
+
 export interface SubmitReturnPayload {
   reason: string;
   description?: string;
   unboxingVideoUrl: string;
   items: { orderItemId: string; quantity: number }[];
+  codRefundDetails?: CodRefundDetailsPayload;
 }
 
-export interface SubmitReplacementPayload extends Omit<SubmitReturnPayload, "items"> {
+export interface SubmitReplacementPayload extends Omit<SubmitReturnPayload, "items" | "codRefundDetails"> {
   items: { orderItemId: string; quantity: number; requestedVariantUnitPriceId?: string }[];
 }
 
@@ -73,6 +86,7 @@ export interface RequestActionPayload {
   comment?: string;
   rejectionReason?: string;
   pickupDate?: string;
+  transactionRef?: string;
 }
 
 export interface UploadedVideo {

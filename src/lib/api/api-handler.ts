@@ -227,7 +227,8 @@ export function createApiHandler(
       }
 
       console.error(`Unhandled API Error [${method}]:`, error);
-      return apiError("Something went wrong", 500);
+      const devMsg = error?.message ? `Something went wrong: ${error.message}` : "Something went wrong";
+      return apiError(process.env.NODE_ENV === "production" ? "Something went wrong" : devMsg, 500);
     }
   };
 }

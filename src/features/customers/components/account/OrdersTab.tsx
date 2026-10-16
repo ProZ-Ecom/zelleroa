@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
-import { Check, Package, X, CreditCard, Loader2, AlertCircle } from "lucide-react";
+import { Check, Package, X, CreditCard, Loader2, AlertCircle, Undo2 } from "lucide-react";
 import { formatPrice } from "@/lib/utils";
 import type { OrderDetailResponse } from "@/features/orders/types";
 import { useCustomerOrders, useCancelCustomerOrder } from "../../hooks/use-customer-orders";
@@ -15,6 +15,7 @@ import { ProductImage } from "@/components/common/ProductImage";
 import { toast } from "@/components/ui/Toast";
 import { CancelOrderDialog } from "@/features/orders/components/CancelOrderDialog";
 import { isOrderCancellable } from "@/features/returns/lib/policy";
+import { RequestWizard } from "@/features/returns/components/RequestWizard";
 
 const STATUS_OPTIONS: DropdownOption[] = [
   { value: "all", label: "All Orders" },
@@ -52,6 +53,7 @@ export function OrdersTab({
 
   const [cancelTarget, setCancelTarget] = useState<OrderDetailResponse | null>(null);
   const [cancelError, setCancelError] = useState<string | null>(null);
+  const [returnTarget, setReturnTarget] = useState<{ orderId: string; mode: "return" | "replacement" } | null>(null);
   const cancelMutation = useCancelCustomerOrder();
   const addToCartMutation = useAddToCartMutation();
   const createRazorpayOrderMutation = useCreateRazorpayOrder();
@@ -395,9 +397,13 @@ export function OrdersTab({
                       <div className="text-[10px] uppercase tracking-wider font-semibold text-theme-text-muted">
                         Order
                       </div>
-                      <div className="text-xs sm:text-sm font-bold text-theme-text-primary mt-0.5 font-mono">
+                      <Link
+                        href={`/orders/${order.id}`}
+                        className="text-xs sm:text-sm font-bold text-theme-text-primary mt-0.5 font-mono hover:text-theme-primary hover:underline transition-colors block"
+                        title="View order details"
+                      >
                         {order.orderNumber || `#${String(order.id).slice(0, 8)}`}
-                      </div>
+                      </Link>
                     </div>
 
                     <div>
@@ -555,6 +561,28 @@ export function OrdersTab({
                   >
                     Invoice
                   </button>
+
+                  <Link href={`/orders/${order.id}`}>
+                    <button
+                      type="button"
+                      className="border border-theme-border hover:bg-theme-surface-alt text-theme-text-subtle text-xs font-semibold uppercase tracking-wider py-2.5 px-4 rounded-lg transition-colors cursor-pointer min-h-[40px]"
+                    >
+                      View Details
+                    </button>
+                  </Link>
+
+                  {order.status === "delivered" && (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setReturnTarget({ orderId: order.id, mode: "return" })
+                      }
+                      className="border border-secondary-600 bg-secondary-50 hover:bg-secondary-100 text-secondary-800 text-xs font-semibold uppercase tracking-wider py-2.5 px-4 rounded-lg transition-colors cursor-pointer min-h-[40px] inline-flex items-center gap-1.5"
+                    >
+                      <Undo2 className="h-3.5 w-3.5" />
+                      Return / Replace
+                    </button>
+                  )}
 
                   <Link href="/contact">
                     <button
@@ -838,6 +866,18 @@ export function OrdersTab({
               }
             )
           }
+        />
+      )}
+
+      {returnTarget && (
+        <RequestWizard
+          open
+          orderUuid={returnTarget.orderId}
+          initialMode={returnTarget.mode}
+          onClose={() => {
+            setReturnTarget(null);
+            handleRefetch();
+          }}
         />
       )}
     </div>

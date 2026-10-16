@@ -117,10 +117,21 @@ export const eligibilityService = {
     });
 
     const anyFree = items.some((i) => i.canRequest);
+
+    const payment = await db.payment.findFirst({
+      where: { orderId: order.id },
+      include: { payment_methods: true },
+      orderBy: { createdAt: "desc" },
+    });
+    const paymentMethodCode = payment?.payment_methods?.code?.toUpperCase();
+    const isCod = !payment || paymentMethodCode === "COD" || payment.gateway === "COD";
+
     return {
       orderId: order.uuid || String(order.id),
       orderNumber: order.orderNumber,
       orderStatus: order.order_status,
+      isCod,
+      paymentMethod: payment?.payment_methods?.name ?? (isCod ? "Cash on Delivery" : "Online"),
       window: {
         eligible: window.eligible,
         code: window.code,

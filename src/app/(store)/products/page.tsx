@@ -155,7 +155,7 @@ function ShopAllContent() {
       }
     };
 
-    if (genderFilter && genderFilter !== "all") {
+    if (genderFilter) {
       const matchedMenu = headerMenu.find(
         (m) =>
           m.gender === genderFilter ||

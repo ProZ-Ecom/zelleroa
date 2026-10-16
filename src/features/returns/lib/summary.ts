@@ -41,6 +41,13 @@ export interface RequestSummary {
   reason: string;
   description: string | null;
   unboxingVideoUrl: string | null;
+  refundMethod?: string | null;
+  bankAccountHolder?: string | null;
+  bankName?: string | null;
+  bankAccountLast4?: string | null;
+  bankIfsc?: string | null;
+  upiId?: string | null;
+  refundTransactionRef?: string | null;
   requestedAt: Date;
   approvedAt: Date | null;
   rejectedAt: Date | null;
@@ -135,6 +142,13 @@ export function summarizeReturnRequest(req: any): RequestSummary {
     reason: req.reason,
     description: req.description ?? null,
     unboxingVideoUrl: req.unboxing_video_url ?? null,
+    refundMethod: req.refund_method ?? null,
+    bankAccountHolder: req.bank_account_holder ?? null,
+    bankName: req.bank_name ?? null,
+    bankAccountLast4: req.bank_account_last4 ? `••••${req.bank_account_last4}` : null,
+    bankIfsc: req.bank_ifsc ?? null,
+    upiId: req.upi_id ?? null,
+    refundTransactionRef: req.refund_transaction_ref ?? null,
     requestedAt: req.requested_at,
     approvedAt: req.approved_at ?? null,
     rejectedAt: req.rejected_at ?? null,
@@ -158,6 +172,13 @@ export function summarizeReplacementRequest(req: any): RequestSummary {
     reason: req.reason,
     description: req.description ?? null,
     unboxingVideoUrl: req.unboxing_video_url ?? null,
+    refundMethod: null,
+    bankAccountHolder: null,
+    bankName: null,
+    bankAccountLast4: null,
+    bankIfsc: null,
+    upiId: null,
+    refundTransactionRef: null,
     requestedAt: req.requested_at,
     approvedAt: req.approved_at ?? null,
     rejectedAt: req.rejected_at ?? null,

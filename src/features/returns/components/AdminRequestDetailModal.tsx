@@ -2,9 +2,10 @@
 
 import { useState } from "react";
 import Image from "next/image";
-import { Loader2 } from "lucide-react";
+import { Loader2, Copy, Check, Building2, Smartphone } from "lucide-react";
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/components/ui/Toast";
 import { formatDateTime, formatPrice } from "@/lib/utils";
@@ -34,7 +35,16 @@ export function AdminRequestDetailModal({ kind, uuid, onClose }: Props) {
   const [pending, setPending] = useState<Pending>(null);
   const [comment, setComment] = useState("");
   const [pickupDate, setPickupDate] = useState("");
+  const [transactionRef, setTransactionRef] = useState("");
   const [fieldError, setFieldError] = useState<string | null>(null);
+  const [copiedKey, setCopiedKey] = useState<string | null>(null);
+
+  const copyToClipboard = (text: string, key: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedKey(key);
+    toast.success("Copied to clipboard");
+    setTimeout(() => setCopiedKey(null), 2000);
+  };
 
   const transitions = kind === "returns" ? RETURN_TRANSITIONS : REPLACEMENT_TRANSITIONS;
   const actions = req ? availableActions(transitions as Record<string, { from: readonly string[]; label: string }>, req.status) : [];
@@ -54,6 +64,7 @@ export function AdminRequestDetailModal({ kind, uuid, onClose }: Props) {
         payload: {
           ...(isReject ? { rejectionReason: comment.trim() } : comment.trim() ? { comment: comment.trim() } : {}),
           ...(pending.action === "pickup" && pickupDate ? { pickupDate: new Date(pickupDate).toISOString() } : {}),
+          ...(pending.action === "complete" && transactionRef.trim() ? { transactionRef: transactionRef.trim() } : {}),
         },
       },
       {
@@ -62,6 +73,7 @@ export function AdminRequestDetailModal({ kind, uuid, onClose }: Props) {
           setPending(null);
           setComment("");
           setPickupDate("");
+          setTransactionRef("");
         },
         onError: (err) => setFieldError(err instanceof Error ? err.message : "Action failed"),
       }
@@ -141,6 +153,78 @@ export function AdminRequestDetailModal({ kind, uuid, onClose }: Props) {
             <p className="mt-1 text-xs text-neutral-500">Requested {formatDateTime(req.requestedAt)}</p>
           </Block>
 
+          {req.refundMethod && (
+            <Block title="Refund Destination (Cash on Delivery)">
+              <div className="space-y-2.5">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="inline-flex items-center gap-1.5 rounded-md bg-secondary-50 px-2 py-0.5 text-xs font-semibold text-secondary-800 border border-secondary-200">
+                    {req.refundMethod === "upi" ? <Smartphone className="h-3.5 w-3.5" /> : <Building2 className="h-3.5 w-3.5" />}
+                    {req.refundMethod === "upi" ? "Instant UPI Transfer" : "Bank Transfer (NEFT/IMPS)"}
+                  </span>
+                  {req.refundTransactionRef && (
+                    <span className="inline-flex items-center gap-1 rounded-md bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-800 border border-emerald-200">
+                      Ref / UTR: {req.refundTransactionRef}
+                    </span>
+                  )}
+                </div>
+
+                {req.refundMethod === "upi" ? (
+                  <div className="flex items-center justify-between rounded-lg bg-neutral-50 px-3 py-2.5 border border-neutral-200">
+                    <div>
+                      <p className="text-[11px] text-neutral-500 font-medium">Customer UPI ID / VPA</p>
+                      <p className="font-mono text-sm font-semibold text-neutral-900">{req.upiId || "—"}</p>
+                    </div>
+                    {req.upiId && (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        className="h-8 gap-1.5 text-xs"
+                        onClick={() => copyToClipboard(req.upiId!, "upi")}
+                      >
+                        {copiedKey === "upi" ? <Check className="h-3.5 w-3.5 text-emerald-600" /> : <Copy className="h-3.5 w-3.5" />}
+                        {copiedKey === "upi" ? "Copied" : "Copy UPI"}
+                      </Button>
+                    )}
+                  </div>
+                ) : (
+                  <div className="grid gap-2.5 sm:grid-cols-2 rounded-lg bg-neutral-50 p-3 border border-neutral-200 text-xs">
+                    <div>
+                      <p className="text-[11px] text-neutral-500 font-medium">Account Holder</p>
+                      <p className="font-semibold text-neutral-900">{req.bankAccountHolder || "—"}</p>
+                    </div>
+                    <div>
+                      <p className="text-[11px] text-neutral-500 font-medium">Bank Name</p>
+                      <p className="font-semibold text-neutral-900">{req.bankName || "—"}</p>
+                    </div>
+                    <div>
+                      <p className="text-[11px] text-neutral-500 font-medium">Account Number</p>
+                      <p className="font-mono font-semibold text-neutral-900">{req.bankAccountLast4 || "••••"}</p>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-[11px] text-neutral-500 font-medium">IFSC Code</p>
+                        <p className="font-mono font-semibold uppercase text-neutral-900">{req.bankIfsc || "—"}</p>
+                      </div>
+                      {req.bankIfsc && (
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="ghost"
+                          className="h-7 gap-1 text-[11px]"
+                          onClick={() => copyToClipboard(req.bankIfsc!, "ifsc")}
+                        >
+                          {copiedKey === "ifsc" ? <Check className="h-3 w-3 text-emerald-600" /> : <Copy className="h-3 w-3" />}
+                          {copiedKey === "ifsc" ? "Copied" : "Copy IFSC"}
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </Block>
+          )}
+
           {req.status === "rejected" && (
             <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-red-800">
               <strong>Rejection reason:</strong> {req.rejectionReason}
@@ -194,32 +278,59 @@ export function AdminRequestDetailModal({ kind, uuid, onClose }: Props) {
           )}
 
           {pending && (
-            <div className="space-y-2 rounded-xl border border-neutral-200 bg-neutral-50 p-3">
-              <p className="font-semibold">
+            <div className="space-y-3 rounded-xl border border-neutral-200 bg-neutral-50 p-3.5">
+              <p className="font-semibold text-sm">
                 {pending.action === "approve"
                   ? "Approve this request?"
                   : pending.action === "reject"
                     ? "Reject this request"
-                    : `${pending.label}?`}
+                    : pending.action === "complete"
+                      ? "Complete Refund & Mark Refunded"
+                      : `${pending.label}?`}
               </p>
               {pending.action === "pickup" && (
-                <input
-                  type="datetime-local"
-                  value={pickupDate}
-                  onChange={(e) => setPickupDate(e.target.value)}
-                  className="rounded-lg border border-neutral-300 px-3 py-1.5 text-sm"
-                />
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-neutral-700">Pickup Date</label>
+                  <input
+                    type="datetime-local"
+                    value={pickupDate}
+                    onChange={(e) => setPickupDate(e.target.value)}
+                    className="rounded-lg border border-neutral-300 px-3 py-1.5 text-sm w-full sm:w-auto"
+                  />
+                </div>
               )}
-              <Textarea
-                value={comment}
-                maxLength={500}
-                onChange={(e) => setComment(e.target.value)}
-                placeholder={
-                  pending.action === "reject" ? "Rejection reason (required)" : "Comment (optional)"
-                }
-              />
+              {pending.action === "complete" && (
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-neutral-700">
+                    Bank Reference / UTR Number (Optional)
+                  </label>
+                  <Input
+                    value={transactionRef}
+                    onChange={(e) => setTransactionRef(e.target.value)}
+                    placeholder="e.g. UTR-20261016-83921 or TXN_987654"
+                    className="font-mono text-xs bg-white"
+                  />
+                  <p className="text-[11px] text-neutral-500">
+                    Enter the bank UTR or IMPS reference number for financial audit tracking.
+                  </p>
+                </div>
+              )}
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-neutral-700">
+                  {pending.action === "reject" ? "Rejection Reason *" : "Admin Comment (Optional)"}
+                </label>
+                <Textarea
+                  value={comment}
+                  maxLength={500}
+                  onChange={(e) => setComment(e.target.value)}
+                  placeholder={
+                    pending.action === "reject" ? "Describe why this request is being rejected" : "Internal note or remark"
+                  }
+                  className="bg-white"
+                />
+              </div>
               {fieldError && <p className="text-xs font-medium text-red-600">{fieldError}</p>}
-              <div className="flex justify-end gap-2">
+              <div className="flex justify-end gap-2 pt-1">
                 <Button size="sm" variant="outline" onClick={() => setPending(null)} disabled={mutation.isPending}>
                   Back
                 </Button>
