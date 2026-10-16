@@ -87,7 +87,7 @@ function ProductCatalogPageSkeleton() {
   );
 }
 
-const VALID_GENDERS = ["men", "women", "kids", "unisex"] as const;
+const VALID_GENDERS = ["all", "men", "women", "kids", "unisex"] as const;
 type GenderFilter = (typeof VALID_GENDERS)[number];
 
 function ShopAllContent() {
@@ -276,7 +276,7 @@ function ShopAllContent() {
     maxPrice: maxPrice < 1000 ? maxPrice : undefined,
     inStock: inStockParam,
     vegType: vegTypeParam,
-    gender: genderFilter,
+    gender: genderFilter === "all" ? undefined : genderFilter,
     sortBy: activeSort.sortBy,
     sortOrder: activeSort.sortOrder,
   });
@@ -370,7 +370,7 @@ function ShopAllContent() {
     selectedProductIds.length > 0 ||
     stockStatus !== "all" ||
     vegType !== "all" ||
-    Boolean(genderFilter) ||
+    Boolean(genderFilter && genderFilter !== "all") ||
     minPrice > 0 ||
     maxPrice < 1000 ||
     sortKey !== "createdAt_desc";
@@ -397,7 +397,7 @@ function ShopAllContent() {
     selectedProductIds.length > 0,
     stockStatus !== "all",
     vegType !== "all",
-    Boolean(genderFilter),
+    Boolean(genderFilter && genderFilter !== "all"),
     minPrice > 0 || maxPrice < 1000,
     sortKey !== "createdAt_desc",
   ].filter(Boolean).length;
@@ -584,7 +584,7 @@ function ShopAllContent() {
               }}
               genderFilter={genderFilter ?? "all"}
               onGenderFilterChange={(val) => {
-                setGenderFilter(val === "all" ? undefined : val);
+                setGenderFilter(val);
                 setPage(1);
                 scrollToCatalogTop();
               }}

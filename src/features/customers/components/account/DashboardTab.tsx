@@ -156,7 +156,6 @@ export function DashboardTab({
           price: typeof item.unitPrice === "number" ? item.unitPrice : Number(item.unitPrice || 0),
           image: imgSrc,
           variantName: item.variantName || item.variant_snapshot || null,
-          image: (item as any).primaryImage || (item as any).image || null,
         });
       }
     });
