@@ -247,8 +247,12 @@ export default function AdminBannersPage() {
       header: "Status",
       cell: ({ row }) => (
         <Badge
-          variant={row.original.isActive ? "success" : "secondary"}
-          className="gap-1.5 text-xs"
+          variant={row.original.isActive ? "success" : "destructive"}
+          className={`gap-1.5 text-xs ${
+            row.original.isActive
+              ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+              : "border-red-200 bg-red-50 text-red-700"
+          }`}
           title={
             row.original.isActive
               ? "Visible on the storefront"
@@ -259,7 +263,7 @@ export default function AdminBannersPage() {
             className={`h-1.5 w-1.5 rounded-full ${
               row.original.isActive
                 ? "bg-[var(--color-success-500)]"
-                : "bg-[var(--color-neutral-400)]"
+                : "bg-red-500"
             }`}
           />
           {row.original.isActive ? "Active" : "Inactive"}

@@ -152,7 +152,14 @@ export function BannerPreviewModal({ banner, onClose }: BannerPreviewModalProps)
             <div>
               <dt className="text-xs text-[var(--color-neutral-500)]">Status</dt>
               <dd>
-                <Badge variant={banner.isActive ? "success" : "secondary"}>
+                <Badge
+                  variant={banner.isActive ? "success" : "destructive"}
+                  className={
+                    banner.isActive
+                      ? "border-emerald-200 bg-emerald-50 text-emerald-700 font-semibold"
+                      : "border-red-200 bg-red-50 text-red-700 font-semibold"
+                  }
+                >
                   {banner.isActive ? "Active" : "Inactive"}
                 </Badge>
               </dd>

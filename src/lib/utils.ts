@@ -88,3 +88,11 @@ export function getInitials(name: string): string {
     .toUpperCase()
     .slice(0, 2);
 }
+
+export function toTitleCase(text: string | null | undefined): string {
+  if (!text) return "";
+  return text
+    .toLowerCase()
+    .replace(/(?:^|\s|-|\/)\S/g, (match) => match.toUpperCase());
+}
+

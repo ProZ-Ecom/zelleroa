@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { Star } from "lucide-react";
 import { ProductImage } from "@/components/common/ProductImage";
-import { formatPrice } from "@/lib/utils";
+import { formatPrice, toTitleCase } from "@/lib/utils";
 import { ItemQuickAdd } from "./ItemQuickAdd";
 import { ItemWishlistButton } from "./ItemWishlistButton";
 import { itemHref } from "../../utils/style-default-item";
@@ -66,6 +66,7 @@ interface CompactItemCardProps {
 export function ItemCard(props: ItemCardProps | CompactItemCardProps) {
   if (props.variant === "compact") {
     const { item, onClick } = props;
+    const title = toTitleCase(item.name);
     return (
       <Link
         href={itemHref(item.id)}
@@ -74,14 +75,14 @@ export function ItemCard(props: ItemCardProps | CompactItemCardProps) {
       >
         <ProductImage
           src={item.image}
-          alt={item.name}
+          alt={title}
           sizes="40px"
           fallbackSize="compact"
           containerClassName="h-10 !w-10 shrink-0 rounded-md"
           className="object-cover"
         />
-        <span className="truncate text-sm text-theme-text-secondary group-hover:text-theme-primary">
-          {item.name}
+        <span className="truncate text-sm text-theme-text-secondary group-hover:text-theme-primary capitalize">
+          {title}
         </span>
       </Link>
     );
@@ -90,7 +91,7 @@ export function ItemCard(props: ItemCardProps | CompactItemCardProps) {
   const { item, onClick } = props;
   const isOut = item.stockStatus === "out_of_stock";
   const extraColours = item.colors.length - MAX_SWATCHES;
-  const displayName = item.styleName || item.name;
+  const displayName = toTitleCase(item.styleName || item.name);
   const subtitle = item.brand?.name ?? item.category?.name ?? "Zellora";
 
   return (
@@ -138,7 +139,7 @@ export function ItemCard(props: ItemCardProps | CompactItemCardProps) {
             {subtitle}
           </span>
         )}
-        <h3 className="text-[13px] font-semibold text-theme-text-primary line-clamp-2 leading-snug sm:text-sm">
+        <h3 className="text-[13px] font-semibold text-theme-text-primary line-clamp-2 leading-snug sm:text-sm capitalize">
           {displayName}
         </h3>
 
