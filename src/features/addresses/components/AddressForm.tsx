@@ -251,10 +251,10 @@ export function AddressForm({
             tabIndex={-1}
             className={cn(
               inputClass,
-              "bg-white text-gray-900 cursor-default select-none shadow-none",
+              "bg-gray-100 text-gray-600 cursor-not-allowed select-none shadow-none focus:outline-none",
               errors.city
                 ? "border-red-500 bg-red-50/20"
-                : "border-gray-300"
+                : "border-gray-200"
             )}
             placeholder={isPincodeLoading ? "Fetching city..." : "Auto-filled from Pincode"}
           />
@@ -273,10 +273,10 @@ export function AddressForm({
             tabIndex={-1}
             className={cn(
               inputClass,
-              "bg-white text-gray-900 cursor-default select-none shadow-none",
+              "bg-gray-100 text-gray-600 cursor-not-allowed select-none shadow-none focus:outline-none",
               errors.state
                 ? "border-red-500 bg-red-50/20"
-                : "border-gray-300"
+                : "border-gray-200"
             )}
             placeholder={isPincodeLoading ? "Fetching state..." : "Auto-filled from Pincode"}
           />

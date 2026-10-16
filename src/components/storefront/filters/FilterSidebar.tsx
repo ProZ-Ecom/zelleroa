@@ -430,16 +430,16 @@ export function FilterSidebar({
   }, [hasActiveFilters, minPriceLimit, maxPriceLimit, onResetFilters]);
 
   const sidebarContent = (
-    <div className="flex flex-col gap-5 text-[#2D1810]">
+    <div className="flex flex-col gap-5 text-slate-900">
       {/* 1. Header: Title & Clear Filter Button */}
-      <div className="flex items-center justify-between pb-3.5 border-b border-[#F0E4D8]">
+      <div className="flex items-center justify-between pb-3.5 border-b border-slate-200">
         <div className="flex items-center gap-2">
-          <SlidersHorizontal className="w-4 h-4 text-[#7A2224]" />
-          <h2 className="text-xs font-black uppercase tracking-wider text-[#2D1810]">
+          <SlidersHorizontal className="w-4 h-4 text-theme-primary" />
+          <h2 className="text-xs font-black uppercase tracking-wider text-slate-900">
             Filter Items
           </h2>
           {totalResultsCount !== undefined && (
-            <span className="text-[11px] bg-[#F5ECE1] text-[#7A2224] px-2 py-0.5 rounded-full font-bold">
+            <span className="text-[11px] bg-theme-primary-light text-theme-primary px-2 py-0.5 rounded-full font-bold">
               {totalResultsCount}
             </span>
           )}
@@ -451,8 +451,8 @@ export function FilterSidebar({
           onClick={handleInternalReset}
           className={`text-xs font-bold flex items-center gap-1.5 transition-colors select-none ${
             hasActiveFilters
-              ? "text-[#7A2224] hover:text-[#5A1911] hover:underline cursor-pointer"
-              : "opacity-35 cursor-not-allowed pointer-events-none text-[#9C8274]"
+              ? "text-theme-primary hover:text-theme-primary-hover hover:underline cursor-pointer"
+              : "opacity-35 cursor-not-allowed pointer-events-none text-slate-400"
           }`}
           title={hasActiveFilters ? "Clear all filters" : "No active filters"}
         >
@@ -465,19 +465,19 @@ export function FilterSidebar({
       <div className="flex flex-col gap-1.5">
         <label
           htmlFor="filter-search-input"
-          className="text-[11px] font-extrabold uppercase tracking-wider text-[#7A6258]"
+          className="text-[11px] font-extrabold uppercase tracking-wider text-slate-600"
         >
           Search by Name or Item
         </label>
         <div className="relative">
-          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[#9C8274] pointer-events-none" />
+          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
           <input
             id="filter-search-input"
             type="text"
             value={localSearch}
             onChange={(e) => setLocalSearch(e.target.value)}
             placeholder="e.g. Dress, Kurti, Shirt..."
-            className="w-full bg-[#FAF6F0] border border-[#DCC7B7] rounded-xl pl-10 pr-9 py-2.5 text-sm text-[#2D1810] placeholder-[#A0887A] focus:outline-none focus:border-[#7A2224] focus:ring-1 focus:ring-[#7A2224] transition-all"
+            className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-10 pr-9 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:bg-white focus:border-theme-primary focus:ring-1 focus:ring-theme-primary transition-all"
           />
           {localSearch && (
             <button
@@ -486,7 +486,7 @@ export function FilterSidebar({
                 setLocalSearch("");
                 onSearchChange("");
               }}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-[#9C8274] hover:text-[#2D1810] transition-colors cursor-pointer"
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 transition-colors cursor-pointer"
             >
               <X className="w-4 h-4" />
             </button>
@@ -498,7 +498,7 @@ export function FilterSidebar({
       <div className="flex flex-col gap-1.5">
         <label
           htmlFor="filter-sort-select"
-          className="text-[11px] font-extrabold uppercase tracking-wider text-[#7A6258]"
+          className="text-[11px] font-extrabold uppercase tracking-wider text-slate-600"
         >
           Sort By
         </label>
@@ -508,13 +508,13 @@ export function FilterSidebar({
           onValueChange={(val) => onSortChange(val)}
           options={SORT_OPTIONS}
           size="md"
-          className="bg-[#FAF6F0] border-[#DCC7B7] rounded-xl text-sm font-medium text-[#2D1810]"
+          className="bg-slate-50 border-slate-200 rounded-xl text-sm font-medium text-slate-900 focus:border-theme-primary focus:bg-white"
         />
       </div>
 
       {/* 4. Availability Pills */}
       <div className="flex flex-col gap-2">
-        <span className="text-[11px] font-extrabold uppercase tracking-wider text-[#7A6258]">
+        <span className="text-[11px] font-extrabold uppercase tracking-wider text-slate-600">
           Availability
         </span>
         <div className="flex items-center gap-2 flex-wrap">
@@ -528,15 +528,15 @@ export function FilterSidebar({
             title={isInStockDisabled ? "No in-stock items available" : undefined}
             className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all select-none flex items-center gap-1.5 ${
               isInStockDisabled
-                ? "opacity-35 cursor-not-allowed bg-[#FAF6F0] text-[#9C8274] border border-[#DCC7B7]/50"
+                ? "opacity-35 cursor-not-allowed bg-slate-50 text-slate-400 border border-slate-200"
                 : stockStatus === "in_stock"
-                ? "bg-[#166534] text-white border border-[#166534] shadow-xs cursor-pointer"
-                : "bg-white text-[#4A3228] border border-[#DCC7B7] hover:bg-[#FAF6F0] cursor-pointer"
+                ? "bg-theme-primary text-white border border-theme-primary shadow-xs cursor-pointer"
+                : "bg-white text-slate-700 border border-slate-200 hover:border-theme-primary hover:bg-theme-primary-light/40 cursor-pointer"
             }`}
           >
             <span
               className={`w-1.5 h-1.5 rounded-full ${
-                isInStockDisabled ? "bg-[#9C8274]/50" : "bg-green-500"
+                isInStockDisabled ? "bg-slate-300" : stockStatus === "in_stock" ? "bg-white" : "bg-emerald-500"
               }`}
             />
             In Stock
@@ -552,15 +552,15 @@ export function FilterSidebar({
             title={isOutOfStockDisabled ? "No out-of-stock items available" : undefined}
             className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all select-none flex items-center gap-1.5 ${
               isOutOfStockDisabled
-                ? "opacity-35 cursor-not-allowed bg-[#FAF6F0] text-[#9C8274] border border-[#DCC7B7]/50"
+                ? "opacity-35 cursor-not-allowed bg-slate-50 text-slate-400 border border-slate-200"
                 : stockStatus === "out_of_stock"
-                ? "bg-[#991B1B] text-white border border-[#991B1B] shadow-xs cursor-pointer"
-                : "bg-white text-[#4A3228] border border-[#DCC7B7] hover:bg-[#FAF6F0] cursor-pointer"
+                ? "bg-slate-900 text-white border border-slate-900 shadow-xs cursor-pointer"
+                : "bg-white text-slate-700 border border-slate-200 hover:border-theme-primary hover:bg-theme-primary-light/40 cursor-pointer"
             }`}
           >
             <span
               className={`w-1.5 h-1.5 rounded-full ${
-                isOutOfStockDisabled ? "bg-[#9C8274]/50" : "bg-red-500"
+                isOutOfStockDisabled ? "bg-slate-300" : stockStatus === "out_of_stock" ? "bg-white" : "bg-rose-500"
               }`}
             />
             Out of Stock
@@ -568,12 +568,10 @@ export function FilterSidebar({
         </div>
       </div>
 
-{/* Dietary filter omitted for clothing & fashion domain */}
-
       {/* 5. Gender / Audience Pills */}
       {onGenderFilterChange && (
         <div className="flex flex-col gap-2">
-          <span className="text-[11px] font-extrabold uppercase tracking-wider text-[#7A6258]">
+          <span className="text-[11px] font-extrabold uppercase tracking-wider text-slate-600">
             Shop By
           </span>
           <div className="flex items-center gap-2 flex-wrap">
@@ -586,8 +584,8 @@ export function FilterSidebar({
                 }
                 className={`px-3.5 py-1.5 rounded-full text-xs font-bold capitalize transition-all select-none cursor-pointer ${
                   genderFilter === option
-                    ? "bg-[#7A2224] text-white border border-[#7A2224] shadow-xs"
-                    : "bg-white text-[#4A3228] border border-[#DCC7B7] hover:bg-[#FAF6F0]"
+                    ? "bg-theme-primary text-white border border-theme-primary shadow-xs"
+                    : "bg-white text-slate-700 border border-slate-200 hover:border-theme-primary hover:bg-theme-primary-light/40"
                 }`}
               >
                 {option}
@@ -597,41 +595,41 @@ export function FilterSidebar({
         </div>
       )}
 
-      {/* 6. Categories -> Product List Nested Tree (Matching Image 3 on light theme) */}
-      <div className="flex flex-col gap-2.5 pt-3 border-t border-[#F0E4D8]">
+      {/* 6. Categories -> Product List Nested Tree */}
+      <div className="flex flex-col gap-2.5 pt-3 border-t border-slate-200">
         <button
           type="button"
           onClick={() => setIsCategoriesOpen(!isCategoriesOpen)}
           className="flex items-center justify-between w-full text-left cursor-pointer group select-none"
         >
-          <span className="text-sm font-extrabold text-[#2D1810] tracking-wide">
+          <span className="text-sm font-extrabold text-slate-900 tracking-wide">
             Categories & Products
           </span>
           {isCategoriesOpen ? (
-            <ChevronUp className="w-4 h-4 text-[#7A6258] group-hover:text-[#2D1810] transition-colors" />
+            <ChevronUp className="w-4 h-4 text-slate-500 group-hover:text-slate-900 transition-colors" />
           ) : (
-            <ChevronDown className="w-4 h-4 text-[#7A6258] group-hover:text-[#2D1810] transition-colors" />
+            <ChevronDown className="w-4 h-4 text-slate-500 group-hover:text-slate-900 transition-colors" />
           )}
         </button>
 
         {isCategoriesOpen && (
           <div className="flex flex-col gap-2 mt-1 animate-in fade-in duration-200">
-            {/* Inline search box for 200+ categories (only in multi-category mode) */}
+            {/* Inline search box for 200+ categories */}
             {!isSingleCategoryMode && categories.length > 5 && (
               <div className="relative mb-1">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#9C8274]" />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
                 <input
                   type="text"
                   value={categorySearch}
                   onChange={(e) => setCategorySearch(e.target.value)}
                   placeholder="Search categories..."
-                  className="w-full bg-[#FAF6F0] border border-[#DCC7B7] rounded-lg pl-8.5 pr-7 py-1.5 text-xs text-[#2D1810] placeholder-[#A0887A] focus:outline-none focus:border-[#7A2224] transition-all"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-lg pl-8.5 pr-7 py-1.5 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:bg-white focus:border-theme-primary transition-all"
                 />
                 {categorySearch && (
                   <button
                     type="button"
                     onClick={() => setCategorySearch("")}
-                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#9C8274] hover:text-[#2D1810] transition-colors cursor-pointer"
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 transition-colors cursor-pointer"
                   >
                     <X className="w-3.5 h-3.5" />
                   </button>
@@ -639,24 +637,23 @@ export function FilterSidebar({
               </div>
             )}
 
-            {/* Scrollable category list with expandable nested products */}
-            <div className="max-h-72 overflow-y-auto flex flex-col gap-2 pr-1.5 scrollbar-thin scrollbar-thumb-[#DCC7B7] scrollbar-track-transparent">
-              {/* Option: All Snacks (only in multi-category mode) */}
+            {/* Scrollable category list */}
+            <div className="max-h-72 overflow-y-auto flex flex-col gap-2 pr-1.5 scrollbar-thin scrollbar-thumb-slate-200 scrollbar-track-transparent">
               {!isSingleCategoryMode && !categorySearch && (
                 <button
                   type="button"
                   onClick={handleAllSnacksClick}
                   className={`flex items-center gap-2.5 py-1 text-left cursor-pointer group transition-colors select-none ${
                     activeCategoryIds.length === 0 && activeProductIds.length === 0
-                      ? "text-[#1E4D3E] font-bold"
-                      : "text-[#3D2C24] hover:text-[#1E4D3E] font-medium"
+                      ? "text-theme-primary font-bold"
+                      : "text-slate-700 hover:text-theme-primary font-medium"
                   }`}
                 >
                   <span
                     className={`w-4.5 h-4.5 rounded-md border flex items-center justify-center transition-all shrink-0 ${
                       activeCategoryIds.length === 0 && activeProductIds.length === 0
-                        ? "border-[#1E4D3E] bg-[#1E4D3E] text-white shadow-2xs"
-                        : "border-[#8A7366] bg-white group-hover:border-[#1E4D3E]"
+                        ? "border-theme-primary bg-theme-primary text-white shadow-2xs"
+                        : "border-slate-300 bg-white group-hover:border-theme-primary"
                     }`}
                   >
                     {activeCategoryIds.length === 0 && activeProductIds.length === 0 && (
@@ -666,7 +663,7 @@ export function FilterSidebar({
                   <span
                     className={`text-sm ${
                       activeCategoryIds.length === 0 && activeProductIds.length === 0
-                        ? "underline underline-offset-4 decoration-2 decoration-[#1E4D3E]"
+                        ? "underline underline-offset-4 decoration-2 decoration-theme-primary"
                         : ""
                     }`}
                   >
@@ -675,20 +672,20 @@ export function FilterSidebar({
                 </button>
               )}
 
-              {/* Shimmer loading state when categories are being fetched from API */}
+              {/* Shimmer loading state */}
               {isLoadingCategories ? (
                 <div className="flex flex-col gap-2.5 py-1">
                   {[1, 2, 3, 4, 5].map((i) => (
                     <div key={i} className="flex items-center justify-between py-1">
                       <div className="flex items-center gap-2.5 flex-1">
-                        <div className="w-4.5 h-4.5 rounded-md bg-[#EADCCF]/80 skeleton-shimmer shrink-0" />
+                        <div className="w-4.5 h-4.5 rounded-md bg-slate-200 skeleton-shimmer shrink-0" />
                         <div
-                          className="h-3.5 rounded bg-[#EADCCF]/80 skeleton-shimmer"
+                          className="h-3.5 rounded bg-slate-200 skeleton-shimmer"
                           style={{ width: `${45 + (i % 3) * 20}%` }}
                         />
                       </div>
                       {!isSingleCategoryMode && (
-                        <div className="w-3.5 h-3.5 rounded bg-[#EADCCF]/60 skeleton-shimmer" />
+                        <div className="w-3.5 h-3.5 rounded bg-slate-200/60 skeleton-shimmer" />
                       )}
                     </div>
                   ))}
@@ -716,15 +713,15 @@ export function FilterSidebar({
                           }}
                           className={`flex items-center gap-2.5 text-left cursor-pointer flex-1 min-w-0 select-none ${
                             isSelected
-                              ? "text-[#1E4D3E] font-bold"
-                              : "text-[#3D2C24] hover:text-[#1E4D3E] font-medium"
+                              ? "text-theme-primary font-bold"
+                              : "text-slate-700 hover:text-theme-primary font-medium"
                           }`}
                         >
                           <span
                             className={`w-4.5 h-4.5 rounded-md border flex items-center justify-center transition-all shrink-0 ${
                               isSelected
-                                ? "border-[#1E4D3E] bg-[#1E4D3E] text-white shadow-2xs"
-                                : "border-[#8A7366] bg-white group-hover:border-[#1E4D3E]"
+                                ? "border-theme-primary bg-theme-primary text-white shadow-2xs"
+                                : "border-slate-300 bg-white group-hover:border-theme-primary"
                             }`}
                           >
                             {isSelected && (
@@ -734,7 +731,7 @@ export function FilterSidebar({
                           <span
                             className={`text-sm truncate ${
                               isSelected && activeProductIds.length === 0
-                                ? "underline underline-offset-4 decoration-2 decoration-[#1E4D3E]"
+                                ? "underline underline-offset-4 decoration-2 decoration-theme-primary"
                                 : ""
                             }`}
                             title={cat.name}
@@ -743,21 +740,20 @@ export function FilterSidebar({
                           </span>
                         </button>
 
-                        {/* Expand/Collapse Chevron Button (hidden in single category mode) */}
                         {!isSingleCategoryMode && (
                           <button
                             type="button"
                             onClick={(e) => toggleCategoryExpand(cat.id, e)}
-                            className="p-1 rounded-md text-[#7A6258] hover:text-[#2D1810] hover:bg-[#F5ECE1] transition-colors cursor-pointer"
+                            className="p-1 rounded-md text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-colors cursor-pointer"
                             title={isExpanded ? "Collapse products" : "Expand products"}
                             aria-label={isExpanded ? "Collapse products" : "Expand products"}
                           >
                             {isLoadingProducts ? (
-                              <Loader2 className="w-3.5 h-3.5 animate-spin text-[#7A2224]" />
+                              <Loader2 className="w-3.5 h-3.5 animate-spin text-theme-primary" />
                             ) : isExpanded ? (
-                              <ChevronDown className="w-4 h-4 text-[#7A2224]" />
+                              <ChevronDown className="w-4 h-4 text-theme-primary" />
                             ) : (
-                              <ChevronRight className="w-4 h-4 text-[#9C8274]" />
+                              <ChevronRight className="w-4 h-4 text-slate-400" />
                             )}
                           </button>
                         )}
@@ -765,23 +761,22 @@ export function FilterSidebar({
 
                       {/* Nested Products List underneath this Category */}
                       {isExpanded && (
-                        <div className="pl-6 pr-1 pt-1 pb-1.5 flex flex-col gap-1.5 border-l-2 border-[#EADCCF] ml-2.5 my-1 animate-in fade-in duration-150">
-                          {/* Option: All in this Category when in single category mode */}
+                        <div className="pl-6 pr-1 pt-1 pb-1.5 flex flex-col gap-1.5 border-l-2 border-slate-200 ml-2.5 my-1 animate-in fade-in duration-150">
                           {isSingleCategoryMode && (
                             <button
                               type="button"
                               onClick={() => handleAllInCategoryClick(cat.id)}
                               className={`flex items-center gap-2 py-0.5 text-left cursor-pointer group transition-colors select-none ${
                                 activeProductIds.length === 0
-                                  ? "text-[#1E4D3E] font-bold"
-                                  : "text-[#5A4338] hover:text-[#1E4D3E] font-medium"
+                                  ? "text-theme-primary font-bold"
+                                  : "text-slate-600 hover:text-theme-primary font-medium"
                               }`}
                             >
                               <span
                                 className={`w-3.5 h-3.5 rounded border flex items-center justify-center transition-all shrink-0 ${
                                   activeProductIds.length === 0
-                                    ? "border-[#1E4D3E] bg-[#1E4D3E] text-white shadow-2xs"
-                                    : "border-[#9C8274] bg-white group-hover:border-[#1E4D3E]"
+                                    ? "border-theme-primary bg-theme-primary text-white shadow-2xs"
+                                    : "border-slate-300 bg-white group-hover:border-theme-primary"
                                 }`}
                               >
                                 {activeProductIds.length === 0 && (
@@ -791,7 +786,7 @@ export function FilterSidebar({
                               <span
                                 className={`text-xs truncate ${
                                   activeProductIds.length === 0
-                                    ? "underline underline-offset-2 decoration-1 decoration-[#1E4D3E]"
+                                    ? "underline underline-offset-2 decoration-1 decoration-theme-primary"
                                     : ""
                                 }`}
                               >
@@ -801,8 +796,8 @@ export function FilterSidebar({
                           )}
 
                           {isLoadingProducts ? (
-                            <div className="flex items-center gap-2 py-1 text-xs text-[#9C8274]">
-                              <Loader2 className="w-3 h-3 animate-spin text-[#7A2224]" />
+                            <div className="flex items-center gap-2 py-1 text-xs text-slate-400">
+                              <Loader2 className="w-3 h-3 animate-spin text-theme-primary" />
                               Loading products...
                             </div>
                           ) : products.length > 0 ? (
@@ -815,15 +810,15 @@ export function FilterSidebar({
                                   onClick={() => handleProductToggle(prod.id, cat.id)}
                                   className={`flex items-center gap-2 py-0.5 text-left cursor-pointer group transition-colors select-none ${
                                     isProductActive
-                                      ? "text-[#1E4D3E] font-bold"
-                                      : "text-[#5A4338] hover:text-[#1E4D3E] font-medium"
+                                      ? "text-theme-primary font-bold"
+                                      : "text-slate-600 hover:text-theme-primary font-medium"
                                   }`}
                                 >
                                   <span
                                     className={`w-3.5 h-3.5 rounded border flex items-center justify-center transition-all shrink-0 ${
                                       isProductActive
-                                        ? "border-[#1E4D3E] bg-[#1E4D3E] text-white shadow-2xs"
-                                        : "border-[#9C8274] bg-white group-hover:border-[#1E4D3E]"
+                                        ? "border-theme-primary bg-theme-primary text-white shadow-2xs"
+                                        : "border-slate-300 bg-white group-hover:border-theme-primary"
                                     }`}
                                   >
                                     {isProductActive && (
@@ -833,7 +828,7 @@ export function FilterSidebar({
                                   <span
                                     className={`text-xs truncate ${
                                       isProductActive
-                                        ? "underline underline-offset-2 decoration-1 decoration-[#1E4D3E]"
+                                        ? "underline underline-offset-2 decoration-1 decoration-theme-primary"
                                         : ""
                                     }`}
                                     title={prod.name}
@@ -844,7 +839,7 @@ export function FilterSidebar({
                               );
                             })
                           ) : (
-                            <span className="text-xs text-[#9C8274] italic py-0.5">
+                            <span className="text-xs text-slate-400 italic py-0.5">
                               No products found
                             </span>
                           )}
@@ -854,17 +849,16 @@ export function FilterSidebar({
                   );
                 })
               ) : (
-                <div className="text-xs text-[#9C8274] py-2 text-center">
+                <div className="text-xs text-slate-400 py-2 text-center">
                   No categories match &ldquo;{categorySearch}&rdquo;
                 </div>
               )}
 
-              {/* View All Categories Link when in single category mode */}
               {isSingleCategoryMode && (
-                <div className="pt-2 mt-2 border-t border-[#F0E4D8]">
+                <div className="pt-2 mt-2 border-t border-slate-200">
                   <Link
                     href={viewAllCategoriesHref}
-                    className="inline-flex items-center gap-1 text-xs font-bold text-[#7A2224] hover:text-[#5A1911] hover:underline transition-colors py-1"
+                    className="inline-flex items-center gap-1 text-xs font-bold text-theme-primary hover:text-theme-primary-hover hover:underline transition-colors py-1"
                   >
                     <ChevronLeft className="w-3.5 h-3.5" />
                     <span>View All Categories</span>
@@ -877,12 +871,12 @@ export function FilterSidebar({
       </div>
 
       {/* 7. Budget / Price Range Slider */}
-      <div className="flex flex-col gap-3 pt-3 border-t border-[#F0E4D8]">
+      <div className="flex flex-col gap-3 pt-3 border-t border-slate-200">
         <div className="flex items-center justify-between">
-          <span className="text-[11px] font-extrabold uppercase tracking-wider text-[#7A6258]">
-            Budget
+          <span className="text-[11px] font-extrabold uppercase tracking-wider text-slate-600">
+            Price Range
           </span>
-          <span className="text-xs font-bold text-[#7A2224]">
+          <span className="text-xs font-bold text-theme-primary">
             {formatPrice(localMinPrice)} – {formatPrice(localMaxPrice)}
           </span>
         </div>
@@ -890,10 +884,10 @@ export function FilterSidebar({
         {/* Dual Thumb Range Track */}
         <div className="relative pt-3 pb-2 px-1">
           {/* Base track */}
-          <div className="w-full h-2 bg-[#EADCCF] rounded-full relative">
+          <div className="w-full h-2 bg-slate-200 rounded-full relative">
             {/* Active highlighted range */}
             <div
-              className="absolute h-2 bg-[#7A2224] rounded-full"
+              className="absolute h-2 bg-theme-primary rounded-full"
               style={{
                 left: `${priceMinPercent}%`,
                 width: `${Math.max(0, priceMaxPercent - priceMinPercent)}%`,
@@ -901,7 +895,6 @@ export function FilterSidebar({
             />
           </div>
 
-          {/* Overlaid native range inputs for dual thumb operation */}
           <input
             type="range"
             min={minPriceLimit}
@@ -912,7 +905,7 @@ export function FilterSidebar({
               const val = Math.min(Number(e.target.value), localMaxPrice - 10);
               setLocalMinPrice(val);
             }}
-            className="absolute top-2.5 left-0 w-full appearance-none bg-transparent pointer-events-none [&::-webkit-slider-thumb]:pointer-events-auto [&::-webkit-slider-thumb]:w-4.5 [&::-webkit-slider-thumb]:h-4.5 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-[#7A2224] [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-white [&::-webkit-slider-thumb]:shadow-md [&::-webkit-slider-thumb]:cursor-pointer [&::-webkit-slider-thumb]:appearance-none"
+            className="absolute top-2.5 left-0 w-full appearance-none bg-transparent pointer-events-none [&::-webkit-slider-thumb]:pointer-events-auto [&::-webkit-slider-thumb]:w-4.5 [&::-webkit-slider-thumb]:h-4.5 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-theme-primary [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-white [&::-webkit-slider-thumb]:shadow-md [&::-webkit-slider-thumb]:cursor-pointer [&::-webkit-slider-thumb]:appearance-none"
           />
 
           <input
@@ -925,19 +918,18 @@ export function FilterSidebar({
               const val = Math.max(Number(e.target.value), localMinPrice + 10);
               setLocalMaxPrice(val);
             }}
-            className="absolute top-2.5 left-0 w-full appearance-none bg-transparent pointer-events-none [&::-webkit-slider-thumb]:pointer-events-auto [&::-webkit-slider-thumb]:w-4.5 [&::-webkit-slider-thumb]:h-4.5 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-[#7A2224] [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-white [&::-webkit-slider-thumb]:shadow-md [&::-webkit-slider-thumb]:cursor-pointer [&::-webkit-slider-thumb]:appearance-none"
+            className="absolute top-2.5 left-0 w-full appearance-none bg-transparent pointer-events-none [&::-webkit-slider-thumb]:pointer-events-auto [&::-webkit-slider-thumb]:w-4.5 [&::-webkit-slider-thumb]:h-4.5 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-theme-primary [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-white [&::-webkit-slider-thumb]:shadow-md [&::-webkit-slider-thumb]:cursor-pointer [&::-webkit-slider-thumb]:appearance-none"
           />
         </div>
 
         {/* Min / Max Price Value Bubbles */}
-        <div className="flex items-center justify-between text-xs font-bold text-[#7A6258] pt-1">
-          <span className="bg-[#FAF6F0] px-2.5 py-1 rounded-md border border-[#DCC7B7] text-[#2D1810]">
+        <div className="flex items-center justify-between text-xs font-bold text-slate-600 pt-1">
+          <span className="bg-slate-50 px-2.5 py-1 rounded-md border border-slate-200 text-slate-800">
             {formatPrice(localMinPrice)}
           </span>
-          <span className="text-[#9C8274]">—</span>
-          <span className="bg-[#FAF6F0] px-2.5 py-1 rounded-md border border-[#DCC7B7] text-[#2D1810]">
+          <span className="text-slate-400">—</span>
+          <span className="bg-slate-50 px-2.5 py-1 rounded-md border border-slate-200 text-slate-800">
             {formatPrice(localMaxPrice)}
-            {localMaxPrice >= maxPriceLimit ? "" : ""}
           </span>
         </div>
       </div>
@@ -948,7 +940,7 @@ export function FilterSidebar({
     <>
       {/* Desktop Sidebar */}
       <aside
-        className={`hidden lg:block w-72 xl:w-84 shrink-0 bg-white border border-[#E8D9CD] rounded-2xl p-5 xl:p-6 shadow-xs sticky top-24 self-start max-h-[calc(100vh-7rem)] overflow-y-auto scrollbar-thin scrollbar-thumb-[#DCC7B7] scrollbar-track-transparent ${className}`}
+        className={`hidden lg:block w-72 xl:w-84 shrink-0 bg-white border border-slate-200/80 rounded-2xl p-5 xl:p-6 shadow-xs sticky top-24 self-start max-h-[calc(100vh-7rem)] overflow-y-auto scrollbar-thin scrollbar-thumb-slate-200 scrollbar-track-transparent ${className}`}
       >
         {sidebarContent}
       </aside>
@@ -963,14 +955,14 @@ export function FilterSidebar({
           />
 
           {/* Slide-in drawer */}
-          <div className="relative ml-0 w-full max-w-xs sm:max-w-sm h-full bg-white border-r border-[#E8D9CD] p-5 shadow-2xl flex flex-col justify-between overflow-y-auto animate-in slide-in-from-left duration-300 z-10">
+          <div className="relative ml-0 w-full max-w-xs sm:max-w-sm h-full bg-white border-r border-slate-200 p-5 shadow-2xl flex flex-col justify-between overflow-y-auto animate-in slide-in-from-left duration-300 z-10">
             <div>
-              <div className="flex items-center justify-between pb-3 mb-4 border-b border-[#F0E4D8]">
-                <span className="font-extrabold text-base text-[#2D1810]">Filters</span>
+              <div className="flex items-center justify-between pb-3 mb-4 border-b border-slate-200">
+                <span className="font-extrabold text-base text-slate-900">Filters</span>
                 <button
                   type="button"
                   onClick={onCloseMobile}
-                  className="p-1.5 rounded-lg text-[#7A6258] hover:text-[#2D1810] hover:bg-[#FAF6F0] transition-colors cursor-pointer"
+                  className="p-1.5 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-colors cursor-pointer"
                 >
                   <X className="w-5 h-5" />
                 </button>
@@ -980,11 +972,11 @@ export function FilterSidebar({
             </div>
 
             {/* Mobile Apply Button */}
-            <div className="pt-5 mt-5 border-t border-[#F0E4D8]">
+            <div className="pt-5 mt-5 border-t border-slate-200">
               <button
                 type="button"
                 onClick={onCloseMobile}
-                className="w-full py-3 rounded-xl bg-[#7A2224] hover:bg-[#5A1911] text-white font-extrabold text-sm tracking-wide uppercase transition-all shadow-sm cursor-pointer"
+                className="w-full py-3 rounded-xl bg-theme-primary hover:bg-theme-primary-hover text-white font-extrabold text-sm tracking-wide uppercase transition-all shadow-sm cursor-pointer"
               >
                 Apply Filters
               </button>

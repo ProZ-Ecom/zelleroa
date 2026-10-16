@@ -1,9 +1,13 @@
 "use client";
 
-import { useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useRouter } from "next/navigation";
 import { BadgeCheck, Camera, FileCheck2, Loader2, ShieldAlert, Upload } from "lucide-react";
 import { apiClient, ApiClientError } from "@/lib/api/api-client";
 import { toast } from "@/components/ui/Toast";
+import { Select } from "@/components/ui/select";
+import { cn } from "@/lib/utils";
+import { usePincodeLookup } from "@/features/addresses/hooks/use-pincode-lookup";
 import type { AgentProfileDto } from "../services/agent-profile.service";
 import {
   GENDERS,
@@ -26,6 +30,17 @@ type Values = Record<string, string>;
 type Errors = Record<string, string>;
 
 const stripCountryCode = (v: string | null) => (v ?? "").replace(/^\+91/, "");
+
+/** Formats a 12-digit Aadhaar as 3 groups of 4 digits: XXXX XXXX XXXX */
+const formatAadhaar = (val: string) => {
+  const digits = val.replace(/\D/g, "").slice(0, 12);
+  return digits.replace(/(\d{4})(?=\d)/g, "$1 ");
+};
+
+/** Formats PAN as 10 uppercase alphanumeric characters */
+const formatPan = (val: string) => {
+  return val.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 10);
+};
 
 function initialValues(p: AgentProfileDto): Record<ProfileSection, Values> {
   return {
@@ -71,11 +86,11 @@ function requiredErrors(section: ProfileSection, v: Values, p: AgentProfileDto):
     need("dob", "Date of birth");
     need("gender", "Gender");
   } else if (section === "address") {
+    need("pincode", "Pincode");
     need("line1", "Address line 1");
     need("city", "City");
     need("district", "District");
     need("state", "State");
-    need("pincode", "Pincode");
     need("country", "Country");
   } else if (section === "kyc") {
     need("aadhaar", "Aadhaar number", Boolean(v.aadhaar) || Boolean(p.kyc.aadhaarMasked));
@@ -202,6 +217,7 @@ function VerificationNote({ status, remarks, label }: { status: string; remarks:
 }
 
 export function ProfileWizard({ initial, initialStep }: { initial: AgentProfileDto; initialStep?: string }) {
+  const router = useRouter();
   const [profile, setProfile] = useState(initial);
   const [values, setValues] = useState(() => initialValues(initial));
   const [errors, setErrors] = useState<Errors>({});
@@ -210,6 +226,23 @@ export function ProfileWizard({ initial, initialStep }: { initial: AgentProfileD
   const [photoBusy, setPhotoBusy] = useState(false);
   const photoRef = useRef<HTMLInputElement>(null);
   const [step, setStep] = useState<ProfileSection>(STEPS.some((s) => s.key === initialStep) ? (initialStep as ProfileSection) : "personal");
+
+  const {
+    isLoading: isPinLoading,
+    lookupError: pinLookupError,
+    postOffices,
+    triggerLookup,
+    resetLookup,
+  } = usePincodeLookup();
+
+  // Broadcasts profile updates to AgentNav (header & sidebar avatar rings) instantly without page reload
+  const notifyProfileUpdated = (updated: AgentProfileDto) => {
+    setProfile(updated);
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("agent-profile-updated", { detail: updated }));
+    }
+    router.refresh();
+  };
 
   const v = values[step];
   const set = (key: string, value: string) => {
@@ -220,6 +253,81 @@ export function ProfileWizard({ initial, initialStep }: { initial: AgentProfileD
     setStep(s as ProfileSection);
     setErrors({});
     setBanner(null);
+  };
+
+  // Pre-load postal area options if an existing address has a 6-digit pincode
+  useEffect(() => {
+    if (step === "address" && values.address.pincode?.length === 6 && postOffices.length === 0) {
+      triggerLookup(values.address.pincode);
+    }
+  }, [step, values.address.pincode, postOffices.length, triggerLookup]);
+
+  const handlePincodeChange = (rawVal: string) => {
+    const digits = rawVal.replace(/\D/g, "").slice(0, 6);
+    setValues((all) => ({
+      ...all,
+      address: {
+        ...all.address,
+        pincode: digits,
+        ...(digits.length !== 6 ? { city: "", district: "", state: "" } : {}),
+      },
+    }));
+
+    if (errors.pincode || errors.city || errors.district || errors.state) {
+      setErrors((prev) => {
+        const next = { ...prev };
+        delete next.pincode;
+        if (digits.length === 6) {
+          delete next.city;
+          delete next.district;
+          delete next.state;
+        }
+        return next;
+      });
+    }
+
+    if (digits.length !== 6) {
+      resetLookup();
+      return;
+    }
+
+    triggerLookup(digits, {
+      onSuccess: ({ city, district, state, country, postOffices: offices }) => {
+        setValues((all) => ({
+          ...all,
+          address: {
+            ...all.address,
+            pincode: digits,
+            district: district || city,
+            state,
+            city: city || district,
+            country: country || "India",
+            area: all.address.area || offices[0]?.name || "",
+          },
+        }));
+        setErrors((prev) => {
+          const next = { ...prev };
+          delete next.pincode;
+          delete next.city;
+          delete next.district;
+          delete next.state;
+          delete next.country;
+          return next;
+        });
+      },
+      onClear: () => {
+        setValues((all) => ({
+          ...all,
+          address: {
+            ...all.address,
+            pincode: digits,
+            city: "",
+            district: "",
+            state: "",
+          },
+        }));
+      },
+    });
   };
 
   const save = async (strict: boolean) => {
@@ -237,7 +345,7 @@ export function ProfileWizard({ initial, initialStep }: { initial: AgentProfileD
     setSaving(strict ? "next" : "draft");
     try {
       const res = await apiClient.put<AgentProfileDto>("/api/agent/profile/details", { section: step, strict, data: v });
-      setProfile(res.data as AgentProfileDto);
+      notifyProfileUpdated(res.data as AgentProfileDto);
       // Secrets leave the form as soon as they are stored.
       setValues((all) =>
         step === "kyc"
@@ -277,7 +385,7 @@ export function ProfileWizard({ initial, initialStep }: { initial: AgentProfileD
       const fd = new FormData();
       fd.append("file", file);
       const res = await apiClient.post<AgentProfileDto>("/api/agent/profile/photo", fd);
-      setProfile(res.data as AgentProfileDto);
+      notifyProfileUpdated(res.data as AgentProfileDto);
       toast.success("Profile photo updated");
     } catch (err) {
       toast.error("Upload failed", err instanceof ApiClientError ? err.message : "Please try again.");
@@ -373,14 +481,21 @@ export function ProfileWizard({ initial, initialStep }: { initial: AgentProfileD
                   <input className={`${fieldCls} ${errors.dob ? "border-red-300" : ""}`} type="date" max={today} value={v.dob} onChange={(e) => set("dob", e.target.value)} />
                 </Field>
                 <Field label="Gender" required error={errors.gender}>
-                  <select className={`${fieldCls} ${errors.gender ? "border-red-300" : ""}`} value={v.gender} onChange={(e) => set("gender", e.target.value)}>
-                    <option value="">Select…</option>
-                    {GENDERS.map((g) => (
-                      <option key={g} value={g}>
-                        {GENDER_LABELS[g]}
-                      </option>
-                    ))}
-                  </select>
+                  <Select
+                    portal={true}
+                    searchable={false}
+                    className={cn(
+                      "w-full",
+                      errors.gender && "[&_.ui-dropdown-trigger]:!border-red-400 [&_.ui-dropdown-trigger]:focus:ring-red-100"
+                    )}
+                    placeholder="Select gender…"
+                    options={GENDERS.map((g) => ({
+                      value: g,
+                      label: GENDER_LABELS[g],
+                    }))}
+                    value={v.gender ?? ""}
+                    onValueChange={(val) => set("gender", val)}
+                  />
                 </Field>
               </div>
             </>
@@ -388,14 +503,124 @@ export function ProfileWizard({ initial, initialStep }: { initial: AgentProfileD
 
           {step === "address" && (
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              {text("line1", "Address line 1", { required: true })}
-              {text("line2", "Address line 2")}
-              {text("area", "Area / street")}
-              {text("city", "City", { required: true })}
-              {text("district", "District", { required: true })}
-              {text("state", "State", { required: true })}
-              {text("pincode", "Pincode", { required: true, inputMode: "numeric", maxLength: 6, hint: "6 digits" })}
-              {text("country", "Country", { required: true })}
+              <div className="sm:col-span-2">
+                <Field
+                  label="Pincode"
+                  required
+                  error={errors.pincode || (pinLookupError ?? undefined)}
+                  hint="6-digit Indian PIN code. City, district and state are automatically detected."
+                >
+                  <div className="relative">
+                    <input
+                      className={`${fieldCls} ${errors.pincode || pinLookupError ? "border-red-300" : ""}`}
+                      type="text"
+                      inputMode="numeric"
+                      maxLength={6}
+                      placeholder="e.g. 636001"
+                      value={v.pincode ?? ""}
+                      onChange={(e) => handlePincodeChange(e.target.value)}
+                      autoComplete="off"
+                    />
+                    {isPinLoading && (
+                      <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
+                        <Loader2 className="h-4 w-4 animate-spin text-neutral-400" />
+                      </div>
+                    )}
+                  </div>
+                </Field>
+              </div>
+
+              {text("line1", "Address line 1", { required: true, placeholder: "House / Flat No., Building, Street" })}
+              {text("line2", "Address line 2", { placeholder: "Landmark, Apartment (optional)" })}
+
+              <Field
+                label="Area / Street / Locality"
+                error={errors.area}
+                hint={postOffices.length > 0 ? `${postOffices.length} postal localities found` : "Locality or nearby post office"}
+              >
+                {postOffices.length > 0 ? (
+                  <Select
+                    portal={true}
+                    className={cn(
+                      "w-full",
+                      errors.area && "[&_.ui-dropdown-trigger]:!border-red-400 [&_.ui-dropdown-trigger]:focus:ring-red-100"
+                    )}
+                    placeholder="Select post office / locality…"
+                    options={[
+                      ...(v.area && !postOffices.some((po) => po.value.toLowerCase() === v.area.toLowerCase())
+                        ? [{ value: v.area, label: v.area }]
+                        : []),
+                      ...postOffices.map((po) => ({
+                        value: po.value,
+                        label: `${po.label}${po.description ? ` (${po.description})` : ""}`,
+                      })),
+                    ]}
+                    value={v.area ?? ""}
+                    onValueChange={(val) => set("area", val)}
+                  />
+                ) : (
+                  <input
+                    className={`${fieldCls} ${errors.area ? "border-red-300" : ""}`}
+                    placeholder="Enter area or street"
+                    value={v.area ?? ""}
+                    onChange={(e) => set("area", e.target.value)}
+                  />
+                )}
+              </Field>
+
+              <Field
+                label="City"
+                required
+                error={errors.city}
+                hint="Auto-filled from pincode (change pincode to edit)"
+              >
+                <input
+                  className={`${fieldCls} bg-neutral-100 text-neutral-600 cursor-not-allowed border-neutral-200 select-none shadow-none focus:outline-none`}
+                  value={v.city ?? ""}
+                  readOnly
+                  tabIndex={-1}
+                  placeholder={isPinLoading ? "Fetching city..." : "Auto-filled from pincode"}
+                />
+              </Field>
+
+              <Field
+                label="District"
+                required
+                error={errors.district}
+                hint="Auto-filled from pincode (change pincode to edit)"
+              >
+                <input
+                  className={`${fieldCls} bg-neutral-100 text-neutral-600 cursor-not-allowed border-neutral-200 select-none shadow-none focus:outline-none`}
+                  value={v.district ?? ""}
+                  readOnly
+                  tabIndex={-1}
+                  placeholder={isPinLoading ? "Fetching district..." : "Auto-filled from pincode"}
+                />
+              </Field>
+
+              <Field
+                label="State"
+                required
+                error={errors.state}
+                hint="Auto-filled from pincode (change pincode to edit)"
+              >
+                <input
+                  className={`${fieldCls} bg-neutral-100 text-neutral-600 cursor-not-allowed border-neutral-200 select-none shadow-none focus:outline-none`}
+                  value={v.state ?? ""}
+                  readOnly
+                  tabIndex={-1}
+                  placeholder={isPinLoading ? "Fetching state..." : "Auto-filled from pincode"}
+                />
+              </Field>
+
+              <Field label="Country" required hint="Default country">
+                <input
+                  className={`${fieldCls} bg-neutral-100 text-neutral-600 cursor-not-allowed border-neutral-200 select-none shadow-none focus:outline-none`}
+                  value={v.country || "India"}
+                  readOnly
+                  tabIndex={-1}
+                />
+              </Field>
             </div>
           )}
 
@@ -406,22 +631,51 @@ export function ProfileWizard({ initial, initialStep }: { initial: AgentProfileD
                 Your numbers are stored encrypted and only ever shown masked. Documents are kept in private storage that only you and the admin team can open.
               </p>
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                {text("aadhaar", "Aadhaar number", {
-                  required: true,
-                  inputMode: "numeric",
-                  maxLength: 14,
-                  placeholder: profile.kyc.aadhaarMasked ?? "1234 5678 9012",
-                  hint: profile.kyc.aadhaarMasked ? "Saved – type a new number only to replace it" : "12 digits",
-                })}
-                {text("pan", "PAN number", {
-                  required: true,
-                  maxLength: 10,
-                  upper: true,
-                  placeholder: profile.kyc.panMasked ?? "ABCDE1234F",
-                  hint: profile.kyc.panMasked ? "Saved – type a new number only to replace it" : "e.g. ABCDE1234F",
-                })}
-                <DocUpload kind="aadhaar" label="Aadhaar card" uploaded={profile.kyc.hasAadhaarDoc} error={errors.aadhaarDoc} onUploaded={setProfile} />
-                <DocUpload kind="pan" label="PAN card" uploaded={profile.kyc.hasPanDoc} error={errors.panDoc} onUploaded={setProfile} />
+                <Field
+                  label="Aadhaar number"
+                  required
+                  error={errors.aadhaar}
+                  hint={
+                    profile.kyc.aadhaarMasked
+                      ? "Saved – type a new 12-digit number only to replace it"
+                      : "12-digit UIDAI number (e.g. 1234 5678 9012)"
+                  }
+                >
+                  <input
+                    className={`${fieldCls} ${errors.aadhaar ? "border-red-300" : ""}`}
+                    type="text"
+                    inputMode="numeric"
+                    maxLength={14}
+                    placeholder={profile.kyc.aadhaarMasked ?? "1234 5678 9012"}
+                    value={v.aadhaar ?? ""}
+                    onChange={(e) => set("aadhaar", formatAadhaar(e.target.value))}
+                    autoComplete="off"
+                  />
+                </Field>
+
+                <Field
+                  label="PAN number"
+                  required
+                  error={errors.pan}
+                  hint={
+                    profile.kyc.panMasked
+                      ? "Saved – type a new number only to replace it"
+                      : "10-character PAN (e.g. ABCDE1234F)"
+                  }
+                >
+                  <input
+                    className={`${fieldCls} uppercase ${errors.pan ? "border-red-300" : ""}`}
+                    type="text"
+                    maxLength={10}
+                    placeholder={profile.kyc.panMasked ?? "ABCDE1234F"}
+                    value={v.pan ?? ""}
+                    onChange={(e) => set("pan", formatPan(e.target.value))}
+                    autoComplete="off"
+                  />
+                </Field>
+
+                <DocUpload kind="aadhaar" label="Aadhaar card" uploaded={profile.kyc.hasAadhaarDoc} error={errors.aadhaarDoc} onUploaded={notifyProfileUpdated} />
+                <DocUpload kind="pan" label="PAN card" uploaded={profile.kyc.hasPanDoc} error={errors.panDoc} onUploaded={notifyProfileUpdated} />
               </div>
             </>
           )}
@@ -443,7 +697,7 @@ export function ProfileWizard({ initial, initialStep }: { initial: AgentProfileD
                 {text("ifsc", "IFSC code", { required: true, upper: true, maxLength: 11, placeholder: "HDFC0001234" })}
                 {text("branch", "Branch name", { required: true })}
                 <div className="sm:col-span-2">
-                  <DocUpload kind="bank" label="Cancelled cheque / bank proof" uploaded={profile.bank.hasProof} error={errors.bankDoc} onUploaded={setProfile} />
+                  <DocUpload kind="bank" label="Cancelled cheque / bank proof" uploaded={profile.bank.hasProof} error={errors.bankDoc} onUploaded={notifyProfileUpdated} />
                 </div>
               </div>
             </>

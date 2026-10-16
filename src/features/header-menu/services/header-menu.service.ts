@@ -5,11 +5,12 @@ import { headerMenuRepository } from "../repositories/header-menu.repository";
 import { categoryService, flattenTree } from "@/features/categories/services/category.service";
 import { userRepository } from "@/features/users/repositories/user.repository";
 import type { Prisma } from "@/generated/prisma";
-import type {
+import {
   AdminHeaderMenuItemResponse,
   GetAdminHeaderMenuParams,
   HeaderMenuGender,
   HeaderNavItem,
+  MAX_HEADER_MENU_ITEMS,
 } from "../types";
 import type {
   CreateAdminHeaderMenuItemInput,
@@ -102,6 +103,13 @@ export const headerMenuService = {
     data: CreateAdminHeaderMenuItemInput,
     adminEmail?: string
   ): Promise<AdminHeaderMenuItemResponse> {
+    const currentCount = await headerMenuRepository.countNonDeleted();
+    if (currentCount >= MAX_HEADER_MENU_ITEMS) {
+      throw ApiError.badRequest(
+        `A maximum of ${MAX_HEADER_MENU_ITEMS} header menu items can exist. The system prevents adding more than ${MAX_HEADER_MENU_ITEMS}.`
+      );
+    }
+
     const adminId = await getAdminInternalId(adminEmail);
     const categoryInternalIds = await resolveCategoryInternalIds(data.categoryIds ?? []);
     const hasLink = Boolean(data.link?.trim());

@@ -4,6 +4,7 @@ import * as React from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { apiClient } from "@/lib/api/api-client";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { Select } from "@/components/ui/select";
 import { errorMessage, useAdminObject, useAgentOptions } from "../../hooks/use-admin-agents";
 
 interface HistoryRow {
@@ -84,18 +85,19 @@ export function CustomerAgentCard({ customerId, canTransfer = true }: { customer
         <div className="grid gap-2 sm:grid-cols-[1fr_1fr_auto] items-end">
           <label className="text-xs text-neutral-600">
             {data?.agent ? "Transfer to" : "Assign to"}
-            <select
-              value={toAgent}
-              onChange={(e) => setToAgent(e.target.value)}
-              className="mt-1 w-full rounded-lg border border-cream-border px-3 py-2 text-sm bg-white"
-            >
-              <option value="">Select Sales Partner…</option>
-              {choices.map((o) => (
-                <option key={o.id} value={o.id}>
-                  {label(o.name, o.agentCode)}
-                </option>
-              ))}
-            </select>
+            <div className="mt-1">
+              <Select
+                portal={true}
+                searchable={choices.length > 5}
+                placeholder="Select Sales Partner…"
+                options={choices.map((o) => ({
+                  value: o.id,
+                  label: label(o.name, o.agentCode),
+                }))}
+                value={toAgent}
+                onValueChange={(val) => setToAgent(val)}
+              />
+            </div>
           </label>
           <label className="text-xs text-neutral-600">
             Reason (optional)

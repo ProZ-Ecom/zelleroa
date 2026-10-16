@@ -7,7 +7,6 @@ import { BadgeCheck, Banknote, Check, CheckCircle2, Clock, Copy, IndianRupee, Ma
 import { apiClient } from "@/lib/api/api-client";
 import { toast } from "@/components/ui/Toast";
 import { PageContainer } from "@/components/admin/PageContainer";
-import { BlockReasonDialog } from "@/components/ui/block-reason-dialog";
 import type { AgentDto } from "@/features/agents/services/agent.service";
 import { errorMessage, useAdminObject } from "@/features/agents/hooks/use-admin-agents";
 import { AgentFormModal } from "@/features/agents/components/admin/AgentFormModal";
@@ -18,7 +17,7 @@ import { AdminAssignedCustomersSection } from "@/features/agents/components/admi
 import { AdminOrdersSection } from "@/features/agents/components/admin/AdminOrdersSection";
 import { AdminPayoutsSection } from "@/features/agents/components/admin/AdminPayoutsSection";
 import { ReferralFlow } from "@/features/agents/components/ReferralFlow";
-import { MetricCard, Panel, StatusBadge, dateOnly, money } from "@/features/agents/components/shared";
+import { BlockAgentDialog, type BlockAgentPayload, MetricCard, Panel, StatusBadge, Tooltip, dateOnly, money } from "@/features/agents/components/shared";
 
 const TABS = [
   { key: "profile", label: "Profile & KYC" },
@@ -41,15 +40,40 @@ export default function AdminAgentDetailPage() {
   const [blockOpen, setBlockOpen] = useState(false);
   const [blocking, setBlocking] = useState(false);
 
-  const toggleActive = async (blockReason?: string) => {
+  const handleUnblock = async () => {
     if (!agent) return;
     setBlocking(true);
     try {
-      await apiClient.put(`/api/admin/agents/${agent.id}`, agent.isActive ? { isActive: false, blockReason } : { isActive: true });
-      toast.success(agent.isActive ? "Sales Partner blocked" : "Sales Partner unblocked");
+      await apiClient.put(`/api/admin/agents/${agent.id}`, { isActive: true });
+      toast.success("Sales Partner unblocked successfully");
       await qc.invalidateQueries({ queryKey: ["agents-admin"] });
     } catch (err) {
-      toast.error("Could not update the Sales Partner", errorMessage(err));
+      toast.error("Could not unblock the Sales Partner", errorMessage(err));
+    } finally {
+      setBlocking(false);
+    }
+  };
+
+  const confirmBlock = async (payload: BlockAgentPayload) => {
+    if (!agent) return;
+    setBlocking(true);
+    try {
+      await apiClient.put(`/api/admin/agents/${agent.id}`, {
+        isActive: false,
+        blockReason: payload.reason,
+        customerAction: payload.customerAction,
+        transferToAgentId: payload.transferToAgentId,
+      });
+      toast.success(
+        payload.customerAction === "transfer"
+          ? "Sales Partner blocked and customers transferred successfully"
+          : payload.customerAction === "release"
+          ? "Sales Partner blocked and customers released to open pool"
+          : "Sales Partner blocked successfully"
+      );
+      await qc.invalidateQueries({ queryKey: ["agents-admin"] });
+    } catch (err) {
+      toast.error("Could not block the Sales Partner", errorMessage(err));
     } finally {
       setBlocking(false);
       setBlockOpen(false);
@@ -80,7 +104,7 @@ export default function AdminAgentDetailPage() {
             </button>
             <button
               type="button"
-              onClick={() => (agent.isActive ? setBlockOpen(true) : toggleActive())}
+              onClick={() => (agent.isActive ? setBlockOpen(true) : handleUnblock())}
               className={`h-10 rounded-xl px-4 text-sm font-semibold ${agent.isActive ? "border border-red-200 text-red-700 hover:bg-red-50" : "bg-emerald-600 text-white hover:bg-emerald-700"}`}
             >
               {agent.isActive ? "Block" : "Unblock"}
@@ -103,8 +127,16 @@ export default function AdminAgentDetailPage() {
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2">
                   <h2 className="truncate text-lg font-bold tracking-tight text-neutral-900">{agent.name}</h2>
-                  <StatusBadge status={agent.isActive ? "active" : "blocked"} />
+                  <StatusBadge
+                    status={agent.isActive ? "active" : "blocked"}
+                    title={!agent.isActive && agent.blockReason ? `Blocked reason: ${agent.blockReason}` : undefined}
+                  />
                 </div>
+                {!agent.isActive && agent.blockReason && (
+                  <div className="mt-2 inline-flex max-w-xl items-center gap-2 rounded-xl border border-red-200 bg-red-50/80 px-3 py-1.5 text-xs text-red-800">
+                    <span className="font-semibold">Reason for blocking:</span> {agent.blockReason}
+                  </div>
+                )}
                 <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 text-sm text-neutral-600">
                   <span className="inline-flex items-center gap-1.5"><BadgeCheck className="h-3.5 w-3.5 text-neutral-400" />{agent.agentCode ?? "—"}</span>
                   <span className="inline-flex items-center gap-1.5"><Mail className="h-3.5 w-3.5 text-neutral-400" />{agent.email ?? "—"}</span>
@@ -169,10 +201,12 @@ export default function AdminAgentDetailPage() {
                   <p className="text-xs font-medium text-neutral-500">Referral link</p>
                   <div className="mt-1 flex items-center gap-2">
                     <input readOnly value={agent.referralLink ?? ""} onFocus={(e) => e.currentTarget.select()} className="h-10 w-full min-w-0 rounded-xl border border-neutral-200 bg-neutral-50 px-3 text-sm" />
-                    <button type="button" onClick={copyLink} className="inline-flex h-10 shrink-0 items-center gap-2 rounded-xl border border-neutral-200 px-3 text-sm font-medium hover:bg-neutral-50">
-                      {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-                      {copied ? "Copied" : "Copy"}
-                    </button>
+                    <Tooltip content="Copy referral link to clipboard" side="top">
+                      <button type="button" onClick={copyLink} aria-label="Copy referral link to clipboard" className="inline-flex h-10 shrink-0 items-center gap-2 rounded-xl border border-neutral-200 px-3 text-sm font-medium hover:bg-neutral-50">
+                        {copied ? <Check className="h-4 w-4 text-emerald-600" /> : <Copy className="h-4 w-4" />}
+                        {copied ? "Copied" : "Copy"}
+                      </button>
+                    </Tooltip>
                   </div>
                   <p className="mt-1 text-xs text-neutral-500">Short form: <span className="font-mono">/ref/{agent.referralCode}</span></p>
                 </div>
@@ -220,18 +254,28 @@ export default function AdminAgentDetailPage() {
         </div>
       )}
 
-      <BlockReasonDialog
+      <BlockAgentDialog
         open={blockOpen}
-        subject="Agent"
-        name={agent?.name}
+        agent={agent}
         isLoading={blocking}
         onClose={() => setBlockOpen(false)}
-        onConfirm={(reason) => toggleActive(reason)}
+        onConfirm={confirmBlock}
       />
       <AgentFormModal
         open={editing}
         onClose={() => setEditing(false)}
-        agent={agent ? { id: agent.id, name: agent.name, phone: agent.phone, notes: agent.notes } : null}
+        agent={
+          agent
+            ? {
+                id: agent.id,
+                name: agent.name,
+                phone: agent.phone,
+                notes: agent.notes,
+                isActive: agent.isActive,
+                blockReason: agent.blockReason,
+              }
+            : null
+        }
       />
     </PageContainer>
   );

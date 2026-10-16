@@ -52,7 +52,7 @@ function DataTable<TData, TValue>({
   pageSize: controlledPageSize,
   pageSizeOptions = [10, 20, 30, 50],
   onPageSizeChange,
-  page = 1,
+  page,
   totalPages,
   totalItems,
   onPageChange,
@@ -66,16 +66,10 @@ function DataTable<TData, TValue>({
   const [internalPageSize, setInternalPageSize] = React.useState<number>(
     controlledPageSize ?? 10
   );
-  const [internalPage, setInternalPage] = React.useState<number>(page);
+  const [internalPage, setInternalPage] = React.useState<number>(page ?? 1);
 
-  const isControlledPageSize =
-    controlledPageSize !== undefined && onPageSizeChange !== undefined;
-  const effectivePageSize = isControlledPageSize
-    ? controlledPageSize
-    : internalPageSize;
-
-  const isControlledPage = page !== undefined && onPageChange !== undefined;
-  const effectivePage = isControlledPage ? page : internalPage;
+  const effectivePageSize = internalPageSize;
+  const effectivePage = page ?? internalPage;
 
   React.useEffect(() => {
     if (controlledPageSize !== undefined) {
@@ -167,7 +161,7 @@ function DataTable<TData, TValue>({
   return (
     <div className={cn("w-full flex-1 flex flex-col justify-between rounded-2xl overflow-hidden min-h-[380px] border border-neutral-200/70 bg-white shadow-[0_1px_2px_rgba(16,24,40,0.04),0_8px_24px_-8px_rgba(16,24,40,0.08)]", className)}>
       {(searchKey || exportable) && (
-        <div className="flex items-center justify-between gap-3 p-3.5 border-b border-neutral-200/80 bg-neutral-50/50 flex-shrink-0">
+        <div className="flex items-center justify-between gap-2 p-3 pb-4 flex-shrink-0">
           {searchKey ? (
             <SearchInput
               placeholder={searchPlaceholder}
@@ -182,8 +176,8 @@ function DataTable<TData, TValue>({
             <button
               type="button"
               onClick={handleExport}
-              disabled={!table.getRowModel().rows.length}
-              className="inline-flex items-center gap-2 rounded-xl border border-neutral-200 bg-white px-3.5 py-2 text-sm font-medium text-neutral-700 shadow-sm transition-all hover:border-neutral-300 hover:bg-neutral-50 hover:shadow active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 shrink-0 cursor-pointer"
+              disabled={isExporting || !table.getRowModel().rows.length}
+              className="inline-flex items-center gap-2 rounded-xl border border-neutral-200 bg-white px-3.5 py-2 text-sm font-medium text-neutral-700 shadow-sm transition-all hover:border-neutral-300 hover:bg-neutral-50 hover:shadow active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
             >
               <Download className={cn("h-4 w-4", isExporting && "animate-spin")} />
               {isExporting ? "Exporting..." : "Export"}
@@ -194,7 +188,7 @@ function DataTable<TData, TValue>({
       )}
 
       <div className="min-h-[240px] flex-1 overflow-hidden flex flex-col">
-        <div className="flex-1 overflow-x-auto overflow-y-auto overscroll-x-contain">
+        <div className="flex-1 overflow-x-auto overflow-y-scroll overscroll-x-contain">
           <table className="w-full min-w-[720px] table-auto caption-bottom text-sm border-separate border-spacing-0">
             <thead>
               {table.getHeaderGroups().map((headerGroup) => (

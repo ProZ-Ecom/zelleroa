@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Copy, Check, Link2, Share2, MessageCircle, Send, Mail } from "lucide-react";
+import { Tooltip } from "./Tooltip";
 
 interface ReferralLinkCardProps {
   referralCode: string;
@@ -68,43 +69,56 @@ export function ReferralLinkCard({ referralCode, referralLink }: ReferralLinkCar
             className="h-11 w-full min-w-0 truncate rounded-xl border border-white/15 bg-black/25 px-3 font-mono text-sm text-white outline-none focus:border-emerald-300/60"
             onFocus={(e) => e.currentTarget.select()}
           />
-          <button
-            type="button"
-            onClick={handleCopy}
-            className="inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-xl bg-white px-5 text-sm font-semibold text-neutral-900 shadow-sm transition-colors hover:bg-emerald-50 active:scale-[0.98]"
-          >
-            {copied ? <Check className="h-4 w-4 text-emerald-600" /> : <Copy className="h-4 w-4" />}
-            {copied ? "Copied" : "Copy link"}
-          </button>
+          <Tooltip content="Copy referral link to clipboard" side="top">
+            <button
+              type="button"
+              onClick={handleCopy}
+              aria-label="Copy referral link to clipboard"
+              className="inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-xl bg-white px-5 text-sm font-semibold text-neutral-900 shadow-sm transition-colors hover:bg-emerald-50 active:scale-[0.98]"
+            >
+              {copied ? <Check className="h-4 w-4 text-emerald-600" /> : <Copy className="h-4 w-4" />}
+              {copied ? "Copied" : "Copy link"}
+            </button>
+          </Tooltip>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <span className="text-xs uppercase tracking-wide text-neutral-400">Share via</span>
           {canNativeShare && (
-            <button type="button" onClick={handleNativeShare} className={shareBtn}>
-              <Share2 className="h-4 w-4" />
-              Share
-            </button>
+            <Tooltip content="Share using device share menu" side="top">
+              <button type="button" onClick={handleNativeShare} aria-label="Share using device share menu" className={shareBtn}>
+                <Share2 className="h-4 w-4" />
+                Share
+              </button>
+            </Tooltip>
           )}
-          <a href={`https://wa.me/?text=${encodedMessage}`} target="_blank" rel="noopener noreferrer" className={shareBtn}>
-            <MessageCircle className="h-4 w-4" />
-            WhatsApp
-          </a>
-          <a
-            href={`https://t.me/share/url?url=${encodedLink}&text=${encodeURIComponent(shareText)}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className={shareBtn}
-          >
-            <Send className="h-4 w-4" />
-            Telegram
-          </a>
-          <a
-            href={`mailto:?subject=${encodeURIComponent(shareTitle)}&body=${encodedMessage}`}
-            className={shareBtn}
-          >
-            <Mail className="h-4 w-4" />
-            Email
-          </a>
+          <Tooltip content="Share referral link on WhatsApp" side="top">
+            <a href={`https://wa.me/?text=${encodedMessage}`} target="_blank" rel="noopener noreferrer" aria-label="Share referral link on WhatsApp" className={shareBtn}>
+              <MessageCircle className="h-4 w-4" />
+              WhatsApp
+            </a>
+          </Tooltip>
+          <Tooltip content="Share referral link on Telegram" side="top">
+            <a
+              href={`https://t.me/share/url?url=${encodedLink}&text=${encodeURIComponent(shareText)}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="Share referral link on Telegram"
+              className={shareBtn}
+            >
+              <Send className="h-4 w-4" />
+              Telegram
+            </a>
+          </Tooltip>
+          <Tooltip content="Share referral link via Email" side="top">
+            <a
+              href={`mailto:?subject=${encodeURIComponent(shareTitle)}&body=${encodedMessage}`}
+              aria-label="Share referral link via Email"
+              className={shareBtn}
+            >
+              <Mail className="h-4 w-4" />
+              Email
+            </a>
+          </Tooltip>
         </div>
       </div>
     </section>

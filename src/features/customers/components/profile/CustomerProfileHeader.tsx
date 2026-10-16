@@ -120,10 +120,12 @@ export function CustomerTopBar({ customer }: CustomerTopBarProps) {
         <div className="flex items-center gap-2.5 self-start sm:self-auto">
           {/* Email Button */}
           {customer.email ? (
-            <a
-              href={`mailto:${customer.email}`}
-              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 sm:px-4 sm:py-2 rounded-lg border border-secondary-600 text-secondary-600 bg-white hover:bg-secondary-50 text-xs font-semibold transition-colors shadow-2xs"
-            >
+           <a
+  href={`https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(customer.email)}`}
+  target="_blank"
+  rel="noopener noreferrer"
+  className="inline-flex items-center gap-1.5 px-3.5 py-1.5 sm:px-4 sm:py-2 rounded-lg border border-secondary-600 text-secondary-600 bg-white hover:bg-secondary-50 text-xs font-semibold transition-colors shadow-2xs"
+>
               <Mail className="h-3.5 w-3.5" />
               <span>Email</span>
             </a>

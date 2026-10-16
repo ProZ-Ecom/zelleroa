@@ -42,7 +42,14 @@ export default async function AgentCustomersPage({
                 </div>
               ),
             },
-            { header: "Customer ID", cell: (r) => <span className="font-mono text-xs">{r.customerCode ?? "—"}</span> },
+            {
+              header: "Customer ID",
+              cell: (r) => (
+                <span className="font-mono text-xs text-neutral-800" title={r.customerCode || r.id}>
+                  {r.customerCode || r.id || "—"}
+                </span>
+              ),
+            },
             { header: "Mobile", cell: (r) => r.phone ?? "—" },
             { header: "Email", cell: (r) => r.email ?? "—" },
             { header: "Registered", cell: (r) => dateOnly(r.registeredAt) },

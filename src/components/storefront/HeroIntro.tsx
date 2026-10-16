@@ -24,16 +24,16 @@ export function HeroIntro() {
   const slides = banners && banners.length > 0
     ? banners
     : [
-        {
-          id: "fallback",
-          imageUrl: FALLBACK_IMAGE,
-          title: null,
-          linkUrl: null,
-          badgeLabel: null,
-          subtitle: null,
-          priceText: null,
-        },
-      ];
+      {
+        id: "fallback",
+        imageUrl: FALLBACK_IMAGE,
+        title: null,
+        linkUrl: null,
+        badgeLabel: null,
+        subtitle: null,
+        priceText: null,
+      },
+    ];
 
   const isSlider = slides.length > 1;
   const { currentIndex, next, previous, goTo } = useSlider(slides.length);
@@ -98,10 +98,9 @@ export function HeroIntro() {
               <ArrowRight className="h-4 w-4" />
             </Link>
           </div>
-
         </div>
 
-        {/* Right: image + trending card */}
+        {/* Right: image + banner inside content */}
         <div
           className="relative group"
           onMouseEnter={() => setPaused(true)}
@@ -109,7 +108,7 @@ export function HeroIntro() {
           onFocus={() => setPaused(true)}
           onBlur={() => setPaused(false)}
         >
-          <div className="relative aspect-[4/3] w-full overflow-hidden rounded-2xl bg-gradient-to-br from-slate-800 via-slate-700 to-slate-900">
+          <div className="relative aspect-[4/3] w-full overflow-hidden rounded-2xl bg-gradient-to-br from-slate-800 via-slate-700 to-slate-900 shadow-lg">
             {isPending ? (
               <div className="absolute inset-0 animate-pulse bg-slate-200" />
             ) : (
@@ -122,9 +121,8 @@ export function HeroIntro() {
                   fill
                   priority={index === 0}
                   sizes="(min-width: 1024px) 50vw, 100vw"
-                  className={`object-cover transition-opacity duration-700 ease-in-out ${
-                    index === currentIndex ? "opacity-100" : "opacity-0"
-                  }`}
+                  className={`object-cover transition-opacity duration-700 ease-in-out ${index === currentIndex ? "opacity-100" : "opacity-0"
+                    }`}
                 />
               ))
             )}
@@ -135,7 +133,7 @@ export function HeroIntro() {
                   type="button"
                   onClick={previous}
                   aria-label="Previous slide"
-                  className="absolute left-3 top-1/2 -translate-y-1/2 z-10 flex cursor-pointer h-9 w-9 items-center justify-center rounded-full bg-white/80 text-theme-text-primary opacity-0 shadow-md transition-opacity hover:bg-white group-hover:opacity-100"
+                  className="absolute left-3 top-1/2 -translate-y-1/2 z-10 flex cursor-pointer h-9 w-9 items-center justify-center rounded-full bg-white/85 text-theme-text-primary opacity-0 shadow-md backdrop-blur-xs transition-opacity hover:bg-white group-hover:opacity-100"
                 >
                   <ChevronLeft className="h-5 w-5" />
                 </button>
@@ -143,60 +141,65 @@ export function HeroIntro() {
                   type="button"
                   onClick={next}
                   aria-label="Next slide"
-                  className="absolute right-3 top-1/2 -translate-y-1/2 z-10 flex cursor-pointer h-9 w-9 items-center justify-center rounded-full bg-white/80 text-theme-text-primary opacity-0 shadow-md transition-opacity hover:bg-white group-hover:opacity-100"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 z-10 flex cursor-pointer h-9 w-9 items-center justify-center rounded-full bg-white/85 text-theme-text-primary opacity-0 shadow-md backdrop-blur-xs transition-opacity hover:bg-white group-hover:opacity-100"
                 >
                   <ChevronRight className="h-5 w-5" />
                 </button>
 
-                <div className="absolute bottom-4 left-1/2 z-10 flex -translate-x-1/2 items-center gap-1.5">
+                {/* Slider dots indicators positioned top-right inside banner */}
+                <div className="absolute top-4 right-4 z-10 flex items-center gap-1.5 bg-black/40 backdrop-blur-md px-2.5 py-1.5 rounded-full border border-white/20">
                   {slides.map((slide, index) => (
                     <button
                       key={slide.id}
                       type="button"
                       onClick={() => goTo(index)}
                       aria-label={`Go to slide ${index + 1}`}
-                      className={`h-1.5 rounded-full transition-all ${
-                        index === currentIndex ? "w-5 bg-white" : "w-1.5 bg-white/60"
-                      }`}
+                      className={`h-1.5 rounded-full transition-all cursor-pointer ${index === currentIndex ? "w-5 bg-white" : "w-1.5 bg-white/60 hover:bg-white/80"
+                        }`}
                     />
                   ))}
                 </div>
               </>
             )}
-          </div>
 
-          {!isPending && (
-          <div className="absolute -bottom-6 left-4 right-4 sm:left-8 sm:right-auto sm:w-[340px] flex items-center gap-3 rounded-xl border border-theme-border bg-white p-4 shadow-lg">
-            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-theme-primary-light">
-              <ShoppingBag className="h-5 w-5 text-theme-primary" />
-            </div>
-            <div className="min-w-0 flex-1">
-              {(badgeLabel || subtitle) && (
-                <div className="flex items-center gap-2">
+            {/* In-Banner Content Card: cleanly aligned inside banner image */}
+            {!isPending && (
+              <div className="absolute bottom-4 left-4 right-4 sm:right-auto sm:left-5 sm:bottom-5 sm:w-[420px] z-10 flex items-center gap-3.5 rounded-xl border border-white/90 bg-white/95 p-3.5 shadow-xl backdrop-blur-md">
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-theme-primary-light text-theme-primary">
+                  <ShoppingBag className="h-5 w-5" />
+                </div>
+                <div className="min-w-0 flex-1">
                   {badgeLabel && (
-                    <span className="rounded-full bg-orange-100 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-orange-600">
-                      {badgeLabel}
-                    </span>
+                    <div className="mb-1">
+                      <span className="inline-block whitespace-nowrap rounded-full bg-orange-100 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-orange-600">
+                        {badgeLabel}
+                      </span>
+                    </div>
+                  )}
+                  <p className="text-sm font-bold text-theme-text-primary whitespace-nowrap truncate">
+                    {cardTitle}
+                  </p>
+                  {priceText && (
+                    <p className="text-xs font-bold text-theme-primary whitespace-nowrap truncate mt-0.5">
+                      {priceText}
+                    </p>
                   )}
                   {subtitle && (
-                    <span className="text-xs text-theme-text-subtle">{subtitle}</span>
+                    <p className="text-[11px] text-theme-text-subtle whitespace-nowrap truncate mt-0.5">
+                      {subtitle}
+                    </p>
                   )}
                 </div>
-              )}
-              <p className="text-sm font-bold text-theme-text-primary truncate">{cardTitle}</p>
-              {priceText && (
-                <p className="text-sm font-semibold text-theme-primary">{priceText}</p>
-              )}
-            </div>
-            <Link
-              href={linkUrl}
-              aria-label={`Shop ${cardTitle}`}
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-theme-primary-light text-theme-primary hover:bg-theme-primary hover:text-theme-primary-fg transition-colors"
-            >
-              <ArrowRight className="h-4 w-4" />
-            </Link>
+                <Link
+                  href={linkUrl}
+                  aria-label={`Shop ${cardTitle}`}
+                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-theme-primary-light text-theme-primary hover:bg-theme-primary hover:text-white transition-colors"
+                >
+                  <ArrowRight className="h-4 w-4" />
+                </Link>
+              </div>
+            )}
           </div>
-          )}
         </div>
       </div>
     </section>

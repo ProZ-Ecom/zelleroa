@@ -41,11 +41,17 @@ export const updateAgentSchema = z
     isActive: z.boolean().optional(),
     blockReason: z.string().trim().max(500, "Reason must be 500 characters or fewer").optional(),
     password: z.string().min(8).max(100).optional(),
+    customerAction: z.enum(["keep", "release", "transfer"]).optional(),
+    transferToAgentId: z.string().optional(),
   })
   .refine((v) => Object.keys(v).length > 0, "Nothing to update")
   .refine((v) => v.isActive !== false || Boolean(v.blockReason), {
     path: ["blockReason"],
     message: "A reason is required to block this account",
+  })
+  .refine((v) => v.customerAction !== "transfer" || Boolean(v.transferToAgentId), {
+    path: ["transferToAgentId"],
+    message: "Please select an active Sales Partner to transfer customers to",
   });
 export type UpdateAgentInput = z.infer<typeof updateAgentSchema>;
 
@@ -142,10 +148,16 @@ export const transferCustomerSchema = z.object({
 });
 export type TransferCustomerInput = z.infer<typeof transferCustomerSchema>;
 
-export const reassignCustomersSchema = z.object({
-  toAgentId: z.string().trim().min(1, "Select a Sales Partner"),
-  /** Omit to move every customer the agent still has. */
-  customerIds: z.array(z.string().trim().min(1)).max(200).optional(),
-  reason: z.string().trim().max(255).optional(),
-});
+export const reassignCustomersSchema = z
+  .object({
+    toAgentId: z.string().trim().min(1).optional().nullable(),
+    action: z.enum(["transfer", "release"]).default("transfer"),
+    /** Omit to move every customer the agent still has. */
+    customerIds: z.array(z.string().trim().min(1)).max(200).optional(),
+    reason: z.string().trim().max(255).optional(),
+  })
+  .refine((v) => v.action === "release" || Boolean(v.toAgentId), {
+    path: ["toAgentId"],
+    message: "Select a destination Sales Partner",
+  });
 export type ReassignCustomersInput = z.infer<typeof reassignCustomersSchema>;

@@ -50,7 +50,7 @@ export async function resolveAgentRef(ref?: string | null): Promise<bigint | nul
 export function customerSearchWhere(term: string): Prisma.UserWhereInput {
   return {
     OR: [
-      { uuid: term },
+      { uuid: { contains: term } },
       { name: { contains: term } },
       { email: { contains: term } },
       { phone: { contains: term } },

@@ -47,11 +47,11 @@ export function MegaMenuTrigger({
   );
 
   return (
-    <div onMouseEnter={onMouseEnter} onMouseLeave={onMouseLeave}>
+    <div onMouseEnter={onMouseEnter} onMouseLeave={onMouseLeave} className="shrink-0">
       <Link
         href={href}
         onFocus={onFocus}
-        className={`flex items-center gap-1 rounded-full px-3.5 py-2 text-sm font-medium transition-colors ${
+        className={`flex items-center gap-1 rounded-full px-1.5 xl:px-2.5 2xl:px-3.5 py-1 xl:py-1.5 text-[11px] xl:text-xs 2xl:text-sm font-medium transition-colors whitespace-nowrap shrink-0 tracking-tight xl:tracking-normal ${
           isActive || isOpen
             ? "bg-theme-primary text-theme-primary-fg font-semibold"
             : "text-hover-primary hover:text-theme-primary"

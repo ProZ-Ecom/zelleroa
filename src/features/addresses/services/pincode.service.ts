@@ -17,6 +17,8 @@ export interface PincodeLookupResponse {
   city: string;
   state: string;
   district: string;
+  country: string;
+  cities: string[];
   postOffices: PostOfficeOption[];
   error?: string;
 }
@@ -24,7 +26,7 @@ export interface PincodeLookupResponse {
 const pincodeCache = new Map<string, PincodeLookupResponse>();
 
 export async function lookupPincode(pincode: string): Promise<PincodeLookupResponse> {
-  const cleanPin = pincode.replace(/\D/g, "").trim();
+  const cleanPin = pincode.replace(/\D/g, "").trim().slice(0, 6);
 
   if (cleanPin.length !== 6) {
     return {
@@ -32,6 +34,8 @@ export async function lookupPincode(pincode: string): Promise<PincodeLookupRespo
       city: "",
       state: "",
       district: "",
+      country: "India",
+      cities: [],
       postOffices: [],
       error: "PIN code must be exactly 6 digits",
     };
@@ -70,15 +74,30 @@ export async function lookupPincode(pincode: string): Promise<PincodeLookupRespo
         pincode: po.Pincode || cleanPin,
       }));
 
-      // Best candidate for City: District or Block
+      // Best candidate for District & State
       const primaryDistrict = postOfficesList[0].district || "";
       const primaryState = postOfficesList[0].state || "";
+      const primaryCountry = data[0].PostOffice[0]?.Country?.trim() || "India";
+
+      // Extract unique cities / area names
+      const citySet = new Set<string>();
+      for (const po of postOfficesList) {
+        if (po.name && po.name.trim()) {
+          citySet.add(po.name.trim());
+        }
+      }
+      const cities = Array.from(citySet);
+      if (cities.length === 0 && primaryDistrict) {
+        cities.push(primaryDistrict);
+      }
 
       const result: PincodeLookupResponse = {
         success: true,
         city: primaryDistrict,
         state: primaryState,
         district: primaryDistrict,
+        country: primaryCountry,
+        cities,
         postOffices: postOfficesList,
       };
 
@@ -91,6 +110,8 @@ export async function lookupPincode(pincode: string): Promise<PincodeLookupRespo
         city: "",
         state: "",
         district: "",
+        country: "India",
+        cities: [],
         postOffices: [],
         error: errorMsg,
       };
@@ -106,6 +127,8 @@ export async function lookupPincode(pincode: string): Promise<PincodeLookupRespo
       city: "",
       state: "",
       district: "",
+      country: "India",
+      cities: [],
       postOffices: [],
       error: errorMsg,
     };

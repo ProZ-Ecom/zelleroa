@@ -111,6 +111,16 @@ export const shipViaCourierSchema = z
 
 export type ShipViaCourierInput = z.infer<typeof shipViaCourierSchema>;
 
+export const updateCourierStatusSchema = z
+  .object({
+    orderId: z.string().uuid("Invalid order UUID"),
+    status: z.enum(["out_for_delivery", "delivered"]),
+    note: z.string().trim().max(255).optional(),
+  })
+  .strict();
+
+export type UpdateCourierStatusInput = z.infer<typeof updateCourierStatusSchema>;
+
 /* ----------------------- Staff Delivery Schemas ----------------------- */
 
 export const staffDeliveryListSchema = z

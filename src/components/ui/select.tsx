@@ -112,8 +112,8 @@ const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
       const rect = triggerRef.current.getBoundingClientRect();
       const spaceBelow = window.innerHeight - rect.bottom;
       const spaceAbove = rect.top;
-      const menuHeight = 260;
-      const openUp = spaceBelow < menuHeight && spaceAbove > spaceBelow;
+      const estimatedHeight = Math.min(360, Math.max(160, options.length * 38 + (isSearchable ? 52 : 16)));
+      const openUp = spaceBelow < estimatedHeight && spaceAbove > spaceBelow;
 
       setIsUpward(openUp);
 
@@ -131,8 +131,8 @@ const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
       }
 
       const maxAvailableHeight = openUp
-        ? Math.max(120, spaceAbove - 16)
-        : Math.max(120, spaceBelow - 16);
+        ? Math.max(140, spaceAbove - 16)
+        : Math.max(140, spaceBelow - 16);
 
       setMenuStyle({
         position: "fixed",
@@ -142,10 +142,10 @@ const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
         maxWidth: "calc(100vw - 16px)",
         top: openUp ? "auto" : `${rect.bottom + 4}px`,
         bottom: openUp ? `${window.innerHeight - rect.top + 4}px` : "auto",
-        maxHeight: `${Math.min(320, maxAvailableHeight)}px`,
+        maxHeight: `${Math.min(360, maxAvailableHeight)}px`,
         zIndex: 99999,
       });
-    }, [portal, align, isSearchable]);
+    }, [portal, align, isSearchable, options.length]);
 
     React.useEffect(() => {
       if (isOpen && portal) {
@@ -307,7 +307,7 @@ const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
         )}
 
         {/* Scrollable Options Area */}
-        <div className="max-h-56 overflow-y-auto p-1.5 space-y-0.5">
+        <div className="max-h-80 overflow-y-auto p-1.5 space-y-0.5">
           {filteredOptions.length === 0 ? (
             <div className="px-3 py-4 text-center text-xs text-theme-text-muted">
               No matching options found
@@ -396,6 +396,9 @@ const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
           data-state={isOpen ? "open" : "closed"}
           onClick={() => {
             if (!disabled) {
+              if (!isOpen && portal) {
+                updatePosition();
+              }
               setIsOpen((prev) => !prev);
             }
           }}

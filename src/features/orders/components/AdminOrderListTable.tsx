@@ -7,6 +7,7 @@ import {
   XCircle,
   Printer,
   CheckCircle,
+  CheckCircle2,
   PackageCheck,
   PlayCircle,
   Loader2,
@@ -35,7 +36,8 @@ import {
   usePackAdminOrder,
   useCancelOrderAdmin,
 } from "@/features/orders/hooks";
-import { useShipViaCourier } from "@/features/delivery/hooks";
+import { useShipViaCourier, useUpdateCourierStatus } from "@/features/delivery/hooks";
+import { isManualDeliveryStatusEnabled } from "@/features/delivery/lib/delivery-config";
 import { COURIERS, DEFAULT_COURIER_CODE, getCourier } from "@/lib/shipping/couriers";
 import { OrderDetailView } from "@/features/orders/components/OrderDetailView";
 import {
@@ -69,6 +71,15 @@ export function AdminOrderListTable({
     id: string;
     orderNumber: string;
   } | null>(null);
+  const [outForDeliveryModalOrder, setOutForDeliveryModalOrder] = useState<{
+    id: string;
+    orderNumber: string;
+  } | null>(null);
+  const [deliveryModalOrder, setDeliveryModalOrder] = useState<{
+    id: string;
+    orderNumber: string;
+  } | null>(null);
+  const [deliveryNote, setDeliveryNote] = useState("");
 
   const { data, isLoading, error, refetch } = useAdminOrders({
     page,
@@ -86,7 +97,9 @@ export function AdminOrderListTable({
   const packOrder = usePackAdminOrder();
   const cancelOrder = useCancelOrderAdmin();
   const shipViaCourier = useShipViaCourier();
-    const [courierCode, setCourierCode] = useState(DEFAULT_COURIER_CODE);
+  const updateCourierStatus = useUpdateCourierStatus();
+  const canManuallyUpdateDelivery = isManualDeliveryStatusEnabled();
+  const [courierCode, setCourierCode] = useState(DEFAULT_COURIER_CODE);
   const [consignmentNumber, setConsignmentNumber] = useState("");
 
   const orders = data?.data ?? [];
@@ -111,7 +124,8 @@ export function AdminOrderListTable({
     processOrder.isPending ||
     packOrder.isPending ||
     cancelOrder.isPending ||
-    shipViaCourier.isPending;
+    shipViaCourier.isPending ||
+    updateCourierStatus.isPending;
 
   const currentDetailStatus = orderDetail?.status?.toLowerCase();
   const isOrderLocked =
@@ -352,6 +366,56 @@ export function AdminOrderListTable({
                 disabled={isTransitionPending}
               >
                 <Truck className="h-3.5 w-3.5" />
+              </button>
+            )}
+
+            {orderStatus === "shipped" && canManuallyUpdateDelivery && (
+              <>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setOutForDeliveryModalOrder({
+                      id: row.original.id,
+                      orderNumber: row.original.orderNumber,
+                    })
+                  }
+                  title="Mark Out for Delivery"
+                  className="grid h-8 w-8 place-items-center rounded-lg border border-amber-300 bg-amber-50 text-xs font-semibold text-amber-700 hover:bg-amber-100 transition-all cursor-pointer shadow-xs"
+                  disabled={isTransitionPending}
+                >
+                  <Truck className="h-3.5 w-3.5" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setDeliveryModalOrder({
+                      id: row.original.id,
+                      orderNumber: row.original.orderNumber,
+                    })
+                  }
+                  title="Mark as Delivered"
+                  className="grid h-8 w-8 place-items-center rounded-lg border border-emerald-300 bg-emerald-50 text-xs font-semibold text-emerald-700 hover:bg-emerald-100 transition-all cursor-pointer shadow-xs"
+                  disabled={isTransitionPending}
+                >
+                  <CheckCircle2 className="h-3.5 w-3.5" />
+                </button>
+              </>
+            )}
+
+            {orderStatus === "out_for_delivery" && canManuallyUpdateDelivery && (
+              <button
+                type="button"
+                onClick={() =>
+                  setDeliveryModalOrder({
+                    id: row.original.id,
+                    orderNumber: row.original.orderNumber,
+                  })
+                }
+                title="Mark as Delivered"
+                className="grid h-8 w-8 place-items-center rounded-lg border border-emerald-300 bg-emerald-50 text-xs font-semibold text-emerald-700 hover:bg-emerald-100 transition-all cursor-pointer shadow-xs"
+                disabled={isTransitionPending}
+              >
+                <CheckCircle2 className="h-3.5 w-3.5" />
               </button>
             )}
 
@@ -608,6 +672,56 @@ export function AdminOrderListTable({
                   </Button>
                 )}
 
+                {currentDetailStatus === "shipped" && canManuallyUpdateDelivery && (
+                  <>
+                    <Button
+                      size="sm"
+                      className="bg-amber-600 hover:bg-amber-700 text-white"
+                      onClick={() =>
+                        setOutForDeliveryModalOrder({
+                          id: orderDetail.id,
+                          orderNumber: orderDetail.orderNumber,
+                        })
+                      }
+                      disabled={isTransitionPending}
+                    >
+                      <Truck className="mr-1.5 h-4 w-4" />
+                      Mark Out for Delivery
+                    </Button>
+                    <Button
+                      size="sm"
+                      className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                      onClick={() =>
+                        setDeliveryModalOrder({
+                          id: orderDetail.id,
+                          orderNumber: orderDetail.orderNumber,
+                        })
+                      }
+                      disabled={isTransitionPending}
+                    >
+                      <CheckCircle2 className="mr-1.5 h-4 w-4" />
+                      Mark as Delivered
+                    </Button>
+                  </>
+                )}
+
+                {currentDetailStatus === "out_for_delivery" && canManuallyUpdateDelivery && (
+                  <Button
+                    size="sm"
+                    className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                    onClick={() =>
+                      setDeliveryModalOrder({
+                        id: orderDetail.id,
+                        orderNumber: orderDetail.orderNumber,
+                      })
+                    }
+                    disabled={isTransitionPending}
+                  >
+                    <CheckCircle2 className="mr-1.5 h-4 w-4" />
+                    Mark as Delivered
+                  </Button>
+                )}
+
                 <Button
                   variant="outline"
                   size="sm"
@@ -651,6 +765,7 @@ export function AdminOrderListTable({
         title={`Ship via Courier${courierOrder ? ` - ${courierOrder.orderNumber}` : ""}`}
         description="Pick the courier and enter the tracking number from the booking receipt."
         size="sm"
+        bodyClassName="overflow-visible"
         footer={
           <>
             <Button variant="outline" onClick={() => setCourierOrder(null)}>
@@ -682,20 +797,124 @@ export function AdminOrderListTable({
           </>
         }
       >
-        <div className="space-y-3">
-          <Select
-            value={courierCode}
-            onChange={(e) => setCourierCode(e.target.value)}
-            options={COURIERS.map((c) => ({ value: c.code, label: c.name }))}
-          />
-          <Input
-            placeholder={getCourier(courierCode)?.placeholder}
-            value={consignmentNumber}
-            onChange={(e) => setConsignmentNumber(e.target.value)}
-            maxLength={50}
-          />
+        <div className="space-y-4">
+          <div className="space-y-1.5">
+            <label className="block text-xs font-semibold text-neutral-700">
+              Courier Partner
+            </label>
+            <Select
+              portal={true}
+              value={courierCode}
+              onValueChange={(val) => setCourierCode(val)}
+              onChange={(e) => setCourierCode(e.target.value)}
+              options={COURIERS.map((c) => ({ value: c.code, label: c.name }))}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <label className="block text-xs font-semibold text-neutral-700">
+              Tracking / Consignment Number
+            </label>
+            <Input
+              placeholder={getCourier(courierCode)?.placeholder}
+              value={consignmentNumber}
+              onChange={(e) => setConsignmentNumber(e.target.value)}
+              maxLength={50}
+            />
+          </div>
         </div>
       </FormModal>
+
+      {/* Mark Out for Delivery Dialog (Testing only, disabled in production) */}
+      {canManuallyUpdateDelivery && (
+        <ConfirmDialog
+          open={!!outForDeliveryModalOrder}
+          onClose={() => setOutForDeliveryModalOrder(null)}
+          onConfirm={() => {
+            if (!outForDeliveryModalOrder) return;
+            updateCourierStatus.mutate(
+              {
+                orderId: outForDeliveryModalOrder.id,
+                status: "out_for_delivery",
+              },
+              {
+                onSuccess: () => {
+                  setOutForDeliveryModalOrder(null);
+                  refetch();
+                },
+              }
+            );
+          }}
+          title="Mark Out for Delivery"
+          description={`Confirm that order #${outForDeliveryModalOrder?.orderNumber ?? ""} is out for delivery with the courier.`}
+          confirmText="Confirm Out for Delivery"
+          isLoading={updateCourierStatus.isPending}
+        />
+      )}
+
+      {/* Mark Delivered Modal (Testing only, disabled in production) */}
+      {canManuallyUpdateDelivery && (
+        <FormModal
+          open={!!deliveryModalOrder}
+          onClose={() => {
+            setDeliveryModalOrder(null);
+            setDeliveryNote("");
+          }}
+          title={`Mark as Delivered${deliveryModalOrder ? ` - #${deliveryModalOrder.orderNumber}` : ""}`}
+          description="Confirm that this courier parcel has been successfully delivered to the customer."
+          size="sm"
+          footer={
+            <>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setDeliveryModalOrder(null);
+                  setDeliveryNote("");
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                disabled={updateCourierStatus.isPending}
+                onClick={() => {
+                  if (!deliveryModalOrder) return;
+                  updateCourierStatus.mutate(
+                    {
+                      orderId: deliveryModalOrder.id,
+                      status: "delivered",
+                      note: deliveryNote.trim() || undefined,
+                    },
+                    {
+                      onSuccess: () => {
+                        setDeliveryModalOrder(null);
+                        setDeliveryNote("");
+                        refetch();
+                      },
+                    }
+                  );
+                }}
+              >
+                {updateCourierStatus.isPending && (
+                  <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+                )}
+                Confirm Delivery
+              </Button>
+            </>
+          }
+        >
+          <div className="space-y-3">
+            <label className="text-xs font-semibold text-neutral-700">
+              Delivery Note (optional)
+            </label>
+            <Input
+              placeholder="e.g. Delivered by ST Courier to customer"
+              value={deliveryNote}
+              onChange={(e) => setDeliveryNote(e.target.value)}
+              maxLength={100}
+            />
+          </div>
+        </FormModal>
+      )}
 
       {/* Cancel Order Dialog */}
       <ConfirmDialog
