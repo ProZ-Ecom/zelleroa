@@ -212,8 +212,12 @@ export default function AdminFaqsPage() {
               }
             />
             <Badge
-              variant={isActive ? "success" : "secondary"}
-              className="text-xs"
+              variant={isActive ? "success" : "destructive"}
+              className={
+                isActive
+                  ? "border-emerald-200 bg-emerald-50 text-emerald-700 text-xs font-semibold"
+                  : "border-red-200 bg-red-50 text-red-700 text-xs font-semibold"
+              }
             >
               {isActive ? "Active" : "Inactive"}
             </Badge>

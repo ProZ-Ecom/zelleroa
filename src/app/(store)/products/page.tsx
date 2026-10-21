@@ -95,23 +95,28 @@ function ShopAllContent() {
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState(() => searchParams.get("search") ?? "");
   const [genderFilter, setGenderFilter] = useState<GenderFilter | undefined>(() => {
-    const raw = searchParams.get("gender");
-    return (VALID_GENDERS as readonly string[]).includes(raw ?? "")
-      ? (raw as GenderFilter)
+    const raw = searchParams.get("gender") || searchParams.get("category");
+    const lower = raw?.toLowerCase() ?? "";
+    return (VALID_GENDERS as readonly string[]).includes(lower)
+      ? (lower as GenderFilter)
       : undefined;
   });
-  // Nav links change only `?gender=` on this same route, so the page stays
-  // mounted and the initial state above never re-runs - follow the URL.
-  const urlGender = searchParams.get("gender");
+  // Nav links change `?gender=` or `?category=` on this same route, so follow the URL.
+  const urlGender = searchParams.get("gender") || searchParams.get("category");
   useEffect(() => {
+    const lower = (urlGender ?? "").toLowerCase();
     setGenderFilter(
-      (VALID_GENDERS as readonly string[]).includes(urlGender ?? "")
-        ? (urlGender as GenderFilter)
+      (VALID_GENDERS as readonly string[]).includes(lower)
+        ? (lower as GenderFilter)
         : undefined
     );
     setPage(1);
   }, [urlGender]);
-  const [sortKey, setSortKey] = useState("createdAt_desc");
+  const [sortKey, setSortKey] = useState(() => {
+    const rawSort = searchParams.get("sortBy") || searchParams.get("sort");
+    if (rawSort && SORT_OPTIONS.some((s) => s.value === rawSort)) return rawSort;
+    return "createdAt_desc";
+  });
   const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>([]);
   const [selectedProductIds, setSelectedProductIds] = useState<string[]>([]);
   const [stockStatus, setStockStatus] = useState<"all" | "in_stock" | "out_of_stock">("all");
@@ -126,6 +131,24 @@ function ShopAllContent() {
   // Fetch all categories (supports 250 categories)
   const { data: categoriesData, isLoading: isLoadingCategories } = useCustomerCategories({ pageSize: 250 });
   const categories = categoriesData?.data ?? [];
+
+  // Sync category param with selectedCategoryIds if it refers to a specific category
+  const urlCategory = searchParams.get("category");
+  useEffect(() => {
+    if (!urlCategory || categories.length === 0) return;
+    const catLower = urlCategory.toLowerCase();
+    if ((VALID_GENDERS as readonly string[]).includes(catLower)) return;
+    const matched = categories.find(
+      (c) =>
+        c.id.toLowerCase() === catLower ||
+        ((c as any).slug && (c as any).slug.toLowerCase() === catLower) ||
+        c.name.toLowerCase() === catLower
+    );
+    if (matched && !selectedCategoryIds.includes(matched.id)) {
+      setSelectedCategoryIds([matched.id]);
+      setPage(1);
+    }
+  }, [urlCategory, categories]);
 
   // Curated storefront header navigation menu to dynamically populate round category carousel
   const { data: headerMenu = [] } = useHeaderMenu();
@@ -155,7 +178,7 @@ function ShopAllContent() {
       }
     };
 
-    if (genderFilter && genderFilter !== "all") {
+    if (genderFilter) {
       const matchedMenu = headerMenu.find(
         (m) =>
           m.gender === genderFilter ||

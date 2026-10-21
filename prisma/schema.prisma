@@ -2500,6 +2500,7 @@ model refunds {
   is_active                       Boolean          @default(true)
   created_by                      BigInt?          @db.UnsignedBigInt
   updated_by                      BigInt?          @db.UnsignedBigInt
+  transaction_ref                 String?          @db.VarChar(100)
   orders                          Order            @relation(fields: [order_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_refund_order")
   payments                        Payment          @relation(fields: [payment_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_refund_payment")
   return_request                  return_requests? @relation(fields: [return_request_id], references: [id], onDelete: SetNull, onUpdate: NoAction, map: "fk_refund_return_request")
@@ -2545,6 +2546,14 @@ model return_requests {
   description                             String?                  @db.Text
   unboxing_video_url                      String?                  @db.VarChar(500)
   status                                  return_requests_status   @default(return_requested)
+  refund_method                           String?                  @db.VarChar(30)
+  bank_account_holder                     String?                  @db.VarChar(150)
+  bank_name                               String?                  @db.VarChar(150)
+  bank_account_number_enc                 String?                  @db.VarChar(500)
+  bank_account_last4                      String?                  @db.VarChar(4)
+  bank_ifsc                               String?                  @db.VarChar(15)
+  upi_id                                  String?                  @db.VarChar(100)
+  refund_transaction_ref                  String?                  @db.VarChar(100)
   requested_at                            DateTime                 @default(now()) @db.Timestamp(0)
   approved_at                             DateTime?                @db.Timestamp(0)
   approved_by                             BigInt?                  @db.UnsignedBigInt
