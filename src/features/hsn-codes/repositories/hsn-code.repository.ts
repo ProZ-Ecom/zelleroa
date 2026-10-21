@@ -1,5 +1,6 @@
 import { db } from "@/lib/db/prisma";
 import { Prisma } from "@/generated/prisma";
+import { retireUniqueValue } from "@/lib/utils/retire-unique-value";
 import type { GetAdminHsnCodesParams } from "../types";
 
 const hsnInclude = Prisma.validator<Prisma.product_hsn_codesInclude>()({
@@ -105,6 +106,8 @@ export const hsnCodeRepository = {
       where: { id: existing.id },
       data: {
         is_active: false,
+        // Free the unique code so the same HSN code can be added again.
+        code: retireUniqueValue(existing.code, existing.id, 20),
         ...(adminId ? { updated_by: adminId } : {}),
       },
     });

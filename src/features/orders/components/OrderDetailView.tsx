@@ -17,6 +17,7 @@ import {
   Mail,
   ShieldCheck,
   XCircle,
+  Undo2,
 } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -277,6 +278,19 @@ export function OrderDetailView({
                 <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
               )}
               Cancel Order
+            </Button>
+          )}
+
+          {/* Return / Replace Action */}
+          {!readOnly && order.status === "delivered" && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="border-secondary-600 bg-secondary-50 hover:bg-secondary-100 text-secondary-800 rounded-xl text-xs font-semibold min-h-[36px]"
+              onClick={() => onRequest?.("return")}
+            >
+              <Undo2 className="mr-1.5 h-3.5 w-3.5" />
+              Return / Replace
             </Button>
           )}
         </div>
@@ -680,7 +694,7 @@ export function OrderDetailView({
           )}
 
           {/* Returns & replacements */}
-          {"returnRequests" in order && (
+          {("returnRequests" in order || order.status === "delivered") && (
             <OrderRequestsPanel order={order as OrderDetailResponse} onRequest={onRequest} readOnly={readOnly} />
           )}
 

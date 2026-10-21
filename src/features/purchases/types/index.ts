@@ -105,3 +105,29 @@ export interface PurchaseProductOption {
   stock: number;
   reorderLevel: number;
 }
+
+export interface PurchaseImportItem {
+  row: number;
+  sku: string;
+  productName: string;
+  variantUnitPriceId: number;
+  quantity: number;
+  unitCost: number;
+}
+
+export interface PurchaseImportPreview {
+  fileName: string;
+  vendor: { id: string; code: string; name: string; address: string | null };
+  invoiceNumber: string;
+  purchaseDate: string;
+  additionalCharges: number;
+  notes: string | null;
+  /** Derived from vendor + invoice number; resubmitting it never adds stock twice. */
+  idempotencyKey: string;
+  items: PurchaseImportItem[];
+  subtotal: number;
+  total: number;
+  errors: string[];
+  /** PO number when this vendor invoice was already imported. */
+  alreadyImportedAs: string | null;
+}

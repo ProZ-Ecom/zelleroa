@@ -4,6 +4,7 @@ import type {
   VendorDetailResponse,
   PurchaseOrderResponse,
   PurchaseProductOption,
+  PurchaseImportPreview,
 } from "../types";
 
 type Params = Record<string, string | number | boolean | undefined | null>;
@@ -43,6 +44,17 @@ export const createPurchaseOrder = (data: Record<string, unknown>) =>
 
 export const confirmPurchase = (data: Record<string, unknown>) =>
   apiClient.post<PurchaseOrderResponse>("/api/admin/purchase-orders/confirm", data);
+
+export async function previewPurchaseImport(
+  file: File,
+  fields: { vendorId: string; invoiceNumber: string; purchaseDate: string; additionalCharges: string; notes: string }
+) {
+  const body = new FormData();
+  body.append("file", file);
+  for (const [k, v] of Object.entries(fields)) body.append(k, v);
+  const res = await apiClient.post<PurchaseImportPreview>("/api/admin/purchase-orders/import", body);
+  return res.data as PurchaseImportPreview;
+}
 
 export const updatePurchaseOrder = (uuid: string, data: Record<string, unknown>) =>
   apiClient.put<PurchaseOrderResponse>(`/api/admin/purchase-orders/${uuid}`, data);

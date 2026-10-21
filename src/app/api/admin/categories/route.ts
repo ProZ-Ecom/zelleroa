@@ -16,6 +16,8 @@ export const GET = createApiHandler(
         page: query?.page ?? 1,
         pageSize: query?.pageSize ?? 10,
         search: query?.search,
+        isActive: query?.isActive,
+        parentId: query?.parentId,
       });
 
       return apiSuccess(result.data, "Categories fetched successfully", 200, result.meta);

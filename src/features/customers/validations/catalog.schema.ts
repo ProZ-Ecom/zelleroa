@@ -34,6 +34,8 @@ export const customerProductListSchema = z
     brandIds: z.array(z.string().trim().regex(uuidRegex, "Invalid brand UUID")).optional(),
     categoryIds: z.array(z.string().trim().regex(uuidRegex, "Invalid category UUID")).optional(),
     productIds: z.array(z.string().trim().regex(uuidRegex, "Invalid product UUID")).optional(),
+    /** Tag slugs; a product matches when it carries any one of them. */
+    tagSlugs: z.array(z.string().trim().min(1).max(120)).max(20).optional(),
     minPrice: z.number().min(0, "minPrice cannot be negative").optional().nullable(),
     maxPrice: z.number().min(0, "maxPrice cannot be negative").optional().nullable(),
     inStock: z.boolean().optional(),

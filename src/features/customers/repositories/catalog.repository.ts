@@ -57,6 +57,13 @@ function styleBrandWhere(brandIds: bigint[]): Prisma.StyleWhereInput {
   };
 }
 
+/** Matches Products carrying at least one active tag with one of the given slugs. */
+function productTagMapsWhere(tagSlugs: string[]): Prisma.Product_tag_mapsListRelationFilter {
+  return {
+    some: { is_active: true, product_tags: { slug: { in: tagSlugs }, is_active: true } },
+  };
+}
+
 /**
  * Resolves category UUIDs to database IDs, including all descendant subcategories.
  * When a customer filters by a root or parent category (e.g. "Women" or "Kids"),
@@ -610,6 +617,10 @@ export const catalogRepository = {
       where.uuid = { in: params.productIds };
     }
 
+    if (params.tagSlugs && params.tagSlugs.length > 0) {
+      where.product_tag_maps = productTagMapsWhere(params.tagSlugs);
+    }
+
     // Search filter
     if (params.search) {
       where.OR = [{ name: { contains: params.search } }];
@@ -819,6 +830,10 @@ export const catalogRepository = {
 
     if (params.productIds && params.productIds.length > 0) {
       where.product = { ...productWhere(), uuid: { in: params.productIds } };
+    }
+
+    if (params.tagSlugs && params.tagSlugs.length > 0) {
+      where.product = { ...productWhere(), product_tag_maps: productTagMapsWhere(params.tagSlugs) };
     }
 
     if (params.brandIds && params.brandIds.length > 0) {

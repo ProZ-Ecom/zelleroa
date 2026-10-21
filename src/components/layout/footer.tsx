@@ -10,12 +10,12 @@ import { useCustomerCompany } from "@/features/customers/hooks/use-customer-comp
 import { getImageUrl } from "@/lib/utils";
 
 const SHOP_LINKS = [
-  { label: "Men's Collection", href: "/men" },
-  { label: "Women's Wear", href: "/women" },
-  { label: "Kids & Teens", href: "/kids" },
-  { label: "Accessories & Footwear", href: "/accessories" },
+  { label: "Men's Collection", href: "/category/men" },
+  { label: "Women's Wear", href: "/category/women" },
+  { label: "Kids & Teens", href: "/category/kids" },
+  { label: "Accessories & Footwear", href: "/category/bags-leather" },
   { label: "New Arrivals", href: "/products" },
-  { label: "Offers & Clearance", href: "/products?sortBy=discount" },
+  { label: "Offers & Clearance", href: "/offers" },
 ];
 
 const ABOUT_LINKS = [

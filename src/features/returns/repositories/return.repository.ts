@@ -87,6 +87,15 @@ export interface CreateReturnParams {
   description?: string | null;
   unboxingVideoUrl: string;
   items: { orderItemId: bigint; quantity: number; refundAmount: number; label: string }[];
+  codRefundDetails?: {
+    method: "bank_transfer" | "upi";
+    accountHolderName?: string;
+    bankName?: string;
+    accountNumberEnc?: string;
+    accountLast4?: string;
+    ifscCode?: string;
+    upiId?: string;
+  };
 }
 
 export interface TransitionParams {
@@ -97,6 +106,7 @@ export interface TransitionParams {
   comment?: string;
   rejectionReason?: string;
   pickupAt?: Date;
+  transactionRef?: string;
   note?: string;
 }
 
@@ -129,6 +139,13 @@ export const returnRepository = {
           description: params.description || null,
           unboxing_video_url: params.unboxingVideoUrl,
           status: "return_requested",
+          refund_method: params.codRefundDetails?.method ?? null,
+          bank_account_holder: params.codRefundDetails?.accountHolderName ?? null,
+          bank_name: params.codRefundDetails?.bankName ?? null,
+          bank_account_number_enc: params.codRefundDetails?.accountNumberEnc ?? null,
+          bank_account_last4: params.codRefundDetails?.accountLast4 ?? null,
+          bank_ifsc: params.codRefundDetails?.ifscCode?.toUpperCase() ?? null,
+          upi_id: params.codRefundDetails?.upiId ?? null,
           requested_at: now,
           created_by: params.userId,
           updated_by: params.userId,
@@ -333,9 +350,17 @@ export const returnRepository = {
       }
 
       if (p.action === "complete") {
+        if (p.transactionRef) {
+          Object.assign(data, { refund_transaction_ref: p.transactionRef });
+        }
         const refunds = await tx.refunds.updateMany({
           where: { return_request_id: p.request.id, status: { in: ["initiated", "processing"] } },
-          data: { status: "completed", processed_at: now, updated_by: p.actor.id },
+          data: {
+            status: "completed",
+            processed_at: now,
+            transaction_ref: p.transactionRef ?? null,
+            updated_by: p.actor.id,
+          },
         });
         const order = await tx.order.findUniqueOrThrow({
           where: { id: orderId },
@@ -354,17 +379,20 @@ export const returnRepository = {
             updated_by: p.actor.id,
           },
         });
+        const refSuffix = p.transactionRef ? ` (Ref: ${p.transactionRef})` : "";
         await tx.order_status_history.create({
           data: {
             order_id: orderId,
             status: "returned",
-            note: `Refund of ₹${refunded.toFixed(2)} completed`,
+            note: `Refund of ₹${refunded.toFixed(2)} completed${refSuffix}`,
             changed_by: p.actor.id,
             created_by: p.actor.id,
             updated_by: p.actor.id,
           },
         });
-        historyNote = refunds.count > 0 ? "Refund completed" : "Marked refunded";
+        historyNote = p.transactionRef
+          ? `Refund completed (Ref: ${p.transactionRef})`
+          : refunds.count > 0 ? "Refund completed" : "Marked refunded";
       }
 
       await tx.return_request_history.create({

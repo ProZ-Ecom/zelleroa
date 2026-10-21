@@ -80,6 +80,7 @@ const sidebarItems: SidebarItem[] = [
     children: [
       { label: "Categories", href: "/admin/dashboard/categories", icon: FolderTree },
       { label: "Header Menu", href: "/admin/dashboard/header-menu", icon: Menu },
+      { label: "Tags", href: "/admin/dashboard/tags", icon: Tag },
       { label: "Products", href: "/admin/dashboard/products", icon: Package },
       { label: "Items", href: "/admin/dashboard/styles", icon: Shapes },
       { label: "Colors", href: "/admin/dashboard/variants", icon: Palette },

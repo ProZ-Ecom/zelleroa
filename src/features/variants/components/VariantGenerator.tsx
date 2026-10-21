@@ -33,7 +33,6 @@ function VariantGenerator({ productUuid, onGenerated, itemUuid }: VariantGenerat
   const [selectedValues, setSelectedValues] = useState<Record<string, string[]>>({});
   const [unitId, setUnitId] = useState("");
   const [defaultPrice, setDefaultPrice] = useState("");
-  const [defaultStock, setDefaultStock] = useState("0");
   const [formError, setFormError] = useState<string | null>(null);
   const [result, setResult] = useState<GenerateVariantsResponse | null>(null);
 
@@ -80,11 +79,6 @@ function VariantGenerator({ productUuid, onGenerated, itemUuid }: VariantGenerat
       setFormError("Price cannot be negative");
       return;
     }
-    const stock = Number(defaultStock);
-    if (Number.isNaN(stock) || stock < 0 || !Number.isInteger(stock)) {
-      setFormError("Stock must be a non-negative whole number");
-      return;
-    }
 
     try {
       const response = await generateMutation.mutateAsync({
@@ -94,7 +88,6 @@ function VariantGenerator({ productUuid, onGenerated, itemUuid }: VariantGenerat
           options: activeOptions.map((o) => ({ attributeId: o.attribute.id, valueIds: o.valueIds })),
           unitId,
           ...(trimmedPrice !== "" ? { defaultPrice: Number(trimmedPrice) } : {}),
-          defaultStock: stock,
           activate: true,
         },
       });
@@ -222,20 +215,9 @@ function VariantGenerator({ productUuid, onGenerated, itemUuid }: VariantGenerat
           </p>
         </div>
 
-        <div>
-          <label className="block text-xs font-semibold text-neutral-800 mb-1.5">
-            Default stock
-          </label>
-          <input
-            type="number"
-            step="1"
-            min="0"
-            value={defaultStock}
-            onChange={(e) => setDefaultStock(e.target.value)}
-            disabled={generateMutation.isPending}
-            className="w-full h-10 px-3 rounded-lg border border-neutral-200 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-secondary-600/20 focus:border-secondary-600 disabled:opacity-60"
-          />
-        </div>
+        <p className="text-[11px] text-neutral-400 self-end">
+          Generated variants start with 0 stock. Add stock from Inventory or a Purchase Order.
+        </p>
       </div>
 
       {formError && (
@@ -266,7 +248,7 @@ function VariantGenerator({ productUuid, onGenerated, itemUuid }: VariantGenerat
           type="button"
           onClick={handleGenerate}
           disabled={generateMutation.isPending || combinationCount === 0}
-          className="h-10 rounded-xl bg-gradient-to-b from-[var(--color-primary-400)] to-[var(--color-primary-600)] shadow-[0_6px_16px_-6px_rgba(37,99,235,0.45),inset_0_1px_0_rgba(255,255,255,0.18)] transition-all px-5 text-sm font-semibold text-white hover:-translate-y-px hover:shadow-[0_10px_20px_-8px_rgba(37,99,235,0.5),inset_0_1px_0_rgba(255,255,255,0.18)] active:translate-y-0 cursor-pointer"
+          className="h-10 rounded-xl bg-theme-primary hover:bg-theme-primary-hover px-5 text-sm font-semibold text-white transition-colors cursor-pointer"
         >
           {generateMutation.isPending ? (
             <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" />

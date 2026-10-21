@@ -18,10 +18,13 @@ import { AdminPageHeader, AdminContent } from "@/components/admin/AdminPageHeade
 import { AdminTableSkeleton } from "@/components/admin/AdminTableSkeleton";
 import { ErrorState } from "@/components/ui/error-state";
 import { Button } from "@/components/ui/button";
+import { formatSlug } from "@/components/forms/form-input";
+import { ExcelImportDialog } from "@/components/common/ExcelImportDialog";
+import { createAdminCategorySchema } from "@/features/categories/validations/admin-category.schema";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { SearchInput } from "@/components/ui/search-input";
 import { DataTable } from "@/components/admin/data-table/DataTable";
-import { Plus, Pencil, Trash2 } from "lucide-react";
+import { Upload, Plus, Pencil, Trash2 } from "lucide-react";
 import type { ColumnDef } from "@tanstack/react-table";
 import type { CategoryListItem } from "@/features/categories/types";
 
@@ -31,6 +34,7 @@ export default function AdminCategoriesPage() {
   const [pageSize, setPageSize] = useState(10);
   const [deleteId, setDeleteId] = useState<number | null>(null);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [isImportOpen, setIsImportOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<CategoryListItem | null>(null);
 
@@ -146,15 +150,25 @@ export default function AdminCategoriesPage() {
               }}
               className="w-full max-w-md"
             />
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                onClick={() => setIsImportOpen(true)}
+                className="h-11 rounded-xl px-5 text-sm font-semibold"
+              >
+                <Upload className="mr-2 h-4 w-4" />
+                Import
+              </Button>
 
             <Button
               type="button"
               onClick={() => setIsCreateOpen(true)}
-              className="h-11 rounded-xl bg-gradient-to-b from-[var(--color-primary-400)] to-[var(--color-primary-600)] shadow-[0_6px_16px_-6px_rgba(37,99,235,0.45),inset_0_1px_0_rgba(255,255,255,0.18)] transition-all px-5 text-sm font-semibold text-white hover:-translate-y-px hover:shadow-[0_10px_20px_-8px_rgba(37,99,235,0.5),inset_0_1px_0_rgba(255,255,255,0.18)] active:translate-y-0"
+              className="h-11 rounded-xl bg-theme-primary hover:bg-theme-primary-hover px-5 text-sm font-semibold text-white transition-colors"
             >
               <Plus className="mr-2 h-4 w-4" />
               Add Category
             </Button>
+            </div>
           </div>
 
           <div className="mt-6 flex-1 min-h-0 overflow-hidden flex flex-col">
@@ -197,6 +211,29 @@ export default function AdminCategoriesPage() {
         variant="destructive"
         isLoading={deleteMutation.isPending}
       />
+      <ExcelImportDialog
+        open={isImportOpen}
+        onClose={() => setIsImportOpen(false)}
+        title="Categories"
+        sampleFileName="categories"
+        columns={[
+          { key: "name", header: "Category Name", required: true, info: "Top-level category name.", samples: ["Women", "Men", "Beauty"] },
+          { key: "slug", header: "Category Code", info: "Capital letters, numbers and underscores only (e.g. SWEETS_SNACKS). Spaces become _ and other characters are removed. Generated from the name if blank.", samples: ["women", "men", "beauty"] },
+          { key: "description", header: "Description", samples: ["Women's fashion", "Men's fashion", "Beauty and personal care"] },
+          { key: "sortOrder", header: "Sort Order", info: "Whole number 0-100. Defaults to 0.", type: "number", samples: [1, 2, 3] },
+        ]}
+        hint="Top-level categories only."
+        prepare={(row) => ({
+          ...row,
+          slug: formatSlug(String(row.slug ?? row.name ?? "")),
+          sortOrder: row.sortOrder ?? 0,
+          parentId: null,
+        })}
+        schema={createAdminCategorySchema}
+        createRow={(payload) => createMutation.mutateAsync(payload)}
+        onImported={() => refetch()}
+      />
+
 
       <FormModal
         open={isCreateOpen}

@@ -153,6 +153,13 @@ async function run() {
     (id, data) => db.product_units.update({ where: { id }, data })
   );
 
+  await retire(
+    "product_hsn_codes",
+    await db.product_hsn_codes.findMany({ where: inactive, select: { id: true, code: true } }),
+    [{ name: "code", max: 20 }],
+    (id, data) => db.product_hsn_codes.update({ where: { id }, data })
+  );
+
   console.log(
     DRY
       ? `\nDry run: ${total} row(s) would be updated. Re-run without --dry to apply.`

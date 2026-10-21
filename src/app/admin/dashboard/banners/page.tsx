@@ -247,8 +247,12 @@ export default function AdminBannersPage() {
       header: "Status",
       cell: ({ row }) => (
         <Badge
-          variant={row.original.isActive ? "success" : "secondary"}
-          className="gap-1.5 text-xs"
+          variant={row.original.isActive ? "success" : "destructive"}
+          className={`gap-1.5 text-xs ${
+            row.original.isActive
+              ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+              : "border-red-200 bg-red-50 text-red-700"
+          }`}
           title={
             row.original.isActive
               ? "Visible on the storefront"
@@ -259,7 +263,7 @@ export default function AdminBannersPage() {
             className={`h-1.5 w-1.5 rounded-full ${
               row.original.isActive
                 ? "bg-[var(--color-success-500)]"
-                : "bg-[var(--color-neutral-400)]"
+                : "bg-red-500"
             }`}
           />
           {row.original.isActive ? "Active" : "Inactive"}
@@ -415,7 +419,7 @@ export default function AdminBannersPage() {
               />
               <Button
                 onClick={() => setIsCreateOpen(true)}
-                className="h-11 rounded-xl bg-gradient-to-b from-[var(--color-primary-400)] to-[var(--color-primary-600)] shadow-[0_6px_16px_-6px_rgba(37,99,235,0.45),inset_0_1px_0_rgba(255,255,255,0.18)] transition-all px-5 text-sm font-semibold text-white hover:-translate-y-px hover:shadow-[0_10px_20px_-8px_rgba(37,99,235,0.5),inset_0_1px_0_rgba(255,255,255,0.18)] active:translate-y-0"
+                className="h-11 rounded-xl bg-theme-primary hover:bg-theme-primary-hover px-5 text-sm font-semibold text-white transition-colors"
               >
                 <Plus className="mr-2 h-4 w-4" />
                 Add Banner

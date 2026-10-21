@@ -9,6 +9,10 @@ const headerMenuCategoriesInclude = Prisma.validator<Prisma.HeaderMenuItemInclud
       category: { select: { id: true, uuid: true, slug: true, name: true, icon: true } },
     },
   },
+  tags: {
+    orderBy: { sortOrder: "asc" },
+    include: { tag: { select: { id: true, slug: true, name: true, is_active: true } } },
+  },
 });
 
 function buildAdminHeaderMenuWhere(
@@ -77,7 +81,11 @@ export const headerMenuRepository = {
     });
   },
 
-  async create(data: Prisma.HeaderMenuItemUncheckedCreateInput, categoryIds: bigint[]) {
+  async create(
+    data: Prisma.HeaderMenuItemUncheckedCreateInput,
+    categoryIds: bigint[],
+    tagIds: bigint[] = []
+  ) {
     const currentCount = await this.countNonDeleted();
     if (currentCount >= 10) {
       throw new Error("A maximum of 10 header menu items can exist. Cannot add more.");
@@ -89,35 +97,51 @@ export const headerMenuRepository = {
         categories: {
           create: categoryIds.map((categoryId, index) => ({ categoryId, sortOrder: index })),
         },
+        tags: {
+          create: tagIds.map((tagId, index) => ({ tagId, sortOrder: index })),
+        },
       },
       include: headerMenuCategoriesInclude,
     });
   },
 
-  /** `categoryIds` omitted leaves the existing category set untouched; pass `[]` to clear it. */
+  /** `categoryIds` / `tagIds` omitted leave the existing set untouched; pass `[]` to clear it. */
   async updateByUuid(
     uuid: string,
     data: Prisma.HeaderMenuItemUncheckedUpdateInput,
-    categoryIds?: bigint[]
+    categoryIds?: bigint[],
+    tagIds?: bigint[]
   ) {
     const existing = await this.findByUuid(uuid);
     if (!existing) return null;
 
-    if (categoryIds !== undefined) {
-      await db.$transaction([
-        db.headerMenuItemCategory.deleteMany({ where: { headerMenuItemId: existing.id } }),
-        db.headerMenuItemCategory.createMany({
-          data: categoryIds.map((categoryId, index) => ({
-            headerMenuItemId: existing.id,
-            categoryId,
-            sortOrder: index,
-          })),
-        }),
-        db.headerMenuItem.update({ where: { id: existing.id }, data }),
-      ]);
-    } else {
-      await db.headerMenuItem.update({ where: { id: existing.id }, data });
-    }
+    await db.$transaction([
+      ...(categoryIds !== undefined
+        ? [
+            db.headerMenuItemCategory.deleteMany({ where: { headerMenuItemId: existing.id } }),
+            db.headerMenuItemCategory.createMany({
+              data: categoryIds.map((categoryId, index) => ({
+                headerMenuItemId: existing.id,
+                categoryId,
+                sortOrder: index,
+              })),
+            }),
+          ]
+        : []),
+      ...(tagIds !== undefined
+        ? [
+            db.headerMenuItemTag.deleteMany({ where: { headerMenuItemId: existing.id } }),
+            db.headerMenuItemTag.createMany({
+              data: tagIds.map((tagId, index) => ({
+                headerMenuItemId: existing.id,
+                tagId,
+                sortOrder: index,
+              })),
+            }),
+          ]
+        : []),
+      db.headerMenuItem.update({ where: { id: existing.id }, data }),
+    ]);
 
     return this.findByUuid(uuid);
   },

@@ -17,12 +17,14 @@ import {
 import { AdminTableSkeleton } from "@/components/admin/AdminTableSkeleton";
 import { ErrorState } from "@/components/ui/error-state";
 import { Button } from "@/components/ui/button";
+import { ExcelImportDialog } from "@/components/common/ExcelImportDialog";
+import { createAdminHsnCodeSchema } from "@/features/hsn-codes/validations/admin-hsn-code.schema";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { FormModal } from "@/components/common/FormModal";
 import { ExportButton } from "@/components/common/export-button";
 import { exportDataToCsv } from "@/lib/export-csv";
 import { SearchInput } from "@/components/ui/search-input";
-import { Plus, Pencil, Trash2 } from "lucide-react";
+import { Upload, Plus, Pencil, Trash2 } from "lucide-react";
 import type { ColumnDef } from "@tanstack/react-table";
 import type { AdminHsnCodeResponse } from "@/features/hsn-codes/types";
 import { HsnCodeForm } from "@/features/hsn-codes/components/HsnCodeForm";
@@ -35,6 +37,7 @@ export default function AdminHsnCodesPage() {
 
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [isImportOpen, setIsImportOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [selectedHsn, setSelectedHsn] =
     useState<AdminHsnCodeResponse | null>(null);
@@ -157,14 +160,24 @@ export default function AdminHsnCodesPage() {
               }}
               className="w-full max-w-md"
             />
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                onClick={() => setIsImportOpen(true)}
+                className="h-11 rounded-xl px-5 text-sm font-semibold"
+              >
+                <Upload className="mr-2 h-4 w-4" />
+                Import
+              </Button>
 
             <Button
               onClick={() => setIsCreateOpen(true)}
-              className="h-11 rounded-xl bg-gradient-to-b from-[var(--color-primary-400)] to-[var(--color-primary-600)] shadow-[0_6px_16px_-6px_rgba(37,99,235,0.45),inset_0_1px_0_rgba(255,255,255,0.18)] transition-all px-5 text-sm font-semibold text-white hover:-translate-y-px hover:shadow-[0_10px_20px_-8px_rgba(37,99,235,0.5),inset_0_1px_0_rgba(255,255,255,0.18)] active:translate-y-0"
+              className="h-11 rounded-xl bg-theme-primary hover:bg-theme-primary-hover px-5 text-sm font-semibold text-white transition-colors"
             >
               <Plus className="mr-2 h-4 w-4" />
               Add HSN Code
             </Button>
+            </div>
           </div>
 
           <div className="mt-6 flex-1 min-h-0 overflow-hidden flex flex-col">
@@ -186,6 +199,27 @@ export default function AdminHsnCodesPage() {
           </div>
         </div>
       </AdminContent>
+      <ExcelImportDialog
+        open={isImportOpen}
+        onClose={() => setIsImportOpen(false)}
+        title="HSN Codes"
+        sampleFileName="hsn-codes"
+        columns={[
+          { key: "code", header: "HSN Code", required: true, samples: ["1006", "6109", "3304"] },
+          { key: "description", header: "Description", samples: ["Rice", "T-shirts, knitted", "Beauty or make-up preparations"] },
+          { key: "gstRateName", header: "GST Rate Name", info: "Must match an existing GST rate name exactly (see GST Rates page).", required: true, samples: ["GST 5%", "GST 12%", "GST 18%"] },
+        ]}
+        prepare={(row) => {
+          const name = String(row.gstRateName ?? "").trim().toLowerCase();
+          const gst = gstData?.data.find((g) => g.name.trim().toLowerCase() === name);
+          if (!gst) return { error: `GST rate "${row.gstRateName ?? ""}" not found` };
+          return { code: row.code, description: row.description, gstRateId: gst.id };
+        }}
+        schema={createAdminHsnCodeSchema}
+        createRow={(payload) => createMutation.mutateAsync(payload)}
+        onImported={() => refetch()}
+      />
+
 
       <FormModal
         open={isCreateOpen}

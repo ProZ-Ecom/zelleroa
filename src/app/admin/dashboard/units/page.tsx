@@ -17,12 +17,14 @@ import {
 import { AdminTableSkeleton } from "@/components/admin/AdminTableSkeleton";
 import { ErrorState } from "@/components/ui/error-state";
 import { Button } from "@/components/ui/button";
+import { ExcelImportDialog } from "@/components/common/ExcelImportDialog";
+import { createAdminUnitSchema } from "@/features/units/validations/admin-unit.schema";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { FormModal } from "@/components/common/FormModal";
 import { ExportButton } from "@/components/common/export-button";
 import { exportDataToCsv } from "@/lib/export-csv";
 import { SearchInput } from "@/components/ui/search-input";
-import { Plus, Pencil, Trash2 } from "lucide-react";
+import { Upload, Plus, Pencil, Trash2 } from "lucide-react";
 import type { ColumnDef } from "@tanstack/react-table";
 import type { AdminUnitResponse } from "@/features/units/types";
 import { UnitForm } from "@/features/units/components/UnitForm";
@@ -36,6 +38,8 @@ export default function AdminUnitsPage() {
   const [deleteId, setDeleteId] = useState<string | null>(null);
 
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+
+  const [isImportOpen, setIsImportOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
 
   const [selectedUnit, setSelectedUnit] =
@@ -188,14 +192,24 @@ export default function AdminUnitsPage() {
               }}
               className="w-full max-w-md"
             />
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                onClick={() => setIsImportOpen(true)}
+                className="h-11 rounded-xl px-5 text-sm font-semibold"
+              >
+                <Upload className="mr-2 h-4 w-4" />
+                Import
+              </Button>
 
             <Button
               onClick={() => setIsCreateOpen(true)}
-              className="h-11 rounded-xl bg-gradient-to-b from-[var(--color-primary-400)] to-[var(--color-primary-600)] shadow-[0_6px_16px_-6px_rgba(37,99,235,0.45),inset_0_1px_0_rgba(255,255,255,0.18)] transition-all px-5 text-sm font-semibold text-white hover:-translate-y-px hover:shadow-[0_10px_20px_-8px_rgba(37,99,235,0.5),inset_0_1px_0_rgba(255,255,255,0.18)] active:translate-y-0"
+              className="h-11 rounded-xl bg-theme-primary hover:bg-theme-primary-hover px-5 text-sm font-semibold text-white transition-colors"
             >
               <Plus className="mr-2 h-4 w-4" />
               Add Unit
             </Button>
+            </div>
           </div>
 
           <div className="mt-6 flex-1 min-h-0 overflow-hidden flex flex-col">
@@ -219,6 +233,27 @@ export default function AdminUnitsPage() {
       </AdminContent>
 
       {/* CREATE */}
+      <ExcelImportDialog
+        open={isImportOpen}
+        onClose={() => setIsImportOpen(false)}
+        title="Units"
+        sampleFileName="units"
+        columns={[
+          { key: "name", header: "Unit Name", required: true, samples: ["Kilogram", "Litre", "Piece"] },
+          { key: "code", header: "Unit Code", info: "Short code, max 10 characters (e.g. kg, ltr).", required: true, samples: ["kg", "ltr", "pcs"] },
+          { key: "type", header: "Type", info: "One of: weight, volume, count, size.", required: true, samples: ["weight", "volume", "count"] },
+          { key: "conversionFactor", header: "Conversion Factor", info: "Number greater than 0. Defaults to 1.", type: "number", samples: [1, 1, 1] },
+        ]}
+        prepare={(row) => ({
+          ...row,
+          type: typeof row.type === "string" ? row.type.toLowerCase() : row.type,
+          conversionFactor: row.conversionFactor ?? 1,
+        })}
+        schema={createAdminUnitSchema}
+        createRow={(payload) => createMutation.mutateAsync(payload)}
+        onImported={() => refetch()}
+      />
+
       <FormModal
         open={isCreateOpen}
         onClose={() => setIsCreateOpen(false)}

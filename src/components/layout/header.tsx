@@ -5,7 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
-import { LogIn, Search, Heart, ShoppingCart, Menu } from "lucide-react";
+import { LogIn, Search, Heart, ShoppingCart, Menu, User, LogOut } from "lucide-react";
 import { LOGOS, mobileBottomIcons } from "@/constants/storefront";
 import { NavButton } from "@/components/storefront/buttons/NavButton";
 import { IconButton } from "@/components/storefront/buttons/IconButton";
@@ -13,7 +13,8 @@ import { getRoleHome } from "@/lib/auth/role-routes";
 import { useClickOutside } from "@/hooks/useClickOutside";
 import { useRecentSearches } from "@/hooks/use-recent-searches";
 import { SearchDropdown } from "@/components/storefront/search/SearchDropdown";
-import { getInitials } from "@/lib/utils";
+import { getInitials, toTitleCase } from "@/lib/utils";
+import { useLogout } from "@/features/auth/hooks/use-auth-mutations";
 import { useCustomerWishlistCount } from "@/features/customers/hooks/use-customer-wishlist";
 import { useCustomerCartCount } from "@/features/customers/hooks/use-customer-cart";
 import { useCustomerProfile } from "@/features/customers/hooks/use-customer-profile";
@@ -170,6 +171,33 @@ export function Header({
 
   const menuRef = React.useRef<HTMLDivElement>(null);
   const buttonRef = React.useRef<HTMLDivElement>(null);
+  const accountDropdownRef = React.useRef<HTMLDivElement>(null);
+
+  const [isAccountDropdownOpen, setIsAccountDropdownOpen] = React.useState(false);
+  const accountCloseTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const logout = useLogout(isStaffUser ? "/admin/login" : "/login");
+  const userEmail = session?.user?.email ?? initialUser?.email ?? "";
+  const profileHref = userRole === "CUSTOMER" ? "/account/dashboard?tab=profile" : accountHref;
+
+  const cancelAccountClose = React.useCallback(() => {
+    if (accountCloseTimer.current) {
+      clearTimeout(accountCloseTimer.current);
+      accountCloseTimer.current = null;
+    }
+  }, []);
+
+  const handleAvatarMouseEnter = React.useCallback(() => {
+    cancelAccountClose();
+    setIsAccountDropdownOpen(true);
+  }, [cancelAccountClose]);
+
+  const handleAvatarMouseLeave = React.useCallback(() => {
+    cancelAccountClose();
+    accountCloseTimer.current = setTimeout(() => {
+      setIsAccountDropdownOpen(false);
+    }, 200);
+  }, [cancelAccountClose]);
 
   useClickOutside([menuRef, buttonRef], () => {
     setIsOpen(false);
@@ -178,6 +206,28 @@ export function Header({
     setShowSearchDropdown(false);
     if (!searchQuery.trim()) setIsSearchOpen(false);
   });
+  useClickOutside([accountDropdownRef], () => {
+    setIsAccountDropdownOpen(false);
+  });
+
+  React.useEffect(() => {
+    setIsAccountDropdownOpen(false);
+  }, [pathname]);
+
+  React.useEffect(() => {
+    if (!isAccountDropdownOpen) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setIsAccountDropdownOpen(false);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [isAccountDropdownOpen]);
+
+  React.useEffect(() => {
+    return () => {
+      if (accountCloseTimer.current) clearTimeout(accountCloseTimer.current);
+    };
+  }, []);
 
   React.useEffect(() => {
     if (!openNavId) return;
@@ -436,9 +486,12 @@ export function Header({
                 icon beside it. A fixed slot keeps the swap contained: siblings
                 never move, whichever state wins. */}
             <div
-              className={`flex justify-end shrink-0 ${
+              ref={accountDropdownRef}
+              className={`relative flex justify-end shrink-0 ${
                 isAuthLoading || isAuthenticated ? "" : "min-w-[66px] xl:min-w-[92px]"
               }`}
+              onMouseEnter={handleAvatarMouseEnter}
+              onMouseLeave={handleAvatarMouseLeave}
             >
               {isAuthLoading ? (
                 <div
@@ -458,11 +511,16 @@ export function Header({
                   />
                 </Link>
               ) : (
-                <IconButton
-                  alt={userName ? `${userName}'s profile` : "Profile"}
-                  href={accountHref}
-                  customIcon={
-                    userRole === "CUSTOMER" && profile ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => setIsAccountDropdownOpen((prev) => !prev)}
+                    aria-label={userName ? `${userName}'s profile menu` : "Profile menu"}
+                    aria-expanded={isAccountDropdownOpen}
+                    aria-haspopup="menu"
+                    className="relative inline-flex items-center justify-center cursor-pointer transition-transform duration-150 hover:scale-105 active:scale-95 focus:outline-none"
+                  >
+                    {userRole === "CUSTOMER" && profile ? (
                       <ProfileAvatarRing percent={calculateCustomerCompletion(profile).percent} size={36}>
                         <div className="w-full h-full bg-theme-primary text-theme-primary-fg text-[11px] font-bold flex items-center justify-center select-none leading-none">
                           {userInitials}
@@ -472,9 +530,60 @@ export function Header({
                       <div className="w-[26px] h-[26px] rounded-full bg-theme-primary text-theme-primary-fg text-[11px] font-bold flex items-center justify-center border border-theme-border-accent shadow-2xs select-none leading-none">
                         {userInitials}
                       </div>
-                    )
-                  }
-                />
+                    )}
+                  </button>
+
+                  {/* Absolute-positioned dropdown menu */}
+                  {isAccountDropdownOpen && (
+                    <div
+                      role="menu"
+                      aria-orientation="vertical"
+                      className="absolute right-0 top-full mt-2 w-56 rounded-2xl border border-theme-border bg-theme-surface p-1.5 shadow-xl z-50 animate-in fade-in slide-in-from-top-2 duration-150"
+                      onMouseEnter={cancelAccountClose}
+                      onMouseLeave={handleAvatarMouseLeave}
+                    >
+                      {/* User info snippet */}
+                      <div className="px-3 py-2 border-b border-theme-border/60">
+                        <p className="text-xs font-bold text-theme-text-primary truncate">
+                          {userName ? toTitleCase(userName) : "My Account"}
+                        </p>
+                        {userEmail && (
+                          <p className="text-[11px] text-theme-text-muted truncate mt-0.5">
+                            {userEmail}
+                          </p>
+                        )}
+                      </div>
+
+                      <div className="py-1">
+                        {/* My Profile */}
+                        <Link
+                          href={profileHref}
+                          role="menuitem"
+                          onClick={() => setIsAccountDropdownOpen(false)}
+                          className="group flex items-center gap-2.5 w-full px-3 py-2 rounded-xl text-xs font-semibold text-theme-text-primary hover:bg-theme-surface-alt hover:text-theme-primary transition-colors cursor-pointer"
+                        >
+                          <User className="h-4 w-4 text-theme-text-muted group-hover:text-theme-primary transition-colors shrink-0" />
+                          <span>My Profile</span>
+                        </Link>
+
+                        {/* Logout */}
+                        <button
+                          type="button"
+                          role="menuitem"
+                          disabled={logout.isPending}
+                          onClick={() => {
+                            setIsAccountDropdownOpen(false);
+                            logout.mutate();
+                          }}
+                          className="group flex items-center gap-2.5 w-full px-3 py-2 rounded-xl text-xs font-semibold text-theme-status-can-fg hover:bg-red-50 dark:hover:bg-red-950/20 transition-colors cursor-pointer disabled:opacity-60 text-left"
+                        >
+                          <LogOut className="h-4 w-4 text-theme-status-can-fg shrink-0" />
+                          <span>{logout.isPending ? "Logging out…" : "Logout"}</span>
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </>
               )}
             </div>
           </div>

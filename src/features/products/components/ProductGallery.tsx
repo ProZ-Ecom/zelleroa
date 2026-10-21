@@ -3,7 +3,7 @@
 import { useState, useRef, type ReactNode } from "react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, ChevronRight, Sparkles, CheckCircle2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, Sparkles, CheckCircle2, Plus } from "lucide-react";
 import { ProductImage } from "@/components/common/ProductImage";
 
 export interface GalleryImage {
@@ -37,8 +37,20 @@ function ProductGallery({
   overlayActions,
 }: ProductGalleryProps) {
   const [selectedIndex, setSelectedIndex] = useState(0);
+  const [isZooming, setIsZooming] = useState(false);
+  const [mousePos, setMousePos] = useState({ x: 50, y: 50 });
   const touchStartX = useRef<number | null>(null);
   const touchDeltaX = useRef(0);
+
+  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = ((e.clientX - rect.left) / rect.width) * 100;
+    const y = ((e.clientY - rect.top) / rect.height) * 100;
+    setMousePos({
+      x: Math.max(0, Math.min(100, x)),
+      y: Math.max(0, Math.min(100, y)),
+    });
+  };
 
   const validImages = (images || []).filter((img) => img && img.url && img.url.trim() !== "");
 
@@ -113,13 +125,16 @@ function ProductGallery({
   return (
     <div className={cn("space-y-4", className)}>
       <div
-        className="relative aspect-square w-full overflow-hidden rounded-2xl border border-stone-200/80 bg-stone-50 shadow-xs group touch-pan-y"
+        className="relative aspect-square w-full overflow-hidden rounded-2xl border border-stone-200/80 bg-stone-50 shadow-xs group touch-pan-y cursor-zoom-in"
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
+        onMouseEnter={() => setIsZooming(true)}
+        onMouseMove={handleMouseMove}
+        onMouseLeave={() => setIsZooming(false)}
       >
         {/* Badges */}
-        <div className="absolute top-3.5 left-3.5 z-20 flex flex-wrap gap-2">
+        <div className="absolute top-3.5 left-3.5 z-20 flex flex-wrap gap-2 pointer-events-none">
           {isVeg && (
             <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200/80 shadow-2xs backdrop-blur-xs">
               <span className="w-2 h-2 rounded-full bg-emerald-600 ring-2 ring-emerald-600/30" />
@@ -144,7 +159,7 @@ function ProductGallery({
 
         {/* Quality Seal */}
         {showQualitySeal && (
-          <div className="absolute top-3.5 right-3.5 z-20">
+          <div className="absolute top-3.5 right-3.5 z-20 pointer-events-none">
             <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-[#8B1D1D]/10 text-[#8B1D1D] border border-[#8B1D1D]/20 shadow-2xs backdrop-blur-xs">
               <Sparkles className="w-3 h-3 text-[#8B1D1D]" />
               Traditional
@@ -152,15 +167,40 @@ function ProductGallery({
           </div>
         )}
 
-        <ProductImage
-          key={selected.id || selected.url}
-          src={selected.url}
-          alt={selected.altText || productName}
-          fallbackText={productName}
-          priority={true}
-          containerClassName="w-full h-full aspect-square"
-          className="w-full h-full object-cover transition-all duration-300 ease-out animate-in fade-in group-hover:scale-105"
-        />
+        {/* Scanning Magnified Image Layer */}
+        <div
+          className="relative h-full w-full pointer-events-none transition-transform will-change-transform"
+          style={{
+            transformOrigin: `${mousePos.x}% ${mousePos.y}%`,
+            transform: isZooming ? "scale(2.5)" : "scale(1)",
+            transitionDuration: isZooming ? "80ms" : "300ms",
+            transitionTimingFunction: "cubic-bezier(0.16, 1, 0.3, 1)",
+          }}
+        >
+          <ProductImage
+            key={selected.id || selected.url}
+            src={selected.url}
+            alt={selected.altText || productName}
+            fallbackText={productName}
+            priority={true}
+            containerClassName="w-full h-full aspect-square"
+            className="w-full h-full object-cover"
+          />
+        </div>
+
+        {/* Scanning Lens Reticle with Plus Symbol */}
+        {isZooming && (
+          <div
+            className="pointer-events-none absolute -translate-x-1/2 -translate-y-1/2 z-20 flex h-12 w-12 items-center justify-center rounded-full border-2 border-white/90 bg-black/25 shadow-xl backdrop-blur-[1px]"
+            style={{
+              left: `${mousePos.x}%`,
+              top: `${mousePos.y}%`,
+              transition: "left 50ms linear, top 50ms linear",
+            }}
+          >
+            <Plus className="h-6 w-6 text-white drop-shadow stroke-[2.5]" />
+          </div>
+        )}
 
         {validImages.length > 1 && (
           <>

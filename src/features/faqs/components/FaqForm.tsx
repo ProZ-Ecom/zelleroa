@@ -19,12 +19,12 @@ const faqFormSchema = z.object({
   question: z
     .string({ message: "Question is required" })
     .trim()
-    .min(1, "Please enter the question.")
+    .min(1, "Question is required.")
     .max(255, "Question cannot exceed 255 characters."),
   answer: z
     .string({ message: "Answer is required" })
     .trim()
-    .min(1, "Please enter the answer.")
+    .min(1, "Answer is required.")
     .max(5000, "Answer cannot exceed 5000 characters."),
   category: z
     .string()
@@ -36,7 +36,7 @@ const faqFormSchema = z.object({
   displayOrder: z
     .union([z.number(), z.literal("")])
     .refine((val) => val !== "", {
-      message: "Please enter a display order.",
+      message: "Display order is required.",
     })
     .refine((val) => typeof val === "number" && Number.isInteger(val), {
       message: "Display order must be a whole number.",
@@ -276,7 +276,7 @@ export function FaqForm({
         <div className="flex flex-col-reverse gap-2 border-t border-theme-border pt-4 sm:flex-row sm:items-center sm:justify-between">
           <Button
             type="button"
-            variant="ghost"
+            variant="outline"
             onClick={() => onCancel?.()}
             disabled={isLoading || formState.isSubmitting}
             className="sm:w-auto"

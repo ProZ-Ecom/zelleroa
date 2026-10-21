@@ -226,7 +226,7 @@ export default function WhatsAppCampaignsPage() {
           </Button>
 
           <Link href="/admin/dashboard/whatsapp/campaigns/create">
-            <Button size="sm" className="h-8 text-xs font-semibold gap-1.5 bg-secondary-600 hover:bg-secondary-700 text-white shadow-xs">
+            <Button size="sm" className="h-8 text-xs font-semibold gap-1.5 bg-theme-primary hover:bg-theme-primary-hover text-white transition-colors">
               <PlusCircle className="h-3.5 w-3.5" />
               New Campaign
             </Button>
@@ -253,7 +253,7 @@ export default function WhatsAppCampaignsPage() {
             </p>
           </div>
           <Link href="/admin/dashboard/whatsapp/campaigns/create">
-            <Button size="md" className="gap-2 bg-secondary-600 hover:bg-secondary-700 text-white font-semibold text-xs shadow-xs">
+            <Button size="md" className="gap-2 bg-theme-primary hover:bg-theme-primary-hover text-white font-semibold text-xs transition-colors">
               <PlusCircle className="h-4 w-4" />
               Create Your First Campaign
             </Button>

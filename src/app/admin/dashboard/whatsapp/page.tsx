@@ -400,7 +400,7 @@ export default function AdminWhatsAppPage() {
                   size="md"
                   onClick={handleConnect}
                   disabled={isConnecting}
-                  className="w-full gap-2 bg-secondary-600 hover:bg-secondary-700 text-white font-semibold text-xs shadow-xs"
+                  className="w-full gap-2 bg-theme-primary hover:bg-theme-primary-hover text-white font-semibold text-xs transition-colors"
                 >
                   <MessageCircle className="h-4 w-4" />
                   {isConnecting ? "Starting WhatsApp..." : "Link WhatsApp Device"}
@@ -562,7 +562,7 @@ export default function AdminWhatsAppPage() {
                   variant="primary"
                   size="md"
                   disabled={isSending || data.status !== "CONNECTED"}
-                  className="gap-2 bg-secondary-600 hover:bg-secondary-700 text-white font-semibold text-xs min-w-[160px] shadow-xs"
+                  className="gap-2 bg-theme-primary hover:bg-theme-primary-hover text-white font-semibold text-xs min-w-[160px] transition-colors"
                 >
                   <Send className={`h-3.5 w-3.5 ${isSending ? "animate-pulse" : ""}`} />
                   {isSending

@@ -8,6 +8,7 @@ import { categoryHref, withGenderParam, withNavParam } from "@/features/customer
 import { itemHref } from "@/features/customers/utils/style-default-item";
 import { useCategoryMenu, useCategoryMenus } from "@/features/customers/hooks/use-customer-catalog";
 import { ItemCard } from "@/features/customers/components/catalog/ItemCard";
+import { toTitleCase } from "@/lib/utils";
 
 /** A CategoryTreeNode, or a synthetic grouping of several categories under one label. */
 export interface NavNode extends CategoryTreeNode {
@@ -133,9 +134,9 @@ export function MegaMenuPanel({
                           <Link
                             href={withGenderParam(categoryHref(level3), root.gender)}
                             onClick={onNavigate}
-                            className="text-sm text-neutral-600 hover:text-theme-primary"
+                            className="text-sm text-neutral-600 hover:text-theme-primary capitalize"
                           >
-                            {level3.name}
+                            {toTitleCase(level3.name)}
                           </Link>
                         </li>
                       ))}
@@ -170,9 +171,9 @@ export function MegaMenuPanel({
                               <Link
                                 href={product.items[0] ? itemHref(product.items[0].id) : categoryHref(level2)}
                                 onClick={onNavigate}
-                                className="text-sm text-neutral-600 hover:text-theme-primary whitespace-nowrap"
+                                className="text-sm text-neutral-600 hover:text-theme-primary whitespace-nowrap capitalize"
                               >
-                                {product.name}
+                                {toTitleCase(product.name)}
                               </Link>
                             </li>
                           ))}
@@ -232,14 +233,14 @@ export function MegaMenuPanel({
                       <Link
                         href={itemHref(product.items[0].id)}
                         onClick={onNavigate}
-                        className="mb-2 block truncate text-sm font-semibold text-neutral-900 hover:text-theme-primary"
-                        title={product.name}
+                        className="mb-2 block truncate text-sm font-semibold text-neutral-900 hover:text-theme-primary capitalize"
+                        title={toTitleCase(product.name)}
                       >
-                        {product.name}
+                        {toTitleCase(product.name)}
                       </Link>
                     ) : (
-                      <p className="mb-2 truncate text-sm font-semibold text-neutral-900">
-                        {product.name}
+                      <p className="mb-2 truncate text-sm font-semibold text-neutral-900 capitalize">
+                        {toTitleCase(product.name)}
                       </p>
                     )}
                     <ul className="space-y-1.5">

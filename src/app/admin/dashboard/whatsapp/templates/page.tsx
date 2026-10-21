@@ -139,7 +139,7 @@ export default function WhatsAppTemplatesPage() {
       >
         <Button
           onClick={() => setIsModalOpen(true)}
-          className="bg-secondary-600 hover:bg-secondary-700 text-white gap-2 font-semibold text-xs h-9 shadow-xs"
+          className="bg-theme-primary hover:bg-theme-primary-hover text-white gap-2 font-semibold text-xs h-9 transition-colors"
           size="sm"
         >
           <PlusCircle className="w-4 h-4" />
