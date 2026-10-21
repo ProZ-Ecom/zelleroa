@@ -132,6 +132,8 @@ export const generateVariantsSchema = z
 
 export type GenerateVariantOptionInput = z.infer<typeof generateVariantOptionSchema>;
 export type GenerateVariantsInput = z.infer<typeof generateVariantsSchema>;
+/** Client payload shape: fields with schema defaults (stock, activate) may be omitted. */
+export type GenerateVariantsRequest = z.input<typeof generateVariantsSchema>;
 
 /** Same option shape as generateVariantsSchema, without the row-level defaults -
  * a preview only needs to know which attribute values are selected. */

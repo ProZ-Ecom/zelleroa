@@ -14,7 +14,7 @@ import type {
   VariantUnitPriceResponse,
   CreateVariantUnitPriceInput,
   UpdateVariantUnitPriceInput,
-  GenerateVariantsInput,
+  GenerateVariantsRequest,
   GenerateVariantsResponse,
 } from "../types";
 
@@ -163,7 +163,7 @@ export async function updateAdminVariant(
 
 export async function generateAdminVariants(
   productUuid: string,
-  data: GenerateVariantsInput,
+  data: GenerateVariantsRequest,
   itemUuid?: string
 ) {
   const path = itemUuid

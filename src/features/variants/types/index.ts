@@ -248,6 +248,7 @@ export type {
   BulkEditVariantsInput,
   BulkEditVariantItemInput,
   GenerateVariantsInput,
+  GenerateVariantsRequest,
   GenerateVariantOptionInput,
   PreviewGenerateVariantsInput,
   ApplyVariantRemovalsInput,
