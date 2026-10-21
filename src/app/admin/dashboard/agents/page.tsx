@@ -72,7 +72,7 @@ export default function AdminAgentsPage() {
         <button
           type="button"
           onClick={() => setModal({ open: true, agent: null })}
-          className="inline-flex h-10 items-center gap-2 whitespace-nowrap rounded-xl bg-secondary-600 px-4 text-sm font-semibold text-white hover:bg-secondary-700"
+          className="inline-flex h-10 items-center gap-2 whitespace-nowrap rounded-xl bg-theme-primary hover:bg-theme-primary-hover px-4 text-sm font-semibold text-white transition-colors"
         >
           <Plus className="h-4 w-4" /> Create Sales Partner
         </button>
@@ -108,7 +108,7 @@ export default function AdminAgentsPage() {
                 className="w-full"
               />
             </div>
-            <button type="submit" className="h-10 rounded-xl bg-neutral-900 px-4 text-sm font-semibold text-white hover:bg-neutral-800">
+            <button type="submit" className="h-10 rounded-xl bg-theme-primary hover:bg-theme-primary-hover px-4 text-sm font-semibold text-white transition-colors">
               Search
             </button>
           </form>

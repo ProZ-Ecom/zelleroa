@@ -235,12 +235,6 @@ const numberField = (name: NumericField) => {
       <AdminPageHeader
         title="Coupons"
         description="Manage discount coupons"
-        actions={
-          <Button variant="gradient" onClick={() => handleOpenModal()}>
-            <Plus className="mr-2 h-4 w-4" />
-            Add Coupon
-          </Button>
-        }
       />
       <AdminContent className="flex-1 min-h-0 overflow-hidden">
         <div className="flex h-full flex-col overflow-hidden bg-[var(--color-background)] py-1 rounded-2xl">
@@ -272,7 +266,7 @@ const numberField = (name: NumericField) => {
               />
               <Button
                 onClick={() => handleOpenModal()}
-                className="h-11 rounded-xl bg-[var(--color-primary-500)] px-5 text-sm font-semibold text-white hover:bg-[var(--color-primary-600)]"
+                className="h-11 rounded-xl bg-theme-primary hover:bg-theme-primary-hover px-5 text-sm font-semibold text-white transition-colors"
               >
                 <Plus className="mr-2 h-4 w-4" />
                 Add Coupon

@@ -69,7 +69,7 @@ export default function InventoryDashboardPage() {
               <Settings2 className="mr-2 h-4 w-4" /> Low-stock threshold
             </Button>
             <Link href="/admin/dashboard/inventory/adjustment">
-              <Button className="h-11 rounded-xl bg-gradient-to-b from-[var(--color-primary-400)] to-[var(--color-primary-600)] shadow-[0_6px_16px_-6px_rgba(37,99,235,0.45),inset_0_1px_0_rgba(255,255,255,0.18)] transition-all text-white hover:-translate-y-px hover:shadow-[0_10px_20px_-8px_rgba(37,99,235,0.5),inset_0_1px_0_rgba(255,255,255,0.18)] active:translate-y-0">
+              <Button className="h-11 rounded-xl bg-theme-primary hover:bg-theme-primary-hover px-5 text-sm font-semibold text-white transition-colors">
                 Adjust stock
               </Button>
             </Link>
@@ -210,7 +210,7 @@ export default function InventoryDashboardPage() {
             <Button
               type="submit"
               isLoading={updateThreshold.isPending}
-              className="rounded-xl bg-gradient-to-b from-[var(--color-primary-400)] to-[var(--color-primary-600)] text-white shadow-[0_6px_16px_-6px_rgba(37,99,235,0.45),inset_0_1px_0_rgba(255,255,255,0.18)]"
+              className="rounded-xl bg-theme-primary hover:bg-theme-primary-hover text-white transition-colors"
             >
               Save
             </Button>

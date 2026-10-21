@@ -93,20 +93,24 @@ export default function AdminProductsPage() {
   const categoryFilterOptions = useMemo(() => {
     return [
       { value: "", label: "All Categories" },
-      ...categories.map((c: any) => ({
-        value: String(c.uuid || c.id),
-        label: c.name,
-      })),
+      ...categories
+        .filter((c: { parentId?: string | number | null }) => !c.parentId)
+        .map((c: { uuid?: string; id?: string | number; name: string }) => ({
+          value: String(c.uuid || c.id),
+          label: c.name,
+        })),
     ];
   }, [categories]);
 
-  // Options for form dropdowns (used only when modal is open)
+  // Options for form dropdowns (strictly the master categories)
   const categoryOptions = useMemo(() => {
-    return categories.map((c: any) => ({
-      value: String(c.id || c.uuid),
-      label: c.name,
-      slug: c.slug,
-    }));
+    return categories
+      .filter((c: { parentId?: string | number | null }) => !c.parentId)
+      .map((c: { id?: string | number; uuid?: string; name: string; slug: string }) => ({
+        value: String(c.id || c.uuid),
+        label: c.name,
+        slug: c.slug,
+      }));
   }, [categories]);
 
   const brandOptions = useMemo(() => {
@@ -269,7 +273,7 @@ export default function AdminProductsPage() {
 
             <Button
               onClick={() => setIsCreateOpen(true)}
-              className="h-11 rounded-xl bg-gradient-to-b from-[var(--color-primary-400)] to-[var(--color-primary-600)] shadow-[0_6px_16px_-6px_rgba(37,99,235,0.45),inset_0_1px_0_rgba(255,255,255,0.18)] transition-all px-5 text-sm font-semibold text-white hover:-translate-y-px hover:shadow-[0_10px_20px_-8px_rgba(37,99,235,0.5),inset_0_1px_0_rgba(255,255,255,0.18)] active:translate-y-0"
+              className="h-11 rounded-xl bg-theme-primary hover:bg-theme-primary-hover px-5 text-sm font-semibold text-white transition-colors"
             >
               <Plus className="mr-2 h-4 w-4" />
               Add Product
@@ -332,7 +336,7 @@ export default function AdminProductsPage() {
                   setCreatedProductName("");
                   refetch();
                 }}
-                className="h-10 rounded-xl bg-gradient-to-b from-[var(--color-primary-400)] to-[var(--color-primary-600)] shadow-[0_6px_16px_-6px_rgba(37,99,235,0.45),inset_0_1px_0_rgba(255,255,255,0.18)] transition-all px-5 text-sm font-semibold text-white hover:-translate-y-px hover:shadow-[0_10px_20px_-8px_rgba(37,99,235,0.5),inset_0_1px_0_rgba(255,255,255,0.18)] active:translate-y-0"
+                className="h-10 rounded-xl bg-theme-primary hover:bg-theme-primary-hover px-5 text-sm font-semibold text-white transition-colors"
               >
                 Done
               </Button>
