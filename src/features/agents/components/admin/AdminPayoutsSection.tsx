@@ -129,7 +129,7 @@ export function AdminPayoutsSection({ fixedAgent }: { fixedAgent?: string }) {
                           type="button"
                           onClick={() => setDialog({ kind: "paid", payout: r })}
                           aria-label="Mark payout as paid"
-                          className={`${btn} bg-gradient-to-b from-[var(--color-primary-400)] to-[var(--color-primary-600)] shadow-[0_6px_16px_-6px_rgba(37,99,235,0.45),inset_0_1px_0_rgba(255,255,255,0.18)] transition-all text-white hover:-translate-y-px hover:shadow-[0_10px_20px_-8px_rgba(37,99,235,0.5),inset_0_1px_0_rgba(255,255,255,0.18)] active:translate-y-0`}
+                          className={`${btn} bg-theme-primary hover:bg-theme-primary-hover text-white transition-colors`}
                         >
                           <BadgeCheck className="h-4 w-4" />
                         </button>
@@ -286,7 +286,7 @@ function PaidDialog({ dialog, onClose, onDone }: { dialog: Dialog; onClose: () =
           <button type="button" onClick={onClose} className="h-10 rounded-xl border border-neutral-200 px-4 text-sm font-medium hover:bg-neutral-50">
             Cancel
           </button>
-          <button type="button" disabled={busy || reference.trim().length < 3} onClick={submit} className="inline-flex h-10 items-center gap-2 rounded-xl bg-gradient-to-b from-[var(--color-primary-400)] to-[var(--color-primary-600)] shadow-[0_6px_16px_-6px_rgba(37,99,235,0.45),inset_0_1px_0_rgba(255,255,255,0.18)] transition-all px-4 text-sm font-semibold text-white hover:-translate-y-px hover:shadow-[0_10px_20px_-8px_rgba(37,99,235,0.5),inset_0_1px_0_rgba(255,255,255,0.18)] active:translate-y-0 disabled:opacity-50">
+          <button type="button" disabled={busy || reference.trim().length < 3} onClick={submit} className="inline-flex h-10 items-center gap-2 rounded-xl bg-theme-primary hover:bg-theme-primary-hover px-4 text-sm font-semibold text-white transition-colors disabled:opacity-50">
             {busy && <Loader2 className="h-4 w-4 animate-spin" />}
             Confirm payment
           </button>
@@ -347,7 +347,7 @@ function DetailsDialog({ dialog, onClose }: { dialog: Dialog; onClose: () => voi
             ))}
           </dl>
         ) : (
-          <button type="button" onClick={reveal} disabled={busy} className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-gradient-to-b from-[var(--color-primary-400)] to-[var(--color-primary-600)] shadow-[0_6px_16px_-6px_rgba(37,99,235,0.45),inset_0_1px_0_rgba(255,255,255,0.18)] transition-all px-4 text-sm font-semibold text-white hover:-translate-y-px hover:shadow-[0_10px_20px_-8px_rgba(37,99,235,0.5),inset_0_1px_0_rgba(255,255,255,0.18)] active:translate-y-0 disabled:opacity-50">
+          <button type="button" onClick={reveal} disabled={busy} className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-theme-primary hover:bg-theme-primary-hover px-4 text-sm font-semibold text-white transition-colors disabled:opacity-50">
             {busy && <Loader2 className="h-4 w-4 animate-spin" />}
             Reveal full details
           </button>

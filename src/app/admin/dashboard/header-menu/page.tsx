@@ -187,7 +187,7 @@ export default function AdminHeaderMenuPage() {
               className={`h-11 rounded-xl transition-all px-5 text-sm font-semibold shadow-xs ${
                 isLimitReached
                   ? "bg-slate-200 text-slate-500 cursor-not-allowed opacity-75 shadow-none"
-                  : "bg-gradient-to-b from-[var(--color-primary-400)] to-[var(--color-primary-600)] text-white hover:-translate-y-px hover:shadow-[0_10px_20px_-8px_rgba(37,99,235,0.5),inset_0_1px_0_rgba(255,255,255,0.18)] active:translate-y-0"
+                  : "bg-theme-primary hover:bg-theme-primary-hover text-white transition-colors"
               }`}
             >
               <Plus className="mr-2 h-4 w-4" />

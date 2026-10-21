@@ -17,7 +17,7 @@ import { AdminAssignedCustomersSection } from "@/features/agents/components/admi
 import { AdminOrdersSection } from "@/features/agents/components/admin/AdminOrdersSection";
 import { AdminPayoutsSection } from "@/features/agents/components/admin/AdminPayoutsSection";
 import { ReferralFlow } from "@/features/agents/components/ReferralFlow";
-import { BlockAgentDialog, type BlockAgentPayload, MetricCard, Panel, StatusBadge, Tooltip, dateOnly, money } from "@/features/agents/components/shared";
+import { BlockAgentDialog, type BlockAgentPayload, MetricCard, Panel, StatusBadge, Tooltip, dateOnly, dateTime, money } from "@/features/agents/components/shared";
 
 const TABS = [
   { key: "profile", label: "Profile & KYC" },
@@ -145,7 +145,7 @@ export default function AdminAgentDetailPage() {
               </div>
               <div className="grid grid-cols-2 gap-x-6 gap-y-1 text-sm sm:text-right">
                 <div><p className="text-xs text-neutral-500">Created</p><p className="font-medium">{dateOnly(agent.createdAt)}</p></div>
-                <div><p className="text-xs text-neutral-500">Last login</p><p className="font-medium">{dateOnly(agent.lastLoginAt)}</p></div>
+                <div><p className="text-xs text-neutral-500">Last login</p><p className="font-medium">{dateTime(agent.lastLoginAt)}</p></div>
               </div>
             </div>
           </Panel>

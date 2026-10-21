@@ -22,12 +22,12 @@ const SORT_OPTIONS: {
   sortBy: CustomerProductListInput["sortBy"];
   sortOrder: CustomerProductListInput["sortOrder"];
 }[] = [
-  { value: "createdAt_desc", label: "Newest First", sortBy: "createdAt", sortOrder: "desc" },
-  { value: "price_asc", label: "Price: Low to High", sortBy: "price", sortOrder: "asc" },
-  { value: "price_desc", label: "Price: High to Low", sortBy: "price", sortOrder: "desc" },
-  { value: "name_asc", label: "Name: A to Z", sortBy: "name", sortOrder: "asc" },
-  { value: "name_desc", label: "Name: Z to A", sortBy: "name", sortOrder: "desc" },
-];
+    { value: "createdAt_desc", label: "Newest First", sortBy: "createdAt", sortOrder: "desc" },
+    { value: "price_asc", label: "Price: Low to High", sortBy: "price", sortOrder: "asc" },
+    { value: "price_desc", label: "Price: High to Low", sortBy: "price", sortOrder: "desc" },
+    { value: "name_asc", label: "Name: A to Z", sortBy: "name", sortOrder: "asc" },
+    { value: "name_desc", label: "Name: Z to A", sortBy: "name", sortOrder: "desc" },
+  ];
 
 function ProductCatalogSkeleton() {
   return (
@@ -277,10 +277,10 @@ function ShopAllContent() {
     vegType === "veg"
       ? ("veg" as const)
       : vegType === "non_veg"
-      ? ("non_veg" as const)
-      : vegType === "vegan"
-      ? ("vegan" as const)
-      : undefined;
+        ? ("non_veg" as const)
+        : vegType === "vegan"
+          ? ("vegan" as const)
+          : undefined;
 
   // Query the listing as Styles - one card per Style (Postman: POST /api/customer/styles)
   const {
@@ -441,9 +441,8 @@ function ShopAllContent() {
             <button
               type="button"
               onClick={() => handleCategorySelect([])}
-              className={`transition-colors cursor-pointer ${
-                selectedCategoryIds.length === 0 ? "font-bold text-slate-900" : "text-slate-500 hover:text-slate-800"
-              }`}
+              className={`transition-colors cursor-pointer ${selectedCategoryIds.length === 0 ? "font-bold text-slate-900" : "text-slate-500 hover:text-slate-800"
+                }`}
             >
               Shop All
             </button>
@@ -493,11 +492,10 @@ function ShopAllContent() {
                     className="group flex w-[76px] shrink-0 flex-col items-center gap-2.5 sm:w-28 cursor-pointer select-none"
                   >
                     <span
-                      className={`relative flex h-[68px] w-[68px] items-center justify-center overflow-hidden rounded-full bg-slate-100 shadow-sm transition-all duration-300 sm:h-24 sm:w-24 ${
-                        isActive
+                      className={`relative flex h-[68px] w-[68px] items-center justify-center overflow-hidden rounded-full bg-slate-100 shadow-sm transition-all duration-300 sm:h-24 sm:w-24 ${isActive
                           ? "scale-105 ring-[3px] ring-theme-primary ring-offset-[3px] shadow-lg"
                           : "ring-1 ring-slate-200 group-hover:-translate-y-1 group-hover:shadow-lg group-hover:ring-2 group-hover:ring-theme-primary"
-                      }`}
+                        }`}
                     >
                       {tile.image ? (
                         <Image
@@ -515,20 +513,18 @@ function ShopAllContent() {
                       )}
                     </span>
                     <span
-                      className={`text-center text-[11px] uppercase tracking-wider transition-colors sm:text-[13px] truncate max-w-full ${
-                        isActive
+                      className={`text-center text-[11px] uppercase tracking-wider transition-colors sm:text-[13px] truncate max-w-full ${isActive
                           ? "font-extrabold text-theme-primary"
                           : "font-semibold text-slate-600 group-hover:text-theme-primary"
-                      }`}
+                        }`}
                       title={tile.name}
                     >
                       {tile.name}
                     </span>
                     <span
                       aria-hidden
-                      className={`-mt-1 h-0.5 rounded-full bg-theme-primary transition-all duration-300 ${
-                        isActive ? "w-6 opacity-100" : "w-0 opacity-0 group-hover:w-4 group-hover:opacity-60"
-                      }`}
+                      className={`-mt-1 h-0.5 rounded-full bg-theme-primary transition-all duration-300 ${isActive ? "w-6 opacity-100" : "w-0 opacity-0 group-hover:w-4 group-hover:opacity-60"
+                        }`}
                     />
                   </button>
                 );

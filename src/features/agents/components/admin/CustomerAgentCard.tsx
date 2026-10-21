@@ -112,7 +112,7 @@ export function CustomerAgentCard({ customerId, canTransfer = true }: { customer
             type="button"
             disabled={!toAgent || busy}
             onClick={() => setConfirming(true)}
-            className="rounded-lg bg-secondary-600 text-white px-4 py-2 text-sm font-semibold disabled:opacity-50"
+            className="rounded-lg bg-theme-primary hover:bg-theme-primary-hover text-white px-4 py-2 text-sm font-semibold transition-colors disabled:opacity-50"
           >
             {busy ? "Saving…" : data?.agent ? "Transfer" : "Assign"}
           </button>

@@ -77,7 +77,7 @@ export function WhatsAppNavTabs({
         <Link href="/admin/dashboard/whatsapp/campaigns/create">
           <Button
             size="sm"
-            className="gap-2 bg-secondary-600 hover:bg-secondary-700 text-white font-semibold text-xs h-9 shadow-xs"
+            className="gap-2 bg-theme-primary hover:bg-theme-primary-hover text-white font-semibold text-xs h-9 transition-colors"
           >
             <PlusCircle className="h-4 w-4" />
             Create Campaign

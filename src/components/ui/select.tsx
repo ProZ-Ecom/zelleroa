@@ -60,20 +60,21 @@ const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
     ref
   ) => {
     const [mounted, setMounted] = React.useState(false);
-    const [isOpen, setIsOpenState] = React.useState(false);
+    const [isOpen, setIsOpen] = React.useState(false);
 
-    const setIsOpen = React.useCallback(
-      (action: boolean | ((prev: boolean) => boolean)) => {
-        setIsOpenState((prev) => {
-          const next = typeof action === "function" ? action(prev) : action;
-          if (next !== prev) {
-            onOpenChange?.(next);
-          }
-          return next;
-        });
-      },
-      [onOpenChange]
-    );
+    const onOpenChangeRef = React.useRef(onOpenChange);
+    React.useEffect(() => {
+      onOpenChangeRef.current = onOpenChange;
+    }, [onOpenChange]);
+
+    const isFirstRender = React.useRef(true);
+    React.useEffect(() => {
+      if (isFirstRender.current) {
+        isFirstRender.current = false;
+        return;
+      }
+      onOpenChangeRef.current?.(isOpen);
+    }, [isOpen]);
 
     const [internalValue, setInternalValue] = React.useState<string>(
       (controlledValue !== undefined

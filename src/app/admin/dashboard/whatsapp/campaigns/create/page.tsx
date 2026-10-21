@@ -435,7 +435,7 @@ function CreateCampaignContent() {
                 setSubmitError(null);
                 setCurrentStep(2);
               }}
-              className="bg-secondary-600 hover:bg-secondary-700 text-white gap-2 px-6 shadow-xs font-semibold"
+              className="bg-theme-primary hover:bg-theme-primary-hover text-white gap-2 px-6 font-semibold transition-colors"
             >
               Next: Select Audience
               <ArrowRight className="w-4 h-4" />
@@ -633,7 +633,7 @@ function CreateCampaignContent() {
                 setSubmitError(null);
                 setCurrentStep(3);
               }}
-              className="bg-secondary-600 hover:bg-secondary-700 text-white gap-2 px-6 shadow-xs font-semibold"
+              className="bg-theme-primary hover:bg-theme-primary-hover text-white gap-2 px-6 font-semibold transition-colors"
             >
               Next: Compose Message ({totalSelected})
               <ArrowRight className="w-4 h-4" />
@@ -786,7 +786,7 @@ function CreateCampaignContent() {
                   setSubmitError(null);
                   setCurrentStep(4);
                 }}
-                className="bg-secondary-600 hover:bg-secondary-700 text-white gap-2 px-6 shadow-xs font-semibold"
+                className="bg-theme-primary hover:bg-theme-primary-hover text-white gap-2 px-6 font-semibold transition-colors"
               >
                 Next: Schedule & Launch
                 <ArrowRight className="w-4 h-4" />
@@ -987,7 +987,7 @@ function CreateCampaignContent() {
             <Button
               onClick={handleLaunchCampaign}
               disabled={isSubmitting}
-              className="bg-secondary-600 hover:bg-secondary-700 text-white gap-2 px-8 py-2.5 text-sm font-semibold shadow-xs"
+              className="bg-theme-primary hover:bg-theme-primary-hover text-white gap-2 px-8 py-2.5 text-sm font-semibold transition-colors"
             >
               {isSubmitting ? (
                 <>

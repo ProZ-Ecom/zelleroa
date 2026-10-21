@@ -60,6 +60,16 @@ function buildAdminCategoryWhere(params: GetAdminCategoriesParams = {}): Prisma.
     ];
   }
 
+  // Admin Master Categories: default to top-level categories (parentId: null)
+  if (params.parentId === undefined || params.parentId === null) {
+    where.parentId = null;
+  } else if (params.parentId !== "all") {
+    const num = Number(params.parentId);
+    if (!Number.isNaN(num)) {
+      where.parentId = BigInt(num);
+    }
+  }
+
   return where;
 }
 
@@ -116,8 +126,16 @@ export const categoryRepository = {
   },
 
   async findByUuid(uuid: string) {
+    const numericId = parseInt(uuid);
     return db.productCategory.findFirst({
-      where: { uuid, isActive: true, deleted_at: null },
+      where: {
+        isActive: true,
+        deleted_at: null,
+        OR: [
+          { uuid },
+          ...(Number.isFinite(numericId) && String(numericId) === uuid.trim() ? [{ id: BigInt(numericId) }] : []),
+        ],
+      },
     });
   },
 
@@ -146,17 +164,7 @@ export const categoryRepository = {
   async countAdminCategories(
     params: GetAdminCategoriesParams = {}
   ): Promise<AdminCategoriesCountResponse> {
-    const baseWhere: Prisma.ProductCategoryWhereInput = {
-      deleted_at: null,
-    };
-
-    if (params.search) {
-      baseWhere.OR = [
-        { name: { contains: params.search } },
-        { description: { contains: params.search } },
-        { slug: { contains: params.search } },
-      ];
-    }
+    const baseWhere = buildAdminCategoryWhere(params);
 
     const [active, inactive, all] = await Promise.all([
       db.productCategory.count({ where: { ...baseWhere, isActive: true } }),
