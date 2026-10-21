@@ -51,6 +51,7 @@
     "react-dom": "19.2.8",
     "react-easy-crop": "^6.2.3",
     "react-hook-form": "^7.84.0",
+    "read-excel-file": "^9.3.12",
     "tailwind-merge": "^3.6.0",
     "zod": "^4.4.3"
   },

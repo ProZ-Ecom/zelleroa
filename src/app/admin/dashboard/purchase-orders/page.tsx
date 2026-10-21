@@ -144,6 +144,13 @@ export default function PurchaseOrdersPage() {
             <div className="flex gap-3">
             <Button
               variant="outline"
+              onClick={() => router.push("/admin/dashboard/purchase-orders/import")}
+              className="h-11 rounded-xl px-5 text-sm font-semibold"
+            >
+              Import from CSV
+            </Button>
+            <Button
+              variant="outline"
               onClick={() => router.push("/admin/dashboard/purchase-orders/new")}
               className="h-11 rounded-xl px-5 text-sm font-semibold"
             >
