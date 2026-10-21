@@ -11,6 +11,8 @@ export const createAdminHeaderMenuItemSchema = z
       .min(1, "Label is required")
       .max(150, "Label cannot exceed 150 characters"),
     categoryIds: z.array(z.string().trim().min(1)).default([]).optional(),
+    /** Public tag ids (product_tags.id as string). */
+    tagIds: z.array(z.string().trim().min(1)).default([]).optional(),
     link: z
       .string()
       .trim()
@@ -29,20 +31,23 @@ export const createAdminHeaderMenuItemSchema = z
   })
   .strict()
   .superRefine((data, ctx) => {
-    const hasCategories = (data.categoryIds?.length ?? 0) > 0;
-    const hasLink = Boolean(data.link?.trim());
-    if (!hasCategories && !hasLink) {
+    const targets = [
+      (data.categoryIds?.length ?? 0) > 0,
+      (data.tagIds?.length ?? 0) > 0,
+      Boolean(data.link?.trim()),
+    ].filter(Boolean).length;
+    if (targets === 0) {
       ctx.addIssue({
         code: "custom",
         path: ["link"],
-        message: "Select a category or provide a link",
+        message: "Select categories, select tags, or provide a link",
       });
     }
-    if (hasCategories && hasLink) {
+    if (targets > 1) {
       ctx.addIssue({
         code: "custom",
         path: ["link"],
-        message: "Choose either categories or a link, not both",
+        message: "Choose only one of categories, tags or a link",
       });
     }
   });
@@ -60,6 +65,7 @@ export const updateAdminHeaderMenuItemSchema = z
       .max(150, "Label cannot exceed 150 characters")
       .optional(),
     categoryIds: z.array(z.string().trim().min(1)).optional(),
+    tagIds: z.array(z.string().trim().min(1)).optional(),
     link: z
       .string()
       .trim()

@@ -391,6 +391,7 @@ model HeaderMenuItem {
   created_by                                BigInt?                  @db.UnsignedBigInt
   updated_by                                BigInt?                  @db.UnsignedBigInt
   categories                                HeaderMenuItemCategory[]
+  tags                                      HeaderMenuItemTag[]
   users_header_menu_items_created_byTousers User?                    @relation("header_menu_items_created_byTousers", fields: [created_by], references: [id], onUpdate: NoAction, map: "fk_header_menu_created_by")
   users_header_menu_items_updated_byTousers User?                    @relation("header_menu_items_updated_byTousers", fields: [updated_by], references: [id], onUpdate: NoAction, map: "fk_header_menu_updated_by")
 
@@ -411,6 +412,20 @@ model HeaderMenuItemCategory {
   @@unique([headerMenuItemId, categoryId], map: "uq_hmic_item_category")
   @@index([categoryId], map: "fk_hmic_category")
   @@map("header_menu_item_categories")
+}
+
+model HeaderMenuItemTag {
+  id               BigInt         @id @default(autoincrement()) @db.UnsignedBigInt
+  headerMenuItemId BigInt         @map("header_menu_item_id") @db.UnsignedBigInt
+  tagId            BigInt         @map("tag_id") @db.UnsignedBigInt
+  sortOrder        Int            @default(0) @map("sort_order")
+  createdAt        DateTime       @default(now()) @map("created_at") @db.Timestamp(0)
+  headerMenuItem   HeaderMenuItem @relation(fields: [headerMenuItemId], references: [id], onDelete: Cascade, map: "fk_hmit_item")
+  tag              product_tags   @relation(fields: [tagId], references: [id], onDelete: Cascade, map: "fk_hmit_tag")
+
+  @@unique([headerMenuItemId, tagId], map: "uq_hmit_item_tag")
+  @@index([tagId], map: "fk_hmit_tag")
+  @@map("header_menu_item_tags")
 }
 
 model ProductBrand {
@@ -2369,6 +2384,7 @@ model product_tags {
   created_by                           BigInt?            @db.UnsignedBigInt
   updated_by                           BigInt?            @db.UnsignedBigInt
   product_tag_maps                     product_tag_maps[]
+  header_menu_item_tags                HeaderMenuItemTag[]
   users_product_tags_created_byTousers User?              @relation("product_tags_created_byTousers", fields: [created_by], references: [id], onUpdate: NoAction, map: "fk_product_tags_created_by")
   users_product_tags_updated_byTousers User?              @relation("product_tags_updated_byTousers", fields: [updated_by], references: [id], onUpdate: NoAction, map: "fk_product_tags_updated_by")
 

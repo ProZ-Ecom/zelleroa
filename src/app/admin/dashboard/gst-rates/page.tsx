@@ -17,12 +17,14 @@ import {
 import { AdminTableSkeleton } from "@/components/admin/AdminTableSkeleton";
 import { ErrorState } from "@/components/ui/error-state";
 import { Button } from "@/components/ui/button";
+import { ExcelImportDialog } from "@/components/common/ExcelImportDialog";
+import { createAdminGstRateSchema } from "@/features/gst-rates/validations/admin-gst-rate.schema";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { FormModal } from "@/components/common/FormModal";
 import { ExportButton } from "@/components/common/export-button";
 import { exportDataToCsv } from "@/lib/export-csv";
 import { SearchInput } from "@/components/ui/search-input";
-import { Plus, Pencil, Trash2 } from "lucide-react";
+import { Upload, Plus, Pencil, Trash2 } from "lucide-react";
 import type { ColumnDef } from "@tanstack/react-table";
 import type { AdminGstRateResponse } from "@/features/gst-rates/types";
 import { GstRateForm } from "@/features/gst-rates/components/GstRateForm";
@@ -35,6 +37,7 @@ export default function AdminGstRatesPage() {
 
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [isImportOpen, setIsImportOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [selectedGst, setSelectedGst] =
     useState<AdminGstRateResponse | null>(null);
@@ -157,6 +160,15 @@ export default function AdminGstRatesPage() {
               }}
               className="w-full max-w-md"
             />
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                onClick={() => setIsImportOpen(true)}
+                className="h-11 rounded-xl px-5 text-sm font-semibold"
+              >
+                <Upload className="mr-2 h-4 w-4" />
+                Import
+              </Button>
 
             <Button
               onClick={() => setIsCreateOpen(true)}
@@ -165,6 +177,7 @@ export default function AdminGstRatesPage() {
               <Plus className="mr-2 h-4 w-4" />
               Add GST Rate
             </Button>
+            </div>
           </div>
 
           <div className="mt-6 flex-1 min-h-0 overflow-hidden flex flex-col">
@@ -186,6 +199,22 @@ export default function AdminGstRatesPage() {
           </div>
         </div>
       </AdminContent>
+      <ExcelImportDialog
+        open={isImportOpen}
+        onClose={() => setIsImportOpen(false)}
+        title="GST Rates"
+        sampleFileName="gst-rates"
+        columns={[
+          { key: "name", header: "GST Rate Name", required: true, samples: ["GST 5%", "GST 12%", "GST 18%"] },
+          { key: "cgstPercent", header: "CGST %", info: "0-100 (e.g. 2.5).", required: true, type: "number", samples: [2.5, 6, 9] },
+          { key: "sgstPercent", header: "SGST %", info: "0-100 (e.g. 2.5).", required: true, type: "number", samples: [2.5, 6, 9] },
+          { key: "igstPercent", header: "IGST %", info: "0-100, usually CGST + SGST (e.g. 5).", required: true, type: "number", samples: [5, 12, 18] },
+        ]}
+        schema={createAdminGstRateSchema}
+        createRow={(payload) => createMutation.mutateAsync(payload)}
+        onImported={() => refetch()}
+      />
+
 
       <FormModal
         open={isCreateOpen}

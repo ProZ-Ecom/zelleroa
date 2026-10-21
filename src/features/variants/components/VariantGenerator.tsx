@@ -33,7 +33,6 @@ function VariantGenerator({ productUuid, onGenerated, itemUuid }: VariantGenerat
   const [selectedValues, setSelectedValues] = useState<Record<string, string[]>>({});
   const [unitId, setUnitId] = useState("");
   const [defaultPrice, setDefaultPrice] = useState("");
-  const [defaultStock, setDefaultStock] = useState("0");
   const [formError, setFormError] = useState<string | null>(null);
   const [result, setResult] = useState<GenerateVariantsResponse | null>(null);
 
@@ -80,11 +79,6 @@ function VariantGenerator({ productUuid, onGenerated, itemUuid }: VariantGenerat
       setFormError("Price cannot be negative");
       return;
     }
-    const stock = Number(defaultStock);
-    if (Number.isNaN(stock) || stock < 0 || !Number.isInteger(stock)) {
-      setFormError("Stock must be a non-negative whole number");
-      return;
-    }
 
     try {
       const response = await generateMutation.mutateAsync({
@@ -94,7 +88,6 @@ function VariantGenerator({ productUuid, onGenerated, itemUuid }: VariantGenerat
           options: activeOptions.map((o) => ({ attributeId: o.attribute.id, valueIds: o.valueIds })),
           unitId,
           ...(trimmedPrice !== "" ? { defaultPrice: Number(trimmedPrice) } : {}),
-          defaultStock: stock,
           activate: true,
         },
       });
@@ -222,20 +215,9 @@ function VariantGenerator({ productUuid, onGenerated, itemUuid }: VariantGenerat
           </p>
         </div>
 
-        <div>
-          <label className="block text-xs font-semibold text-neutral-800 mb-1.5">
-            Default stock
-          </label>
-          <input
-            type="number"
-            step="1"
-            min="0"
-            value={defaultStock}
-            onChange={(e) => setDefaultStock(e.target.value)}
-            disabled={generateMutation.isPending}
-            className="w-full h-10 px-3 rounded-lg border border-neutral-200 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-secondary-600/20 focus:border-secondary-600 disabled:opacity-60"
-          />
-        </div>
+        <p className="text-[11px] text-neutral-400 self-end">
+          Generated variants start with 0 stock. Add stock from Inventory or a Purchase Order.
+        </p>
       </div>
 
       {formError && (

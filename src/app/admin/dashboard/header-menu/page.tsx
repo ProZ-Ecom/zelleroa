@@ -18,7 +18,7 @@ import { FormModal } from "@/components/common/FormModal";
 import { ExportButton } from "@/components/common/export-button";
 import { exportDataToCsv } from "@/lib/export-csv";
 import { StatusToggle } from "@/components/admin/StatusToggle";
-import { Plus, Pencil, Trash2, FolderTree, Link2 } from "lucide-react";
+import { Plus, Pencil, Trash2, FolderTree, Link2, Tag } from "lucide-react";
 import { toast } from "@/components/ui/Toast";
 import type { ColumnDef } from "@tanstack/react-table";
 import { type AdminHeaderMenuItemResponse, MAX_HEADER_MENU_ITEMS } from "@/features/header-menu/types";
@@ -62,6 +62,12 @@ export default function AdminHeaderMenuPage() {
                 {count > 1 ? `${count} Categories` : "Category"}
               </span>
             )}
+            {row.original.tags.length > 0 && (
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-[var(--color-secondary-50)] px-3 py-1 text-xs font-medium text-[var(--color-primary-600)]">
+                <Tag className="h-3.5 w-3.5" />
+                {row.original.tags.length > 1 ? `${row.original.tags.length} Tags` : "Tag"}
+              </span>
+            )}
             {row.original.link && (
               <span className="inline-flex items-center gap-1.5 rounded-full bg-[var(--color-neutral-100)] px-3 py-1 text-xs font-medium text-[var(--color-neutral-600)]">
                 <Link2 className="h-3.5 w-3.5" />
@@ -79,7 +85,9 @@ export default function AdminHeaderMenuPage() {
         <span className="text-sm text-[var(--color-neutral-600)]">
           {row.original.categories.length > 0
             ? row.original.categories.map((c) => c.name).join(", ")
-            : row.original.link}
+            : row.original.tags.length > 0
+              ? row.original.tags.map((t) => t.name).join(", ")
+              : row.original.link}
         </span>
       ),
     },
@@ -275,6 +283,8 @@ export default function AdminHeaderMenuPage() {
               label: selectedItem.label,
               categoryIds: selectedItem.categories.map((c) => c.id),
               categories: selectedItem.categories,
+              tagIds: selectedItem.tags.map((t) => t.id),
+              tags: selectedItem.tags,
               link: selectedItem.link,
               gender: selectedItem.gender,
               sortOrder: selectedItem.sortOrder,

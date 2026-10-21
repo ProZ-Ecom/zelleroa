@@ -112,6 +112,19 @@ function ShopAllContent() {
     );
     setPage(1);
   }, [urlGender]);
+  // Tag nav links arrive as `?tag=slug` (or `?tag=a,b`); a product matches when it has any of them.
+  const urlTag = searchParams.get("tag") ?? "";
+  const tagSlugs = useMemo(
+    () =>
+      urlTag
+        .split(",")
+        .map((s) => s.trim().toLowerCase())
+        .filter(Boolean),
+    [urlTag]
+  );
+  useEffect(() => {
+    setPage(1);
+  }, [urlTag]);
   const [sortKey, setSortKey] = useState(() => {
     const rawSort = searchParams.get("sortBy") || searchParams.get("sort");
     if (rawSort && SORT_OPTIONS.some((s) => s.value === rawSort)) return rawSort;
@@ -295,6 +308,7 @@ function ShopAllContent() {
     search: search.trim() ? search.trim() : undefined,
     categoryIds: selectedCategoryIds.length > 0 ? selectedCategoryIds : undefined,
     productIds: selectedProductIds.length > 0 ? selectedProductIds : undefined,
+    tagSlugs: tagSlugs.length > 0 ? tagSlugs : undefined,
     minPrice: minPrice > 0 ? minPrice : undefined,
     maxPrice: maxPrice < 1000 ? maxPrice : undefined,
     inStock: inStockParam,

@@ -98,7 +98,6 @@ function ItemColorsPanel({
   const [draftSelection, setDraftSelection] = useState<Set<string> | null>(null);
   const [showDefaults, setShowDefaults] = useState(false);
   const [pickedUnitId, setPickedUnitId] = useState("");
-  const [defaultStock, setDefaultStock] = useState("");
   const [formError, setFormError] = useState<string | null>(null);
   const [result, setResult] = useState<GenerateVariantsResponse | null>(null);
   const [openVariantId, setOpenVariantId] = useState<string | null>(null);
@@ -228,12 +227,6 @@ function ItemColorsPanel({
       setFormError("Choose a unit under Defaults before creating colors.");
       return;
     }
-    const stock = Number(defaultStock);
-    if (Number.isNaN(stock) || stock < 0 || !Number.isInteger(stock)) {
-      setShowDefaults(true);
-      setFormError("Starting stock must be a whole number, 0 or more.");
-      return;
-    }
 
     try {
       await setValuesMutation.mutateAsync({
@@ -246,7 +239,6 @@ function ItemColorsPanel({
         itemUuid,
         data: {
           unitId,
-          defaultStock: stock,
           activate: true,
         },
       });
@@ -451,7 +443,6 @@ function ItemColorsPanel({
             <span className="flex items-center gap-2">
               <span className="text-[11px] text-neutral-500">
                 {units.find((unit) => unit.id === unitId)?.name || "No unit"}
-                {` · ${defaultStock || 0} in stock`}
               </span>
               <ChevronDown
                 className={`h-3.5 w-3.5 text-neutral-400 transition-transform ${
@@ -480,22 +471,9 @@ function ItemColorsPanel({
                   ]}
                 />
               </div>
-              <div>
-                <label className="mb-1.5 block text-xs font-semibold text-neutral-800">
-                  Starting stock
-                </label>
-                <input
-                  type="number"
-                  step="1"
-                  min="0"
-                  placeholder="0"
-                  value={defaultStock}
-                  onChange={(e) => setDefaultStock(e.target.value)}
-                   onFocus={(e) => e.target.select()}
-                  disabled={isBusy}
-                  className="h-10 w-full rounded-lg border border-neutral-200 bg-white px-3 text-sm focus:border-secondary-600 focus:outline-none focus:ring-2 focus:ring-secondary-600/20 disabled:opacity-60"
-                />
-              </div>
+              <p className="self-end text-xs text-neutral-500">
+                New colors start with 0 stock. Add stock from Inventory or a Purchase Order.
+              </p>
             </div>
           )}
         </div>
