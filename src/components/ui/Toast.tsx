@@ -52,6 +52,11 @@ export function getSuccessToastAttempts() {
   return successToastAttempts;
 }
 
+/** Prevent any pending cache-level scheduled success toast from firing. */
+export function suppressPendingSuccessToast() {
+  successToastAttempts++;
+}
+
 function showToast(toastData: ToastInput) {
   if (typeof window === "undefined") return;
 

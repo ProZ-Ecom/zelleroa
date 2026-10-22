@@ -1,8 +1,6 @@
 "use client";
 
-import { useState } from "react";
 import Link from "next/link";
-import { Plus } from "lucide-react";
 import { ProductImage } from "@/components/common/ProductImage";
 import { ItemQuickAdd } from "./ItemQuickAdd";
 import { formatPrice } from "@/lib/utils";
@@ -19,60 +17,18 @@ export interface CustomerStyleCardProps {
  */
 export function CustomerStyleCard({ style }: CustomerStyleCardProps) {
   const colorCount = style.colorCount ?? 0;
-  const [isZooming, setIsZooming] = useState(false);
-  const [mousePos, setMousePos] = useState({ x: 50, y: 50 });
-
-  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
-    const rect = e.currentTarget.getBoundingClientRect();
-    const x = ((e.clientX - rect.left) / rect.width) * 100;
-    const y = ((e.clientY - rect.top) / rect.height) * 100;
-    setMousePos({
-      x: Math.max(0, Math.min(100, x)),
-      y: Math.max(0, Math.min(100, y)),
-    });
-  };
 
   return (
     <div className="group flex flex-col overflow-hidden rounded-xl border border-theme-border bg-theme-surface shadow-2xs transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md">
       <Link href={`/products/${style.id}`} className="flex flex-1 flex-col">
-        <div
-          className="relative aspect-[5/4] w-full overflow-hidden bg-theme-surface-alt cursor-zoom-in"
-          onMouseEnter={() => setIsZooming(true)}
-          onMouseMove={handleMouseMove}
-          onMouseLeave={() => setIsZooming(false)}
-        >
-          {/* Scanning Magnified Image Layer */}
-          <div
-            className="relative h-full w-full pointer-events-none transition-transform will-change-transform"
-            style={{
-              transformOrigin: `${mousePos.x}% ${mousePos.y}%`,
-              transform: isZooming ? "scale(2.2)" : "scale(1)",
-              transitionDuration: isZooming ? "80ms" : "300ms",
-              transitionTimingFunction: "cubic-bezier(0.16, 1, 0.3, 1)",
-            }}
-          >
-            <ProductImage
-              src={style.image}
-              alt={style.name}
-              fill
-              sizes="(max-width: 768px) 50vw, 25vw"
-              className="object-cover"
-            />
-          </div>
-
-          {/* Scanning Lens Reticle with Plus Symbol */}
-          {isZooming && (
-            <div
-              className="pointer-events-none absolute -translate-x-1/2 -translate-y-1/2 z-20 flex h-10 w-10 items-center justify-center rounded-full border-2 border-white/90 bg-black/25 shadow-lg backdrop-blur-[1px]"
-              style={{
-                left: `${mousePos.x}%`,
-                top: `${mousePos.y}%`,
-                transition: "left 50ms linear, top 50ms linear",
-              }}
-            >
-              <Plus className="h-5 w-5 text-white drop-shadow stroke-[2.5]" />
-            </div>
-          )}
+        <div className="relative aspect-[5/4] w-full overflow-hidden bg-theme-surface-alt">
+          <ProductImage
+            src={style.image}
+            alt={style.name}
+            fill
+            sizes="(max-width: 768px) 50vw, 25vw"
+            className="object-cover"
+          />
         </div>
 
         <div className="flex flex-1 flex-col gap-1 p-2.5 sm:p-3">
