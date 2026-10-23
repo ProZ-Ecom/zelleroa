@@ -143,13 +143,38 @@ export default function AttributesPage() {
               className="w-full max-w-md"
             />
 
-            <Button
-              onClick={() => setIsCreateOpen(true)}
-              className="h-11 rounded-xl bg-theme-primary hover:bg-theme-primary-hover px-5 text-sm font-semibold text-white transition-colors"
-            >
-              <Plus className="mr-2 h-4 w-4" />
-              Add Attribute
-            </Button>
+            <div className="flex items-center gap-2">
+              <ExportButton
+                onClick={() =>
+                  exportDataToCsv(
+                    attributes,
+                    "attributes",
+                    [
+                      { header: "Attribute", accessor: (a) => a.name },
+                      { header: "Code", accessor: (a) => a.slug },
+                      { header: "Type", accessor: (a) => (a.type === "color" ? "Color" : "Text") },
+                      { header: "Selection", accessor: (a) => (a.multipleSelection ? "Multiple" : "Single") },
+                      {
+                        header: "Values",
+                        accessor: (a) =>
+                          a.values && a.values.length > 0
+                            ? a.values.map((v) => v.value).join(", ")
+                            : "—",
+                      },
+                    ]
+                  )
+                }
+                disabled={!attributes.length}
+              />
+
+              <Button
+                onClick={() => setIsCreateOpen(true)}
+                className="h-11 rounded-xl bg-theme-primary hover:bg-theme-primary-hover px-5 text-sm font-semibold text-white transition-colors"
+              >
+                <Plus className="mr-2 h-4 w-4" />
+                Add Attribute
+              </Button>
+            </div>
           </div>
 
           <div className="mt-6 flex-1 min-h-0 overflow-hidden flex flex-col">

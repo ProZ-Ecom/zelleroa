@@ -11,7 +11,8 @@ import { ErrorState } from "@/components/ui/error-state";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { FormModal } from "@/components/common/FormModal";
-import { StatusToggle } from "@/components/admin/StatusToggle";
+import { ExportButton } from "@/components/common/export-button";
+import { exportDataToCsv } from "@/lib/export-csv";
 import { Plus, Pencil, Trash2, Package } from "lucide-react";
 import { toast } from "@/components/ui/Toast";
 import type { ColumnDef } from "@tanstack/react-table";
@@ -68,21 +69,20 @@ export default function AdminTagsPage() {
       ),
     },
     {
-      id: "isActive",
-      header: "Active",
-      cell: ({ row }) => (
-        <StatusToggle
-          id={0}
-          isActive={row.original.isActive}
-          onToggle={() =>
-            updateMutation.mutate({
-              id: row.original.id,
-              data: { isActive: !row.original.isActive },
-            })
-          }
-          disabled={updateMutation.isPending}
-        />
-      ),
+      accessorKey: "isActive",
+      header: "Status",
+      cell: ({ row }) => {
+        const isActive = row.original.isActive;
+        return isActive ? (
+          <span className="inline-flex items-center rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700 border border-emerald-200">
+            Active
+          </span>
+        ) : (
+          <span className="inline-flex items-center rounded-full bg-red-100 px-2.5 py-1 text-xs font-semibold text-red-700 border border-red-300">
+            Inactive
+          </span>
+        );
+      },
     },
     {
       id: "actions",
@@ -111,7 +111,31 @@ export default function AdminTagsPage() {
       />
       <AdminContent className="flex-1 min-h-0 overflow-hidden">
         <div className="flex h-full flex-col overflow-hidden bg-[var(--color-background)] py-1 rounded-2xl">
-          <div className="flex-shrink-0 mt-6 flex justify-end">
+          <div className="flex-shrink-0 mt-6 flex items-center justify-end gap-2">
+            <ExportButton
+              onClick={() =>
+                exportDataToCsv(
+                  items,
+                  "tags",
+                  [
+                    { header: "Tag Name", accessor: (item) => item.name },
+                    { header: "Slug", accessor: (item) => item.slug },
+                    { header: "Link", accessor: (item) => `/products?tag=${item.slug}` },
+                    {
+                      header: "Products",
+                      accessor: (item) =>
+                        item.productNames ||
+                        (item.products && item.products.length > 0
+                          ? item.products.map((p) => p.name).join(", ")
+                          : "—"),
+                    },
+                    { header: "Status", accessor: (item) => (item.isActive ? "Active" : "Inactive") },
+                  ]
+                )
+              }
+              disabled={!items.length}
+            />
+
             <Button
               type="button"
               onClick={() => setIsCreateOpen(true)}

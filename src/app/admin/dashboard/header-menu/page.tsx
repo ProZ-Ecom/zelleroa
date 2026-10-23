@@ -17,7 +17,6 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { FormModal } from "@/components/common/FormModal";
 import { ExportButton } from "@/components/common/export-button";
 import { exportDataToCsv } from "@/lib/export-csv";
-import { StatusToggle } from "@/components/admin/StatusToggle";
 import { Plus, Pencil, Trash2, FolderTree, Link2, Tag } from "lucide-react";
 import { toast } from "@/components/ui/Toast";
 import type { ColumnDef } from "@tanstack/react-table";
@@ -111,21 +110,20 @@ export default function AdminHeaderMenuPage() {
       ),
     },
     {
-      id: "isActive",
-      header: "Active",
-      cell: ({ row }) => (
-        <StatusToggle
-          id={0}
-          isActive={row.original.isActive}
-          onToggle={() =>
-            updateMutation.mutate({
-              uuid: row.original.id,
-              data: { isActive: !row.original.isActive },
-            })
-          }
-          disabled={updateMutation.isPending}
-        />
-      ),
+      accessorKey: "isActive",
+      header: "Status",
+      cell: ({ row }) => {
+        const isActive = row.original.isActive;
+        return isActive ? (
+          <span className="inline-flex items-center rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700 border border-emerald-200">
+            Active
+          </span>
+        ) : (
+          <span className="inline-flex items-center rounded-full bg-red-100 px-2.5 py-1 text-xs font-semibold text-red-700 border border-red-300">
+            Inactive
+          </span>
+        );
+      },
     },
     {
       id: "actions",
@@ -182,25 +180,63 @@ export default function AdminHeaderMenuPage() {
               </span>
             </div>
 
-            <Button
-              type="button"
-              disabled={isLimitReached}
-              onClick={() => {
-                if (isLimitReached) {
-                  toast.error(`A maximum of ${MAX_HEADER_MENU_ITEMS} header menu items can exist. Please delete or modify an existing item.`);
-                  return;
+            <div className="flex items-center gap-2">
+              <ExportButton
+                onClick={() =>
+                  exportDataToCsv(
+                    items,
+                    "header-menu",
+                    [
+                      { header: "Label", accessor: (item) => item.label },
+                      {
+                        header: "Type",
+                        accessor: (item) =>
+                          item.categories.length > 0
+                            ? "Category"
+                            : item.tags.length > 0
+                              ? "Tag"
+                              : item.link
+                                ? "Link"
+                                : "—",
+                      },
+                      {
+                        header: "Target",
+                        accessor: (item) =>
+                          item.categories.length > 0
+                            ? item.categories.map((c) => c.name).join(", ")
+                            : item.tags.length > 0
+                              ? item.tags.map((t) => t.name).join(", ")
+                              : item.link || "—",
+                      },
+                      { header: "Audience", accessor: (item) => item.gender || "All" },
+                      { header: "Sort Order", accessor: (item) => item.sortOrder },
+                      { header: "Status", accessor: (item) => (item.isActive ? "Active" : "Inactive") },
+                    ]
+                  )
                 }
-                setIsCreateOpen(true);
-              }}
-              className={`h-11 rounded-xl transition-all px-5 text-sm font-semibold shadow-xs ${
-                isLimitReached
-                  ? "bg-slate-200 text-slate-500 cursor-not-allowed opacity-75 shadow-none"
-                  : "bg-theme-primary hover:bg-theme-primary-hover text-white transition-colors"
-              }`}
-            >
-              <Plus className="mr-2 h-4 w-4" />
-              Add Menu Item
-            </Button>
+                disabled={!items.length}
+              />
+
+              <Button
+                type="button"
+                disabled={isLimitReached}
+                onClick={() => {
+                  if (isLimitReached) {
+                    toast.error(`A maximum of ${MAX_HEADER_MENU_ITEMS} header menu items can exist. Please delete or modify an existing item.`);
+                    return;
+                  }
+                  setIsCreateOpen(true);
+                }}
+                className={`h-11 rounded-xl transition-all px-5 text-sm font-semibold shadow-xs ${
+                  isLimitReached
+                    ? "bg-slate-200 text-slate-500 cursor-not-allowed opacity-75 shadow-none"
+                    : "bg-theme-primary hover:bg-theme-primary-hover text-white transition-colors"
+                }`}
+              >
+                <Plus className="mr-2 h-4 w-4" />
+                Add Menu Item
+              </Button>
+            </div>
           </div>
 
           <div className="mt-6 flex-1 min-h-0 overflow-hidden flex flex-col">
@@ -293,9 +329,18 @@ export default function AdminHeaderMenuPage() {
             isLoading={updateMutation.isPending}
             submitLabel="Update Menu Item"
             onSubmit={async (payload) => {
-              await updateMutation.mutateAsync({ uuid: selectedItem.id, data: { ...payload } });
-              setIsEditOpen(false);
-              setSelectedItem(null);
+              try {
+                await updateMutation.mutateAsync({ uuid: selectedItem.id, data: { ...payload } });
+                toast.success("Header menu item updated successfully");
+                setIsEditOpen(false);
+                setSelectedItem(null);
+              } catch (err: any) {
+                const msg =
+                  err?.response?.data?.message ||
+                  err?.message ||
+                  "Failed to update header menu item";
+                toast.error(msg);
+              }
             }}
           />
         )}

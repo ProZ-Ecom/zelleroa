@@ -523,11 +523,40 @@ export default function AdminVariantsPage() {
                     variants,
                     "items",
                     [
+                      { header: "Product", accessor: (v) => v.productName || v.itemName || "-" },
                       { header: "Variant Name", accessor: (v) => v.variantName || "-" },
                       { header: "SKU", accessor: (v) => v.sku || "-" },
-                      { header: "Product", accessor: (v) => v.productName || "-" },
+                      {
+                        header: "Pack Sizes",
+                        accessor: (v) => {
+                          const prices = v.unitPrices ?? [];
+                          if (prices.length > 0) {
+                            return (
+                              prices
+                                .map((p) => `${p.measurement?.value ?? ""} ${p.measurement?.unit ?? ""}`.trim())
+                                .filter(Boolean)
+                                .join(", ") || "-"
+                            );
+                          }
+                          return v.measurement ? `${v.measurement.value} ${v.measurement.unit}` : "-";
+                        },
+                      },
+                      {
+                        header: "Price",
+                        accessor: (v) => {
+                          const prices = (v.unitPrices ?? [])
+                            .map((p) => p.basePrice)
+                            .filter((p) => typeof p === "number");
+                          if (prices.length > 0) {
+                            const min = Math.min(...prices);
+                            const max = Math.max(...prices);
+                            return min === max ? `₹${min}` : `₹${min} - ₹${max}`;
+                          }
+                          return typeof v.basePrice === "number" ? `₹${v.basePrice}` : "-";
+                        },
+                      },
+                      { header: "Stock", accessor: (v) => (v.outOfStock ? "Out of Stock" : "In Stock") },
                       { header: "Status", accessor: (v) => (v.isActive ? "Active" : "Inactive") },
-                      { header: "Created At", accessor: (v) => v.createdAt ? new Date(v.createdAt).toLocaleDateString("en-IN") : "-" },
                     ]
                   )
                 }

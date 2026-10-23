@@ -161,6 +161,21 @@ export default function AdminGstRatesPage() {
               className="w-full max-w-md"
             />
             <div className="flex items-center gap-2">
+              <ExportButton
+                onClick={() =>
+                  exportDataToCsv(
+                    gstRates,
+                    "gst-rates",
+                    [
+                      { header: "GST Name", accessor: (g) => g.name },
+                      { header: "CGST %", accessor: (g) => `${g.cgstPercent}%` },
+                      { header: "SGST %", accessor: (g) => `${g.sgstPercent}%` },
+                      { header: "IGST %", accessor: (g) => `${g.igstPercent}%` },
+                    ]
+                  )
+                }
+                disabled={!gstRates.length}
+              />
               <Button
                 variant="outline"
                 onClick={() => setIsImportOpen(true)}
@@ -170,13 +185,13 @@ export default function AdminGstRatesPage() {
                 Import
               </Button>
 
-            <Button
-              onClick={() => setIsCreateOpen(true)}
-              className="h-11 rounded-xl bg-theme-primary hover:bg-theme-primary-hover px-5 text-sm font-semibold text-white transition-colors"
-            >
-              <Plus className="mr-2 h-4 w-4" />
-              Add GST Rate
-            </Button>
+              <Button
+                onClick={() => setIsCreateOpen(true)}
+                className="h-11 rounded-xl bg-theme-primary hover:bg-theme-primary-hover px-5 text-sm font-semibold text-white transition-colors"
+              >
+                <Plus className="mr-2 h-4 w-4" />
+                Add GST Rate
+              </Button>
             </div>
           </div>
 

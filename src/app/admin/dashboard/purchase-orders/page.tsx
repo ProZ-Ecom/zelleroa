@@ -118,51 +118,77 @@ export default function PurchaseOrdersPage() {
       <AdminContent className="flex-1 min-h-0 overflow-hidden">
         <div className="flex h-full flex-col overflow-hidden bg-[var(--color-background)] py-1 rounded-2xl">
           <div className="flex-shrink-0 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-            <div className="flex w-full flex-col gap-3 md:flex-row md:items-center">
-              <SearchInput
-                placeholder="Search PO number or vendor..."
-                defaultValue={search}
-                onSearch={(val) => {
-                  setSearch(val);
-                  setPage(1);
-                }}
-                className="w-full max-w-md"
-              />
-              <Select
-                value={status}
-                onValueChange={(val) => {
-                  setStatus(val as PurchaseStatus | "");
-                  setPage(1);
-                }}
-                options={[
-                  { value: "", label: "All statuses" },
-                  ...purchaseStatusOptions,
-                ]}
-                className="w-full sm:w-52"
-              />
+            <div className="flex items-center gap-3">
+              <div className="w-64 lg:w-72 shrink-0">
+                <SearchInput
+                  placeholder="Search PO number or vendor..."
+                  defaultValue={search}
+                  onSearch={(val) => {
+                    setSearch(val);
+                    setPage(1);
+                  }}
+                />
+              </div>
+              <div className="w-44 lg:w-48 shrink-0">
+                <Select
+                  value={status}
+                  onValueChange={(val) => {
+                    setStatus(val as PurchaseStatus | "");
+                    setPage(1);
+                  }}
+                  options={[
+                    { value: "", label: "All statuses" },
+                    ...purchaseStatusOptions,
+                  ]}
+                />
+              </div>
             </div>
-            <div className="flex gap-3">
-            <Button
-              variant="outline"
-              onClick={() => router.push("/admin/dashboard/purchase-orders/import")}
-              className="h-11 rounded-xl px-5 text-sm font-semibold"
-            >
-              Import from CSV
-            </Button>
-            <Button
-              variant="outline"
-              onClick={() => router.push("/admin/dashboard/purchase-orders/new")}
-              className="h-11 rounded-xl px-5 text-sm font-semibold"
-            >
-              New Purchase Order (draft)
-            </Button>
-            <Button
-              onClick={() => router.push("/admin/dashboard/purchase-orders/confirm")}
-              className="h-11 rounded-xl bg-theme-primary hover:bg-theme-primary-hover px-5 text-sm font-semibold text-white transition-colors"
-            >
-              <Plus className="mr-2 h-4 w-4" />
-              Create Purchase
-            </Button>
+            <div className="flex items-center gap-2 xl:gap-3 shrink-0">
+              <ExportButton
+                onClick={() =>
+                  exportDataToCsv(
+                    orders,
+                    "purchase-orders",
+                    [
+                      { header: "PO Number", accessor: (po) => po.poNumber },
+                      { header: "Vendor", accessor: (po) => po.vendor?.name || "—" },
+                      { header: "Items", accessor: (po) => po.itemCount },
+                      { header: "Total Amount", accessor: (po) => `₹${po.totalAmount.toFixed(2)}` },
+                      { header: "Invoice", accessor: (po) => po.invoiceNumber || "—" },
+                      { header: "Purchase Date", accessor: (po) => po.purchaseDate || "—" },
+                      { header: "Status", accessor: (po) => po.status },
+                      {
+                        header: "Created",
+                        accessor: (po) =>
+                          po.createdAt ? new Date(po.createdAt).toLocaleDateString("en-IN") : "—",
+                      },
+                    ]
+                  )
+                }
+                disabled={!orders.length}
+                className="px-4 shrink-0"
+              />
+              <Button
+                variant="outline"
+                onClick={() => router.push("/admin/dashboard/purchase-orders/import")}
+                className="h-11 rounded-xl px-4 text-sm font-semibold whitespace-nowrap shrink-0"
+              >
+                Import from CSV
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => router.push("/admin/dashboard/purchase-orders/new")}
+                className="h-11 rounded-xl px-4 text-sm font-semibold whitespace-nowrap shrink-0"
+              >
+                New Purchase Order (draft)
+              </Button>
+              <Button
+                onClick={() => router.push("/admin/dashboard/purchase-orders/confirm")}
+                className="h-11 rounded-xl bg-theme-primary hover:bg-theme-primary-hover px-4 xl:px-5 text-sm font-semibold text-white transition-colors whitespace-nowrap shrink-0"
+              >
+                <Plus className="mr-1.5 h-4 w-4" />
+                Create Purchase
+              </Button>
             </div>
           </div>
 

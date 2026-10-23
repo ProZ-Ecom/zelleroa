@@ -9,6 +9,19 @@ const liveProductMaps = {
 
 const tagWithCount = {
   _count: { select: { product_tag_maps: { where: liveProductMaps } } },
+  product_tag_maps: {
+    where: liveProductMaps,
+    select: {
+      products: {
+        select: {
+          id: true,
+          uuid: true,
+          name: true,
+        },
+      },
+    },
+    orderBy: { products: { name: "asc" } },
+  },
 } satisfies Prisma.product_tagsInclude;
 
 export const tagRepository = {

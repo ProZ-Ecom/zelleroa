@@ -174,6 +174,27 @@ export default function AdminBrandsPage() {
               className="w-full max-w-md"
             />
             <div className="flex items-center gap-2">
+              <ExportButton
+                onClick={() =>
+                  exportDataToCsv(
+                    brands,
+                    "brands",
+                    [
+                      { header: "Brand Name", accessor: (b) => b.name },
+                      { header: "Brand Code", accessor: (b) => b.slug || "—" },
+                      { header: "Description", accessor: (b) => b.description || "—" },
+                      { header: "Products", accessor: (b) => `${b._count?.products || 0} Items` },
+                      {
+                        header: "Created Date",
+                        accessor: (b) =>
+                          b.createdAt ? new Date(b.createdAt).toLocaleDateString("en-IN") : "—",
+                      },
+                    ]
+                  )
+                }
+                disabled={!brands.length}
+              />
+
               <Button
                 variant="outline"
                 onClick={() => setIsImportOpen(true)}
@@ -183,13 +204,13 @@ export default function AdminBrandsPage() {
                 Import
               </Button>
 
-            <Button
-              onClick={() => setIsCreateOpen(true)}
-              className="h-11 rounded-xl bg-theme-primary hover:bg-theme-primary-hover px-5 text-sm font-semibold text-white transition-colors"
-            >
-              <Plus className="mr-2 h-4 w-4" />
-              Add Brand
-            </Button>
+              <Button
+                onClick={() => setIsCreateOpen(true)}
+                className="h-11 rounded-xl bg-theme-primary hover:bg-theme-primary-hover px-5 text-sm font-semibold text-white transition-colors"
+              >
+                <Plus className="mr-2 h-4 w-4" />
+                Add Brand
+              </Button>
             </div>
           </div>
 

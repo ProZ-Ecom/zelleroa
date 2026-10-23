@@ -193,6 +193,36 @@ export default function AdminUnitsPage() {
               className="w-full max-w-md"
             />
             <div className="flex items-center gap-2">
+              <ExportButton
+                onClick={() =>
+                  exportDataToCsv(
+                    units,
+                    "units",
+                    [
+                      { header: "Unit Name", accessor: (u) => u.name },
+                      { header: "Code", accessor: (u) => u.code },
+                      {
+                        header: "Type",
+                        accessor: (u) =>
+                          u.type ? u.type.charAt(0).toUpperCase() + u.type.slice(1) : "—",
+                      },
+                      {
+                        header: "Base Unit",
+                        accessor: (u) => {
+                          const base = (baseUnits.length ? baseUnits : units).find(
+                            (item) => item.id === u.baseUnitId
+                          );
+                          return base ? `${base.name} (${base.code})` : "—";
+                        },
+                      },
+                      { header: "Conversion", accessor: (u) => u.conversionFactor },
+                      { header: "Order", accessor: (u) => u.sortOrder },
+                    ]
+                  )
+                }
+                disabled={!units.length}
+              />
+
               <Button
                 variant="outline"
                 onClick={() => setIsImportOpen(true)}
@@ -202,13 +232,13 @@ export default function AdminUnitsPage() {
                 Import
               </Button>
 
-            <Button
-              onClick={() => setIsCreateOpen(true)}
-              className="h-11 rounded-xl bg-theme-primary hover:bg-theme-primary-hover px-5 text-sm font-semibold text-white transition-colors"
-            >
-              <Plus className="mr-2 h-4 w-4" />
-              Add Unit
-            </Button>
+              <Button
+                onClick={() => setIsCreateOpen(true)}
+                className="h-11 rounded-xl bg-theme-primary hover:bg-theme-primary-hover px-5 text-sm font-semibold text-white transition-colors"
+              >
+                <Plus className="mr-2 h-4 w-4" />
+                Add Unit
+              </Button>
             </div>
           </div>
 

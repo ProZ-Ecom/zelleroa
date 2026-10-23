@@ -405,13 +405,35 @@ export default function AdminBannersPage() {
               <ExportButton
                 onClick={() =>
                   exportDataToCsv(
-                    banners.map((b) => ({
-                      Title: b.title || "Untitled",
-                      Position: getBannerTypeLabel(b.bannerPosition?.slug, b.bannerPosition?.name),
-                      SortOrder: b.sortOrder ?? 0,
-                      Status: b.isActive ? "Active" : "Inactive",
-                      Schedule: formatDateDisplay(b.startsAt) || formatDateDisplay(b.endsAt) ? `${formatDateDisplay(b.startsAt)} - ${formatDateDisplay(b.endsAt)}` : "Always Live",
-                    })),
+                    banners.map((b) => {
+                      const starts = formatDateDisplay(b.startsAt);
+                      const ends = formatDateDisplay(b.endsAt);
+                      const scheduleText =
+                        !starts && !ends
+                          ? "Always Live"
+                          : starts && ends
+                          ? `${starts} – ${ends}`
+                          : starts
+                          ? `Starts ${starts}`
+                          : `Ends ${ends}`;
+
+                      return {
+                        "Banner Title": b.title || "Untitled",
+                        "Banner Type": getBannerTypeLabel(b.bannerPosition?.slug, b.bannerPosition?.name),
+                        "Media Type": b.mediaType === "video" ? "Video" : "Image",
+                        "Media URL": b.mediaType === "video" ? (b.videoUrl || b.imageUrl || "—") : (b.imageUrl || "—"),
+                        "Target Link": b.linkUrl || "—",
+                        "Floating Card": [b.badgeLabel, b.subtitle, b.priceText].filter(Boolean).join(" · ") || "—",
+                        "Badge Label": b.badgeLabel || "—",
+                        "Subtitle": b.subtitle || "—",
+                        "Price Text": b.priceText || "—",
+                        "Sort Order": b.sortOrder ?? 0,
+                        "Status": b.isActive ? "Active" : "Inactive",
+                        "Schedule": scheduleText,
+                        "Start Date": starts || "—",
+                        "End Date": ends || "—",
+                      };
+                    }),
                     "banners"
                   )
                 }

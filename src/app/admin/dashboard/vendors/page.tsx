@@ -135,13 +135,35 @@ export default function VendorsPage() {
               }}
               className="w-full max-w-md"
             />
-            <Button
-              onClick={() => setIsCreateOpen(true)}
-              className="h-11 rounded-xl bg-theme-primary hover:bg-theme-primary-hover px-5 text-sm font-semibold text-white transition-colors"
-            >
-              <Plus className="mr-2 h-4 w-4" />
-              Add Vendor
-            </Button>
+            <div className="flex items-center gap-2">
+              <ExportButton
+                onClick={() =>
+                  exportDataToCsv(
+                    vendors,
+                    "vendors",
+                    [
+                      { header: "Vendor Name", accessor: (v) => v.name },
+                      { header: "Vendor Code", accessor: (v) => v.code },
+                      { header: "Contact Person", accessor: (v) => v.contactPerson || "—" },
+                      { header: "Phone", accessor: (v) => v.phone || "—" },
+                      { header: "Email", accessor: (v) => v.email || "—" },
+                      { header: "GSTIN", accessor: (v) => v.gstin || "—" },
+                      { header: "Address", accessor: (v) => v.address || "—" },
+                      { header: "Status", accessor: (v) => (v.isActive ? "Active" : "Inactive") },
+                    ]
+                  )
+                }
+                disabled={!vendors.length}
+              />
+
+              <Button
+                onClick={() => setIsCreateOpen(true)}
+                className="h-11 rounded-xl bg-theme-primary hover:bg-theme-primary-hover px-5 text-sm font-semibold text-white transition-colors"
+              >
+                <Plus className="mr-2 h-4 w-4" />
+                Add Vendor
+              </Button>
+            </div>
           </div>
 
           <div className="mt-6 flex-1 min-h-0 overflow-hidden flex flex-col">

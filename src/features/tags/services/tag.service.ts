@@ -16,12 +16,18 @@ import type {
 type TagRow = NonNullable<Awaited<ReturnType<typeof tagRepository.findById>>>;
 
 function formatTag(tag: TagRow): AdminTagResponse {
+  const products = (tag.product_tag_maps ?? []).map((m) => ({
+    id: m.products.uuid || String(m.products.id),
+    name: m.products.name,
+  }));
   return {
     id: String(tag.id),
     name: tag.name,
     slug: tag.slug,
     isActive: tag.is_active,
     productCount: tag._count.product_tag_maps,
+    products,
+    productNames: products.map((p) => p.name).join(", "),
     createdAt: tag.created_at,
     updatedAt: tag.updated_at,
   };

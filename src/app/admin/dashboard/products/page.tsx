@@ -274,6 +274,25 @@ export default function AdminProductsPage() {
               {hasActiveFilters && <ClearFiltersButton onClick={handleClearFilters} />}
             </div>
             <div className="flex items-center gap-2">
+              <ExportButton
+                onClick={() =>
+                  exportDataToCsv(
+                    products,
+                    "products",
+                    [
+                      { header: "Product Name", accessor: (p) => p.name },
+                      { header: "Slug", accessor: (p) => p.slug },
+                      { header: "Category", accessor: (p) => p.categoryName || "—" },
+                      { header: "Brand", accessor: (p) => p.brandName || "—" },
+                      { header: "Gender", accessor: (p) => p.gender || "—" },
+                      { header: "HSN Code", accessor: (p) => p.hsnCodeName || "—" },
+                      { header: "Status", accessor: (p) => (p.isActive ? "Active" : "Inactive") },
+                    ]
+                  )
+                }
+                disabled={!products.length}
+              />
+
               <Button
                 variant="outline"
                 onClick={() => setIsImportOpen(true)}
@@ -283,13 +302,13 @@ export default function AdminProductsPage() {
                 Import
               </Button>
 
-            <Button
-              onClick={() => setIsCreateOpen(true)}
-              className="h-11 rounded-xl bg-theme-primary hover:bg-theme-primary-hover px-5 text-sm font-semibold text-white transition-colors"
-            >
-              <Plus className="mr-2 h-4 w-4" />
-              Add Product
-            </Button>
+              <Button
+                onClick={() => setIsCreateOpen(true)}
+                className="h-11 rounded-xl bg-theme-primary hover:bg-theme-primary-hover px-5 text-sm font-semibold text-white transition-colors"
+              >
+                <Plus className="mr-2 h-4 w-4" />
+                Add Product
+              </Button>
             </div>
           </div>
 
