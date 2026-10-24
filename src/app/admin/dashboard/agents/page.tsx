@@ -13,6 +13,8 @@ import type { AgentDto } from "@/features/agents/services/agent.service";
 import { errorMessage, useAdminList } from "@/features/agents/hooks/use-admin-agents";
 import { AgentFormModal, type EditableAgent } from "@/features/agents/components/admin/AgentFormModal";
 import { BlockAgentDialog, type BlockAgentPayload, ButtonPager, Panel, SimpleTable, StatusBadge, TableSkeleton, Tooltip, fieldCls, money } from "@/features/agents/components/shared";
+import { ExportButton } from "@/components/common/export-button";
+import { exportDataToCsv } from "@/lib/export-csv";
 
 export default function AdminAgentsPage() {
   const qc = useQueryClient();
@@ -63,19 +65,53 @@ export default function AdminAgentsPage() {
     }
   };
 
+  const handleExport = () => {
+    exportDataToCsv(
+      data?.data ?? [],
+      "sales-partners",
+      [
+        { header: "Sales Partner Name", accessor: (r) => r.name },
+        { header: "Email", accessor: (r) => r.email },
+        { header: "Phone", accessor: (r) => r.phone || "—" },
+        { header: "Sales Partner ID", accessor: (r) => r.agentCode || "—" },
+        { header: "Referral Code", accessor: (r) => r.referralCode || "—" },
+        { header: "Customers", accessor: (r) => r.summary.totalReferredCustomers },
+        { header: "Orders", accessor: (r) => r.summary.totalOrders },
+        { header: "Sales (₹)", accessor: (r) => r.summary.totalSales },
+        { header: "Pending Commission (₹)", accessor: (r) => r.summary.pendingCommission },
+        { header: "Approved Commission (₹)", accessor: (r) => r.summary.approvedCommission },
+        { header: "Paid Commission (₹)", accessor: (r) => r.summary.paidCommission },
+        { header: "Open Payouts", accessor: (r) => r.summary.openPayouts },
+        { header: "Status", accessor: (r) => (r.isActive ? "Active" : "Blocked") },
+        {
+          header: "Created Date",
+          accessor: (r) =>
+            r.createdAt ? new Date(r.createdAt).toLocaleDateString("en-IN") : "—",
+        },
+      ]
+    );
+  };
+
   return (
     <PageContainer
       title="Sales Partners"
       description="Create Sales Partners, share their referral links, and track their customers, sales and commission."
       breadcrumbs={[{ label: "Dashboard", href: "/admin/dashboard" }, { label: "Sales Partners" }]}
       actions={
-        <button
-          type="button"
-          onClick={() => setModal({ open: true, agent: null })}
-          className="inline-flex h-10 items-center gap-2 whitespace-nowrap rounded-xl bg-theme-primary hover:bg-theme-primary-hover px-4 text-sm font-semibold text-white transition-colors"
-        >
-          <Plus className="h-4 w-4" /> Create Sales Partner
-        </button>
+        <div className="flex items-center gap-2">
+          <ExportButton
+            onClick={handleExport}
+            disabled={!data?.data?.length}
+            className="h-10"
+          />
+          <button
+            type="button"
+            onClick={() => setModal({ open: true, agent: null })}
+            className="inline-flex h-10 items-center gap-2 whitespace-nowrap rounded-xl bg-theme-primary hover:bg-theme-primary-hover px-4 text-sm font-semibold text-white transition-colors"
+          >
+            <Plus className="h-4 w-4" /> Create Sales Partner
+          </button>
+        </div>
       }
     >
       <div className="flex flex-col gap-5">

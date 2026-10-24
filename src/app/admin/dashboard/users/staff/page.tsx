@@ -287,7 +287,6 @@ export default function AdminStaffPage() {
                   { header: "Phone", accessor: (s) => s.phone || "-" },
                   { header: "Role", accessor: (s) => s.role || "-" },
                   { header: "Status", accessor: (s) => (s.isActive ? "Active" : "Inactive") },
-                  { header: "Created At", accessor: (s) => s.createdAt || "-" },
                 ]
               )
             }

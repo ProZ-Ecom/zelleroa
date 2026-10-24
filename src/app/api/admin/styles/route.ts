@@ -11,6 +11,21 @@ function formatStyleListRow(style: StyleListRow, categoryNames: Map<string, stri
   // Brand lives on the Product now; older Items may still carry their own.
   const brand = style.brand ?? style.product?.brand ?? null;
   const primaryImgObj = style.images?.find((img) => img.is_primary) ?? style.images?.[0];
+
+  const colorNames = new Set<string>();
+  let totalStock = 0;
+
+  for (const it of style.items ?? []) {
+    for (const v of it.variants ?? []) {
+      if (v.color_name && v.color_name.trim()) {
+        colorNames.add(v.color_name.trim());
+      }
+      for (const vup of v.variant_unit_prices ?? []) {
+        totalStock += vup.inventories?.quantity_available ?? 0;
+      }
+    }
+  }
+
   return {
     id: style.uuid,
     productId: style.product?.uuid ?? String(style.productId),
@@ -41,6 +56,8 @@ function formatStyleListRow(style: StyleListRow, categoryNames: Map<string, stri
     outOfStock: Boolean(style.out_of_stock),
     primaryImage: primaryImgObj ? primaryImgObj.image_url : null,
     itemCount: style._count?.items ?? 0,
+    totalStock,
+    colors: Array.from(colorNames),
     createdAt: style.createdAt,
     updatedAt: style.updatedAt,
   };

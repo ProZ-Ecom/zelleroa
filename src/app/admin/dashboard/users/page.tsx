@@ -336,10 +336,31 @@ const { data, isLoading, error, refetch } = useUsers({ page, limit: pageSize });
         title="Users"
         description="Manage user accounts and permissions"
         actions={
-          <Button variant="gradient" onClick={() => setModalMode("create")}>
-            <Plus className="mr-2 h-4 w-4" />
-            Add User
-          </Button>
+          <div className="flex items-center gap-2">
+            <ExportButton
+              onClick={() =>
+                exportDataToCsv(
+                  users,
+                  "users",
+                  [
+                    { header: "Name", accessor: (u) => u.name },
+                    { header: "Email", accessor: (u) => u.email || "-" },
+                    {
+                      header: "Phone",
+                      accessor: (u) => (u.phone ? u.phone.replace(/^\+91/, "") : "-"),
+                    },
+                    { header: "Role", accessor: (u) => u.roleName || "-" },
+                    { header: "Status", accessor: (u) => u.status || "-" },
+                  ]
+                )
+              }
+              disabled={!users.length}
+            />
+            <Button variant="gradient" onClick={() => setModalMode("create")}>
+              <Plus className="mr-2 h-4 w-4" />
+              Add User
+            </Button>
+          </div>
         }
       />
 

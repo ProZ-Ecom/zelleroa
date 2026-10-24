@@ -92,6 +92,10 @@ export function useCancelOrderAdmin() {
       reason?: string;
       note?: string;
     }) => cancelOrderAdmin(id, { reason, note }),
+    meta: {
+      successMessage: "Order cancelled successfully",
+      errorMessage: "Failed to cancel order",
+    },
     onSuccess: (_result, variables) => {
       queryClient.invalidateQueries({ queryKey: adminOrderKeys.all });
       queryClient.invalidateQueries({ queryKey: ["admin-orders", "count"] });
@@ -135,6 +139,10 @@ export function useConfirmAdminOrder() {
   return useMutation({
     mutationFn: ({ id, note }: { id: string | number; note?: string }) =>
       confirmAdminOrder(id, note),
+    meta: {
+      successMessage: "Order confirmed successfully",
+      errorMessage: "Failed to confirm order",
+    },
     onSuccess: (_result, variables) => {
       queryClient.invalidateQueries({ queryKey: adminOrderKeys.all });
       queryClient.invalidateQueries({ queryKey: ["admin-orders", "count"] });
@@ -151,6 +159,10 @@ export function useProcessAdminOrder() {
   return useMutation({
     mutationFn: ({ id, note }: { id: string | number; note?: string }) =>
       processAdminOrder(id, note),
+    meta: {
+      successMessage: "Order processing started successfully",
+      errorMessage: "Failed to start order processing",
+    },
     onSuccess: (_result, variables) => {
       queryClient.invalidateQueries({ queryKey: adminOrderKeys.all });
       queryClient.invalidateQueries({ queryKey: ["admin-orders", "count"] });
@@ -167,6 +179,10 @@ export function usePackAdminOrder() {
   return useMutation({
     mutationFn: ({ id, note }: { id: string | number; note?: string }) =>
       packAdminOrder(id, note),
+    meta: {
+      successMessage: "Order marked as packed successfully",
+      errorMessage: "Failed to mark order as packed",
+    },
     onSuccess: (_result, variables) => {
       queryClient.invalidateQueries({ queryKey: adminOrderKeys.all });
       queryClient.invalidateQueries({ queryKey: ["admin-orders", "count"] });

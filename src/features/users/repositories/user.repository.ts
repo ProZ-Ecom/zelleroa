@@ -92,10 +92,30 @@ export const userRepository = {
   },
 
   async findById(idOrUuid: string | number | bigint) {
+    if (!idOrUuid) return null;
     let where: Prisma.UserWhereInput;
 
-    if (typeof idOrUuid === "string" && (idOrUuid.includes("-") || isNaN(Number(idOrUuid)))) {
-      where = { uuid: idOrUuid };
+    if (typeof idOrUuid === "string") {
+      const trimmed = idOrUuid.trim();
+      if (trimmed.includes("@")) {
+        where = { email: trimmed.toLowerCase() };
+      } else if (trimmed.includes("-")) {
+        where = { uuid: trimmed };
+      } else if (!isNaN(Number(trimmed)) && trimmed !== "") {
+        where = {
+          OR: [
+            { id: BigInt(trimmed) },
+            { uuid: trimmed },
+          ],
+        };
+      } else {
+        where = {
+          OR: [
+            { uuid: trimmed },
+            { email: trimmed.toLowerCase() },
+          ],
+        };
+      }
     } else {
       where = { id: BigInt(idOrUuid) };
     }

@@ -273,10 +273,12 @@ export function buildOrderTimeline(input: {
   const ordered = [...input.statusHistory].sort(
     (a, b) => a.created_at.getTime() - b.created_at.getTime()
   );
-  for (const row of ordered) {
+  for (let idx = 0; idx < ordered.length; idx++) {
+    const row = ordered[idx];
     // "pending" is Order Placed; refund bookkeeping rows reuse the returned status.
     if (row.status === "pending") continue;
-    const key = `order-${row.status}-${row.created_at.getTime()}`;
+    const rowId = (row as any).id ?? idx;
+    const key = `order-${row.status}-${rowId}-${row.created_at.getTime()}`;
     if (row.status === "returned" && row.note?.startsWith("Refund")) continue;
     seen.add(row.status);
     events.push({

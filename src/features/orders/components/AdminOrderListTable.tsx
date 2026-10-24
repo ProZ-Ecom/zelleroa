@@ -27,6 +27,7 @@ import { Select } from "@/components/ui/select";
 import { ClearFiltersButton } from "@/components/common/clear-filters-button";
 import { ExportButton } from "@/components/common/export-button";
 import { exportDataToCsv } from "@/lib/export-csv";
+import { toast } from "@/components/ui/Toast";
 import { formatDateTime, formatPrice } from "@/lib/utils";
 import {
   useAdminOrders,
@@ -67,6 +68,7 @@ export function AdminOrderListTable({
   const [paymentFilter, setPaymentFilter] = useState<string>("");
   const [viewOrderId, setViewOrderId] = useState<string | null>(null);
   const [cancelOrderId, setCancelOrderId] = useState<string | null>(null);
+  const [activeTransitionId, setActiveTransitionId] = useState<string | null>(null);
   const [courierOrder, setCourierOrder] = useState<{
     id: string;
     orderNumber: string;
@@ -304,51 +306,99 @@ export function AdminOrderListTable({
             {orderStatus === "pending" && (
               <button
                 type="button"
-                onClick={() =>
+                onClick={() => {
+                  setActiveTransitionId(row.original.id);
                   confirmOrder.mutate(
                     { id: row.original.id, note: "Confirmed by admin" },
-                    { onSuccess: () => refetch() }
-                  )
-                }
+                    {
+                      onSuccess: () => {
+                        toast.success("Order Confirmed", `Order ${row.original.orderNumber} has been confirmed.`);
+                        refetch();
+                      },
+                      onError: (err: any) => {
+                        toast.error("Failed to confirm order", err?.message || "Please try again.");
+                      },
+                      onSettled: () => {
+                        setActiveTransitionId(null);
+                      },
+                    }
+                  );
+                }}
                 title="Confirm Order"
                 className="grid h-8 w-8 place-items-center rounded-lg border border-secondary-200 bg-secondary-50 text-xs font-semibold text-secondary-600 hover:brightness-95 transition-all cursor-pointer"
                 disabled={isTransitionPending}
               >
-                <ArrowRight className="h-3.5 w-3.5" />
+                {activeTransitionId === row.original.id && confirmOrder.isPending ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <ArrowRight className="h-3.5 w-3.5" />
+                )}
               </button>
             )}
 
             {orderStatus === "confirmed" && (
               <button
                 type="button"
-                onClick={() =>
+                onClick={() => {
+                  setActiveTransitionId(row.original.id);
                   processOrder.mutate(
                     { id: row.original.id, note: "Processing started" },
-                    { onSuccess: () => refetch() }
-                  )
-                }
+                    {
+                      onSuccess: () => {
+                        toast.success("Order Processing", `Order ${row.original.orderNumber} is now in processing.`);
+                        refetch();
+                      },
+                      onError: (err: any) => {
+                        toast.error("Failed to start processing", err?.message || "Please try again.");
+                      },
+                      onSettled: () => {
+                        setActiveTransitionId(null);
+                      },
+                    }
+                  );
+                }}
                 title="Start Processing"
                 className="grid h-8 w-8 place-items-center rounded-lg border border-blue-200 bg-blue-50 text-xs font-semibold text-blue-700 hover:brightness-95 transition-all cursor-pointer"
                 disabled={isTransitionPending}
               >
-                <PlayCircle className="h-3.5 w-3.5" />
+                {activeTransitionId === row.original.id && processOrder.isPending ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <PlayCircle className="h-3.5 w-3.5" />
+                )}
               </button>
             )}
 
             {orderStatus === "processing" && (
               <button
                 type="button"
-                onClick={() =>
+                onClick={() => {
+                  setActiveTransitionId(row.original.id);
                   packOrder.mutate(
                     { id: row.original.id, note: "Marked as packed" },
-                    { onSuccess: () => refetch() }
-                  )
-                }
+                    {
+                      onSuccess: () => {
+                        toast.success("Order Packed", `Order ${row.original.orderNumber} is marked as packed.`);
+                        refetch();
+                      },
+                      onError: (err: any) => {
+                        toast.error("Failed to mark order as packed", err?.message || "Please try again.");
+                      },
+                      onSettled: () => {
+                        setActiveTransitionId(null);
+                      },
+                    }
+                  );
+                }}
                 title="Mark as Packed"
                 className="grid h-8 w-8 place-items-center rounded-lg border border-purple-200 bg-purple-50 text-xs font-semibold text-purple-700 hover:brightness-95 transition-all cursor-pointer"
                 disabled={isTransitionPending}
               >
-                <PackageCheck className="h-3.5 w-3.5" />
+                {activeTransitionId === row.original.id && packOrder.isPending ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <PackageCheck className="h-3.5 w-3.5" />
+                )}
               </button>
             )}
 
@@ -582,7 +632,11 @@ export function AdminOrderListTable({
                         { id: orderDetail.id, note: "Order confirmed by admin" },
                         {
                           onSuccess: () => {
+                            toast.success("Order Confirmed", `Order ${orderDetail.orderNumber} has been confirmed.`);
                             refetch();
+                          },
+                          onError: (err: any) => {
+                            toast.error("Failed to confirm order", err?.message || "Please try again.");
                           },
                         }
                       );
@@ -610,7 +664,11 @@ export function AdminOrderListTable({
                         },
                         {
                           onSuccess: () => {
+                            toast.success("Order Processing", `Order ${orderDetail.orderNumber} is now in processing.`);
                             refetch();
+                          },
+                          onError: (err: any) => {
+                            toast.error("Failed to start processing", err?.message || "Please try again.");
                           },
                         }
                       );
@@ -635,7 +693,11 @@ export function AdminOrderListTable({
                         { id: orderDetail.id, note: "Order marked as packed" },
                         {
                           onSuccess: () => {
+                            toast.success("Order Packed", `Order ${orderDetail.orderNumber} is marked as packed.`);
                             refetch();
+                          },
+                          onError: (err: any) => {
+                            toast.error("Failed to mark order as packed", err?.message || "Please try again.");
                           },
                         }
                       );
@@ -926,8 +988,12 @@ export function AdminOrderListTable({
               { id: cancelOrderId, note: "Cancelled by administrator" },
               {
                 onSuccess: () => {
+                  toast.success("Order Cancelled", "The order has been cancelled successfully.");
                   setCancelOrderId(null);
                   refetch();
+                },
+                onError: (err: any) => {
+                  toast.error("Failed to cancel order", err?.message || "Please try again.");
                 },
               }
             );

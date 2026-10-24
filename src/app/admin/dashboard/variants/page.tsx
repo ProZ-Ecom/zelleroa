@@ -369,15 +369,7 @@ export default function AdminVariantsPage() {
                 : "bg-red-50 text-red-700 border-red-200 hover:bg-red-100"
             }`}
           >
-            {isRowPending ? (
-              <Loader2 className="w-3 h-3 animate-spin" />
-            ) : (
-              <span
-                className={`w-1.5 h-1.5 rounded-full ${
-                  isActive ? "bg-emerald-600" : "bg-red-500"
-                }`}
-              />
-            )}
+            {isRowPending && <Loader2 className="w-3 h-3 animate-spin" />}
             {isActive ? "Active" : "Inactive"}
           </button>
         );

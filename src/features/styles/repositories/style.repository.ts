@@ -32,6 +32,30 @@ export const styleInclude = Prisma.validator<Prisma.StyleInclude>()({
   _count: {
     select: { items: { where: { deleted_at: null } } },
   },
+  items: {
+    where: { deleted_at: null },
+    select: {
+      id: true,
+      variants: {
+        where: { deleted_at: null },
+        select: {
+          id: true,
+          color_name: true,
+          variant_unit_prices: {
+            where: { deleted_at: null },
+            select: {
+              id: true,
+              inventories: {
+                select: {
+                  quantity_available: true,
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+  },
 });
 
 export const styleRepository = {

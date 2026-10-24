@@ -230,8 +230,7 @@ export default function AdminBannersPage() {
           );
         }
         return (
-          <div className="flex w-[160px] max-w-[200px] items-center gap-1.5">
-            <span className="h-1.5 w-1.5 flex-shrink-0 rounded-full bg-[var(--color-success-500)]" />
+          <div className="flex w-[160px] max-w-[200px] items-center">
             <span
               className="truncate text-xs text-[var(--color-neutral-700)]"
               title={[badgeLabel, subtitle, priceText].filter(Boolean).join(" · ")}
@@ -248,7 +247,7 @@ export default function AdminBannersPage() {
       cell: ({ row }) => (
         <Badge
           variant={row.original.isActive ? "success" : "destructive"}
-          className={`gap-1.5 text-xs ${
+          className={`text-xs ${
             row.original.isActive
               ? "border-emerald-200 bg-emerald-50 text-emerald-700"
               : "border-red-200 bg-red-50 text-red-700"
@@ -259,13 +258,6 @@ export default function AdminBannersPage() {
               : "Hidden from the storefront"
           }
         >
-          <span
-            className={`h-1.5 w-1.5 rounded-full ${
-              row.original.isActive
-                ? "bg-[var(--color-success-500)]"
-                : "bg-red-500"
-            }`}
-          />
           {row.original.isActive ? "Active" : "Inactive"}
         </Badge>
       ),

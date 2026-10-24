@@ -32,7 +32,7 @@ function StyleForm({
   isEditing = false,
   onSubmit,
   isLoading = false,
-  submitLabel = "Save Item",
+  submitLabel = "Save Model",
 }: StyleFormProps) {
   // Same active-brand list (and cache entry) the Product form uses.
   const { data: brandsData, isLoading: isLoadingBrands } = useBrands({ limit: 100 });
@@ -53,11 +53,12 @@ function StyleForm({
       isEditing={isEditing}
       isLoading={isLoading}
       submitLabel={submitLabel}
+      entityLabel="Model"
       namePlaceholder="e.g. V Neck T-Shirt, Solo T-Shirt"
       skuPlaceholder="e.g. TSHIRT-VNECK"
       codePlaceholder="e.g. v-neck-t-shirt"
       defaultItemDescription="Auto-selected on the product page"
-      showPrice={false}
+      showPrice={true}
       onSubmit={(data: ItemEntityFormValues) =>
         onSubmit({ ...data, cookingRecipe: initialData?.cookingRecipe ?? "" })
       }

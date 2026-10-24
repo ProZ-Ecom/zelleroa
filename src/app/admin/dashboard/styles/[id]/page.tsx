@@ -111,20 +111,20 @@ export default function AdminStyleDetailsPage() {
     <div className="flex flex-1 min-h-0 flex-col">
       <AdminPageHeader
         title={style.name}
-        description={style.shortDescription || "Item details, colors and sizes"}
+        description={style.shortDescription || "Model details, colors and sizes"}
         actions={
           <Button variant="outline" onClick={() => router.push("/admin/dashboard/styles")}>
             <ArrowLeft className="mr-2 h-4 w-4" />
-            Back to Items
+            Back to Models
           </Button>
         }
       />
 
       <AdminContent className="flex-1 overflow-auto space-y-6">
-        {/* Item Information */}
+        {/* Model Information */}
         <section className="bg-white border border-cream-border rounded-lg p-4 sm:p-5">
           <div className="flex items-center justify-between mb-3">
-            <h2 className="text-base font-bold text-neutral-900">Item Information</h2>
+            <h2 className="text-base font-bold text-neutral-900">Model Information</h2>
             <Button variant="outline" size="sm" onClick={() => setIsEditStyleOpen(true)}>
               <Pencil className="mr-1.5 h-3.5 w-3.5" />
               Edit
@@ -140,7 +140,7 @@ export default function AdminStyleDetailsPage() {
               <dd className="text-neutral-800 font-medium">{style.brandName || "Not Assigned"}</dd>
             </div>
             <div>
-              <dt className="text-xs font-semibold text-neutral-400 uppercase">Item Name</dt>
+              <dt className="text-xs font-semibold text-neutral-400 uppercase">Model Name</dt>
               <dd className="text-neutral-800 font-medium">{style.name}</dd>
             </div>
             <div>
@@ -166,23 +166,12 @@ export default function AdminStyleDetailsPage() {
 
         {/* Variant Details */}
         <div className="space-y-3">
-          <div className="flex justify-end">
-            <Button
-              onClick={() => setIsAddItemOpen(true)}
-              className="h-9 rounded-lg bg-theme-primary hover:bg-theme-primary-hover px-4 text-xs font-semibold text-white transition-colors"
-            >
-              <Plus className="mr-1.5 h-3.5 w-3.5" />
-              Add Model
-            </Button>
-          </div>
           {productUuid && (
             <ItemVariantDetails
               items={items}
               variants={itemVariants}
               colorLabel={colorColumnLabel}
               sizeLabel={sizeColumnLabel}
-              onEditItem={setEditingItem}
-              onDeleteItem={setDeletingItem}
               onManageColors={setManageColorsItem}
             />
           )}
@@ -193,7 +182,7 @@ export default function AdminStyleDetailsPage() {
       <FormModal
         open={isEditStyleOpen}
         onClose={() => setIsEditStyleOpen(false)}
-        title="Edit Item"
+        title="Edit Model"
         description={`Update information for ${style.name}`}
         size="lg"
       >
@@ -213,6 +202,7 @@ export default function AdminStyleDetailsPage() {
             newArrivalUntil: style.newArrivalUntil ?? "",
             isDefault: style.isDefault,
             isActive: style.isActive,
+            outOfStock: style.outOfStock ?? false,
           }}
           isLoading={updateStyleMutation.isPending}
           submitLabel="Save Changes"
@@ -239,13 +229,14 @@ export default function AdminStyleDetailsPage() {
                   newArrivalUntil: formData.isNewArrival ? formData.newArrivalUntil || null : null,
                   isDefault: formData.isDefault ?? false,
                   isActive: formData.isActive,
+                  outOfStock: formData.outOfStock ?? style.outOfStock ?? false,
                 },
               });
               setIsEditStyleOpen(false);
-              toast.success("Item updated", `"${formData.name}" was saved.`);
+              toast.success("Model updated", `"${formData.name}" was saved.`);
               refetch();
             } catch (err: any) {
-              toast.error("Failed to update item", err?.message || "Please try again.");
+              toast.error("Failed to update model", err?.message || "Please try again.");
             }
           }}
         />

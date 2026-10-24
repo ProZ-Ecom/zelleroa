@@ -767,7 +767,7 @@ export const orderService = {
       orderId: order.id,
       status: newStatus,
       note: input?.note,
-      changedBy: adminUser.internalId,
+      changedBy: BigInt(adminUser.internalId),
       expectedStatus: expectedCurrentStatus,
     });
 
@@ -842,7 +842,7 @@ export const orderService = {
       orderId: order.id,
       status: body.status,
       note: body.note,
-      changedBy: adminUser.internalId,
+      changedBy: BigInt(adminUser.internalId),
     });
 
     return {

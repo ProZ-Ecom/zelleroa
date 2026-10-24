@@ -5,7 +5,8 @@ import { apiError, apiValidationError, apiFromError } from "./api-response";
 import { ApiError } from "./api-error";
 import { handlePrismaError } from "./api-error";
 import { auth } from "@/lib/auth/config";
-import { verifyAccessToken } from "@/lib/auth/jwt";
+import { verifyAccessToken, verifyRefreshToken, generateAccessToken } from "@/lib/auth/jwt";
+import { userRepository } from "@/features/users/repositories/user.repository";
 import { checkRateLimit, getClientIp } from "@/lib/security/rate-limiter";
 import type { Session } from "next-auth";
 
@@ -135,6 +136,7 @@ export function createApiHandler(
         const token =
           cookieStore?.get("access_token")?.value ||
           request.headers.get("authorization")?.replace("Bearer ", "");
+        const refreshToken = cookieStore?.get("refresh_token")?.value;
 
         if (token) {
           try {
@@ -149,9 +151,47 @@ export function createApiHandler(
               expires: new Date(Date.now() + 15 * 60 * 1000).toISOString(),
             } as unknown as Session;
           } catch {
-            if (options.requireAuth) {
-              return apiError("Session expired. Please log in again.", 401);
+            session = null;
+          }
+        }
+
+        // If access token is expired or missing, seamlessly refresh using refresh_token
+        if (!session?.user && refreshToken) {
+          try {
+            const refreshPayload = verifyRefreshToken(refreshToken);
+            const user = await userRepository.findById(refreshPayload.userId);
+            if (user && user.status === "active") {
+              const userUuid = user.uuid || String(user.id);
+              const userRole = user.roleName || user.role?.name || "CUSTOMER";
+              const newAccessToken = generateAccessToken({
+                userId: userUuid,
+                email: user.email ?? "",
+                role: userRole,
+              });
+
+              try {
+                cookieStore?.set("access_token", newAccessToken, {
+                  httpOnly: true,
+                  secure: process.env.NODE_ENV === "production",
+                  sameSite: "lax",
+                  path: "/",
+                  maxAge: 15 * 60, // 15 minutes
+                });
+              } catch {
+                // Ignore if cookies cannot be modified in read-only phase
+              }
+
+              session = {
+                user: {
+                  id: userUuid,
+                  email: user.email ?? "",
+                  role: userRole,
+                  status: "active",
+                },
+                expires: new Date(Date.now() + 15 * 60 * 1000).toISOString(),
+              } as unknown as Session;
             }
+          } catch {
             session = null;
           }
         }
