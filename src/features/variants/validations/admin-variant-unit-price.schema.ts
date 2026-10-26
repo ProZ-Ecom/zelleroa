@@ -29,11 +29,6 @@ export const createVariantUnitPriceSchema = z
       .number()
       .min(0, "Base price cannot be negative")
       .optional(),
-    stock: z
-      .number()
-      .int("Stock must be an integer")
-      .min(0, "Stock cannot be negative")
-      .optional(),
     isDefault: z.boolean().optional().default(false),
     isActive: z.boolean().optional().default(true),
   })
@@ -57,11 +52,6 @@ export const updateVariantUnitPriceSchema = z
       .max(100, "SKU cannot exceed 100 characters")
       .optional(),
     basePrice: z.number().min(0, "Base price cannot be negative").optional(),
-    stock: z
-      .number()
-      .int("Stock must be an integer")
-      .min(0, "Stock cannot be negative")
-      .optional(),
     isDefault: z.boolean().optional(),
     isActive: z.boolean().optional(),
   })
@@ -77,11 +67,6 @@ export const bulkEditUnitPriceItemSchema = z
       .uuid("Invalid Variant Unit Price UUID format"),
     price: z.number().min(0, "Price cannot be negative").optional(),
     basePrice: z.number().min(0, "Base price cannot be negative").optional(),
-    stock: z
-      .number()
-      .int("Stock must be an integer")
-      .min(0, "Stock cannot be negative")
-      .optional(),
     isActive: z.boolean().optional(),
   })
   .strict();

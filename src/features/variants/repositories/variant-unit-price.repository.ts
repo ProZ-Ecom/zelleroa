@@ -1,5 +1,4 @@
 import crypto from "crypto";
-import { setStockLevel } from "@/features/inventory/services/stock-ledger.service";
 import { db } from "@/lib/db/prisma";
 import { Prisma } from "@/generated/prisma";
 import { retireUniqueValue } from "@/lib/utils/retire-unique-value";
@@ -174,7 +173,7 @@ export const variantUnitPriceRepository = {
 
   async updateByUuid(
     uuid: string,
-    data: Prisma.VariantUnitPriceUncheckedUpdateInput & { stock?: number },
+    data: Prisma.VariantUnitPriceUncheckedUpdateInput,
     adminId?: bigint | null
   ) {
     return db.$transaction(async (tx) => {
@@ -205,21 +204,12 @@ export const variantUnitPriceRepository = {
         });
       }
 
-      const { stock, ...updateData } = data;
+      const updateData = data;
 
       if (data.is_default === true) {
         await tx.variantUnitPrice.updateMany({
           where: { variant_id: existing.variant_id, id: { not: existing.id } },
           data: { is_default: false },
-        });
-      }
-
-      if (stock !== undefined) {
-        await setStockLevel(tx, {
-          variantUnitPriceId: existing.id,
-          target: stock,
-          reason: "Set via product/variant form",
-          actorId: adminId ?? null,
         });
       }
 
@@ -236,7 +226,6 @@ export const variantUnitPriceRepository = {
       id: string; // variant-unit-price UUID
       price?: number;
       basePrice?: number;
-      stock?: number;
       isActive?: boolean;
     }>,
     adminId?: bigint | null
@@ -287,15 +276,6 @@ export const variantUnitPriceRepository = {
         }
         if (adminId) {
           updateData.updated_by = adminId;
-        }
-
-        if (item.stock !== undefined) {
-          await setStockLevel(tx, {
-            variantUnitPriceId: existing.id,
-            target: item.stock,
-            reason: "Set via bulk edit",
-            actorId: adminId ?? null,
-          });
         }
 
         const result = await tx.variantUnitPrice.update({

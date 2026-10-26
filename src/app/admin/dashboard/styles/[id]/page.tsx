@@ -26,7 +26,6 @@ import {
 import type { AdminItemResponse } from "@/features/items/types";
 import { useConfiguredAttributesForProduct } from "@/features/attributes/hooks";
 import { useVariants } from "@/features/variants/hooks";
-import { ProductPriceEditModal } from "@/features/products/components/ProductPriceEditModal";
 import type { AdminVariantResponse } from "@/features/variants/types";
 import { toast } from "@/components/ui/Toast";
 
@@ -53,10 +52,6 @@ export default function AdminStyleDetailsPage() {
   // ("Attributes", "Manage Colors & Sizes", "Bulk Generate", "Manage Images")
   // that used to sit here.
   const [manageColorsItem, setManageColorsItem] = useState<AdminItemResponse | null>(null);
-  // Bulk price editing lives at page level, not inside the colors panel: a
-  // FormModal nested in a FormModal restores body scroll for the outer one
-  // when the inner closes, so the outer is hidden while this is open instead.
-  const [isBulkEditPricesOpen, setIsBulkEditPricesOpen] = useState(false);
 
   const { data: itemsResponse, isLoading: isLoadingItems, refetch: refetchItems } = useItems(
     productUuid,
@@ -321,7 +316,7 @@ export default function AdminStyleDetailsPage() {
           uploading each color's images and setting its sizes/prices/stock all
           happen here; there is deliberately no second route to any of it. */}
       <FormModal
-        open={Boolean(manageColorsItem) && !isBulkEditPricesOpen}
+        open={Boolean(manageColorsItem)}
         onClose={() => {
           setManageColorsItem(null);
           refetchProductVariants();
@@ -341,23 +336,9 @@ export default function AdminStyleDetailsPage() {
               refetchItems();
               refetchProductVariants();
             }}
-            onBulkEditPrices={() => setIsBulkEditPricesOpen(true)}
           />
         )}
       </FormModal>
-
-      {manageColorsItem && productUuid && (
-        <ProductPriceEditModal
-          open={isBulkEditPricesOpen}
-          onClose={() => setIsBulkEditPricesOpen(false)}
-          productUuid={productUuid}
-          productName={manageColorsItem.name}
-          variants={(productVariantsResponse?.data ?? []).filter(
-            (variant) => variant.itemId === manageColorsItem.id
-          )}
-          onSuccess={() => refetchProductVariants()}
-        />
-      )}
 
       {/* Edit Item Modal */}
       <FormModal

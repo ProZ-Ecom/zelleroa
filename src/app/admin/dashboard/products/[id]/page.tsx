@@ -49,7 +49,6 @@ import { useBrands } from "@/features/brands/hooks";
 import { QuickAddBrandModal } from "@/features/brands/components/QuickAddBrandModal";
 import { useHsnCodes } from "@/features/hsn-codes/hooks";
 import { useUnits } from "@/features/units/hooks";
-import { ProductPriceEditModal } from "@/features/products/components/ProductPriceEditModal";
 import { ProductForm, type ProductFormValues } from "@/features/products/components/ProductForm";
 import { ProductAttributesPanel } from "@/features/products/components/ProductAttributesPanel";
 import { ProductImageUploader } from "@/features/products/components/ProductImageUploader";
@@ -316,7 +315,6 @@ export default function AdminProductDetailsPage() {
     rect: DOMRect;
   } | null>(null);
   const [isStatusUpdating, setIsStatusUpdating] = React.useState(false);
-  const [isPriceEditOpen, setIsPriceEditOpen] = React.useState(false);
 
   // Close action dropdown menu when clicking outside, scrolling, or pressing Escape
   React.useEffect(() => {
@@ -1061,7 +1059,6 @@ export default function AdminProductDetailsPage() {
               itemName={items.find((i) => i.id === selectedItemUuid)?.name}
               categoryUuid={product?.categoryId ?? null}
               onChanged={() => refetchVariants()}
-              onBulkEditPrices={() => setIsPriceEditOpen(true)}
             />
           </div>
         </section>
@@ -1153,15 +1150,16 @@ export default function AdminProductDetailsPage() {
               className="h-8 rounded-md"
             />
 
-            <button
-              type="button"
-              onClick={() => setIsPriceEditOpen(true)}
+            {/* Prices belong to Inventory, not the catalog: that screen shows
+                cost and margin beside the price and records every change. */}
+            <Link
+              href={`/admin/dashboard/inventory/pricing?search=${encodeURIComponent(product.name)}`}
               className="px-3.5 py-1.5 rounded-md border border-secondary-200 bg-secondary-50 hover:bg-secondary-100 text-secondary-600 text-xs font-bold transition-colors flex items-center gap-1.5 cursor-pointer"
-              title="Bulk edit prices"
+              title="Set prices in Inventory › Pricing"
             >
               <IndianRupee className="w-3.5 h-3.5" />
               <span>Edit prices</span>
-            </button>
+            </Link>
 
             <button
               type="button"
@@ -1614,20 +1612,6 @@ export default function AdminProductDetailsPage() {
       {/* ========================================================================= */}
       {/* MODALS AND DIALOGS                                                       */}
       {/* ========================================================================= */}
-
-      {/* 1. Bulk Price Edit Modal (Existing & Enhanced) */}
-      <ProductPriceEditModal
-        open={isPriceEditOpen}
-        onClose={() => setIsPriceEditOpen(false)}
-        productUuid={canonicalProductId}
-        productName={product.name}
-        variants={variants}
-        onSuccess={() => {
-          setIsPriceEditOpen(false);
-          refetchVariants();
-          refetchProduct();
-        }}
-      />
 
       {/* 4. Edit Product Modal */}
       <FormModal

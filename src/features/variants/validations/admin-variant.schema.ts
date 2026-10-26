@@ -71,11 +71,6 @@ export const bulkEditVariantItemSchema = z
       .number()
       .min(0, "Base price cannot be negative")
       .optional(),
-    stock: z
-      .number()
-      .int("Stock must be an integer")
-      .min(0, "Stock cannot be negative")
-      .optional(),
     isActive: z.boolean().optional(),
   })
   .strict();

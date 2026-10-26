@@ -1,6 +1,5 @@
 import crypto from "crypto";
 import { setStockLevel } from "@/features/inventory/services/stock-ledger.service";
-import { recordOpeningStockPurchase } from "@/features/purchases/services/opening-stock.service";
 import { ApiError } from "@/lib/api/api-error";
 import { db } from "@/lib/db/prisma";
 import { variantRepository } from "../repositories/variant.repository";
@@ -103,6 +102,18 @@ async function resolveAttributeValues(
         select: { attribute_id: true, sort_order: true },
       })
     : [];
+  // The catalog holds several attributes sharing a name (five called "Size"), so a
+  // value from the wrong one looks right and silently produces a row claiming a
+  // variation this product does not declare - and, having no configured sort order,
+  // it would also hijack the primary value.
+  const configured = new Map(configs.map((c) => [c.attribute_id.toString(), c]));
+  const stray = values.find((v) => !configured.has(v.attributeId.toString()));
+  if (stray) {
+    throw ApiError.badRequest(
+      `"${stray.value}" belongs to an attribute that is not configured on this product`
+    );
+  }
+
   const sortOrderOf = new Map(
     configs.map((c) => [c.attribute_id.toString(), c.sort_order])
   );
@@ -241,15 +252,10 @@ export const variantUnitPriceService = {
       await variantUnitPriceRepository.unsetDefaultForVariant(variant.id);
     }
 
-    let basePrice = data.basePrice;
-    if (basePrice === undefined) {
-      basePrice = itemPriceOf(variant);
-      if (basePrice <= 0) {
-        throw ApiError.badRequest(
-          "Enter a price for this size, or set the Item's price first"
-        );
-      }
-    }
+    // A new stock row starts at the Item's price, or at zero when the Item has
+    // none: the catalog no longer asks for a price, so an unpriced SKU is a
+    // normal state and Inventory > Pricing is where it gets one.
+    const basePrice = data.basePrice ?? Math.max(itemPriceOf(variant), 0);
 
     const row = {
       unit_id: unit.id,
@@ -285,29 +291,18 @@ export const variantUnitPriceService = {
           attributeValues
         );
 
-    // A revived row carries its pre-deletion inventory, which would silently
-    // reappear as stock nobody re-counted, so it restarts at the requested
-    // quantity (zero when the caller sent none).
-    const stock = data.stock ?? (archived ? 0 : undefined);
-
-    if (stock !== undefined) {
+    // A new stock row starts empty: stock only ever arrives through a purchase
+    // or an inventory adjustment, so every level is backed by a ledger movement.
+    // A revived row still carries its pre-deletion inventory, which would
+    // silently reappear as stock nobody re-counted, so that one is reset.
+    if (archived) {
       await db.$transaction(async (tx) => {
-        // Zero (or a revived row's stale level) is just a reset; real opening
-        // stock goes through a purchase order so purchase data matches stock.
-        if (stock === 0 || archived) {
-          await setStockLevel(tx, {
-            variantUnitPriceId: created.id,
-            target: 0,
-            reason: "Opening stock",
-            actorId: adminId,
-          });
-        }
-        await recordOpeningStockPurchase(
-          tx,
-          [{ variantUnitPriceId: created.id, quantity: stock }],
-          adminId,
-          `Opening stock for ${created.sku}`
-        );
+        await setStockLevel(tx, {
+          variantUnitPriceId: created.id,
+          target: 0,
+          reason: "Stock row re-created",
+          actorId: adminId,
+        });
       });
     }
 
@@ -332,7 +327,7 @@ export const variantUnitPriceService = {
     }
 
     const adminId = await getAdminInternalId(adminEmail);
-    const updateData: Prisma.VariantUnitPriceUncheckedUpdateInput & { stock?: number } = {};
+    const updateData: Prisma.VariantUnitPriceUncheckedUpdateInput = {};
 
     if (adminId) {
       updateData.updated_by = adminId;
@@ -411,10 +406,6 @@ export const variantUnitPriceService = {
 
     if (typeof data.isActive === "boolean") {
       updateData.isActive = data.isActive;
-    }
-
-    if (data.stock !== undefined) {
-      updateData.stock = data.stock;
     }
 
     const updated = await variantUnitPriceRepository.updateByUuid(

@@ -107,6 +107,10 @@ type VariantUnitPriceWithRelations = {
   updatedAt: Date;
   product_units?: { uuid: string | null; name: string; code: string; type?: string | null } | null;
   attribute_value?: { uuid: string | null; value: string } | null;
+  vup_attribute_values?: Array<{
+    product_attributes: { uuid: string | null; name: string };
+    attribute_values: { uuid: string | null; value: string };
+  }> | null;
   inventories?: { quantity_available: number; quantity_reserved: number } | null;
 };
 
