@@ -144,7 +144,7 @@ export default auth(async (req) => {
     return applyCookies(NextResponse.next());
   }
 
-  if ((pathname === "/login" || pathname === "/register") && isAuthenticated) {
+  if ((pathname === "/login" || pathname === "/register") && (validAccessToken || validRefreshToken)) {
     return redirectTo(getRoleHome(userRole));
   }
 
