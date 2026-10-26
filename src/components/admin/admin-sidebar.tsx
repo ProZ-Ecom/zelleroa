@@ -44,6 +44,7 @@ import {
   ClipboardList,
   SlidersHorizontal,
   Store,
+  Undo2,
 } from "lucide-react";
 import { cn, getInitials } from "@/lib/utils";
 import { APP_NAME } from "@/lib/constants";
@@ -98,6 +99,7 @@ const sidebarItems: SidebarItem[] = [
       { label: "Current Stock", href: "/admin/dashboard/inventory/stock", icon: Warehouse },
       { label: "Vendors", href: "/admin/dashboard/vendors", icon: Building2 },
       { label: "Purchases", href: "/admin/dashboard/purchase-orders", icon: ClipboardList },
+      { label: "Purchase Returns", href: "/admin/dashboard/purchase-returns", icon: Undo2 },
       { label: "Stock Movements", href: "/admin/dashboard/inventory/movements", icon: History },
       { label: "Stock Adjustment", href: "/admin/dashboard/inventory/adjustment", icon: SlidersHorizontal },
     ],

@@ -94,7 +94,7 @@ export function useGenerateVariantsFromItem() {
     }: {
       productUuid: string;
       itemUuid: string;
-      data: { unitId: string; defaultPrice?: number; defaultStock?: number; activate?: boolean };
+      data: { unitId: string; defaultPrice?: number; activate?: boolean };
     }) => generateAdminVariantsFromItem(productUuid, itemUuid, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: variantKeys.all });

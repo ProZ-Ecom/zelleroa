@@ -1,6 +1,7 @@
 import crypto from "crypto";
 import { db } from "@/lib/db/prisma";
 import { Prisma } from "@/generated/prisma";
+import type { variation_level_enum } from "@/generated/prisma";
 import { retireUniqueValue } from "@/lib/utils/retire-unique-value";
 import type { GetAdminAttributesParams } from "../types";
 
@@ -178,7 +179,12 @@ export const attributeRepository = {
 
   async setAttributesForProduct(
     productId: bigint,
-    entries: { attributeId: bigint; isRequired: boolean; sortOrder: number }[]
+    entries: {
+      attributeId: bigint;
+      isRequired: boolean;
+      sortOrder: number;
+      variationLevel: variation_level_enum;
+    }[]
   ) {
     await db.$transaction([
       db.product_attribute_configs.deleteMany({ where: { product_id: productId } }),
@@ -190,6 +196,7 @@ export const attributeRepository = {
                 attribute_id: e.attributeId,
                 is_required: e.isRequired,
                 sort_order: e.sortOrder,
+                variation_level: e.variationLevel,
               })),
             }),
           ]
@@ -212,7 +219,7 @@ export const attributeRepository = {
   },
 
   async countProductAttributeUsage(productId: bigint, attributeId: bigint) {
-    const [itemCount, variantCount] = await Promise.all([
+    const [itemCount, variantCount, skuCount] = await Promise.all([
       db.item.count({
         where: {
           style: { productId },
@@ -228,8 +235,18 @@ export const attributeRepository = {
           variant_attribute_values: { some: { attribute_id: attributeId } },
         },
       }),
+      // Stock rows whose identity includes this attribute. Demoting it off the SKU
+      // axis leaves these rows describing a variation the product no longer declares,
+      // so the admin is warned with a real number rather than a guess.
+      db.variantUnitPrice.count({
+        where: {
+          deleted_at: null,
+          variant: { item: { style: { productId } } },
+          vup_attribute_values: { some: { attribute_id: attributeId } },
+        },
+      }),
     ]);
-    return { itemCount, variantCount };
+    return { itemCount, variantCount, skuCount };
   },
 
   async setAttributeValuesForItem(

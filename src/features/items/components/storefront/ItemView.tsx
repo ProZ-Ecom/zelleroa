@@ -34,7 +34,7 @@ import { sanitizeRichText } from "@/lib/sanitize-html";
 import type { CustomerStyleItemDto } from "@/features/customers/types/catalog.types";
 import { useItemSelection } from "../../hooks/use-item-selection";
 import { ItemColorSelector } from "./ItemColorSelector";
-import { ItemSizeSelector } from "./ItemSizeSelector";
+import { ItemVariationSelectors } from "./ItemVariationSelectors";
 import { ItemAttributeFacts } from "./ItemAttributeFacts";
 import { ItemPriceBlock } from "./ItemPriceBlock";
 
@@ -72,10 +72,12 @@ export function ItemView({ item, returnUrl, eyebrow, brandName, className }: Ite
     selectedColor,
     selectColor,
     sizes,
-    selectedSize,
-    selectSize,
+    variationAttributes,
+    selectedValues,
+    selectValue,
     hasColors,
-    hasSizes,
+    hasVariations,
+    selectedUnitPrice,
     purchasable,
     images,
     inStock,
@@ -105,8 +107,8 @@ export function ItemView({ item, returnUrl, eyebrow, brandName, className }: Ite
   }));
 
   const isInWishlist =
-    !!selectedSize &&
-    !!wishlist?.items.some((entry) => entry.variantUnitPriceId === selectedSize.id);
+    !!selectedUnitPrice &&
+    !!wishlist?.items.some((entry) => entry.variantUnitPriceId === selectedUnitPrice.id);
 
   const requireSignIn = () => {
     if (session) return false;
@@ -117,18 +119,16 @@ export function ItemView({ item, returnUrl, eyebrow, brandName, className }: Ite
   const handleAddToCart = () => {
     if (requireSignIn()) return;
 
-    // The cart line is a Colour+Size combination, so neither can be left
-    // unresolved - validate before adding rather than adding the wrong row.
-    if (missingSelection === "color") {
-      toast.error("Please select a colour");
-      return;
-    }
-    if (missingSelection === "size") {
-      toast.error("Please select a size");
+    // The cart line is one exact combination, so every axis has to be answered -
+    // validate before adding rather than adding the wrong row.
+    if (missingSelection) {
+      toast.error(`Please select a ${missingSelection.toLowerCase()}`);
       return;
     }
     if (!purchasable) {
-      toast.error(hasSizes ? "This size is out of stock" : "This item is out of stock");
+      toast.error(
+        hasVariations ? "This combination is out of stock" : "This item is out of stock"
+      );
       return;
     }
 
@@ -148,16 +148,18 @@ export function ItemView({ item, returnUrl, eyebrow, brandName, className }: Ite
 
   const handleWishlistToggle = () => {
     if (requireSignIn()) return;
-    if (!selectedSize) {
-      toast.error(hasSizes ? "Please select a size" : "Nothing to save yet");
+    if (!selectedUnitPrice) {
+      toast.error(
+        missingSelection ? `Please select a ${missingSelection.toLowerCase()}` : "Nothing to save yet"
+      );
       return;
     }
     if (addToWishlist.isPending || removeFromWishlist.isPending) return;
 
     if (isInWishlist) {
-      removeFromWishlist.mutate(selectedSize.id);
+      removeFromWishlist.mutate(selectedUnitPrice.id);
     } else {
-      addToWishlist.mutate(selectedSize.id);
+      addToWishlist.mutate(selectedUnitPrice.id);
     }
   };
 
@@ -275,9 +277,9 @@ export function ItemView({ item, returnUrl, eyebrow, brandName, className }: Ite
             )}
           </div>
 
-          {/* 7. Amount - this exact Colour+Size, with any offer applied */}
+          {/* 7. Amount - this exact combination, with any offer applied */}
           <ItemPriceBlock
-            size={selectedSize}
+            size={selectedUnitPrice}
             minPrice={item.minPrice}
             maxPrice={item.maxPrice}
             className="py-3"
@@ -292,12 +294,12 @@ export function ItemView({ item, returnUrl, eyebrow, brandName, className }: Ite
             />
           )}
 
-          {/* 5. Size - only when the selected Colour actually carries sizes */}
-          {hasSizes && (
-            <ItemSizeSelector
-              sizes={sizes}
-              selectedSizeId={selectedSize?.id ?? null}
-              onSelect={selectSize}
+          {/* 5. Variations - one row per axis the selected Colour varies on */}
+          {hasVariations && (
+            <ItemVariationSelectors
+              attributes={variationAttributes}
+              selectedValues={selectedValues}
+              onSelect={selectValue}
             />
           )}
 
@@ -396,7 +398,7 @@ export function ItemView({ item, returnUrl, eyebrow, brandName, className }: Ite
           <ItemAttributeFacts
             item={item}
             selectedColor={selectedColor}
-            selectedSize={selectedSize}
+            selectedSize={selectedUnitPrice}
           />
         </div>
       </div>
@@ -452,7 +454,7 @@ export function ItemView({ item, returnUrl, eyebrow, brandName, className }: Ite
           variantId={selectedColor?.id}
           variantName={selectedColor?.colorName ?? selectedColor?.variantName}
           productName={item.name}
-          selectedUnitPriceId={selectedSize?.id ?? null}
+          selectedUnitPriceId={selectedUnitPrice?.id ?? null}
           packSizes={sizes}
         />
       </section>

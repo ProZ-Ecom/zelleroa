@@ -63,6 +63,17 @@ export interface CustomerVariantUnitPriceDto {
   sizeLabel: string | null;
   /** What the size/pack chip shows: `sizeLabel`, else the measurement label. */
   label: string;
+  /**
+   * Every variation value this row sells (Size=M, Neck=V, Sleeve=Half), so a
+   * selection across several attributes resolves to exactly one row. Empty for a
+   * pack-size row, which is distinguished by its measurement instead.
+   */
+  attributes: {
+    attributeId: string;
+    attributeName: string;
+    valueId: string;
+    value: string;
+  }[];
   basePrice: number;
   sellingPrice: number;
   isDefault: boolean;

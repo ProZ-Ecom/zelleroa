@@ -17,22 +17,8 @@ import type {
 } from "../validations/purchase.schema";
 import { recordStockMovement } from "@/features/inventory/services/stock-ledger.service";
 import { getAdminInternalId } from "./vendor.service";
-
-const productSelect = {
-  attribute_value: { select: { value: true } },
-  variant: {
-    select: {
-      variant_name: true,
-      color_name: true,
-      item: {
-        select: {
-          name: true,
-          style: { select: { product: { select: { name: true } } } },
-        },
-      },
-    },
-  },
-} as const;
+import { createRejectionReturn, type DamagedLine } from "./purchase-return.service";
+import { productName, productSelect } from "./purchase-item.select";
 
 const itemInclude = {
   variant_unit_price: {
@@ -66,14 +52,6 @@ const detailInclude = {
     },
   },
 } satisfies Prisma.purchase_ordersInclude;
-
-function productName(row: {
-  variant: {
-    item: { name: string; style: { product: { name: string } | null } | null } | null;
-  } | null;
-}) {
-  return row.variant?.item?.style?.product?.name ?? row.variant?.item?.name ?? "Unknown product";
-}
 
 function formatItem(i: ItemRow): PurchaseItemResponse {
   return {
@@ -195,14 +173,98 @@ async function resolveVendor(vendorUuid: string) {
 
 type Tx = Prisma.TransactionClient;
 
-/** Writes a goods receipt and raises stock (PURCHASE movement) for each line. */
+export interface ReceiptLine {
+  item: { id: bigint; variant_unit_price_id: bigint; unit_cost: Prisma.Decimal };
+  /** Units accepted into stock. */
+  quantity: number;
+  /** Units refused at the door; billed by the vendor but never stocked. */
+  damagedQuantity?: number;
+  /** New customer-facing price to apply with this delivery, or null to leave it. */
+  sellingPrice?: number | null;
+  remarks?: string | null;
+}
+
+/**
+ * Rolls the cost of this delivery into the SKU's running figures: `cost_price`
+ * is simply the latest paid, `avg_cost` is weighted by the stock already held,
+ * which is what stock valuation reads.
+ *
+ * A zero cost means "not known" (opening stock is received that way), so it is
+ * left out of the average rather than dragging it towards zero.
+ */
+async function applyCost(
+  tx: Tx,
+  variantUnitPriceId: bigint,
+  unitCost: number,
+  quantity: number,
+  stockBefore: number
+) {
+  if (unitCost <= 0 || quantity <= 0) return;
+
+  const current = await tx.variantUnitPrice.findUnique({
+    where: { id: variantUnitPriceId },
+    select: { avg_cost: true },
+  });
+  const previousAvg = current?.avg_cost === null || current?.avg_cost === undefined ? null : Number(current.avg_cost);
+
+  // Stock can be zero (or the average unknown) on the first purchase, and then
+  // the delivery itself is the whole basis for the average.
+  const heldValue = previousAvg !== null && stockBefore > 0 ? previousAvg * stockBefore : 0;
+  const heldQty = previousAvg !== null && stockBefore > 0 ? stockBefore : 0;
+  const avg = (heldValue + unitCost * quantity) / (heldQty + quantity);
+
+  await tx.variantUnitPrice.update({
+    where: { id: variantUnitPriceId },
+    data: { cost_price: unitCost, avg_cost: Math.round(avg * 100) / 100 },
+  });
+}
+
+/** Moves the selling price and records why, so the change is never silent. */
+async function applySellingPrice(
+  tx: Tx,
+  variantUnitPriceId: bigint,
+  sellingPrice: number,
+  adminId: bigint | null
+) {
+  const current = await tx.variantUnitPrice.findUnique({
+    where: { id: variantUnitPriceId },
+    select: { base_price: true },
+  });
+  if (!current) return;
+  const oldPrice = Number(current.base_price);
+  if (oldPrice === sellingPrice) return;
+
+  await tx.variantUnitPrice.update({
+    where: { id: variantUnitPriceId },
+    data: { base_price: sellingPrice, updated_by: adminId },
+  });
+  await tx.variant_price_history.create({
+    data: {
+      uuid: crypto.randomUUID(),
+      variant_unit_price_id: variantUnitPriceId,
+      old_base_price: oldPrice,
+      new_base_price: sellingPrice,
+      created_by: adminId,
+      updated_by: adminId,
+    },
+  });
+}
+
+/**
+ * Writes a goods receipt for one delivery: raises stock for the units accepted
+ * (PURCHASE movement), records any that were refused, and rolls the delivery's
+ * cost and new selling price into the SKU.
+ *
+ * Returns the refused lines so the caller can raise the debit note; this
+ * function deliberately does not, because only the caller knows the vendor.
+ */
 export async function postReceipt(
   tx: Tx,
   po: { id: bigint; po_number: string; invoice_number: string | null },
-  lines: { item: { id: bigint; variant_unit_price_id: bigint; unit_cost: Prisma.Decimal }; quantity: number }[],
+  lines: ReceiptLine[],
   notes: string | null | undefined,
   adminId: bigint | null
-) {
+): Promise<{ receiptId: bigint; damaged: DamagedLine[] }> {
   const receipt = await tx.purchase_receipts.create({
     data: {
       purchase_order_id: po.id,
@@ -216,32 +278,62 @@ export async function postReceipt(
     data: { receipt_number: `GRN-${String(receipt.id).padStart(6, "0")}` },
   });
 
-  for (const { item, quantity } of lines) {
-    await tx.purchase_receipt_items.create({
+  const damaged: DamagedLine[] = [];
+
+  for (const line of lines) {
+    const { item, quantity } = line;
+    const damagedQuantity = line.damagedQuantity ?? 0;
+
+    const receiptItem = await tx.purchase_receipt_items.create({
       data: {
         receipt_id: receipt.id,
         purchase_order_item_id: item.id,
         variant_unit_price_id: item.variant_unit_price_id,
         quantity_received: quantity,
+        quantity_rejected: damagedQuantity,
+        rejection_reason: damagedQuantity > 0 ? (line.remarks?.slice(0, 255) ?? "Damaged on arrival") : null,
         unit_cost: item.unit_cost,
       },
+      select: { id: true },
     });
     await tx.purchase_order_items.update({
       where: { id: item.id },
       data: { quantity_received: { increment: quantity } },
     });
-    await recordStockMovement(tx, {
-      variantUnitPriceId: item.variant_unit_price_id,
-      movementType: "PURCHASE",
-      direction: "in",
-      quantity,
-      referenceType: "purchase_receipt",
-      referenceId: receipt.id,
-      referenceNumber: po.po_number,
-      reason: `Purchase ${po.po_number}${po.invoice_number ? ` (Invoice ${po.invoice_number})` : ""}`,
-      actorId: adminId,
-    });
+
+    // Everything in this delivery can be damaged, and then nothing enters stock.
+    if (quantity > 0) {
+      const movement = await recordStockMovement(tx, {
+        variantUnitPriceId: item.variant_unit_price_id,
+        movementType: "PURCHASE",
+        direction: "in",
+        quantity,
+        referenceType: "purchase_receipt",
+        referenceId: receipt.id,
+        referenceNumber: po.po_number,
+        reason: `Purchase ${po.po_number}${po.invoice_number ? ` (Invoice ${po.invoice_number})` : ""}`,
+        actorId: adminId,
+      });
+      await applyCost(tx, item.variant_unit_price_id, Number(item.unit_cost), quantity, movement.previousStock);
+    }
+
+    if (line.sellingPrice !== null && line.sellingPrice !== undefined) {
+      await applySellingPrice(tx, item.variant_unit_price_id, line.sellingPrice, adminId);
+    }
+
+    if (damagedQuantity > 0) {
+      damaged.push({
+        purchaseOrderItemId: item.id,
+        purchaseReceiptItemId: receiptItem.id,
+        variantUnitPriceId: item.variant_unit_price_id,
+        quantity: damagedQuantity,
+        unitCost: item.unit_cost,
+        notes: line.remarks ?? null,
+      });
+    }
   }
+
+  return { receiptId: receipt.id, damaged };
 }
 
 const TRANSITIONS: Record<
@@ -462,6 +554,19 @@ export const purchaseService = {
     const uuid = crypto.randomUUID();
     const now = new Date();
 
+    // What the stock sheet adds per line, looked up again once the order items
+    // have ids. Damaged units are billed but never stocked.
+    const extras = new Map(
+      input.items.map((i) => [
+        i.variantUnitPriceId,
+        {
+          damagedQuantity: Math.min(i.damagedQuantity, i.quantity),
+          sellingPrice: i.sellingPrice,
+          remarks: i.remarks,
+        },
+      ])
+    );
+
     try {
       await db.$transaction(async (tx) => {
         const po = await tx.purchase_orders.create({
@@ -485,18 +590,40 @@ export const purchaseService = {
         });
         const poNumber = `PO-${String(po.id).padStart(6, "0")}`;
         await tx.purchase_orders.update({ where: { id: po.id }, data: { po_number: poNumber } });
-        await postReceipt(
+        const { damaged } = await postReceipt(
           tx,
           { id: po.id, po_number: poNumber, invoice_number: po.invoice_number },
-          po.items.map((item) => ({ item, quantity: item.quantity_ordered })),
+          po.items.map((item) => {
+            const extra = extras.get(Number(item.variant_unit_price_id));
+            const damagedQuantity = extra?.damagedQuantity ?? 0;
+            return {
+              item,
+              quantity: item.quantity_ordered - damagedQuantity,
+              damagedQuantity,
+              sellingPrice: extra?.sellingPrice ?? null,
+              remarks: extra?.remarks ?? null,
+            };
+          }),
           input.notes,
           adminId
+        );
+
+        const returned = await createRejectionReturn(
+          tx,
+          { id: po.id, vendor_id: vendor.id, po_number: poNumber, invoice_number: po.invoice_number },
+          damaged,
+          adminId
+        );
+
+        const stocked = po.items.reduce(
+          (n, i) => n + i.quantity_ordered - (extras.get(Number(i.variant_unit_price_id))?.damagedQuantity ?? 0),
+          0
         );
         await tx.purchase_order_history.create({
           data: {
             purchase_order_id: po.id,
             to_status: "RECEIVED",
-            note: `Purchase confirmed; ${po.items.reduce((n, i) => n + i.quantity_ordered, 0)} unit(s) added to stock`,
+            note: `Purchase confirmed; ${stocked} unit(s) added to stock${returned ? `, damaged units drafted as ${returned.returnNumber}` : ""}`,
             changed_by: adminId,
           },
         });

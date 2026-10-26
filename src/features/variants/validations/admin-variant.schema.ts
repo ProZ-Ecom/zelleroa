@@ -113,12 +113,6 @@ export const generateVariantsSchema = z
     unitId: z.string().trim().uuid("Invalid unit UUID format"),
     /** Applied to every generated combination unless overridden per-row afterwards. */
     defaultPrice: z.coerce.number().min(0, "Price cannot be negative").optional(),
-    defaultStock: z.coerce
-      .number()
-      .int("Stock must be an integer")
-      .min(0, "Stock cannot be negative")
-      .optional()
-      .default(0),
     activate: z.boolean().optional().default(true),
   })
   .strict()
@@ -155,17 +149,13 @@ export const previewGenerateVariantsSchema = z
 export type PreviewGenerateVariantsInput = z.infer<typeof previewGenerateVariantsSchema>;
 
 /** Item-driven generation: attribute values come from item_attribute_values,
- * so only the pricing/unit defaults need to be supplied here. */
+ * so only the pricing/unit defaults need to be supplied here. Generated rows always
+ * start with no stock - it arrives through a purchase or an inventory adjustment, so
+ * that every stock level is backed by a ledger movement. */
 export const generateVariantsFromItemSchema = z
   .object({
     unitId: z.string().trim().uuid("Invalid unit UUID format"),
     defaultPrice: z.coerce.number().min(0, "Price cannot be negative").optional(),
-    defaultStock: z.coerce
-      .number()
-      .int("Stock must be an integer")
-      .min(0, "Stock cannot be negative")
-      .optional()
-      .default(0),
     activate: z.boolean().optional().default(true),
   })
   .strict();

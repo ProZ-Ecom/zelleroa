@@ -5,7 +5,12 @@ import { userRepository } from "@/features/users/repositories/user.repository";
 import { productRepository } from "@/features/products/repositories/product.repository";
 import { itemRepository } from "@/features/items/repositories/item.repository";
 import { db } from "@/lib/db/prisma";
-import type { AttributeListItem, GetAdminAttributesParams } from "../types";
+import type {
+  AttributeListItem,
+  GetAdminAttributesParams,
+  ProductAttributeUsage,
+  VariationLevel,
+} from "../types";
 import type {
   CreateAdminAttributeInput,
   UpdateAdminAttributeInput,
@@ -286,6 +291,8 @@ export const attributeService = {
       type: (config.product_attributes.type as "text" | "color") ?? "text",
       isRequired: config.is_required,
       multipleSelection: Boolean(config.product_attributes.multiple_selection),
+      variationLevel: config.variation_level as VariationLevel,
+      sortOrder: config.sort_order,
       values: config.product_attributes.values.map((v) => ({
         id: v.uuid || String(v.id),
         value: v.value,
@@ -326,19 +333,21 @@ export const attributeService = {
         configured: Boolean(config),
         isRequired: config?.is_required ?? false,
         sortOrder: config?.sort_order ?? 0,
+        variationLevel: (config?.variation_level ?? "SKU") as VariationLevel,
       };
     });
   },
 
   /**
-   * Full-replace the set of attributes configured on a Product. Unchecking an
-   * attribute that's already in use by Items/Variants under this Product
-   * requires `force: true` - otherwise this throws with the usage counts so
-   * the admin UI can show a confirmation instead of silently dropping data.
+   * Full-replace the set of attributes configured on a Product, each with the level
+   * it varies at. Two changes can strand existing data and so need `force: true`:
+   * unchecking an attribute Items/Variants already use, and moving one off the SKU
+   * axis while stock rows still identify themselves by it. Either way this throws
+   * with the counts, so the admin UI can confirm instead of silently dropping data.
    */
   async setAttributesForProduct(
     productUuid: string,
-    attributeIds: string[],
+    entries: { attributeId: string; variationLevel: VariationLevel }[],
     force: boolean,
     _adminEmail?: string
   ) {
@@ -348,40 +357,63 @@ export const attributeService = {
     }
 
     const resolved = await Promise.all(
-      attributeIds.map(async (id) => {
-        const attribute = await attributeRepository.findByUuid(id);
+      entries.map(async (entry) => {
+        const attribute = await attributeRepository.findByUuid(entry.attributeId);
         if (!attribute) {
-          throw ApiError.badRequest(`Attribute not found: ${id}`);
+          throw ApiError.badRequest(`Attribute not found: ${entry.attributeId}`);
         }
-        return attribute;
+        return { attribute, variationLevel: entry.variationLevel };
       })
     );
-    const nextAttributeIdSet = new Set(resolved.map((a) => a.id.toString()));
 
-    const existingConfigs = await attributeRepository.findAttributeConfigsForProduct(product.id);
-    const removedConfigs = existingConfigs.filter(
-      (c) => !nextAttributeIdSet.has(c.attribute_id.toString())
+    const duplicates = resolved.length - new Set(resolved.map((r) => r.attribute.id.toString())).size;
+    if (duplicates > 0) {
+      throw ApiError.badRequest("Each attribute can only be configured once per product");
+    }
+
+    const nextLevelByAttributeId = new Map(
+      resolved.map((r) => [r.attribute.id.toString(), r.variationLevel])
     );
 
-    if (removedConfigs.length && !force) {
-      const usage = await Promise.all(
-        removedConfigs.map(async (c) => {
+    const existingConfigs = await attributeRepository.findAttributeConfigsForProduct(product.id);
+
+    // Both of these leave data behind that no longer matches the configuration.
+    const atRisk = existingConfigs
+      .map((config) => {
+        const nextLevel = nextLevelByAttributeId.get(config.attribute_id.toString());
+        if (nextLevel === undefined) return { config, change: "removed" as const };
+        if (config.variation_level === "SKU" && nextLevel !== "SKU") {
+          return { config, change: "demoted" as const };
+        }
+        return null;
+      })
+      .filter((entry): entry is { config: (typeof existingConfigs)[number]; change: "removed" | "demoted" } =>
+        entry !== null
+      );
+
+    if (atRisk.length && !force) {
+      const usage: ProductAttributeUsage[] = await Promise.all(
+        atRisk.map(async ({ config, change }) => {
           const counts = await attributeRepository.countProductAttributeUsage(
             product.id,
-            c.attribute_id
+            config.attribute_id
           );
           return {
-            attributeId: c.product_attributes.uuid || String(c.attribute_id),
-            attributeName: c.product_attributes.name,
+            attributeId: config.product_attributes.uuid || String(config.attribute_id),
+            attributeName: config.product_attributes.name,
             itemCount: counts.itemCount,
             variantCount: counts.variantCount,
+            skuCount: counts.skuCount,
+            change,
           };
         })
       );
-      const inUse = usage.filter((u) => u.itemCount > 0 || u.variantCount > 0);
+      const inUse = usage.filter(
+        (u) => u.itemCount > 0 || u.variantCount > 0 || u.skuCount > 0
+      );
       if (inUse.length) {
         throw ApiError.conflict(
-          "Some attributes being removed are already used by items or variants",
+          "Some attributes being changed are already used by items, variants or stock rows",
           { usage: inUse }
         );
       }
@@ -389,10 +421,11 @@ export const attributeService = {
 
     await attributeRepository.setAttributesForProduct(
       product.id,
-      resolved.map((a, idx) => ({
-        attributeId: a.id,
+      resolved.map((r, idx) => ({
+        attributeId: r.attribute.id,
         isRequired: false,
         sortOrder: idx,
+        variationLevel: r.variationLevel,
       }))
     );
 

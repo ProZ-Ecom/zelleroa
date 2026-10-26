@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useSession } from "next-auth/react";
-import { ArrowLeft, Check, X, Send, Truck, PackageCheck, Pencil, Ban } from "lucide-react";
+import { ArrowLeft, Check, X, Send, Truck, PackageCheck, Pencil, Ban, Undo2 } from "lucide-react";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminTableSkeleton } from "@/components/admin/AdminTableSkeleton";
 import { ErrorState } from "@/components/ui/error-state";
@@ -193,6 +193,13 @@ export default function PurchaseOrderDetailPage() {
               <Button className={primaryBtn} onClick={() => setReceiveOpen(true)}>
                 <PackageCheck className="mr-2 h-4 w-4" /> Receive goods
               </Button>
+            )}
+            {(s === "PARTIALLY_RECEIVED" || s === "RECEIVED") && (
+              <Link href={`/admin/dashboard/purchase-orders/${uuid}/return`}>
+                <Button variant="outline" className="h-10 rounded-xl">
+                  <Undo2 className="mr-2 h-4 w-4" /> Return goods
+                </Button>
+              </Link>
             )}
             {["DRAFT", "PENDING_APPROVAL", "APPROVED", "REJECTED", "ORDERED"].includes(s) && (
               <Button variant="outline" className="h-10 rounded-xl" onClick={() => setCancelOpen(true)}>

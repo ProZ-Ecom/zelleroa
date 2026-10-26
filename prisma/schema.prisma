@@ -96,7 +96,7 @@ model User {
   blocked_at                                                          DateTime?                  @default(now()) @db.Timestamp(0)
   /// Mandatory admin-entered reason, set when a customer / sales partner is blocked; cleared on unblock.
   block_reason                                                        String?                    @db.VarChar(500)
-  referral_code                                                      String?                    @unique(map: "users_referral_code") @db.VarChar(30)
+  referral_code                                                       String?                    @unique(map: "users_referral_code") @db.VarChar(30)
   referred_at                                                         DateTime?                  @db.Timestamp(0)
   /// The agent currently responsible for this customer. Only an admin can change it once set.
   current_agent_id                                                    BigInt?                    @db.UnsignedBigInt
@@ -657,9 +657,21 @@ model VariantUnitPrice {
   variant_id                                  BigInt                      @map("variant_id") @db.UnsignedBigInt
   unit_id                                     BigInt                      @map("unit_id") @db.UnsignedBigInt
   unit_value                                  Decimal                     @default(0.00) @db.Decimal(10, 2)
+  /// Primary variation value: the SKU-axis value whose attribute sorts first on the
+  /// product. Kept for labels, size charts and the many existing reads - the full set
+  /// of this row's variation values lives in `vup_attribute_values`.
   attribute_value_id                          BigInt?                     @db.UnsignedBigInt
+  /// Canonical identity of this row's variation: its SKU-axis attribute_value ids
+  /// sorted ascending and joined with "-" (e.g. "45-78-112"), "" when it has none.
+  /// Empty string rather than null because MySQL treats nulls as distinct in a unique
+  /// index, which would let duplicate no-attribute rows through.
+  attribute_signature                         String                      @default("") @db.VarChar(255)
   sku                                         String                      @unique(map: "sku") @db.VarChar(100)
   base_price                                  Decimal                     @default(0.00) @db.Decimal(10, 2)
+  /// Unit cost of the most recent goods receipt; null until the SKU is first purchased.
+  cost_price                                  Decimal?                    @db.Decimal(10, 2)
+  /// Quantity-weighted average cost across receipts, used for stock valuation.
+  avg_cost                                    Decimal?                    @db.Decimal(10, 2)
   is_default                                  Boolean                     @default(false)
   isActive                                    Boolean                     @default(true) @map("is_active")
   createdAt                                   DateTime                    @default(now()) @map("created_at") @db.Timestamp(0)
@@ -670,6 +682,7 @@ model VariantUnitPrice {
   variant                                     ProductVariant              @relation(fields: [variant_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_vup_variant")
   product_units                               product_units               @relation(fields: [unit_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_vup_unit")
   attribute_value                             AttributeValue?             @relation(fields: [attribute_value_id], references: [id], onDelete: SetNull, onUpdate: NoAction, map: "fk_vup_size_value")
+  vup_attribute_values                        variant_unit_price_attribute_values[]
   inventories                                 Inventory?
   inventory_transactions                      InventoryTransaction[]
   variant_price_history                       variant_price_history[]
@@ -687,8 +700,12 @@ model VariantUnitPrice {
   inventory_reservations                      inventory_reservations[]
   purchase_order_items                        purchase_order_items[]
   purchase_receipt_items                      purchase_receipt_items[]
+  purchase_return_items                       purchase_return_items[]
 
-  @@unique([variant_id, attribute_value_id], map: "uniq_vup_variant_size")
+  /// The sellable identity of a stock row. `unit_value` is in the key because the
+  /// pack-size flow sells 250g/500g/1kg under one variant and one unit, distinguished
+  /// only by this column; without it those rows would all collide on an empty signature.
+  @@unique([variant_id, unit_id, unit_value, attribute_signature], map: "uniq_vup_variant_signature")
   @@index([variant_id], map: "fk_vup_variant")
   @@index([unit_id], map: "fk_vup_unit")
   @@index([attribute_value_id], map: "fk_vup_size_value")
@@ -737,6 +754,7 @@ model ProductAttribute {
   variant_attribute_values                   variant_attribute_values[]
   product_attribute_configs                  product_attribute_configs[]
   item_attribute_values                      item_attribute_values[]
+  vup_attribute_values                       variant_unit_price_attribute_values[]
   users_product_attributes_created_byTousers User?                       @relation("product_attributes_created_byTousers", fields: [created_by], references: [id], onUpdate: NoAction, map: "fk_product_attributes_created_by")
   users_product_attributes_updated_byTousers User?                       @relation("product_attributes_updated_byTousers", fields: [updated_by], references: [id], onUpdate: NoAction, map: "fk_product_attributes_updated_by")
 
@@ -748,6 +766,19 @@ model ProductAttribute {
 enum attribute_type_enum {
   text
   color
+}
+
+/// How far down the catalog an attribute splits stock, decided per product in
+/// product_attribute_configs. Without INFO every configured attribute would multiply
+/// into the SKU set - Colour(7) x Size(6) x Neck(2) x Sleeve(3) x Fit(3) is 756 SKUs
+/// when Fit and Fabric are really one value for the whole item.
+enum variation_level_enum {
+  /// Becomes a ProductVariant, which carries its own images. Normally Colour.
+  VARIANT
+  /// Part of the VariantUnitPrice identity, so it splits stock: Size, Neck, Storage.
+  SKU
+  /// Descriptive only, never splits stock: Fabric, Fit, Care.
+  INFO
 }
 
 model AttributeValue {
@@ -769,6 +800,7 @@ model AttributeValue {
   product_attribute_values                 product_attribute_values[]
   variant_attribute_values                 variant_attribute_values[]
   variant_unit_prices                      VariantUnitPrice[]
+  vup_attribute_values                     variant_unit_price_attribute_values[]
   size_charts                              size_charts[]
   item_attribute_values                    item_attribute_values[]
   dependent_on                             attribute_value_dependencies[] @relation("attr_value_dependencies_child")
@@ -809,6 +841,8 @@ model product_attribute_configs {
   attribute_id       BigInt           @db.UnsignedBigInt
   is_required        Boolean          @default(false)
   sort_order         Int              @default(0)
+  /// Whether this attribute splits stock, and at which level - see variation_level_enum.
+  variation_level    variation_level_enum @default(SKU)
   created_at         DateTime         @default(now()) @db.Timestamp(0)
   updated_at         DateTime         @default(now()) @db.Timestamp(0)
   products           Product          @relation(fields: [product_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_pac_product")
@@ -858,6 +892,26 @@ model variant_attribute_values {
   @@unique([variant_id, attribute_id], map: "uniq_variant_attribute")
   @@index([attribute_id], map: "fk_vav_attribute")
   @@index([attribute_value_id], map: "fk_vav_value")
+}
+
+/// Pins a VariantUnitPrice to every SKU-axis attribute value it represents (e.g.
+/// Size=M, Neck=V, Sleeve=Half), so a shopper's full selection resolves to exactly one
+/// stock row. The variant-level counterpart is variant_attribute_values; this is the
+/// same idea one level down, and it replaces VariantUnitPrice.attribute_value_id as the
+/// source of truth (that column now only holds the primary value, for labels).
+model variant_unit_price_attribute_values {
+  id                    BigInt           @id @default(autoincrement()) @db.UnsignedBigInt
+  variant_unit_price_id BigInt           @db.UnsignedBigInt
+  attribute_id          BigInt           @db.UnsignedBigInt
+  attribute_value_id    BigInt           @db.UnsignedBigInt
+  created_at            DateTime         @default(now()) @db.Timestamp(0)
+  variant_unit_price    VariantUnitPrice @relation(fields: [variant_unit_price_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_vupav_vup")
+  product_attributes    ProductAttribute @relation(fields: [attribute_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_vupav_attribute")
+  attribute_values      AttributeValue   @relation(fields: [attribute_value_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_vupav_value")
+
+  @@unique([variant_unit_price_id, attribute_id], map: "uniq_vupav_vup_attribute")
+  @@index([attribute_id], map: "fk_vupav_attribute")
+  @@index([attribute_value_id], map: "fk_vupav_value")
 }
 
 /// Restricts a "child" attribute value (e.g. Size=S) to only be a valid pick when a
@@ -2375,18 +2429,18 @@ model product_tag_maps {
 }
 
 model product_tags {
-  id                                   BigInt             @id @default(autoincrement()) @db.UnsignedBigInt
-  name                                 String             @db.VarChar(100)
-  slug                                 String             @unique(map: "slug") @db.VarChar(120)
-  created_at                           DateTime           @default(now()) @db.Timestamp(0)
-  updated_at                           DateTime           @default(now()) @db.Timestamp(0)
-  is_active                            Boolean            @default(true)
-  created_by                           BigInt?            @db.UnsignedBigInt
-  updated_by                           BigInt?            @db.UnsignedBigInt
+  id                                   BigInt              @id @default(autoincrement()) @db.UnsignedBigInt
+  name                                 String              @db.VarChar(100)
+  slug                                 String              @unique(map: "slug") @db.VarChar(120)
+  created_at                           DateTime            @default(now()) @db.Timestamp(0)
+  updated_at                           DateTime            @default(now()) @db.Timestamp(0)
+  is_active                            Boolean             @default(true)
+  created_by                           BigInt?             @db.UnsignedBigInt
+  updated_by                           BigInt?             @db.UnsignedBigInt
   product_tag_maps                     product_tag_maps[]
   header_menu_item_tags                HeaderMenuItemTag[]
-  users_product_tags_created_byTousers User?              @relation("product_tags_created_byTousers", fields: [created_by], references: [id], onUpdate: NoAction, map: "fk_product_tags_created_by")
-  users_product_tags_updated_byTousers User?              @relation("product_tags_updated_byTousers", fields: [updated_by], references: [id], onUpdate: NoAction, map: "fk_product_tags_updated_by")
+  users_product_tags_created_byTousers User?               @relation("product_tags_created_byTousers", fields: [created_by], references: [id], onUpdate: NoAction, map: "fk_product_tags_created_by")
+  users_product_tags_updated_byTousers User?               @relation("product_tags_updated_byTousers", fields: [updated_by], references: [id], onUpdate: NoAction, map: "fk_product_tags_updated_by")
 
   @@index([created_by], map: "fk_product_tags_created_by")
   @@index([updated_by], map: "fk_product_tags_updated_by")
@@ -2981,6 +3035,10 @@ enum stock_movement_type {
   RETURN
   REPLACEMENT
   ADJUSTMENT
+  /// Goods sent back to the vendor against a purchase return.
+  PURCHASE_RETURN
+  /// Written off in-house (breakage, expiry) with no vendor claim.
+  DAMAGE
 }
 
 enum inventory_transactions_type {
@@ -3497,20 +3555,20 @@ model commission_payouts {
 
 /// Append-only log of every change to a customer's current agent. Rows are never updated or deleted.
 model customer_agent_history {
-  id            BigInt                @id @default(autoincrement()) @db.UnsignedBigInt
-  uuid          String                @unique(map: "uq_cag_history_uuid") @db.VarChar(64)
-  customer_id   BigInt                @db.UnsignedBigInt
-  from_agent_id BigInt?               @db.UnsignedBigInt
-  to_agent_id   BigInt                @db.UnsignedBigInt
-  action        customer_agent_action
+  id             BigInt                @id @default(autoincrement()) @db.UnsignedBigInt
+  uuid           String                @unique(map: "uq_cag_history_uuid") @db.VarChar(64)
+  customer_id    BigInt                @db.UnsignedBigInt
+  from_agent_id  BigInt?               @db.UnsignedBigInt
+  to_agent_id    BigInt                @db.UnsignedBigInt
+  action         customer_agent_action
   /// Admin who transferred; NULL for an automatic referral assignment.
-  transferred_by BigInt?              @db.UnsignedBigInt
-  reason        String?               @db.VarChar(255)
-  created_at    DateTime              @default(now()) @db.Timestamp(0)
-  customer      User                  @relation("CagCustomer", fields: [customer_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_cag_customer")
-  from_agent    User?                 @relation("CagFromAgent", fields: [from_agent_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_cag_from_agent")
-  to_agent      User                  @relation("CagToAgent", fields: [to_agent_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_cag_to_agent")
-  actor         User?                 @relation("CagActor", fields: [transferred_by], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_cag_actor")
+  transferred_by BigInt?               @db.UnsignedBigInt
+  reason         String?               @db.VarChar(255)
+  created_at     DateTime              @default(now()) @db.Timestamp(0)
+  customer       User                  @relation("CagCustomer", fields: [customer_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_cag_customer")
+  from_agent     User?                 @relation("CagFromAgent", fields: [from_agent_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_cag_from_agent")
+  to_agent       User                  @relation("CagToAgent", fields: [to_agent_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_cag_to_agent")
+  actor          User?                 @relation("CagActor", fields: [transferred_by], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_cag_actor")
 
   @@index([customer_id, created_at], map: "idx_cag_customer")
   @@index([from_agent_id], map: "idx_cag_from")
@@ -3540,23 +3598,24 @@ model commission_audit_logs {
 }
 
 model vendors {
-  id              BigInt            @id @default(autoincrement()) @db.UnsignedBigInt
-  uuid            String            @unique(map: "uq_vendors_uuid") @db.VarChar(64)
-  code            String            @unique(map: "uq_vendors_code") @db.VarChar(30)
-  name            String            @db.VarChar(150)
-  contact_person  String?           @db.VarChar(120)
-  phone           String?           @db.VarChar(20)
-  email           String?           @db.VarChar(254)
-  gstin           String?           @db.VarChar(20)
-  address         String?           @db.VarChar(500)
-  notes           String?           @db.VarChar(500)
-  is_active       Boolean           @default(true)
-  created_at      DateTime          @default(now()) @db.Timestamp(0)
-  updated_at      DateTime          @default(now()) @updatedAt @db.Timestamp(0)
-  deleted_at      DateTime?         @db.Timestamp(0)
-  created_by      BigInt?           @db.UnsignedBigInt
-  updated_by      BigInt?           @db.UnsignedBigInt
-  purchase_orders purchase_orders[]
+  id               BigInt             @id @default(autoincrement()) @db.UnsignedBigInt
+  uuid             String             @unique(map: "uq_vendors_uuid") @db.VarChar(64)
+  code             String             @unique(map: "uq_vendors_code") @db.VarChar(30)
+  name             String             @db.VarChar(150)
+  contact_person   String?            @db.VarChar(120)
+  phone            String?            @db.VarChar(20)
+  email            String?            @db.VarChar(254)
+  gstin            String?            @db.VarChar(20)
+  address          String?            @db.VarChar(500)
+  notes            String?            @db.VarChar(500)
+  is_active        Boolean            @default(true)
+  created_at       DateTime           @default(now()) @db.Timestamp(0)
+  updated_at       DateTime           @default(now()) @updatedAt @db.Timestamp(0)
+  deleted_at       DateTime?          @db.Timestamp(0)
+  created_by       BigInt?            @db.UnsignedBigInt
+  updated_by       BigInt?            @db.UnsignedBigInt
+  purchase_orders  purchase_orders[]
+  purchase_returns purchase_returns[]
 
   @@index([name], map: "idx_vendors_name")
 }
@@ -3592,6 +3651,7 @@ model purchase_orders {
   vendor             vendors                  @relation(fields: [vendor_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_po_vendor")
   items              purchase_order_items[]
   receipts           purchase_receipts[]
+  returns            purchase_returns[]
   history            purchase_order_history[]
 
   @@index([vendor_id], map: "idx_po_vendor")
@@ -3605,11 +3665,14 @@ model purchase_order_items {
   variant_unit_price_id BigInt                   @db.UnsignedBigInt
   quantity_ordered      Int
   quantity_received     Int                      @default(0)
+  /// Units of this line sent back to the vendor; never exceeds quantity_received.
+  quantity_returned     Int                      @default(0)
   unit_cost             Decimal                  @default(0.00) @db.Decimal(10, 2)
   created_at            DateTime                 @default(now()) @db.Timestamp(0)
   purchase_order        purchase_orders          @relation(fields: [purchase_order_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_poi_po")
   variant_unit_price    VariantUnitPrice         @relation(fields: [variant_unit_price_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_poi_vup")
   receipt_items         purchase_receipt_items[]
+  return_items          purchase_return_items[]
 
   @@index([purchase_order_id], map: "idx_poi_po")
   @@index([variant_unit_price_id], map: "idx_poi_vup")
@@ -3630,19 +3693,100 @@ model purchase_receipts {
 }
 
 model purchase_receipt_items {
-  id                     BigInt               @id @default(autoincrement()) @db.UnsignedBigInt
-  receipt_id             BigInt               @db.UnsignedBigInt
-  purchase_order_item_id BigInt               @db.UnsignedBigInt
-  variant_unit_price_id  BigInt               @db.UnsignedBigInt
+  id                     BigInt                  @id @default(autoincrement()) @db.UnsignedBigInt
+  receipt_id             BigInt                  @db.UnsignedBigInt
+  purchase_order_item_id BigInt                  @db.UnsignedBigInt
+  variant_unit_price_id  BigInt                  @db.UnsignedBigInt
   quantity_received      Int
-  unit_cost              Decimal              @default(0.00) @db.Decimal(10, 2)
-  receipt                purchase_receipts    @relation(fields: [receipt_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_ri_receipt")
-  order_item             purchase_order_items @relation(fields: [purchase_order_item_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_ri_poi")
-  variant_unit_price     VariantUnitPrice     @relation(fields: [variant_unit_price_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_ri_vup")
+  /// Units refused at the door (damaged, wrong item); these never enter stock.
+  quantity_rejected      Int                     @default(0)
+  rejection_reason       String?                 @db.VarChar(255)
+  unit_cost              Decimal                 @default(0.00) @db.Decimal(10, 2)
+  receipt                purchase_receipts       @relation(fields: [receipt_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_ri_receipt")
+  order_item             purchase_order_items    @relation(fields: [purchase_order_item_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_ri_poi")
+  variant_unit_price     VariantUnitPrice        @relation(fields: [variant_unit_price_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_ri_vup")
+  return_items           purchase_return_items[]
 
   @@index([receipt_id], map: "idx_ri_receipt")
   @@index([purchase_order_item_id], map: "idx_ri_poi")
   @@index([variant_unit_price_id], map: "idx_ri_vup")
+}
+
+/// Goods sent back to the vendor against a purchase: damaged on arrival, the
+/// wrong item, short supply, or a quality rejection found after the receipt.
+/// Stock leaves on completion and the total becomes a debit note on the vendor.
+/// In-house write-offs with no vendor claim are stock adjustments, not returns.
+model purchase_returns {
+  id                BigInt                  @id @default(autoincrement()) @db.UnsignedBigInt
+  uuid              String                  @unique(map: "uq_pret_uuid") @db.VarChar(64)
+  return_number     String                  @unique(map: "uq_pret_number") @db.VarChar(30)
+  purchase_order_id BigInt                  @db.UnsignedBigInt
+  /// Copied from the purchase order so returns list per vendor without a join.
+  vendor_id         BigInt                  @db.UnsignedBigInt
+  status            purchase_returns_status @default(DRAFT)
+  /// Date the goods physically left, not when the record was keyed in.
+  return_date       DateTime?               @db.Date
+  /// The vendor's debit/credit note reference, once they acknowledge it.
+  debit_note_number String?                 @db.VarChar(60)
+  notes             String?                 @db.VarChar(500)
+  total_amount      Decimal                 @default(0.00) @db.Decimal(12, 2)
+  completed_at      DateTime?               @db.Timestamp(0)
+  cancelled_at      DateTime?               @db.Timestamp(0)
+  created_at        DateTime                @default(now()) @db.Timestamp(0)
+  updated_at        DateTime                @default(now()) @updatedAt @db.Timestamp(0)
+  created_by        BigInt?                 @db.UnsignedBigInt
+  updated_by        BigInt?                 @db.UnsignedBigInt
+  purchase_order    purchase_orders         @relation(fields: [purchase_order_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_pret_po")
+  vendor            vendors                 @relation(fields: [vendor_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_pret_vendor")
+  items             purchase_return_items[]
+
+  @@index([purchase_order_id], map: "idx_pret_po")
+  @@index([vendor_id], map: "idx_pret_vendor")
+  @@index([status], map: "idx_pret_status")
+  @@index([return_date], map: "idx_pret_date")
+}
+
+model purchase_return_items {
+  id                       BigInt                  @id @default(autoincrement()) @db.UnsignedBigInt
+  purchase_return_id       BigInt                  @db.UnsignedBigInt
+  purchase_order_item_id   BigInt                  @db.UnsignedBigInt
+  /// The receipt line being sent back, when the return follows one delivery;
+  /// null for a return raised against the order as a whole.
+  purchase_receipt_item_id BigInt?                 @db.UnsignedBigInt
+  variant_unit_price_id    BigInt                  @db.UnsignedBigInt
+  quantity                 Int
+  unit_cost                Decimal                 @default(0.00) @db.Decimal(10, 2)
+  /// False for units refused at the door: they never entered stock, so completing
+  /// the return must not take them out again. It is only the debit note that is owed.
+  affects_stock            Boolean                 @default(true)
+  reason                   purchase_return_reason
+  notes                    String?                 @db.VarChar(255)
+  created_at               DateTime                @default(now()) @db.Timestamp(0)
+  purchase_return          purchase_returns        @relation(fields: [purchase_return_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_preti_return")
+  order_item               purchase_order_items    @relation(fields: [purchase_order_item_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_preti_poi")
+  receipt_item             purchase_receipt_items? @relation(fields: [purchase_receipt_item_id], references: [id], onDelete: SetNull, onUpdate: NoAction, map: "fk_preti_ri")
+  variant_unit_price       VariantUnitPrice        @relation(fields: [variant_unit_price_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_preti_vup")
+
+  @@index([purchase_return_id], map: "idx_preti_return")
+  @@index([purchase_order_item_id], map: "idx_preti_poi")
+  @@index([purchase_receipt_item_id], map: "idx_preti_ri")
+  @@index([variant_unit_price_id], map: "idx_preti_vup")
+}
+
+enum purchase_returns_status {
+  DRAFT
+  SUBMITTED
+  COMPLETED
+  CANCELLED
+}
+
+enum purchase_return_reason {
+  DAMAGED
+  WRONG_ITEM
+  EXPIRED
+  SHORT_SUPPLY
+  QUALITY
+  OTHER
 }
 
 model purchase_order_history {

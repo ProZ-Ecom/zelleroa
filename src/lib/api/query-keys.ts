@@ -28,6 +28,7 @@ export const attributeKeys = createQueryKeyFactory("attributes");
 export const unitKeys = createQueryKeyFactory("units");
 export const vendorKeys = createQueryKeyFactory("vendors");
 export const purchaseKeys = createQueryKeyFactory("purchase-orders");
+export const purchaseReturnKeys = createQueryKeyFactory("purchase-returns");
 export const cartKeys = createQueryKeyFactory("cart");
 export const wishlistKeys = createQueryKeyFactory("wishlist");
 export const orderKeys = createQueryKeyFactory("orders");

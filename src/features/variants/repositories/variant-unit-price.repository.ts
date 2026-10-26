@@ -26,6 +26,12 @@ export const variantUnitPriceInclude = Prisma.validator<Prisma.VariantUnitPriceI
   attribute_value: {
     select: { uuid: true, value: true },
   },
+  vup_attribute_values: {
+    include: {
+      product_attributes: { select: { uuid: true, name: true } },
+      attribute_values: { select: { uuid: true, value: true } },
+    },
+  },
   variant: {
     select: {
       id: true,
@@ -86,26 +92,73 @@ export const variantUnitPriceRepository = {
     });
   },
 
-  async findByVariantAndSize(
+  /**
+   * The live row holding this exact variation, keyed the same way the database's
+   * uniq_vup_variant_signature is - so a duplicate is reported to the admin instead
+   * of surfacing as a P2002 from the insert.
+   */
+  async findByVariantAndSignature(
     variantId: bigint,
-    attributeValueId: bigint | null,
+    unitId: bigint,
+    unitValue: number,
+    attributeSignature: string,
     excludeUuid?: string
   ) {
     return db.variantUnitPrice.findFirst({
       where: {
         variant_id: variantId,
-        attribute_value_id: attributeValueId,
+        unit_id: unitId,
+        unit_value: unitValue,
+        attribute_signature: attributeSignature,
         deleted_at: null,
         ...(excludeUuid ? { uuid: { not: excludeUuid } } : {}),
       },
     });
   },
 
-  async create(data: Prisma.VariantUnitPriceUncheckedCreateInput) {
-    return db.variantUnitPrice.create({
-      data,
-      include: variantUnitPriceInclude,
+  async create(
+    data: Prisma.VariantUnitPriceUncheckedCreateInput,
+    attributeValues: { attributeId: bigint; attributeValueId: bigint }[] = []
+  ) {
+    return db.$transaction(async (tx) => {
+      const created = await tx.variantUnitPrice.create({ data });
+      if (attributeValues.length) {
+        await tx.variant_unit_price_attribute_values.createMany({
+          data: attributeValues.map((v) => ({
+            variant_unit_price_id: created.id,
+            attribute_id: v.attributeId,
+            attribute_value_id: v.attributeValueId,
+          })),
+        });
+      }
+      return tx.variantUnitPrice.findUniqueOrThrow({
+        where: { id: created.id },
+        include: variantUnitPriceInclude,
+      });
     });
+  },
+
+  /** Replaces a row's variation values outright - what it carries now is the truth. */
+  async replaceAttributeValues(
+    variantUnitPriceId: bigint,
+    attributeValues: { attributeId: bigint; attributeValueId: bigint }[]
+  ) {
+    await db.$transaction([
+      db.variant_unit_price_attribute_values.deleteMany({
+        where: { variant_unit_price_id: variantUnitPriceId },
+      }),
+      ...(attributeValues.length
+        ? [
+            db.variant_unit_price_attribute_values.createMany({
+              data: attributeValues.map((v) => ({
+                variant_unit_price_id: variantUnitPriceId,
+                attribute_id: v.attributeId,
+                attribute_value_id: v.attributeValueId,
+              })),
+            }),
+          ]
+        : []),
+    ]);
   },
 
   async unsetDefaultForVariant(variantId: bigint, excludeId?: bigint) {
@@ -338,11 +391,18 @@ export const variantUnitPriceRepository = {
    * revives the archived row instead of inserting a second one, which also keeps
    * its order and inventory history attached.
    */
-  async findDeletedByVariantAndSize(variantId: bigint, attributeValueId: bigint) {
+  async findDeletedByVariantAndSignature(
+    variantId: bigint,
+    unitId: bigint,
+    unitValue: number,
+    attributeSignature: string
+  ) {
     return db.variantUnitPrice.findFirst({
       where: {
         variant_id: variantId,
-        attribute_value_id: attributeValueId,
+        unit_id: unitId,
+        unit_value: unitValue,
+        attribute_signature: attributeSignature,
         deleted_at: { not: null },
       },
       orderBy: { deleted_at: "desc" },
@@ -352,16 +412,32 @@ export const variantUnitPriceRepository = {
   /**
    * Brings an archived row back as if it were newly created: the caller's values
    * overwrite every field, and stock restarts from the request rather than from
-   * whatever was on hand when the row was archived.
+   * whatever was on hand when the row was archived. Its variation values are
+   * replaced too, so a revived row never keeps a value the caller did not ask for.
    */
   async reviveById(
     id: bigint,
-    data: Omit<Prisma.VariantUnitPriceUncheckedCreateInput, "uuid" | "variant_id">
+    data: Omit<Prisma.VariantUnitPriceUncheckedCreateInput, "uuid" | "variant_id">,
+    attributeValues: { attributeId: bigint; attributeValueId: bigint }[] = []
   ) {
-    return db.variantUnitPrice.update({
-      where: { id },
-      data: { ...data, deleted_at: null },
-      include: variantUnitPriceInclude,
+    return db.$transaction(async (tx) => {
+      await tx.variant_unit_price_attribute_values.deleteMany({
+        where: { variant_unit_price_id: id },
+      });
+      if (attributeValues.length) {
+        await tx.variant_unit_price_attribute_values.createMany({
+          data: attributeValues.map((v) => ({
+            variant_unit_price_id: id,
+            attribute_id: v.attributeId,
+            attribute_value_id: v.attributeValueId,
+          })),
+        });
+      }
+      return tx.variantUnitPrice.update({
+        where: { id },
+        data: { ...data, deleted_at: null },
+        include: variantUnitPriceInclude,
+      });
     });
   },
 

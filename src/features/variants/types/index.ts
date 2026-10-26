@@ -50,9 +50,16 @@ export interface VariantUnitPriceResponse {
   unitValue?: number;
   unitName?: string;
   unitCode?: string;
-  /** The Size this row represents (e.g. "M"), if the Item/Color has a Size axis. */
+  /** The primary variation value of this row (e.g. "M"), used for its one-line label. */
   sizeValueId?: string; // Public AttributeValue UUID
   sizeValue?: string;
+  /** Every SKU-axis value this row represents, in the product's attribute order. */
+  attributeValues: {
+    attributeId: string;
+    attributeName: string;
+    valueId: string;
+    value: string;
+  }[];
   isDefault: boolean;
   isActive: boolean;
   stock?: number;

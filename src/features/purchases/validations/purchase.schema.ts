@@ -70,11 +70,61 @@ export const purchaseOrderSchema = z
 
 export type PurchaseOrderInput = z.infer<typeof purchaseOrderSchema>;
 
+/**
+ * A confirmed purchase line carries what the stock sheet adds on top of an
+ * ordered line: how many of the delivered units were unusable, and a new
+ * selling price to apply while the stock is being taken in.
+ */
+const confirmItemSchema = poItemSchema.extend({
+  damagedQuantity: z.coerce.number().int().min(0, "Damaged quantity cannot be negative").default(0),
+  sellingPrice: z.coerce
+    .number()
+    .min(0, "Selling price cannot be negative")
+    .optional()
+    .nullable()
+    .transform((v) => (v === undefined ? null : v)),
+  remarks: optionalText(255),
+});
+
 export const confirmPurchaseSchema = purchaseOrderSchema
-  .extend({ idempotencyKey: z.string().trim().min(8).max(64) })
+  .extend({
+    idempotencyKey: z.string().trim().min(8).max(64),
+    items: z
+      .array(
+        confirmItemSchema.refine((i) => i.damagedQuantity <= i.quantity, {
+          message: "Damaged quantity cannot exceed the quantity received",
+          path: ["damagedQuantity"],
+        })
+      )
+      .min(1, "Add at least one item"),
+  })
   .strict();
 
 export type ConfirmPurchaseInput = z.infer<typeof confirmPurchaseSchema>;
+
+const slug = (label: string) =>
+  z.string().trim().min(1).max(220).regex(/^[a-z0-9-]+$/i, `Invalid ${label}`);
+
+export const stockSheetQuerySchema = z
+  .object({
+    vendorId: z.string().trim().uuid("Invalid vendor id").optional(),
+    categorySlug: slug("category").optional(),
+    brandSlug: slug("brand").optional(),
+    /** Comma-separated product slugs, as a querystring carries them. */
+    productSlugs: z
+      .string()
+      .trim()
+      .optional()
+      .transform((v) => (v ? v.split(",").map((s) => s.trim()).filter(Boolean) : []))
+      .pipe(z.array(slug("product")).max(50, "Select at most 50 products")),
+    lowStockOnly: z
+      .enum(["true", "false"])
+      .optional()
+      .transform((v) => v === "true"),
+  })
+  .strict();
+
+export type StockSheetFilters = z.infer<typeof stockSheetQuerySchema>;
 
 export const purchaseQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1).optional(),
