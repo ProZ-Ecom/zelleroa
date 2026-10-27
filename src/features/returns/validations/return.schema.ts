@@ -142,6 +142,9 @@ export const requestActionSchema = z
     pickupDate: z.string().trim().max(40).optional(),
     transactionRef: z.string().trim().max(100).optional(),
     note: z.string().trim().max(500).optional(),
+    courierName: z.string().trim().max(100).optional(),
+    trackingNumber: z.string().trim().max(100).optional(),
+    pickupImageUrl: z.string().trim().max(500).optional(),
   })
   .strict();
 export type RequestActionInput = z.infer<typeof requestActionSchema>;

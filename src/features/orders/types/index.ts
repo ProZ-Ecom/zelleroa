@@ -172,6 +172,12 @@ export interface OrderDetailResponse extends OrderListItemResponse {
   returnRequests?: RequestSummary[];
   replacementRequests?: RequestSummary[];
   timeline?: TimelineEvent[];
+  bankDetails?: {
+    accountHolder: string | null;
+    bankName: string | null;
+    accountNumberLast4: string | null;
+    ifsc: string | null;
+  } | null;
 }
 
 export interface OrderStatusTransitionResponse {
@@ -347,6 +353,8 @@ export interface AdminOrdersCountResponse {
   cancelled: number;
   returned: number;
   total: number;
+  return_requests?: number;
+  replacement_requests?: number;
 }
 
 

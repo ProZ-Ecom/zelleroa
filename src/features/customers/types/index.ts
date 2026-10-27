@@ -10,6 +10,10 @@ export interface CustomerProfileResponse {
   gender: "male" | "female" | "other" | "not_applicable" | null;
   profileImage: string | null;
   referralCode: string | null;
+  bankAccountHolder?: string | null;
+  bankName?: string | null;
+  bankAccountLast4?: string | null;
+  bankIfsc?: string | null;
   createdAt: Date;
   updatedAt: Date;
 }

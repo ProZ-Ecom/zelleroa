@@ -387,6 +387,7 @@ export const orderService = {
       paymentStatus,
       paymentMethod,
       notes: input.notes,
+      bankDetails: input.bankDetails,
       shippingAddress: {
         fullName: shippingAddress.full_name,
         phone: shippingAddress.phone,
@@ -492,6 +493,7 @@ export const orderService = {
         notes: input.notes,
         paymentMethod: input.paymentMethod || "COD",
         paymentDetails: input.paymentDetails,
+        bankDetails: input.bankDetails,
         couponCode: input.couponCode,
         deliveryMethod: input.deliveryMethod || "standard",
       },

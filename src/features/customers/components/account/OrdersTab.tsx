@@ -442,12 +442,19 @@ export function OrdersTab({
                     )}
                   </div>
 
-                  <span
-                    className={`inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider px-3 py-1.5 rounded-full border ${statusMeta.bg}`}
-                  >
-                    <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${statusMeta.dot}`} />
-                    {order.status.replace(/_/g, " ")}
-                  </span>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {order.returnRequests?.some((r) => r.returnNumber) && (
+                      <span className="inline-flex items-center gap-1 font-mono text-[11px] font-bold text-emerald-800 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200 shadow-2xs">
+                        Return ID: {order.returnRequests.find((r) => r.returnNumber)?.returnNumber}
+                      </span>
+                    )}
+                    <span
+                      className={`inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider px-3 py-1.5 rounded-full border ${statusMeta.bg}`}
+                    >
+                      <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${statusMeta.dot}`} />
+                      {order.status.replace(/_/g, " ")}
+                    </span>
+                  </div>
                 </div>
 
                 {/* Ordered Items List */}
@@ -572,16 +579,26 @@ export function OrdersTab({
                   </Link>
 
                   {order.status === "delivered" && (
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setReturnTarget({ orderId: order.id, mode: "return" })
-                      }
-                      className="border border-secondary-600 bg-secondary-50 hover:bg-secondary-100 text-secondary-800 text-xs font-semibold uppercase tracking-wider py-2.5 px-4 rounded-lg transition-colors cursor-pointer min-h-[40px] inline-flex items-center gap-1.5"
-                    >
-                      <Undo2 className="h-3.5 w-3.5" />
-                      Return / Replace
-                    </button>
+                    order.returnWindow && !order.returnWindow.eligible ? (
+                      <span
+                        className="border border-theme-border bg-theme-surface-alt text-theme-text-muted text-xs font-semibold uppercase tracking-wider py-2.5 px-4 rounded-lg inline-flex items-center gap-1.5 cursor-not-allowed select-none opacity-70"
+                        title="Return period expired (only allowed within 3 days of delivery)"
+                      >
+                        <Undo2 className="h-3.5 w-3.5 text-theme-text-muted" />
+                        Return Expired (3-Day Limit)
+                      </span>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setReturnTarget({ orderId: order.id, mode: "return" })
+                        }
+                        className="border border-secondary-600 bg-secondary-50 hover:bg-secondary-100 text-secondary-800 text-xs font-semibold uppercase tracking-wider py-2.5 px-4 rounded-lg transition-colors cursor-pointer min-h-[40px] inline-flex items-center gap-1.5"
+                      >
+                        <Undo2 className="h-3.5 w-3.5" />
+                        Return / Replace{order.returnWindow?.daysLeft ? ` (${order.returnWindow.daysLeft}d left)` : ""}
+                      </button>
+                    )
                   )}
 
                   <Link href="/contact">

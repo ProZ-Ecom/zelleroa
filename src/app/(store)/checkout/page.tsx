@@ -25,6 +25,7 @@ import {
   Phone,
   Clock,
   Check,
+  Building2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
@@ -46,6 +47,7 @@ import {
   useCreateGuestOrder,
   CUSTOMER_ORDERS_QUERY_KEY,
 } from "@/features/customers/hooks/use-customer-orders";
+import { useCustomerProfile } from "@/features/customers/hooks/use-customer-profile";
 import { customerPaymentApi } from "@/features/customers/api/customer-payment.api";
 import { useCheckout } from "@/features/checkout/checkout-context";
 import { useIsAgent, useSignedIn } from "@/features/auth/hooks/use-signed-in";
@@ -129,6 +131,21 @@ export default function CheckoutPage() {
   const isGuest = authStatus !== "loading" && !signedIn;
   const [guestEmail, setGuestEmail] = useState<string>("");
 
+  const { data: customerProfile } = useCustomerProfile({ enabled: !isGuest });
+
+  // Pre-populate bank details when customerProfile loads
+  useEffect(() => {
+    if (customerProfile) {
+      setBankDetails((prev) => ({
+        accountHolder: prev.accountHolder || customerProfile.bankAccountHolder || customerProfile.name || session?.user?.name || "",
+        bankName: prev.bankName || customerProfile.bankName || "",
+        accountNumber: prev.accountNumber || "",
+        confirmAccountNumber: prev.confirmAccountNumber || "",
+        ifsc: prev.ifsc || customerProfile.bankIfsc || "",
+      }));
+    }
+  }, [customerProfile, session?.user?.name]);
+
   // Selected state
   const [selectedAddressId, setSelectedAddressId] = useState<string>("");
   const [deliveryMethod, setDeliveryMethod] = useState<"standard" | "express">("standard");
@@ -138,6 +155,16 @@ export default function CheckoutPage() {
   const [orderNotes, setOrderNotes] = useState<string>("");
   const [checkoutError, setCheckoutErrorState] = useState<string | null>(null);
   const [mobileVerificationRequired, setMobileVerificationRequired] = useState(false);
+
+  // COD Bank Details state
+  const [bankDetails, setBankDetails] = useState({
+    accountHolder: "",
+    bankName: "",
+    accountNumber: "",
+    confirmAccountNumber: "",
+    ifsc: "",
+  });
+  const [bankErrors, setBankErrors] = useState<Record<string, string>>({});
 
   // Clearing/setting a plain message resets the verification prompt; the
   // backend's MOBILE_VERIFICATION_REQUIRED code turns it on (see reportOrderError).
@@ -587,6 +614,49 @@ export default function CheckoutPage() {
     }
   };
 
+  // Validate COD Bank Details
+  const validateBankDetails = () => {
+    const errs: Record<string, string> = {};
+    const holder = bankDetails.accountHolder.trim();
+    const bank = bankDetails.bankName.trim();
+    const acc = bankDetails.accountNumber.trim();
+    const confirmAcc = bankDetails.confirmAccountNumber.trim();
+    const ifsc = bankDetails.ifsc.trim().toUpperCase();
+
+    if (!holder) {
+      errs.accountHolder = "Account holder name is required";
+    } else if (holder.length < 2) {
+      errs.accountHolder = "Name must be at least 2 characters";
+    }
+
+    if (!bank) {
+      errs.bankName = "Bank name is required";
+    } else if (bank.length < 2) {
+      errs.bankName = "Bank name must be at least 2 characters";
+    }
+
+    if (!acc) {
+      errs.accountNumber = "Account number is required";
+    } else if (!/^\d{9,18}$/.test(acc)) {
+      errs.accountNumber = "Account number must be 9 to 18 digits";
+    }
+
+    if (!confirmAcc) {
+      errs.confirmAccountNumber = "Please confirm the account number";
+    } else if (confirmAcc !== acc) {
+      errs.confirmAccountNumber = "Account numbers do not match";
+    }
+
+    if (!ifsc) {
+      errs.ifsc = "IFSC code is required";
+    } else if (!/^[A-Z]{4}0[A-Z0-9]{6}$/.test(ifsc)) {
+      errs.ifsc = "Invalid IFSC code (e.g. SBIN0001234)";
+    }
+
+    setBankErrors(errs);
+    return errs;
+  };
+
   // Place Order Handler (guest)
   const handlePlaceGuestOrder = async () => {
     setAddressFormError(null);
@@ -598,6 +668,15 @@ export default function CheckoutPage() {
       setCheckoutError("Please fill in all required delivery and contact details correctly.");
       return;
     }
+
+    if (paymentMethod === "COD") {
+      const bErrs = validateBankDetails();
+      if (Object.keys(bErrs).length > 0) {
+        setCheckoutError("Please fill in all mandatory bank details for Cash on Delivery.");
+        return;
+      }
+    }
+
     setFieldErrors({});
 
     try {
@@ -617,6 +696,12 @@ export default function CheckoutPage() {
         pincode: newAddressForm.pincode.trim(),
         notes: orderNotes.trim() || undefined,
         paymentMethod: "COD",
+        bankDetails: {
+          accountHolder: bankDetails.accountHolder.trim(),
+          bankName: bankDetails.bankName.trim(),
+          accountNumber: bankDetails.accountNumber.trim(),
+          ifsc: bankDetails.ifsc.trim().toUpperCase(),
+        },
         deliveryMethod,
       });
 
@@ -661,6 +746,12 @@ export default function CheckoutPage() {
 
     // 1. Cash on Delivery (COD) flow
     if (paymentMethod === "COD") {
+      const bErrs = validateBankDetails();
+      if (Object.keys(bErrs).length > 0) {
+        setCheckoutError("Please fill in all mandatory bank details for Cash on Delivery.");
+        return;
+      }
+
       try {
         const orderRes = await createOrderMutation.mutateAsync({
           shippingAddressId: effectiveAddressId,
@@ -670,6 +761,12 @@ export default function CheckoutPage() {
           paymentDetails: {
             method: "COD",
             status: "pending",
+          },
+          bankDetails: {
+            accountHolder: bankDetails.accountHolder.trim(),
+            bankName: bankDetails.bankName.trim(),
+            accountNumber: bankDetails.accountNumber.trim(),
+            ifsc: bankDetails.ifsc.trim().toUpperCase(),
           },
         });
 
@@ -1407,13 +1504,165 @@ export default function CheckoutPage() {
             )}
 
             {paymentMethod === "COD" && (
-              <div className="rounded-xl border border-theme-border-subtle bg-theme-surface-alt/60 p-4 sm:p-5 space-y-2">
-                <p className="text-xs font-bold text-theme-text-primary">
-                  Pay with Cash upon Doorstep Delivery
-                </p>
-                <p className="text-[11px] text-theme-text-subtle leading-relaxed">
-                  Please keep exact change ready upon delivery. Our delivery partner will verify and hand over your fresh package with a receipt.
-                </p>
+              <div className="rounded-xl border border-amber-200/80 bg-amber-50/40 p-4 sm:p-5 space-y-4">
+                <div className="flex items-start gap-3">
+                  <div className="p-2 rounded-lg bg-amber-100 text-amber-800 shrink-0 mt-0.5">
+                    <Building2 className="h-4 w-4" />
+                  </div>
+                  <div>
+                    <h3 className="text-xs font-bold text-theme-text-primary flex items-center gap-2">
+                      Mandatory Bank Details for COD
+                      <span className="text-[10px] uppercase tracking-wider font-extrabold px-1.5 py-0.5 rounded bg-amber-200/80 text-amber-900">
+                        Required
+                      </span>
+                    </h3>
+                    <p className="text-[11px] text-theme-text-subtle mt-0.5 leading-relaxed">
+                      To safeguard Cash on Delivery orders and process instant refunds directly into your account in case of return or cancellation, please provide your bank account details.
+                    </p>
+                  </div>
+                </div>
+
+                {customerProfile?.bankAccountLast4 && (
+                  <div className="flex items-center gap-2 text-[11px] bg-white border border-emerald-200 text-emerald-800 rounded-lg p-2.5">
+                    <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
+                    <span>
+                      Previously saved account ending in <strong>••••{customerProfile.bankAccountLast4}</strong> is available. You may re-confirm below or update with a new account.
+                    </span>
+                  </div>
+                )}
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 pt-1">
+                  <div>
+                    <label className="block text-[11px] font-bold text-theme-text-primary mb-1">
+                      Account Holder Name <span className="text-rose-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Manoj Kumar"
+                      value={bankDetails.accountHolder}
+                      onChange={(e) => {
+                        setBankDetails((prev) => ({ ...prev, accountHolder: e.target.value }));
+                        if (bankErrors.accountHolder) setBankErrors((prev) => { const n = { ...prev }; delete n.accountHolder; return n; });
+                      }}
+                      className={cn(
+                        "w-full rounded-xl border bg-white px-3 py-2 text-xs text-theme-text-primary focus:outline-none",
+                        bankErrors.accountHolder
+                          ? "border-rose-400 focus:border-rose-500"
+                          : "border-theme-border-input focus:border-theme-primary"
+                      )}
+                    />
+                    {bankErrors.accountHolder && (
+                      <p className="text-[10px] text-rose-500 font-medium mt-1">{bankErrors.accountHolder}</p>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold text-theme-text-primary mb-1">
+                      Bank Name <span className="text-rose-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g. State Bank of India, HDFC"
+                      value={bankDetails.bankName}
+                      onChange={(e) => {
+                        setBankDetails((prev) => ({ ...prev, bankName: e.target.value }));
+                        if (bankErrors.bankName) setBankErrors((prev) => { const n = { ...prev }; delete n.bankName; return n; });
+                      }}
+                      className={cn(
+                        "w-full rounded-xl border bg-white px-3 py-2 text-xs text-theme-text-primary focus:outline-none",
+                        bankErrors.bankName
+                          ? "border-rose-400 focus:border-rose-500"
+                          : "border-theme-border-input focus:border-theme-primary"
+                      )}
+                    />
+                    {bankErrors.bankName && (
+                      <p className="text-[10px] text-rose-500 font-medium mt-1">{bankErrors.bankName}</p>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold text-theme-text-primary mb-1">
+                      Bank Account Number <span className="text-rose-500">*</span>
+                    </label>
+                    <input
+                      type="password"
+                      placeholder="Enter 9-18 digit account number"
+                      value={bankDetails.accountNumber}
+                      onChange={(e) => {
+                        const val = e.target.value.replace(/\D/g, "");
+                        setBankDetails((prev) => ({ ...prev, accountNumber: val }));
+                        if (bankErrors.accountNumber) setBankErrors((prev) => { const n = { ...prev }; delete n.accountNumber; return n; });
+                      }}
+                      className={cn(
+                        "w-full rounded-xl border bg-white px-3 py-2 text-xs text-theme-text-primary font-mono focus:outline-none",
+                        bankErrors.accountNumber
+                          ? "border-rose-400 focus:border-rose-500"
+                          : "border-theme-border-input focus:border-theme-primary"
+                      )}
+                    />
+                    {bankErrors.accountNumber && (
+                      <p className="text-[10px] text-rose-500 font-medium mt-1">{bankErrors.accountNumber}</p>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold text-theme-text-primary mb-1">
+                      Confirm Account Number <span className="text-rose-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="Re-enter account number"
+                      value={bankDetails.confirmAccountNumber}
+                      onChange={(e) => {
+                        const val = e.target.value.replace(/\D/g, "");
+                        setBankDetails((prev) => ({ ...prev, confirmAccountNumber: val }));
+                        if (bankErrors.confirmAccountNumber) setBankErrors((prev) => { const n = { ...prev }; delete n.confirmAccountNumber; return n; });
+                      }}
+                      className={cn(
+                        "w-full rounded-xl border bg-white px-3 py-2 text-xs text-theme-text-primary font-mono focus:outline-none",
+                        bankErrors.confirmAccountNumber
+                          ? "border-rose-400 focus:border-rose-500"
+                          : "border-theme-border-input focus:border-theme-primary"
+                      )}
+                    />
+                    {bankErrors.confirmAccountNumber && (
+                      <p className="text-[10px] text-rose-500 font-medium mt-1">{bankErrors.confirmAccountNumber}</p>
+                    )}
+                  </div>
+
+                  <div className="sm:col-span-2">
+                    <label className="block text-[11px] font-bold text-theme-text-primary mb-1">
+                      IFSC Code <span className="text-rose-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      maxLength={11}
+                      placeholder="e.g. SBIN0001234"
+                      value={bankDetails.ifsc}
+                      onChange={(e) => {
+                        const val = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 11);
+                        setBankDetails((prev) => ({ ...prev, ifsc: val }));
+                        if (bankErrors.ifsc) setBankErrors((prev) => { const n = { ...prev }; delete n.ifsc; return n; });
+                      }}
+                      className={cn(
+                        "w-full rounded-xl border bg-white px-3 py-2 text-xs text-theme-text-primary font-mono uppercase focus:outline-none",
+                        bankErrors.ifsc
+                          ? "border-rose-400 focus:border-rose-500"
+                          : "border-theme-border-input focus:border-theme-primary"
+                      )}
+                    />
+                    {bankErrors.ifsc && (
+                      <p className="text-[10px] text-rose-500 font-medium mt-1">{bankErrors.ifsc}</p>
+                    )}
+                  </div>
+                </div>
+
+                <div className="text-[11px] text-theme-text-muted bg-white/70 border border-theme-border-subtle rounded-xl p-3 flex items-center gap-2">
+                  <ShieldCheck className="h-4 w-4 text-emerald-600 shrink-0" />
+                  <span>
+                    Your account number is encrypted with AES-256 bank-grade security and only utilized for processing return refunds.
+                  </span>
+                </div>
               </div>
             )}
           </div>
@@ -1555,10 +1804,17 @@ export default function CheckoutPage() {
               </Button>
 
               <div className="text-[11px] text-center text-theme-text-muted space-y-1 pt-1">
-                <p className="flex items-center justify-center gap-1.5 font-medium text-emerald-700">
-                  <ShieldCheck className="h-3.5 w-3.5 text-emerald-600" />
-                  256-bit Bank-Grade Encryption by Razorpay
-                </p>
+                {paymentMethod === "COD" ? (
+                  <p className="flex items-center justify-center gap-1.5 font-medium text-amber-700">
+                    <ShieldCheck className="h-3.5 w-3.5 text-amber-600" />
+                    Doorstep Cash Payment • Direct Return Refund Protection
+                  </p>
+                ) : (
+                  <p className="flex items-center justify-center gap-1.5 font-medium text-emerald-700">
+                    <ShieldCheck className="h-3.5 w-3.5 text-emerald-600" />
+                    256-bit Bank-Grade Encryption by Razorpay
+                  </p>
+                )}
                 <p>Premium collection delivered securely to your door.</p>
               </div>
 

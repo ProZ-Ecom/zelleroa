@@ -36,6 +36,7 @@ export interface RequestHistoryEntry {
 
 export interface RequestSummary {
   id: string;
+  returnNumber?: string | null;
   kind: RequestKind;
   status: string;
   reason: string;
@@ -54,6 +55,9 @@ export interface RequestSummary {
   rejectionReason: string | null;
   adminComment: string | null;
   pickupScheduledAt: Date | null;
+  courierName?: string | null;
+  trackingNumber?: string | null;
+  pickupImageUrl?: string | null;
   completedAt: Date | null;
   items: RequestItemSummary[];
   history: RequestHistoryEntry[];
@@ -135,8 +139,15 @@ function mapHistory(rows: any[] | undefined): RequestHistoryEntry[] {
 }
 
 export function summarizeReturnRequest(req: any): RequestSummary {
+  const returnNumber =
+    req.return_number ||
+    (req.approved_at || (req.status && !["return_requested", "under_review", "rejected"].includes(req.status))
+      ? `RET-${new Date(req.created_at || Date.now()).toISOString().slice(0, 10).replace(/-/g, "")}-${String(req.id).padStart(4, "0")}`
+      : null);
+
   return {
     id: req.uuid || String(req.id),
+    returnNumber,
     kind: "return",
     status: req.status,
     reason: req.reason,
@@ -155,6 +166,9 @@ export function summarizeReturnRequest(req: any): RequestSummary {
     rejectionReason: req.rejection_reason ?? null,
     adminComment: req.admin_comment ?? null,
     pickupScheduledAt: req.pickup_scheduled_at ?? null,
+    courierName: req.courier_name ?? null,
+    trackingNumber: req.tracking_number ?? null,
+    pickupImageUrl: req.pickup_image_url ?? null,
     completedAt: req.completed_at ?? null,
     items: (req.return_items ?? []).map((ri: any) => ({
       ...summarizeOrderItem(ri.order_items),
@@ -165,8 +179,15 @@ export function summarizeReturnRequest(req: any): RequestSummary {
 }
 
 export function summarizeReplacementRequest(req: any): RequestSummary {
+  const replacementNumber =
+    req.replacement_number ||
+    (req.approved_at || (req.status && !["replacement_requested", "under_review", "rejected"].includes(req.status))
+      ? `REP-${new Date(req.created_at || Date.now()).toISOString().slice(0, 10).replace(/-/g, "")}-${String(req.id).padStart(4, "0")}`
+      : null);
+
   return {
     id: req.uuid || String(req.id),
+    returnNumber: replacementNumber,
     kind: "replacement",
     status: req.status,
     reason: req.reason,
@@ -185,6 +206,9 @@ export function summarizeReplacementRequest(req: any): RequestSummary {
     rejectionReason: req.rejection_reason ?? null,
     adminComment: req.admin_comment ?? null,
     pickupScheduledAt: req.pickup_scheduled_at ?? null,
+    courierName: req.courier_name ?? null,
+    trackingNumber: req.tracking_number ?? null,
+    pickupImageUrl: req.pickup_image_url ?? null,
     completedAt: req.completed_at ?? null,
     items: (req.items ?? []).map((ri: any) => ({
       ...summarizeOrderItem(ri.order_items),

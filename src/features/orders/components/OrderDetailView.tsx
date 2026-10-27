@@ -283,15 +283,25 @@ export function OrderDetailView({
 
           {/* Return / Replace Action */}
           {!readOnly && order.status === "delivered" && (
-            <Button
-              variant="outline"
-              size="sm"
-              className="border-secondary-600 bg-secondary-50 hover:bg-secondary-100 text-secondary-800 rounded-xl text-xs font-semibold min-h-[36px]"
-              onClick={() => onRequest?.("return")}
-            >
-              <Undo2 className="mr-1.5 h-3.5 w-3.5" />
-              Return / Replace
-            </Button>
+            (order as any).returnWindow?.eligible === false ? (
+              <span
+                className="inline-flex items-center gap-1.5 rounded-xl border border-theme-border bg-theme-surface-alt px-3 py-1.5 text-xs font-semibold text-theme-text-muted opacity-70 cursor-not-allowed select-none"
+                title="Return window expired. Products can only be returned within 3 days of delivery."
+              >
+                <Undo2 className="h-3.5 w-3.5 text-theme-text-muted" />
+                Return Expired (3-Day Limit)
+              </span>
+            ) : (
+              <Button
+                variant="outline"
+                size="sm"
+                className="border-secondary-600 bg-secondary-50 hover:bg-secondary-100 text-secondary-800 rounded-xl text-xs font-semibold min-h-[36px]"
+                onClick={() => onRequest?.("return")}
+              >
+                <Undo2 className="mr-1.5 h-3.5 w-3.5" />
+                Return / Replace {(order as any).returnWindow?.daysLeft ? `(${(order as any).returnWindow.daysLeft}d left)` : ""}
+              </Button>
+            )
           )}
         </div>
       </div>

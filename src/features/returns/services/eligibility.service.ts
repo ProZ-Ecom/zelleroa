@@ -46,7 +46,7 @@ export function assertOrderEligible(order: Parameters<typeof resolveDeliveredAt>
   if (!window.eligible) {
     throw ApiError.badRequest(
       window.code === "WINDOW_EXPIRED"
-        ? "The return period for this order has expired."
+        ? "The return period for this order has expired. Returns are only allowed within 3 days of delivery."
         : window.message
     );
   }

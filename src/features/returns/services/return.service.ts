@@ -2,7 +2,7 @@ import { ApiError } from "@/lib/api/api-error";
 import { db } from "@/lib/db/prisma";
 import { encryptField } from "@/lib/security/field-crypto";
 import { userRepository } from "@/features/users/repositories/user.repository";
-import { resolveDeliveredAt } from "@/features/orders/repositories/order.repository";
+import { resolveDeliveredAt, formatOrderAddress } from "@/features/orders/repositories/order.repository";
 import { razorpayService } from "@/features/payment/services/razorpay.service";
 import { returnRepository, type Actor } from "../repositories/return.repository";
 import { getReturnWindow, RETURN_TRANSITIONS, type ReturnAction, type ReturnStatus } from "../lib/policy";
@@ -22,6 +22,16 @@ import type {
 
 function formatRequest(req: any) {
   const window = getReturnWindow("delivered", resolveDeliveredAt(req.orders));
+  const shippingRaw = (req.orders.address || []).find((a: any) => a.type === "shipping");
+  const billingRaw = (req.orders.address || []).find((a: any) => a.type === "billing");
+  const shippingAddress = formatOrderAddress(shippingRaw || billingRaw || null);
+  const originalShipment = (req.orders.shipments || []).find((s: any) => s.tracking_number);
+  const originalCourier = originalShipment
+    ? {
+        carrier: originalShipment.delivery_partners?.name || null,
+        trackingNumber: originalShipment.tracking_number,
+      }
+    : null;
   return {
     ...summarizeReturnRequest(req),
     orderId: req.orders.uuid || String(req.orders.id),
@@ -36,6 +46,8 @@ function formatRequest(req: any) {
       email: req.users_return_requests_user_idTousers.email,
       phone: req.users_return_requests_user_idTousers.phone,
     },
+    shippingAddress,
+    originalCourier,
   };
 }
 
@@ -280,6 +292,28 @@ export const returnService = {
       if (Number.isNaN(pickupAt.getTime())) throw ApiError.badRequest("Invalid pickup date");
     }
 
+    if (action === "pickup" || action === "picked-up") {
+      const photo = input.pickupImageUrl?.trim() || (req as any).pickup_image_url?.trim();
+      if (!photo) {
+        throw ApiError.badRequest("Courier receipt / package photo is mandatory for pickup.");
+      }
+
+      const originalShipments = await db.shipments.findMany({
+        where: { order_id: req.order_id, is_active: true },
+        select: { tracking_number: true },
+      });
+      const originalTracking = originalShipments.find((s) => s.tracking_number)?.tracking_number?.trim();
+
+      if (originalTracking && input.trackingNumber) {
+        const entered = input.trackingNumber.trim();
+        if (entered.toUpperCase() !== originalTracking.toUpperCase()) {
+          throw ApiError.badRequest(
+            `Courier number mismatch. Pickup not allowed (Expected delivery courier no: ${originalTracking}, got: ${entered}).`
+          );
+        }
+      }
+    }
+
     const updated = await returnRepository.transition({
       request: { id: req.id, status: current, orderId: req.order_id },
       action,
@@ -289,6 +323,9 @@ export const returnService = {
       rejectionReason: action === "reject" ? rejectionReason : undefined,
       pickupAt,
       transactionRef: input.transactionRef,
+      courierName: input.courierName,
+      trackingNumber: input.trackingNumber,
+      pickupImageUrl: input.pickupImageUrl,
       note: input.note,
     });
 

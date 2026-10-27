@@ -29,8 +29,8 @@ function storeDayStart(date: Date): number {
 }
 
 /**
- * deliveryDate + 3 days >= currentDate, evaluated on store-timezone calendar
- * days. Delivered 2026-09-20 -> requests accepted through 2026-09-23 23:59:59.
+ * deliveryDate + 3 days (inclusive of delivery day), evaluated on store-timezone calendar
+ * days. Delivered 2026-10-27 -> requests accepted through 2026-10-29 23:59:59 (3 days total).
  */
 export function getReturnWindow(
   orderStatus: string,
@@ -61,7 +61,7 @@ export function getReturnWindow(
   }
 
   const deadline = new Date(
-    storeDayStart(delivered) + (RETURN_WINDOW_DAYS + 1) * DAY_MS - 1
+    storeDayStart(delivered) + RETURN_WINDOW_DAYS * DAY_MS - 1
   );
   const eligible = now.getTime() <= deadline.getTime();
   const daysLeft = eligible
@@ -78,8 +78,8 @@ export function getReturnWindow(
     daysLeft,
     code: eligible ? "OK" : "WINDOW_EXPIRED",
     message: eligible
-      ? `Return period ends on ${formatStoreDate(deadline)}.`
-      : "Return period expired",
+      ? `Return period ends on ${formatStoreDate(deadline)} (${daysLeft} ${daysLeft === 1 ? "day" : "days"} left).`
+      : "Return period expired (returns are only allowed within 3 days of delivery).",
   };
 }
 

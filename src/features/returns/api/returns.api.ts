@@ -51,6 +51,22 @@ export interface AdminRequest extends RequestSummary {
   shippedAt?: string | null;
   deliveredReplacementAt?: string | null;
   customer: { id: string; name: string; email: string | null; phone: string | null };
+  shippingAddress?: {
+    id: string;
+    fullName: string;
+    phone: string;
+    addressLine1: string;
+    addressLine2?: string | null;
+    landmark?: string | null;
+    city: string;
+    state: string;
+    pincode: string;
+    country: string;
+  } | null;
+  originalCourier?: {
+    carrier: string | null;
+    trackingNumber: string;
+  } | null;
 }
 
 /** Outcome of the automatic gateway refund the `refund` action attempts. */
@@ -100,6 +116,9 @@ export interface RequestActionPayload {
   rejectionReason?: string;
   pickupDate?: string;
   transactionRef?: string;
+  courierName?: string;
+  trackingNumber?: string;
+  pickupImageUrl?: string;
 }
 
 export interface UploadedVideo {

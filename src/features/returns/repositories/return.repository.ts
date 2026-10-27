@@ -107,6 +107,9 @@ export interface TransitionParams {
   rejectionReason?: string;
   pickupAt?: Date;
   transactionRef?: string;
+  courierName?: string;
+  trackingNumber?: string;
+  pickupImageUrl?: string;
   note?: string;
 }
 
@@ -275,8 +278,17 @@ export const returnRepository = {
         updated_at: now,
         updated_by: p.actor.id,
       };
+      let generatedReturnNumber: string | null = null;
       if (p.action === "approve") {
-        Object.assign(data, { approved_at: now, approved_by: p.actor.id, admin_comment: p.comment ?? null });
+        const dateStr = now.toISOString().slice(0, 10).replace(/-/g, "");
+        const randomHex = crypto.randomBytes(3).toString("hex").toUpperCase();
+        generatedReturnNumber = `RET-${dateStr}-${randomHex}`;
+        Object.assign(data, {
+          approved_at: now,
+          approved_by: p.actor.id,
+          admin_comment: p.comment ?? null,
+          return_number: generatedReturnNumber,
+        });
       } else if (p.action === "reject") {
         Object.assign(data, {
           rejected_at: now,
@@ -288,6 +300,15 @@ export const returnRepository = {
         Object.assign(data, { pickup_scheduled_at: p.pickupAt ?? now });
       } else if (p.action === "complete" || p.action === "close") {
         Object.assign(data, { completed_at: now });
+      }
+      if (p.courierName !== undefined) {
+        Object.assign(data, { courier_name: p.courierName.trim() || null });
+      }
+      if (p.trackingNumber !== undefined) {
+        Object.assign(data, { tracking_number: p.trackingNumber.trim() || null });
+      }
+      if (p.pickupImageUrl !== undefined) {
+        Object.assign(data, { pickup_image_url: p.pickupImageUrl.trim() || null });
       }
       if (p.comment && !["approve", "reject"].includes(p.action)) {
         Object.assign(data, { admin_comment: p.comment });
@@ -311,6 +332,31 @@ export const returnRepository = {
       });
       const orderId = p.request.orderId;
       let historyNote = p.rejectionReason ?? p.note ?? p.comment ?? null;
+
+      if (p.action === "pickup" && !p.note && !p.comment) {
+        const ret = await tx.return_requests.findUnique({
+          where: { id: p.request.id },
+          select: { return_number: true },
+        });
+        const dt = p.pickupAt ? ` for ${p.pickupAt.toLocaleDateString("en-IN")}` : "";
+        const courierStr = p.courierName ? ` via ${p.courierName}` : "";
+        const trackingStr = p.trackingNumber ? ` (Tracking: ${p.trackingNumber})` : "";
+        historyNote = ret?.return_number
+          ? `Pickup scheduled${dt}${courierStr}${trackingStr}. Return ID: ${ret.return_number}`
+          : `Pickup scheduled${dt}${courierStr}${trackingStr}`;
+      } else if (p.action === "picked-up" && !p.note && !p.comment) {
+        const ret = await tx.return_requests.findUnique({
+          where: { id: p.request.id },
+          select: { return_number: true, courier_name: true, tracking_number: true },
+        });
+        const courier = p.courierName || ret?.courier_name;
+        const tracking = p.trackingNumber || ret?.tracking_number;
+        const courierStr = courier ? ` via ${courier}` : "";
+        const trackingStr = tracking ? ` (Tracking: ${tracking})` : "";
+        historyNote = ret?.return_number
+          ? `Item picked up from customer${courierStr}${trackingStr}. Return ID: ${ret.return_number}`
+          : `Item picked up from customer${courierStr}${trackingStr}`;
+      }
 
       if (p.action === "received") {
         // Goods are physically back: put them on the shelf, one ledger row per line.
@@ -476,7 +522,11 @@ export const returnRepository = {
           from_status: p.request.status,
           to_status: p.to,
           action: p.action,
-          note: historyNote?.slice(0, 500) ?? null,
+          note: (p.action === "approve"
+            ? (generatedReturnNumber
+                ? (p.comment ? `${p.comment} (Return ID: ${generatedReturnNumber})` : `Return approved. Return ID: ${generatedReturnNumber}`)
+                : (p.comment ?? "Return approved"))
+            : historyNote)?.slice(0, 500) ?? null,
           actor_user_id: p.actor.id,
           actor_type: p.actor.type,
         },

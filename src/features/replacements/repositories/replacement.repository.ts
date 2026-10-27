@@ -70,6 +70,9 @@ export interface ReplacementTransitionParams {
   comment?: string;
   rejectionReason?: string;
   pickupAt?: Date;
+  courierName?: string;
+  trackingNumber?: string;
+  pickupImageUrl?: string;
   note?: string;
 }
 
@@ -135,8 +138,17 @@ export const replacementRepository = {
       const now = new Date();
       const data: Record<string, unknown> = { status: p.to, updated_at: now, updated_by: p.actor.id };
 
+      let generatedReplacementNumber: string | null = null;
       if (p.action === "approve") {
-        Object.assign(data, { approved_at: now, approved_by: p.actor.id, admin_comment: p.comment ?? null });
+        const dateStr = now.toISOString().slice(0, 10).replace(/-/g, "");
+        const randomHex = crypto.randomBytes(3).toString("hex").toUpperCase();
+        generatedReplacementNumber = `REP-${dateStr}-${randomHex}`;
+        Object.assign(data, {
+          approved_at: now,
+          approved_by: p.actor.id,
+          admin_comment: p.comment ?? null,
+          replacement_number: generatedReplacementNumber,
+        });
       } else if (p.action === "reject") {
         Object.assign(data, {
           rejected_at: now,
@@ -153,6 +165,9 @@ export const replacementRepository = {
       } else if (p.action === "close") {
         Object.assign(data, { completed_at: now });
       }
+      if (p.courierName !== undefined) Object.assign(data, { courier_name: p.courierName.trim() || null });
+      if (p.trackingNumber !== undefined) Object.assign(data, { tracking_number: p.trackingNumber.trim() || null });
+      if (p.pickupImageUrl !== undefined) Object.assign(data, { pickup_image_url: p.pickupImageUrl.trim() || null });
       if (p.comment && !["approve", "reject"].includes(p.action)) data.admin_comment = p.comment;
 
       const moved = await tx.replacement_requests.updateMany({
@@ -164,6 +179,31 @@ export const replacementRepository = {
       }
 
       let historyNote = p.rejectionReason ?? p.note ?? p.comment ?? null;
+
+      if (p.action === "pickup" && !p.note && !p.comment) {
+        const rep = await tx.replacement_requests.findUnique({
+          where: { id: p.request.id },
+          select: { replacement_number: true },
+        });
+        const dt = p.pickupAt ? ` for ${p.pickupAt.toLocaleDateString("en-IN")}` : "";
+        const courierStr = p.courierName ? ` via ${p.courierName}` : "";
+        const trackingStr = p.trackingNumber ? ` (Tracking: ${p.trackingNumber})` : "";
+        historyNote = rep?.replacement_number
+          ? `Pickup scheduled${dt}${courierStr}${trackingStr}. Replacement ID: ${rep.replacement_number}`
+          : `Pickup scheduled${dt}${courierStr}${trackingStr}`;
+      } else if (p.action === "picked-up" && !p.note && !p.comment) {
+        const rep = await tx.replacement_requests.findUnique({
+          where: { id: p.request.id },
+          select: { replacement_number: true, courier_name: true, tracking_number: true },
+        });
+        const courier = p.courierName || rep?.courier_name;
+        const tracking = p.trackingNumber || rep?.tracking_number;
+        const courierStr = courier ? ` via ${courier}` : "";
+        const trackingStr = tracking ? ` (Tracking: ${tracking})` : "";
+        historyNote = rep?.replacement_number
+          ? `Item picked up from customer${courierStr}${trackingStr}. Replacement ID: ${rep.replacement_number}`
+          : `Item picked up from customer${courierStr}${trackingStr}`;
+      }
 
       // The replacement unit leaves the warehouse when processing starts.
       if (p.action === "process") {
@@ -217,7 +257,11 @@ export const replacementRepository = {
           from_status: p.request.status,
           to_status: p.to,
           action: p.action,
-          note: historyNote?.slice(0, 500) ?? null,
+          note: (p.action === "approve"
+            ? (generatedReplacementNumber
+                ? (p.comment ? `${p.comment} (Replacement ID: ${generatedReplacementNumber})` : `Replacement approved. Replacement ID: ${generatedReplacementNumber}`)
+                : (p.comment ?? "Replacement approved"))
+            : historyNote)?.slice(0, 500) ?? null,
           actor_user_id: p.actor.id,
           actor_type: p.actor.type,
         },

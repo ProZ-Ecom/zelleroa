@@ -116,6 +116,7 @@ export function useCreatePermission() {
     mutationFn: (data: Record<string, unknown>) => createPermission(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: permissionKeys.all });
+      queryClient.invalidateQueries({ queryKey: roleKeys.all });
     },
   });
 }
@@ -129,6 +130,7 @@ export function useUpdatePermission() {
     onSuccess: (_result, variables) => {
       queryClient.invalidateQueries({ queryKey: permissionKeys.all });
       queryClient.invalidateQueries({ queryKey: permissionKeys.detail(variables.id) });
+      queryClient.invalidateQueries({ queryKey: roleKeys.all });
     },
   });
 }
