@@ -192,10 +192,10 @@ export const valuationService = {
   },
 
   /**
-   * Margin on what was sold in a period. An order item carries no cost of its
-   * own, so each one is costed at its SKU's cost today: close enough to steer
-   * by, but it moves when the buying price moves, which the screen says out
-   * loud. Units whose SKU has no cost at all are counted separately.
+   * Margin on what was sold in a period. Each line carries the cost of the day
+   * it sold, so the figures stay put when buying prices move later. Lines from
+   * before that was recorded fall back to the SKU's cost today and are counted
+   * as estimated, and units with no cost at all are left uncosted.
    */
   async salesMargin(params: ValuationQuery): Promise<SalesMarginReport> {
     const groupBy: ValuationGroupBy = params.groupBy ?? "category";
@@ -219,6 +219,7 @@ export const valuationService = {
         orderId: true,
         quantity: true,
         unit_price: true,
+        unit_cost: true,
         discount_amount: true,
         product: { select: { categoryId: true, brand: { select: { slug: true, name: true } } } },
         variant_unit_price: { select: { avg_cost: true, cost_price: true } },
@@ -235,6 +236,7 @@ export const valuationService = {
       estimatedProfit: 0,
       marginPercent: null,
       unitsWithoutCost: 0,
+      unitsEstimated: 0,
     });
 
     const buckets = new Map<string, SalesMarginRow>();
@@ -252,7 +254,11 @@ export const valuationService = {
 
       // What the customer paid for the line, after its discount and before tax.
       const revenue = Number(item.unit_price) * item.quantity - Number(item.discount_amount);
-      const cost = item.variant_unit_price ? unitCost(item.variant_unit_price) : null;
+      // The cost frozen onto the line when it sold is the true one; anything
+      // older has to borrow the SKU's cost today, which only approximates it.
+      const snapshot = item.unit_cost === null ? null : Number(item.unit_cost);
+      const cost =
+        snapshot ?? (item.variant_unit_price ? unitCost(item.variant_unit_price) : null);
 
       bucket.unitsSold += item.quantity;
       bucket.revenue += revenue;
@@ -263,6 +269,10 @@ export const valuationService = {
         bucket.unitsWithoutCost += item.quantity;
         totals.unitsWithoutCost += item.quantity;
         continue;
+      }
+      if (snapshot === null) {
+        bucket.unitsEstimated += item.quantity;
+        totals.unitsEstimated += item.quantity;
       }
       bucket.estimatedCost += cost * item.quantity;
       totals.estimatedCost += cost * item.quantity;

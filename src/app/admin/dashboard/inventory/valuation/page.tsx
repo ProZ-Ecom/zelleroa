@@ -203,6 +203,7 @@ export default function ValuationPage() {
             Orders: r.orderCount,
             "Units sold": r.unitsSold,
             "Uncosted units": r.unitsWithoutCost,
+            "Estimated units": r.unitsEstimated,
             Revenue: r.revenue,
             "Estimated cost": r.estimatedCost,
             "Estimated profit": r.estimatedProfit,
@@ -362,13 +363,24 @@ export default function ValuationPage() {
               </p>
             )}
 
-            {view === "sales" && (
+            {view === "sales" && salesTotals && (
               <p className="inline-flex items-start gap-1.5 text-xs text-[var(--color-neutral-500)]">
                 <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" />
                 <span>
-                  Revenue is after item discounts and before tax. Cost is each SKU&apos;s cost
-                  today, not what it cost on the day of the sale, so these figures move when buying
-                  prices move. Cancelled and returned orders are excluded.
+                  Revenue is after item discounts and before tax. Cancelled and returned orders are
+                  excluded.{" "}
+                  {salesTotals.unitsEstimated > 0 ? (
+                    <>
+                      {salesTotals.unitsEstimated} unit
+                      {salesTotals.unitsEstimated === 1 ? " was" : "s were"} sold before the cost of
+                      the day was recorded, so {salesTotals.unitsEstimated === 1 ? "it is" : "those are"}{" "}
+                      costed at today&apos;s price and will move when buying prices move.
+                    </>
+                  ) : salesTotals.unitsSold > salesTotals.unitsWithoutCost ? (
+                    <>Each line is costed at what the goods cost on the day they sold.</>
+                  ) : (
+                    <>Nothing sold here has a cost on record, so there is no margin to show.</>
+                  )}
                 </span>
               </p>
             )}

@@ -191,6 +191,79 @@ export const returnRepository = {
     });
   },
 
+  /** The refund row the `refund` transition opened, still awaiting settlement. */
+  findPendingRefund(requestId: bigint) {
+    return db.refunds.findFirst({
+      where: { return_request_id: requestId, status: "initiated", is_active: true },
+      orderBy: { id: "desc" },
+      select: { id: true, amount: true, payment_id: true },
+    });
+  },
+
+  /**
+   * Files the result of an automatic gateway refund against that row. Runs on
+   * its own, after the transition has committed: the gateway call cannot be
+   * rolled back, and a failure must leave the refund row `initiated` so the
+   * admin can still settle it by hand and mark the request refunded.
+   */
+  async recordGatewayRefundOutcome(p: {
+    requestId: bigint;
+    refundId: bigint;
+    paymentId: bigint;
+    actor: Actor;
+    outcome:
+      | { ok: true; transactionRef: string; amount: number; gatewayResponse: unknown }
+      | { ok: false; message: string };
+  }) {
+    const now = new Date();
+    await db.$transaction(async (tx) => {
+      if (p.outcome.ok) {
+        await tx.refunds.update({
+          where: { id: p.refundId },
+          data: {
+            status: "processing",
+            transaction_ref: p.outcome.transactionRef,
+            updated_at: now,
+            updated_by: p.actor.id,
+          },
+        });
+        await tx.return_requests.update({
+          where: { id: p.requestId },
+          data: {
+            refund_transaction_ref: p.outcome.transactionRef,
+            updated_at: now,
+            updated_by: p.actor.id,
+          },
+        });
+        await tx.paymentTransaction.create({
+          data: {
+            paymentId: p.paymentId,
+            transaction_type: "refund",
+            amount: p.outcome.amount,
+            status: "processing",
+            gatewayResponse: p.outcome.gatewayResponse as Prisma.InputJsonValue,
+            created_by: p.actor.id,
+            updated_by: p.actor.id,
+          },
+        });
+      }
+      await tx.return_request_history.create({
+        data: {
+          return_request_id: p.requestId,
+          from_status: "refund_pending",
+          to_status: "refund_pending",
+          action: "refund",
+          note: (p.outcome.ok
+            ? `Automatic refund sent to the payment gateway (Ref: ${p.outcome.transactionRef})`
+            : `Automatic refund failed: ${p.outcome.message}`
+          ).slice(0, 500),
+          actor_user_id: p.actor.id,
+          actor_type: p.actor.type,
+        },
+      });
+    });
+  },
+
   /** Applies one workflow step atomically, with its side effects and audit row. */
   async transition(p: TransitionParams) {
     return db.$transaction(async (tx) => {
@@ -358,7 +431,9 @@ export const returnRepository = {
           data: {
             status: "completed",
             processed_at: now,
-            transaction_ref: p.transactionRef ?? null,
+            // Left alone when no ref is typed, so an automatic gateway refund
+            // keeps the reference it already recorded.
+            ...(p.transactionRef ? { transaction_ref: p.transactionRef } : {}),
             updated_by: p.actor.id,
           },
         });

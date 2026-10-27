@@ -17,6 +17,48 @@ import type {
 } from "../validations/payment.schema";
 
 /**
+ * Compare two hex signatures without leaking, through how long the comparison
+ * takes, how much of a forged signature was right.
+ */
+function signatureMatches(expected: string, received: string | null | undefined) {
+  const expectedBuffer = Buffer.from(expected, "utf8");
+  const receivedBuffer = Buffer.from(received || "", "utf8");
+  return (
+    expectedBuffer.length === receivedBuffer.length &&
+    crypto.timingSafeEqual(expectedBuffer, receivedBuffer)
+  );
+}
+
+/**
+ * The money is already captured by the time the order is written, so a failure
+ * there (stock gone, cart total moved) must hand the money back rather than
+ * leave the customer paid up with nothing to show for it. A refund that itself
+ * fails is logged loudly and still reported to the customer, because support
+ * has to be able to find it.
+ */
+async function refundCapturedPayment(
+  razorpayPaymentId: string,
+  razorpayOrderId: string,
+  reason: string
+) {
+  try {
+    await getRazorpayClient().payments.refund(razorpayPaymentId, {
+      notes: { reason, razorpay_order_id: razorpayOrderId },
+    });
+    console.warn(
+      `[Razorpay] Auto-refunded payment ${razorpayPaymentId} after order placement failed: ${reason}`
+    );
+    return true;
+  } catch (refundErr: unknown) {
+    console.error(
+      `[Razorpay] CRITICAL: auto-refund failed for payment ${razorpayPaymentId} (order ${razorpayOrderId}):`,
+      refundErr
+    );
+    return false;
+  }
+}
+
+/**
  * Delivery charge for the customer's chosen address - must match what
  * orderService.createCustomerOrder charges once the payment is verified.
  */
@@ -283,14 +325,7 @@ export const razorpayService = {
       .update(`${input.razorpay_order_id}|${input.razorpay_payment_id}`)
       .digest("hex");
 
-    const expectedBuffer = Buffer.from(expectedSignature, "utf8");
-    const receivedBuffer = Buffer.from(input.razorpay_signature || "", "utf8");
-
-    const isSignatureValid =
-      expectedBuffer.length === receivedBuffer.length &&
-      crypto.timingSafeEqual(expectedBuffer, receivedBuffer);
-
-    if (!isSignatureValid) {
+    if (!signatureMatches(expectedSignature, input.razorpay_signature)) {
       throw ApiError.badRequest("Invalid payment signature. Verification rejected.");
     }
 
@@ -342,30 +377,21 @@ export const razorpayService = {
           undefined,
           { gatewayPaymentVerified: true, expectedPaidAmount: chargedAmount }
         );
-      } catch (orderErr: any) {
+      } catch (orderErr: unknown) {
         // Stock reservation or order creation failed after payment capture.
-        // Automatically refund captured payment immediately so customer is protected.
-        try {
-          const razorpay = getRazorpayClient();
-          await razorpay.payments.refund(input.razorpay_payment_id, {
-            notes: {
-              reason: "Stock unavailable during checkout; automatic full refund initiated",
-              razorpay_order_id: input.razorpay_order_id,
-            },
-          });
-          console.warn(
-            `[Razorpay] Auto-refunded payment ${input.razorpay_payment_id} due to order placement failure: ${orderErr?.message}`
-          );
-        } catch (refundErr: any) {
-          console.error(
-            `[Razorpay] CRITICAL: Auto-refund failed for payment ${input.razorpay_payment_id}:`,
-            refundErr
-          );
-        }
-
-        const baseMsg = orderErr?.message || "Could not complete order due to stock unavailability.";
+        const baseMsg =
+          orderErr instanceof Error
+            ? orderErr.message
+            : "Could not complete order due to stock unavailability.";
+        const refunded = await refundCapturedPayment(
+          input.razorpay_payment_id,
+          input.razorpay_order_id,
+          baseMsg
+        );
         throw ApiError.badRequest(
-          `${baseMsg} A full refund has been automatically initiated to your payment method.`
+          refunded
+            ? `${baseMsg} A full refund has been automatically initiated to your payment method.`
+            : `${baseMsg} We could not complete the refund automatically - please contact support with payment reference ${input.razorpay_payment_id}.`
         );
       }
 
@@ -481,7 +507,7 @@ export const razorpayService = {
       .update(rawBody)
       .digest("hex");
 
-    if (expectedSignature !== signatureHeader) {
+    if (!signatureMatches(expectedSignature, signatureHeader)) {
       throw ApiError.badRequest("Invalid webhook signature");
     }
 
@@ -547,6 +573,42 @@ export const razorpayService = {
     }
 
     return { received: true, unhandledEvent: eventType };
+  },
+
+  /**
+   * The captured Razorpay payment behind an order, or null when nothing was
+   * paid online (COD orders, or a gateway attempt that never succeeded).
+   * Callers use it to choose between an automatic refund and a manual payout.
+   */
+  async findCapturedPayment(orderId: bigint) {
+    return db.payment.findFirst({
+      where: {
+        orderId,
+        status: "success",
+        gateway: "RAZORPAY",
+        is_active: true,
+        gateway_payment_id: { not: null },
+      },
+      orderBy: { createdAt: "desc" },
+    });
+  },
+
+  /**
+   * Refunds part or all of a captured payment at the gateway and nothing more.
+   * Unlike `refundPayment` this writes no rows: a partial return refund must
+   * not flip the whole order to `refunded`, so the caller records the outcome
+   * against its own refund row.
+   */
+  async createGatewayRefund(params: {
+    gatewayPaymentId: string;
+    amount: number;
+    notes?: Record<string, string>;
+  }) {
+    const razorpay = getRazorpayClient();
+    return razorpay.payments.refund(params.gatewayPaymentId, {
+      amount: Math.round(params.amount * 100),
+      ...(params.notes ? { notes: params.notes } : {}),
+    });
   },
 
   /**
@@ -742,7 +804,7 @@ export const razorpayService = {
       .update(`${input.razorpay_order_id}|${input.razorpay_payment_id}`)
       .digest("hex");
 
-    if (expectedSignature !== input.razorpay_signature) {
+    if (!signatureMatches(expectedSignature, input.razorpay_signature)) {
       throw ApiError.badRequest("Invalid payment signature. Verification rejected.");
     }
 
@@ -778,27 +840,47 @@ export const razorpayService = {
     const cleanNotes = rawNotes.replace(/\[DELIVERY:(express|standard)\]\s*/g, "").trim() || undefined;
     const deliveryMethod: "standard" | "express" = isExpress ? "express" : "standard";
 
-    // 5. Create internal order — only now, after verified payment
-    const createdOrder = await orderService.createCustomerOrder(
-      sessionUserId,
-      {
-        shippingAddressId: tokenData.shippingAddressId,
-        billingAddressId: tokenData.billingAddressId || tokenData.shippingAddressId,
-        notes: cleanNotes,
-        deliveryMethod,
-        paymentMethod: "CARD",
-        paymentDetails: {
-          gateway: "RAZORPAY",
-          isPaid: true,
-          razorpay_order_id: input.razorpay_order_id,
-          razorpay_payment_id: input.razorpay_payment_id,
-          razorpay_signature: input.razorpay_signature,
+    // 5. Create internal order — only now, after verified payment. The money is
+    // already captured, so anything that stops the order here has to be paid
+    // back; the token stays used, since the charge it stood for is reversed.
+    let createdOrder;
+    try {
+      createdOrder = await orderService.createCustomerOrder(
+        sessionUserId,
+        {
+          shippingAddressId: tokenData.shippingAddressId,
+          billingAddressId: tokenData.billingAddressId || tokenData.shippingAddressId,
+          notes: cleanNotes,
+          deliveryMethod,
+          paymentMethod: "CARD",
+          paymentDetails: {
+            gateway: "RAZORPAY",
+            isPaid: true,
+            razorpay_order_id: input.razorpay_order_id,
+            razorpay_payment_id: input.razorpay_payment_id,
+            razorpay_signature: input.razorpay_signature,
+          },
         },
-      },
-      undefined,
-      validReferral,
-      { gatewayPaymentVerified: true, expectedPaidAmount: tokenData.amount }
-    );
+        undefined,
+        validReferral,
+        { gatewayPaymentVerified: true, expectedPaidAmount: tokenData.amount }
+      );
+    } catch (orderErr: unknown) {
+      const baseMsg =
+        orderErr instanceof Error
+          ? orderErr.message
+          : "Could not complete your order after the payment went through.";
+      const refunded = await refundCapturedPayment(
+        input.razorpay_payment_id,
+        input.razorpay_order_id,
+        baseMsg
+      );
+      throw ApiError.badRequest(
+        refunded
+          ? `${baseMsg} A full refund has been automatically initiated to your payment method.`
+          : `${baseMsg} We could not complete the refund automatically - please contact support with payment reference ${input.razorpay_payment_id}.`
+      );
+    }
 
     // 6. Record payment in DB
     const dbOrder = await db.order.findFirst({

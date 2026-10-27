@@ -33,8 +33,13 @@ export interface SalesMarginRow {
   estimatedCost: number;
   estimatedProfit: number;
   marginPercent: number | null;
-  /** Units sold whose SKU has no cost on record, so they count as zero cost. */
+  /** Units sold whose SKU has no cost on record at all, so they are not costed. */
   unitsWithoutCost: number;
+  /**
+   * Units sold before the cost of the day was recorded on the line, costed at
+   * the SKU's cost today instead. Zero means every figure here is exact.
+   */
+  unitsEstimated: number;
 }
 
 export interface SalesMarginReport {

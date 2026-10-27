@@ -68,8 +68,19 @@ export function AdminRequestDetailModal({ kind, uuid, onClose }: Props) {
         },
       },
       {
-        onSuccess: () => {
-          toast.success(`${pending.label} completed`);
+        onSuccess: (result) => {
+          // A prepaid refund is settled at the gateway, and that can fail on its
+          // own even though the status change went through.
+          const gateway = result?.gatewayRefund;
+          if (gateway?.attempted && !gateway.ok) {
+            toast.error(gateway.message);
+          } else if (gateway?.ok) {
+            toast.success(gateway.message);
+          } else {
+            toast.success(
+              gateway && !gateway.attempted ? `${pending.label} completed - ${gateway.message}` : `${pending.label} completed`
+            );
+          }
           setPending(null);
           setComment("");
           setPickupDate("");
@@ -288,6 +299,13 @@ export function AdminRequestDetailModal({ kind, uuid, onClose }: Props) {
                       ? "Complete Refund & Mark Refunded"
                       : `${pending.label}?`}
               </p>
+              {pending.action === "refund" && (
+                <p className="text-xs text-neutral-600">
+                  {req.refundMethod
+                    ? "This order was paid by cash on delivery - pay the customer using the refund details above, then mark the request refunded."
+                    : "The refund will be sent to the original payment method automatically. If the gateway rejects it, settle it manually and mark the request refunded."}
+                </p>
+              )}
               {pending.action === "pickup" && (
                 <div className="space-y-1">
                   <label className="text-xs font-semibold text-neutral-700">Pickup Date</label>

@@ -53,6 +53,19 @@ export interface AdminRequest extends RequestSummary {
   customer: { id: string; name: string; email: string | null; phone: string | null };
 }
 
+/** Outcome of the automatic gateway refund the `refund` action attempts. */
+export interface GatewayRefundResult {
+  attempted: boolean;
+  ok: boolean;
+  message: string;
+  transactionRef?: string;
+}
+
+/** An action response: the updated request, plus any gateway refund it triggered. */
+export interface AdminActionResult extends AdminRequest {
+  gatewayRefund?: GatewayRefundResult;
+}
+
 export interface CodRefundDetailsPayload {
   method: "bank_transfer" | "upi";
   accountHolderName?: string;
@@ -175,7 +188,10 @@ export const returnsApi = {
     action: string,
     payload: RequestActionPayload = {}
   ) {
-    const res = await apiClient.post<AdminRequest>(`/api/admin/${kind}/${uuid}/${action}`, payload);
+    const res = await apiClient.post<AdminActionResult>(
+      `/api/admin/${kind}/${uuid}/${action}`,
+      payload
+    );
     return res.data!;
   },
 };

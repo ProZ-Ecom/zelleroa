@@ -3,6 +3,7 @@ import { db } from "@/lib/db/prisma";
 import { encryptField } from "@/lib/security/field-crypto";
 import { userRepository } from "@/features/users/repositories/user.repository";
 import { resolveDeliveredAt } from "@/features/orders/repositories/order.repository";
+import { razorpayService } from "@/features/payment/services/razorpay.service";
 import { returnRepository, type Actor } from "../repositories/return.repository";
 import { getReturnWindow, RETURN_TRANSITIONS, type ReturnAction, type ReturnStatus } from "../lib/policy";
 import { summarizeReturnRequest } from "../lib/summary";
@@ -46,6 +47,87 @@ function meta(result: { total: number; page: number; limit: number }) {
     total: result.total,
     totalPages: Math.ceil(result.total / result.limit) || 1,
   };
+}
+
+export interface GatewayRefundResult {
+  /** False when the order has no online payment to refund (COD). */
+  attempted: boolean;
+  ok: boolean;
+  message: string;
+  transactionRef?: string;
+}
+
+/**
+ * Prepaid returns are refunded at the gateway the moment the refund is
+ * initiated; COD ones stay manual, since the customer's bank / UPI details are
+ * on the request. Deliberately runs after the status transition has committed:
+ * a gateway outage must not roll the request back to `received`. On failure the
+ * refund row stays `initiated`, the timeline says what went wrong, and the
+ * admin can still settle it by hand and mark the request refunded.
+ */
+async function settleRefundAtGateway(
+  requestId: bigint,
+  orderId: bigint,
+  actor: Actor
+): Promise<GatewayRefundResult | undefined> {
+  const pending = await returnRepository.findPendingRefund(requestId);
+  if (!pending) return undefined;
+
+  const payment = await razorpayService.findCapturedPayment(orderId);
+  if (!payment?.gateway_payment_id) {
+    return {
+      attempted: false,
+      ok: false,
+      message: "No online payment on this order - refund the customer manually.",
+    };
+  }
+
+  const amount = Number(pending.amount);
+  try {
+    const refund = await razorpayService.createGatewayRefund({
+      gatewayPaymentId: payment.gateway_payment_id,
+      amount,
+      notes: {
+        orderId: String(orderId),
+        returnRequestId: String(requestId),
+        reason: "Return refund",
+      },
+    });
+    const transactionRef = String(refund.id);
+    await returnRepository.recordGatewayRefundOutcome({
+      requestId,
+      refundId: pending.id,
+      paymentId: payment.id,
+      actor,
+      outcome: { ok: true, transactionRef, amount, gatewayResponse: refund },
+    });
+    return {
+      attempted: true,
+      ok: true,
+      transactionRef,
+      message: `Refund of ₹${amount.toFixed(2)} sent to Razorpay (${transactionRef}).`,
+    };
+  } catch (err: unknown) {
+    const reason =
+      (err as { error?: { description?: string } })?.error?.description ??
+      (err instanceof Error ? err.message : "Unknown gateway error");
+    console.error(
+      `[Returns] CRITICAL: automatic refund failed for return request ${requestId} (order ${orderId}):`,
+      err
+    );
+    await returnRepository.recordGatewayRefundOutcome({
+      requestId,
+      refundId: pending.id,
+      paymentId: payment.id,
+      actor,
+      outcome: { ok: false, message: reason },
+    });
+    return {
+      attempted: true,
+      ok: false,
+      message: `Automatic refund failed: ${reason}. Refund the customer manually, then mark the request refunded.`,
+    };
+  }
 }
 
 async function resolveActor(sessionUserId: string): Promise<Actor> {
@@ -209,6 +291,14 @@ export const returnService = {
       transactionRef: input.transactionRef,
       note: input.note,
     });
+
+    if (action === "refund") {
+      const gatewayRefund = await settleRefundAtGateway(req.id, req.order_id, actor);
+      // The attempt adds a timeline row, so hand back the request as it now stands.
+      const refreshed = (await returnRepository.findByUuid(uuid)) ?? updated;
+      return { ...formatRequest(refreshed), gatewayRefund };
+    }
+
     return formatRequest(updated);
   },
 };

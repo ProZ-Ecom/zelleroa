@@ -815,6 +815,16 @@ export const orderRepository = {
       });
 
       // 3. Create Order Items
+      // What each SKU costs right now, frozen onto the line: margin on a past
+      // sale has to use the cost of the day, not whatever we pay for it later.
+      const costRows = await tx.variantUnitPrice.findMany({
+        where: { id: { in: params.items.map((i) => i.variantUnitPriceId) } },
+        select: { id: true, avg_cost: true, cost_price: true },
+      });
+      const costBySku = new Map(
+        costRows.map((r) => [String(r.id), r.avg_cost ?? r.cost_price ?? null])
+      );
+
       await tx.orderItem.createMany({
         data: params.items.map((item) => ({
           uuid: crypto.randomUUID(),
@@ -831,6 +841,7 @@ export const orderRepository = {
           sku_snapshot: item.sku,
           quantity: item.quantity,
           unit_price: item.unitPrice,
+          unit_cost: costBySku.get(String(item.variantUnitPriceId)) ?? null,
           discount_amount: item.discountAmount,
           tax_amount: item.taxAmount,
           total_price: item.totalPrice,
