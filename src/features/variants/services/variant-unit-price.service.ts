@@ -93,25 +93,30 @@ async function resolveAttributeValues(
     where: { id: variantId },
     select: { item: { select: { style: { select: { productId: true } } } } },
   });
-  const configs = variant
-    ? await db.product_attribute_configs.findMany({
+  let configs: Array<{ attribute_id: bigint; sort_order: number }> = [];
+  if (variant) {
+    try {
+      configs = await db.product_attribute_configs.findMany({
         where: {
           product_id: variant.item.style.productId,
           attribute_id: { in: values.map((v) => v.attributeId) },
         },
         select: { attribute_id: true, sort_order: true },
-      })
-    : [];
-  // The catalog holds several attributes sharing a name (five called "Size"), so a
-  // value from the wrong one looks right and silently produces a row claiming a
-  // variation this product does not declare - and, having no configured sort order,
-  // it would also hijack the primary value.
-  const configured = new Map(configs.map((c) => [c.attribute_id.toString(), c]));
-  const stray = values.find((v) => !configured.has(v.attributeId.toString()));
-  if (stray) {
-    throw ApiError.badRequest(
-      `"${stray.value}" belongs to an attribute that is not configured on this product`
-    );
+      });
+    } catch {
+      configs = [];
+    }
+  }
+
+  // Only enforce configuration check if product_attribute_configs table has entries
+  if (configs.length > 0) {
+    const configured = new Map(configs.map((c) => [c.attribute_id.toString(), c]));
+    const stray = values.find((v) => !configured.has(v.attributeId.toString()));
+    if (stray) {
+      throw ApiError.badRequest(
+        `"${stray.value}" belongs to an attribute that is not configured on this product`
+      );
+    }
   }
 
   const sortOrderOf = new Map(

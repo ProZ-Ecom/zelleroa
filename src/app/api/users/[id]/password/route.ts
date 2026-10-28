@@ -16,7 +16,7 @@ export const PUT = createApiHandler(
   {
     method: "PUT",
     requireAuth: true,
-    requiredRole: ["ADMIN"],
+    requiredRole: ["ADMIN", "STAFF"],
     bodySchema: resetPasswordSchema,
   }
 );

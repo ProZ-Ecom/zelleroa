@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import { CheckCircle2, ChevronLeft, Loader2, Minus, Plus, Undo2, Repeat2, Building2, Smartphone, ShieldCheck } from "lucide-react";
 import { Modal } from "@/components/ui/modal";
@@ -10,6 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/components/ui/Toast";
 import { formatPrice } from "@/lib/utils";
 import { ApiClientError } from "@/lib/api/api-client";
+import { useCustomerProfile } from "@/features/customers/hooks/use-customer-profile";
 import { useReturnEligibility, useSubmitReplacement, useSubmitReturn } from "../hooks/use-returns";
 import { REPLACEMENT_REASONS, RETURN_REASONS } from "../lib/policy";
 import { VideoUploader } from "./VideoUploader";
@@ -22,7 +23,7 @@ const STEP_TITLES: Record<Step, string> = {
   items: "Select items",
   reason: "Select reason",
   video: "Upload unboxing video",
-  refund: "Refund details (COD)",
+  refund: "Customer bank details",
   details: "Additional details",
   review: "Review & submit",
   done: "Request submitted",
@@ -48,8 +49,8 @@ export function RequestWizard({ open, orderUuid, initialMode, onClose }: Request
   const [description, setDescription] = useState("");
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
 
-  // COD Refund Details
-  const [refundMethod, setRefundMethod] = useState<"upi" | "bank_transfer">("upi");
+  // COD / Return Refund Details
+  const [refundMethod, setRefundMethod] = useState<"bank_transfer" | "upi">("bank_transfer");
   const [upiId, setUpiId] = useState("");
   const [accountHolderName, setAccountHolderName] = useState("");
   const [bankName, setBankName] = useState("");
@@ -60,19 +61,35 @@ export function RequestWizard({ open, orderUuid, initialMode, onClose }: Request
   const [showErrors, setShowErrors] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
 
+  const { data: customerProfile } = useCustomerProfile({ enabled: open });
   const { data: eligibility, isLoading, error, refetch } = useReturnEligibility(orderUuid, open);
   const submitReturn = useSubmitReturn(orderUuid);
   const submitReplacement = useSubmitReplacement(orderUuid);
   const isSubmitting = submitReturn.isPending || submitReplacement.isPending;
 
-  const isCodReturn = mode === "return" && Boolean(eligibility?.isCod);
+  useEffect(() => {
+    if (customerProfile) {
+      if (!accountHolderName && (customerProfile.bankAccountHolder || customerProfile.name)) {
+        setAccountHolderName(customerProfile.bankAccountHolder || customerProfile.name || "");
+      }
+      if (!bankName && customerProfile.bankName) {
+        setBankName(customerProfile.bankName);
+      }
+      if (!ifscCode && customerProfile.bankIfsc) {
+        setIfscCode(customerProfile.bankIfsc);
+      }
+    }
+  }, [customerProfile, open]);
+
+  // For product returns, customer bank details view is displayed right after video upload
+  const isReturn = mode === "return";
 
   const stepOrder = useMemo<Step[]>(() => {
-    if (isCodReturn) {
+    if (isReturn) {
       return ["items", "reason", "video", "refund", "details", "review"];
     }
     return ["items", "reason", "video", "details", "review"];
-  }, [isCodReturn]);
+  }, [isReturn]);
 
   const reasons = mode === "return" ? RETURN_REASONS : REPLACEMENT_REASONS;
   const items = useMemo(() => eligibility?.items ?? [], [eligibility]);
@@ -121,7 +138,7 @@ export function RequestWizard({ open, orderUuid, initialMode, onClose }: Request
       if (descriptionMissing) return "Please describe the issue when selecting 'Other'.";
     }
     if (s === "video" && !videoUrl) return "Unboxing video is mandatory.";
-    if (s === "refund" && isCodReturn) {
+    if (s === "refund" && isReturn) {
       if (refundMethod === "upi") {
         if (!upiId.trim()) return "Please enter your UPI ID.";
         if (!/^[\w.-]+@[\w.-]+$/.test(upiId.trim())) {
@@ -129,16 +146,22 @@ export function RequestWizard({ open, orderUuid, initialMode, onClose }: Request
         }
       } else {
         if (!accountHolderName.trim() || accountHolderName.trim().length < 2) {
-          return "Please enter the account holder name.";
+          return "Please enter the Account Holder Name (minimum 2 characters).";
         }
         if (!accountNumber.trim() || !/^\d{9,18}$/.test(accountNumber.trim())) {
-          return "Account number must be between 9 and 18 digits.";
+          return "Bank Account Number must be between 9 and 18 digits.";
+        }
+        if (!confirmAccountNumber.trim()) {
+          return "Please confirm your Bank Account Number.";
         }
         if (accountNumber.trim() !== confirmAccountNumber.trim()) {
-          return "Account numbers do not match.";
+          return "Bank Account Number and Confirm Account Number do not match.";
         }
         if (!ifscCode.trim() || !/^[A-Z]{4}0[A-Z0-9]{6}$/i.test(ifscCode.trim())) {
-          return "Please enter a valid 11-digit IFSC code (e.g. HDFC0001234).";
+          return "Please enter a valid 11-digit IFSC Code (e.g. SBIN0001234).";
+        }
+        if (!bankName.trim() || bankName.trim().length < 2) {
+          return "Please enter the Bank Name (e.g. State Bank of India, HDFC).";
         }
       }
     }
@@ -168,7 +191,7 @@ export function RequestWizard({ open, orderUuid, initialMode, onClose }: Request
 
   const submit = async () => {
     setServerError(null);
-    const stepsToCheck = isCodReturn
+    const stepsToCheck = isReturn
       ? (["items", "reason", "video", "refund"] as Step[])
       : (["items", "reason", "video"] as Step[]);
     for (const s of stepsToCheck) {
@@ -188,7 +211,7 @@ export function RequestWizard({ open, orderUuid, initialMode, onClose }: Request
         await submitReturn.mutateAsync({
           ...base,
           items: chosen.map((i) => ({ orderItemId: i.orderItemId, quantity: selected[i.orderItemId].quantity })),
-          codRefundDetails: isCodReturn
+          codRefundDetails: isReturn
             ? {
                 method: refundMethod,
                 upiId: refundMethod === "upi" ? upiId.trim() : undefined,
@@ -419,22 +442,21 @@ export function RequestWizard({ open, orderUuid, initialMode, onClose }: Request
 
           {step === "video" && <VideoUploader value={videoUrl} onChange={setVideoUrl} />}
 
-          {step === "refund" && isCodReturn && (
+          {step === "refund" && isReturn && (
             <div className="space-y-4">
               <div className="rounded-xl border border-amber-200 bg-amber-50/80 p-3.5">
                 <div className="flex items-start gap-3">
                   <div className="rounded-lg bg-amber-100 p-2 text-amber-800 shrink-0 mt-0.5">
-                    <ShieldCheck className="h-5 w-5" />
+                    <Building2 className="h-5 w-5" />
                   </div>
                   <div className="text-xs">
                     <p className="font-bold uppercase tracking-wider text-amber-900">
-                      Cash on Delivery (COD) Refund Details
+                      Customer Bank Details for Refund
                     </p>
                     <p className="mt-1 text-amber-800 leading-relaxed">
-                      Because this order was paid in physical cash upon delivery, your refund of{" "}
+                      Please enter your bank account details below. Your refund of{" "}
                       <strong className="font-semibold text-neutral-900">{formatPrice(refundTotal)}</strong> will
-                      be transferred directly to your bank account or UPI ID after the returned items are picked up
-                      and verified.
+                      be transferred directly into this account once your return is received and verified.
                     </p>
                   </div>
                 </div>
@@ -445,27 +467,6 @@ export function RequestWizard({ open, orderUuid, initialMode, onClose }: Request
                   Choose Refund Method
                 </label>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <button
-                    type="button"
-                    onClick={() => setRefundMethod("upi")}
-                    className={`flex flex-col items-start p-3.5 rounded-xl border text-left transition-all ${
-                      refundMethod === "upi"
-                        ? "border-secondary-600 bg-secondary-50/60 shadow-sm ring-1 ring-secondary-600"
-                        : "border-theme-border bg-white hover:bg-theme-surface-alt"
-                    }`}
-                  >
-                    <div className="flex w-full items-center justify-between mb-1.5">
-                      <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-secondary-100 text-secondary-800">
-                        <Smartphone className="h-4 w-4" />
-                      </span>
-                      <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-800">
-                        Fastest
-                      </span>
-                    </div>
-                    <p className="font-semibold text-sm text-theme-text-primary">Instant UPI Transfer</p>
-                    <p className="text-xs text-theme-text-muted mt-0.5">Google Pay, PhonePe, Paytm, BHIM</p>
-                  </button>
-
                   <button
                     type="button"
                     onClick={() => setRefundMethod("bank_transfer")}
@@ -479,56 +480,57 @@ export function RequestWizard({ open, orderUuid, initialMode, onClose }: Request
                       <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-secondary-100 text-secondary-800">
                         <Building2 className="h-4 w-4" />
                       </span>
-                      <span className="rounded-full bg-neutral-100 px-2 py-0.5 text-[10px] font-semibold text-neutral-600">
-                        Direct IMPS/NEFT
+                      <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-800">
+                        Recommended
                       </span>
                     </div>
                     <p className="font-semibold text-sm text-theme-text-primary">Bank Account</p>
-                    <p className="text-xs text-theme-text-muted mt-0.5">Transfer to your Savings / Current A/C</p>
+                    <p className="text-xs text-theme-text-muted mt-0.5">Direct transfer to your Savings / Current A/C</p>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setRefundMethod("upi")}
+                    className={`flex flex-col items-start p-3.5 rounded-xl border text-left transition-all ${
+                      refundMethod === "upi"
+                        ? "border-secondary-600 bg-secondary-50/60 shadow-sm ring-1 ring-secondary-600"
+                        : "border-theme-border bg-white hover:bg-theme-surface-alt"
+                    }`}
+                  >
+                    <div className="flex w-full items-center justify-between mb-1.5">
+                      <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-secondary-100 text-secondary-800">
+                        <Smartphone className="h-4 w-4" />
+                      </span>
+                      <span className="rounded-full bg-neutral-100 px-2 py-0.5 text-[10px] font-semibold text-neutral-600">
+                        Instant UPI
+                      </span>
+                    </div>
+                    <p className="font-semibold text-sm text-theme-text-primary">UPI Transfer</p>
+                    <p className="text-xs text-theme-text-muted mt-0.5">Google Pay, PhonePe, Paytm, BHIM</p>
                   </button>
                 </div>
               </div>
 
-              {refundMethod === "upi" ? (
-                <div className="space-y-1.5 rounded-xl border border-theme-border bg-theme-surface-alt p-3.5">
-                  <label className="text-xs font-semibold text-theme-text-primary">
-                    UPI ID / VPA <span className="text-red-500">*</span>
-                  </label>
-                  <Input
-                    value={upiId}
-                    onChange={(e) => setUpiId(e.target.value)}
-                    placeholder="e.g. mobile@paytm or name@okaxis"
-                    className="font-mono text-sm bg-white"
-                  />
-                  <p className="text-[11px] text-theme-text-muted">
-                    We will send the refund directly to this UPI address (GPay, PhonePe, Paytm, BHIM, etc.)
-                  </p>
-                </div>
-              ) : (
-                <div className="space-y-3 rounded-xl border border-theme-border bg-theme-surface-alt p-3.5">
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    <div className="space-y-1">
-                      <label className="text-xs font-semibold text-theme-text-primary">
-                        Account Holder Name <span className="text-red-500">*</span>
-                      </label>
-                      <Input
-                        value={accountHolderName}
-                        onChange={(e) => setAccountHolderName(e.target.value)}
-                        placeholder="As shown in your bank passbook"
-                        className="bg-white text-sm"
-                      />
+              {refundMethod === "bank_transfer" ? (
+                <div className="space-y-3.5 rounded-xl border border-theme-border bg-theme-surface-alt p-4">
+                  {customerProfile?.bankAccountLast4 && (
+                    <div className="flex items-center gap-2 text-xs bg-white border border-emerald-200 text-emerald-800 rounded-lg p-2.5">
+                      <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
+                      <span>
+                        Previously saved account ending in <strong>••••{customerProfile.bankAccountLast4}</strong> detected. You can re-enter your account number below to confirm or provide a different account.
+                      </span>
                     </div>
-                    <div className="space-y-1">
-                      <label className="text-xs font-semibold text-theme-text-primary">
-                        Bank Name (Optional)
-                      </label>
-                      <Input
-                        value={bankName}
-                        onChange={(e) => setBankName(e.target.value)}
-                        placeholder="e.g. State Bank of India, HDFC"
-                        className="bg-white text-sm"
-                      />
-                    </div>
+                  )}
+                  <div className="space-y-1">
+                    <label className="text-xs font-semibold text-theme-text-primary">
+                      Account Holder Name <span className="text-red-500">*</span>
+                    </label>
+                    <Input
+                      value={accountHolderName}
+                      onChange={(e) => setAccountHolderName(e.target.value)}
+                      placeholder="As shown in your bank passbook / statement"
+                      className="bg-white text-sm"
+                    />
                   </div>
 
                   <div className="grid gap-3 sm:grid-cols-2">
@@ -541,7 +543,7 @@ export function RequestWizard({ open, orderUuid, initialMode, onClose }: Request
                         value={accountNumber}
                         onChange={(e) => setAccountNumber(e.target.value.replace(/\D/g, ""))}
                         maxLength={18}
-                        placeholder="9 to 18 digits"
+                        placeholder="Enter 9 to 18 digits"
                         className="font-mono tracking-wider bg-white text-sm"
                       />
                     </div>
@@ -560,21 +562,60 @@ export function RequestWizard({ open, orderUuid, initialMode, onClose }: Request
                     </div>
                   </div>
 
-                  <div className="space-y-1">
-                    <label className="text-xs font-semibold text-theme-text-primary">
-                      IFSC Code <span className="text-red-500">*</span>
-                    </label>
-                    <Input
-                      value={ifscCode}
-                      onChange={(e) => setIfscCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ""))}
-                      maxLength={11}
-                      placeholder="e.g. SBIN0001234 or HDFC0000456"
-                      className="font-mono uppercase tracking-wider bg-white text-sm w-full sm:w-1/2"
-                    />
-                    <p className="text-[11px] text-theme-text-muted">
-                      11-character alphanumeric code printed on your chequebook or passbook
-                    </p>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <div className="space-y-1">
+                      <label className="text-xs font-semibold text-theme-text-primary">
+                        IFSC Code <span className="text-red-500">*</span>
+                      </label>
+                      <Input
+                        value={ifscCode}
+                        onChange={(e) => setIfscCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 11))}
+                        maxLength={11}
+                        placeholder="e.g. SBIN0001234 or HDFC0000456"
+                        className="font-mono uppercase tracking-wider bg-white text-sm"
+                      />
+                      <p className="text-[11px] text-theme-text-muted">
+                        11-character code printed on chequebook or passbook
+                      </p>
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-xs font-semibold text-theme-text-primary">
+                        Bank Name <span className="text-red-500">*</span>
+                      </label>
+                      <Input
+                        value={bankName}
+                        onChange={(e) => setBankName(e.target.value)}
+                        placeholder="e.g. State Bank of India, HDFC Bank"
+                        className="bg-white text-sm"
+                      />
+                      <p className="text-[11px] text-theme-text-muted">
+                        Official bank name
+                      </p>
+                    </div>
                   </div>
+
+                  <div className="flex items-center gap-2 pt-1 text-[11px] text-emerald-800 bg-emerald-50/70 border border-emerald-200/80 rounded-lg p-2.5">
+                    <ShieldCheck className="h-4 w-4 text-emerald-600 shrink-0" />
+                    <span>
+                      Your account details are protected with bank-grade encryption and only used for processing your refund.
+                    </span>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-1.5 rounded-xl border border-theme-border bg-theme-surface-alt p-3.5">
+                  <label className="text-xs font-semibold text-theme-text-primary">
+                    UPI ID / VPA <span className="text-red-500">*</span>
+                  </label>
+                  <Input
+                    value={upiId}
+                    onChange={(e) => setUpiId(e.target.value)}
+                    placeholder="e.g. mobile@paytm or name@okaxis"
+                    className="font-mono text-sm bg-white"
+                  />
+                  <p className="text-[11px] text-theme-text-muted">
+                    We will send the refund directly to this UPI address (GPay, PhonePe, Paytm, BHIM, etc.)
+                  </p>
                 </div>
               )}
             </div>
@@ -614,8 +655,8 @@ export function RequestWizard({ open, orderUuid, initialMode, onClose }: Request
                   {videoUrl && <video src={videoUrl} controls preload="metadata" className="max-h-44 rounded-lg bg-black" />}
                 </li>
               </SummaryBlock>
-              {isCodReturn && (
-                <SummaryBlock title="Refund Destination (Cash on Delivery)">
+              {isReturn && (
+                <SummaryBlock title="Refund Destination (Bank Details)">
                   <li>
                     <strong>Method:</strong> {refundMethod === "upi" ? "Instant UPI Transfer" : "Bank Account (NEFT/IMPS)"}
                   </li>
@@ -625,10 +666,10 @@ export function RequestWizard({ open, orderUuid, initialMode, onClose }: Request
                     </li>
                   ) : (
                     <>
-                      <li><strong>Account Holder:</strong> {accountHolderName}</li>
-                      {bankName && <li><strong>Bank:</strong> {bankName}</li>}
+                      <li><strong>Account Holder Name:</strong> {accountHolderName}</li>
+                      <li><strong>Bank Name:</strong> {bankName}</li>
                       <li>
-                        <strong>Account Number:</strong> <span className="font-mono">••••{accountNumber.slice(-4)}</span>
+                        <strong>Bank Account Number:</strong> <span className="font-mono">••••{accountNumber.slice(-4)}</span>
                       </li>
                       <li>
                         <strong>IFSC Code:</strong> <span className="font-mono uppercase">{ifscCode}</span>

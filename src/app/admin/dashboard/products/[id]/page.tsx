@@ -686,8 +686,8 @@ export default function AdminProductDetailsPage() {
                 {/* Active/Inactive badge */}
                 <span
                   className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-bold ${product.isActive
-                      ? "bg-success-50 text-success-700"
-                      : "bg-cream-200 text-neutral-400"
+                    ? "bg-success-50 text-success-700"
+                    : "bg-cream-200 text-neutral-400"
                     }`}
                 >
                   <span
@@ -987,8 +987,8 @@ export default function AdminProductDetailsPage() {
                         <td className="px-3.5 py-2.5 min-w-[95px] text-center">
                           <span
                             className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold ${item.isActive
-                                ? "bg-success-50 text-success-700 border border-success-200"
-                                : "bg-cream-200 text-neutral-500 border border-cream-border"
+                              ? "bg-success-50 text-success-700 border border-success-200"
+                              : "bg-cream-200 text-neutral-500 border border-cream-border"
                               }`}
                           >
                             <span
@@ -1085,8 +1085,8 @@ export default function AdminProductDetailsPage() {
                 type="button"
                 onClick={() => setVariantFilter("active")}
                 className={`px-3 py-1.5 rounded-sm text-xs font-semibold transition-colors cursor-pointer flex items-center gap-1.5 ${variantFilter === "active"
-                    ? "bg-secondary-600 text-cream-white"
-                    : "text-neutral-500 hover:text-neutral-900 hover:bg-white"
+                  ? "bg-secondary-600 text-cream-white"
+                  : "text-neutral-500 hover:text-neutral-900 hover:bg-white"
                   }`}
               >
                 <span>Active</span>
@@ -1100,8 +1100,8 @@ export default function AdminProductDetailsPage() {
                 type="button"
                 onClick={() => setVariantFilter("inactive")}
                 className={`px-3 py-1.5 rounded-sm text-xs font-semibold transition-colors cursor-pointer flex items-center gap-1.5 ${variantFilter === "inactive"
-                    ? "bg-secondary-600 text-cream-white"
-                    : "text-neutral-500 hover:text-neutral-900 hover:bg-white"
+                  ? "bg-secondary-600 text-cream-white"
+                  : "text-neutral-500 hover:text-neutral-900 hover:bg-white"
                   }`}
               >
                 <span>Inactive</span>
@@ -1122,8 +1122,8 @@ export default function AdminProductDetailsPage() {
                 type="button"
                 onClick={() => setVariantViewMode("table")}
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-sm text-xs font-semibold transition-colors cursor-pointer ${variantViewMode === "table"
-                    ? "bg-secondary-600 text-cream-white"
-                    : "text-neutral-500 hover:text-neutral-900 hover:bg-white"
+                  ? "bg-secondary-600 text-cream-white"
+                  : "text-neutral-500 hover:text-neutral-900 hover:bg-white"
                   }`}
                 title="Table View"
               >
@@ -1134,8 +1134,8 @@ export default function AdminProductDetailsPage() {
                 type="button"
                 onClick={() => setVariantViewMode("cards")}
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-sm text-xs font-semibold transition-colors cursor-pointer ${variantViewMode === "cards"
-                    ? "bg-secondary-600 text-cream-white"
-                    : "text-neutral-500 hover:text-neutral-900 hover:bg-white"
+                  ? "bg-secondary-600 text-cream-white"
+                  : "text-neutral-500 hover:text-neutral-900 hover:bg-white"
                   }`}
                 title="Customer Card View"
               >
@@ -1402,8 +1402,8 @@ export default function AdminProductDetailsPage() {
                       <td className="px-3 py-2.5 min-w-[95px] text-center whitespace-nowrap">
                         <span
                           className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold ${variant.isActive
-                              ? "bg-success-50 text-success-700 border border-success-200"
-                              : "bg-cream-200 text-neutral-500 border border-cream-border"
+                            ? "bg-success-50 text-success-700 border border-success-200"
+                            : "bg-cream-200 text-neutral-500 border border-cream-border"
                             }`}
                         >
                           <span
@@ -1417,8 +1417,8 @@ export default function AdminProductDetailsPage() {
                       {/* FIXED ACTION COLUMN (Sticky right) */}
                       <td
                         className={`sticky right-0 transition-colors px-2 py-2.5 text-center shadow-[-4px_0_6px_-2px_rgba(0,0,0,0.05)] z-20 ${isPicked
-                            ? "bg-cream-50"
-                            : "bg-white group-hover:bg-cream-50"
+                          ? "bg-cream-50"
+                          : "bg-white group-hover:bg-cream-50"
                           }`}
                       >
                         <div className="flex items-center justify-center">
@@ -1436,8 +1436,8 @@ export default function AdminProductDetailsPage() {
                                 }
                               }}
                               className={`w-8 h-8 rounded-md border flex items-center justify-center transition-colors cursor-pointer ${activeMenu?.variant.id === variant.id
-                                  ? "bg-secondary-600 text-cream-white border-secondary-600"
-                                  : "border-cream-border bg-white hover:bg-secondary-50 text-neutral-700 hover:text-secondary-600"
+                                ? "bg-secondary-600 text-cream-white border-secondary-600"
+                                : "border-cream-border bg-white hover:bg-secondary-50 text-neutral-700 hover:text-secondary-600"
                                 }`}
                               title="More actions"
                               aria-label="More actions"
@@ -1779,8 +1779,8 @@ export default function AdminProductDetailsPage() {
                 type="button"
                 onClick={() => setEditVariantTab("details")}
                 className={`px-4 py-2.5 text-sm font-semibold border-b-2 transition-colors cursor-pointer ${editVariantTab === "details"
-                    ? "border-[var(--color-primary-500)] text-[var(--color-primary-500)]"
-                    : "border-transparent text-[var(--color-neutral-500)] hover:text-[var(--color-neutral-800)]"
+                  ? "border-[var(--color-primary-500)] text-[var(--color-primary-500)]"
+                  : "border-transparent text-[var(--color-neutral-500)] hover:text-[var(--color-neutral-800)]"
                   }`}
               >
                 Variant Details
@@ -1789,8 +1789,8 @@ export default function AdminProductDetailsPage() {
                 type="button"
                 onClick={() => setEditVariantTab("pricing")}
                 className={`px-4 py-2.5 text-sm font-semibold border-b-2 transition-colors cursor-pointer ${editVariantTab === "pricing"
-                    ? "border-[var(--color-primary-500)] text-[var(--color-primary-500)]"
-                    : "border-transparent text-[var(--color-neutral-500)] hover:text-[var(--color-neutral-800)]"
+                  ? "border-[var(--color-primary-500)] text-[var(--color-primary-500)]"
+                  : "border-transparent text-[var(--color-neutral-500)] hover:text-[var(--color-neutral-800)]"
                   }`}
               >
                 Units & Pricing

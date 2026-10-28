@@ -58,19 +58,7 @@ export const customerCreateOrderSchema = z
     couponCode: z.string().trim().max(50).optional(),
     deliveryMethod: z.enum(["standard", "express"]).default("standard").optional(),
   })
-  .strict()
-  .refine(
-    (data) => {
-      if (data.paymentMethod === "COD") {
-        return Boolean(data.bankDetails);
-      }
-      return true;
-    },
-    {
-      message: "Bank details are mandatory for Cash on Delivery (COD) orders",
-      path: ["bankDetails"],
-    }
-  );
+  .strict();
 
 export type CustomerCreateOrderInput = z.infer<typeof customerCreateOrderSchema>;
 
@@ -101,19 +89,7 @@ export const guestCreateOrderSchema = z
     couponCode: z.string().trim().max(50).optional(),
     deliveryMethod: z.enum(["standard", "express"]).default("standard").optional(),
   })
-  .strict()
-  .refine(
-    (data) => {
-      if (data.paymentMethod === "COD") {
-        return Boolean(data.bankDetails);
-      }
-      return true;
-    },
-    {
-      message: "Bank details are mandatory for Cash on Delivery (COD) orders",
-      path: ["bankDetails"],
-    }
-  );
+  .strict();
 
 export type GuestCreateOrderInput = z.infer<typeof guestCreateOrderSchema>;
 

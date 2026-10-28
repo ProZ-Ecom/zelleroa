@@ -39,7 +39,12 @@ export default function AdminPermissionsPage() {
 
   const { data: permissionsData, isLoading, error, refetch } = usePermissions();
   const { data: rolesResult } = useRoles({ limit: 100 });
-  const allRoles = rolesResult?.data ?? [];
+  const HIDDEN_FORM_ROLES = ["ADMIN", "CUSTOMER"];
+  const assignableRoles = useMemo(() => {
+    return (rolesResult?.data ?? []).filter(
+      (r) => !HIDDEN_FORM_ROLES.includes(r.name?.toUpperCase())
+    );
+  }, [rolesResult?.data]);
 
   const createMutation = useCreatePermission();
   const updateMutation = useUpdatePermission();
@@ -91,6 +96,18 @@ export default function AdminPermissionsPage() {
     );
   };
 
+  const isAllSelected =
+    assignableRoles.length > 0 &&
+    assignableRoles.every((r) => selectedRoleIds.includes(Number(r.id)));
+
+  const handleToggleSelectAll = () => {
+    if (isAllSelected) {
+      setSelectedRoleIds([]);
+    } else {
+      setSelectedRoleIds(assignableRoles.map((r) => Number(r.id)));
+    }
+  };
+
   const onSubmit = (formData: CreatePermissionSchemaInput) => {
     const payload = {
       ...formData,
@@ -122,7 +139,11 @@ export default function AdminPermissionsPage() {
   const handleOpenModal = (permission?: PermissionListItem) => {
     if (permission) {
       setEditingPermission(permission);
-      setSelectedRoleIds((permission.roleIds ?? []).map((id) => Number(id)));
+      setSelectedRoleIds(
+        (permission.roleIds ?? [])
+          .map((id) => Number(id))
+          .filter((id) => assignableRoles.some((r) => Number(r.id) === id))
+      );
     } else {
       setEditingPermission(null);
       setSelectedRoleIds([]);
@@ -321,19 +342,13 @@ export default function AdminPermissionsPage() {
               <label className="block text-sm font-medium text-gray-700">
                 Assign to Roles
               </label>
-              {allRoles.length > 0 && (
+              {assignableRoles.length > 0 && (
                 <button
                   type="button"
-                  onClick={() => {
-                    if (selectedRoleIds.length === allRoles.length) {
-                      setSelectedRoleIds([]);
-                    } else {
-                      setSelectedRoleIds(allRoles.map((r) => Number(r.id)));
-                    }
-                  }}
+                  onClick={handleToggleSelectAll}
                   className="text-xs font-semibold text-secondary-700 hover:text-secondary-800 underline cursor-pointer"
                 >
-                  {selectedRoleIds.length === allRoles.length ? "Deselect All" : "Select All"}
+                  {isAllSelected ? "Deselect All" : "Select All"}
                 </button>
               )}
             </div>
@@ -341,10 +356,10 @@ export default function AdminPermissionsPage() {
               Select which roles will immediately have this permission
             </p>
             <div className="max-h-48 overflow-y-auto rounded-lg border border-gray-200 bg-neutral-50/50 p-2.5 space-y-1.5">
-              {allRoles.length === 0 ? (
+              {assignableRoles.length === 0 ? (
                 <p className="text-xs text-neutral-400 py-1">No roles available</p>
               ) : (
-                allRoles.map((role) => (
+                assignableRoles.map((role) => (
                   <label
                     key={role.id}
                     className="flex items-center gap-2.5 rounded-md p-1.5 hover:bg-white cursor-pointer transition-colors"
