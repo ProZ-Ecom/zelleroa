@@ -3,6 +3,7 @@ import { ApiError } from "@/lib/api/api-error";
 import type { Prisma, stock_movement_type } from "@/generated/prisma";
 import { getAdminInternalId } from "@/features/purchases/services/vendor.service";
 import { recordStockMovement } from "./stock-ledger.service";
+import { categoryFilterIds } from "./category-filter";
 import type {
   AdjustmentInput,
   StockListQuery,
@@ -139,8 +140,17 @@ export const stockService = {
 
   /** Current stock, one row per product colour/size (a "variant" in inventory terms). */
   async currentStock(query: StockListQuery) {
-    const { page, limit, search, status, color, variantUnitPriceId } = query;
+    const { page, limit, search, status, color, categorySlug, productSlug, variantUnitPriceId } =
+      query;
     const threshold = await readThreshold();
+
+    // A category covers its sub-categories, and a product covers every colour
+    // and size under it; both only narrow the rows when actually asked for.
+    const product: Prisma.ProductWhereInput = {
+      ...(categorySlug ? { categoryId: { in: await categoryFilterIds(categorySlug) } } : {}),
+      ...(productSlug ? { slug: productSlug } : {}),
+    };
+    const byProduct = Object.keys(product).length > 0;
 
     const where: Prisma.VariantUnitPriceWhereInput = {
       ...sellableVup,
@@ -148,6 +158,7 @@ export const stockService = {
       variant: {
         deleted_at: null,
         ...(color ? { color_name: { contains: color } } : {}),
+        ...(byProduct ? { item: { style: { product } } } : {}),
       },
       ...(search
         ? {

@@ -1,5 +1,4 @@
 import { db } from "@/lib/db/prisma";
-import { ApiError } from "@/lib/api/api-error";
 import type { Prisma } from "@/generated/prisma";
 import type {
   SalesMarginReport,
@@ -9,14 +8,12 @@ import type {
   ValuationRow,
 } from "../types/valuation";
 import type { ValuationQuery } from "../validations/valuation.schema";
+import { categoryFilterIds } from "./category-filter";
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
 
 /** Orders in these states never happened as far as margin is concerned. */
 const NON_SALE_STATUSES = ["cancelled", "returned"] as const;
-
-/** Deepest sensible category nesting; the loop stops here rather than spinning on a cycle. */
-const MAX_CATEGORY_DEPTH = 6;
 
 const UNGROUPED = { key: "", name: "Not set" };
 
@@ -39,22 +36,6 @@ function marginOf(profit: number, revenue: number) {
 async function categoryNames() {
   const rows = await db.productCategory.findMany({ select: { id: true, name: true, slug: true } });
   return new Map(rows.map((c) => [String(c.id), { key: c.slug, name: c.name }]));
-}
-
-async function categoryFilterIds(slug: string) {
-  const root = await db.productCategory.findFirst({ where: { slug }, select: { id: true } });
-  if (!root) throw ApiError.notFound("Category not found");
-  const all = [root.id];
-  let frontier = [root.id];
-  for (let depth = 0; depth < MAX_CATEGORY_DEPTH && frontier.length > 0; depth++) {
-    const children = await db.productCategory.findMany({
-      where: { parentId: { in: frontier } },
-      select: { id: true },
-    });
-    frontier = children.map((c) => c.id).filter((id) => !all.includes(id));
-    all.push(...frontier);
-  }
-  return all;
 }
 
 async function productFilter(params: ValuationQuery): Promise<Prisma.ProductWhereInput> {

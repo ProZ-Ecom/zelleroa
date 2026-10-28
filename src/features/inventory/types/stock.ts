@@ -59,6 +59,8 @@ export interface StockListParams {
   limit?: number;
   search?: string;
   color?: string;
+  categorySlug?: string;
+  productSlug?: string;
   variantUnitPriceId?: number;
   status?: StockStatus;
 }

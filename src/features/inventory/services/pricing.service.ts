@@ -6,11 +6,9 @@ import { getAdminInternalId } from "@/features/purchases/services/vendor.service
 import { productName } from "@/features/purchases/services/purchase-item.select";
 import type { PricingListParams, PricingRow, PricingSummary } from "../types/pricing";
 import type { ApplyPricingInput, PricingListQuery } from "../validations/pricing.schema";
+import { categoryFilterIds } from "./category-filter";
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
-
-/** Deepest sensible category nesting; the loop stops here rather than spinning on a cycle. */
-const MAX_CATEGORY_DEPTH = 6;
 
 const rowSelect = {
   id: true,
@@ -34,27 +32,6 @@ const rowSelect = {
 } satisfies Prisma.VariantUnitPriceSelect;
 
 type Row = Prisma.VariantUnitPriceGetPayload<{ select: typeof rowSelect }>;
-
-/**
- * Products hang off a category by plain id, with no relation to filter
- * through, so the slug is resolved here together with its sub-categories.
- */
-async function categoryIds(slug: string): Promise<bigint[]> {
-  const root = await db.productCategory.findFirst({ where: { slug }, select: { id: true } });
-  if (!root) throw ApiError.notFound("Category not found");
-
-  const all = [root.id];
-  let frontier = [root.id];
-  for (let depth = 0; depth < MAX_CATEGORY_DEPTH && frontier.length > 0; depth++) {
-    const children = await db.productCategory.findMany({
-      where: { parentId: { in: frontier } },
-      select: { id: true },
-    });
-    frontier = children.map((c) => c.id).filter((id) => !all.includes(id));
-    all.push(...frontier);
-  }
-  return all;
-}
 
 /** Profit as a share of the selling price, which is how retail margin is read. */
 function marginOf(sellingPrice: number, cost: number | null) {
@@ -90,7 +67,7 @@ function format(r: Row): PricingRow {
 async function buildWhere(params: PricingListParams): Promise<Prisma.VariantUnitPriceWhereInput> {
   const product: Prisma.ProductWhereInput = {
     deleted_at: null,
-    ...(params.categorySlug ? { categoryId: { in: await categoryIds(params.categorySlug) } } : {}),
+    ...(params.categorySlug ? { categoryId: { in: await categoryFilterIds(params.categorySlug) } } : {}),
     ...(params.brandSlug ? { brand: { slug: params.brandSlug } } : {}),
   };
 
