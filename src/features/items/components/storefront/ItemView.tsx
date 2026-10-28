@@ -427,7 +427,7 @@ export function ItemView({ item, returnUrl, eyebrow, brandName, className }: Ite
           {[
             { icon: RotateCcw, text: "Raise a return request within 3 days of delivery." },
             { icon: Video, text: "A complete unboxing video is required with your request." },
-            { icon: PackageCheck, text: "Eligible for wrong, damaged, size or quality issues." },
+            { icon: PackageCheck, text: "Eligible only for wrong or damaged products." },
           ].map(({ icon: Icon, text }) => (
             <li
               key={text}

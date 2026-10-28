@@ -8,6 +8,7 @@ import {
   getAdminProducts,
   getAdminProduct,
   getAdminProductImages,
+  getAdminProductsCount,
 } from "../api/get-products";
 import type {
   AdminProductListParams,
@@ -44,6 +45,14 @@ export function useAdminProducts(
     queryFn: () => getAdminProducts(params),
     placeholderData: keepPreviousData,
     ...options,
+  });
+}
+
+export function useAdminProductsCount(params?: AdminProductListParams) {
+  return useQuery({
+    queryKey: ["admin", "products", "count", params ?? {}],
+    queryFn: () => getAdminProductsCount(params),
+    placeholderData: keepPreviousData,
   });
 }
 

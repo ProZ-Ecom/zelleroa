@@ -26,6 +26,14 @@ const productAdminInclude = Prisma.validator<Prisma.ProductInclude>()({
       is_active: true,
     },
   },
+  // Primary image only: the admin list shows one thumbnail, and an empty slot where
+  // a product still has none (bulk-imported products start out without any).
+  images: {
+    where: { is_active: true },
+    select: { image_url: true, altText: true },
+    orderBy: [{ isPrimary: "desc" }, { sortOrder: "asc" }, { id: "asc" }],
+    take: 1,
+  },
 });
 
 export const productRepository = {
@@ -195,16 +203,20 @@ export const productRepository = {
       resolvedHsnCodeInternalId
     );
 
-    const [active, inactive, all] = await Promise.all([
+    const [active, inactive, all, withoutImage] = await Promise.all([
       db.product.count({ where: { ...baseWhere, isActive: true } }),
       db.product.count({ where: { ...baseWhere, isActive: false } }),
       db.product.count({ where: baseWhere }),
+      db.product.count({
+        where: { ...baseWhere, images: { none: { is_active: true } } },
+      }),
     ]);
 
     return {
       active,
       inactive,
       all,
+      withoutImage,
     };
   },
 

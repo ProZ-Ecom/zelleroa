@@ -20,6 +20,8 @@ import { ErrorState } from "@/components/ui/error-state";
 import { Button } from "@/components/ui/button";
 import { formatSlug } from "@/components/forms/form-input";
 import { ExcelImportDialog } from "@/components/common/ExcelImportDialog";
+import { NoImagePlaceholder } from "@/components/common/NoImagePlaceholder";
+import { MissingImageBanner } from "@/components/common/MissingImageBanner";
 import { createAdminCategorySchema } from "@/features/categories/validations/admin-category.schema";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { SearchInput } from "@/components/ui/search-input";
@@ -36,6 +38,7 @@ export default function AdminCategoriesPage() {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isImportOpen, setIsImportOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
+  const [onlyMissingImage, setOnlyMissingImage] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<CategoryListItem | null>(null);
 
   const { data, isLoading, error, refetch } = useCategories({
@@ -55,21 +58,34 @@ export default function AdminCategoriesPage() {
     [allCategories]
   );
 
+  const missingImageCount = useMemo(
+    () => rootCategories.filter((c) => !c.icon).length,
+    [rootCategories]
+  );
+
+  const visibleCategories = useMemo(
+    () => (onlyMissingImage ? rootCategories.filter((c) => !c.icon) : rootCategories),
+    [rootCategories, onlyMissingImage]
+  );
+
   const columns: ColumnDef<CategoryListItem, unknown>[] = [
     {
       id: "image",
       header: "Image",
-      cell: ({ row }) => (
-        <div className="h-12 w-12 overflow-hidden rounded-xl bg-[var(--color-neutral-100)] ring-1 ring-black/5 shadow-sm transition-transform duration-200 group-hover:scale-105">
-          <Image
-            src={row.original.icon ? getImageUrl(row.original.icon) : "/images/category_img.png"}
-            alt={row.original.name}
-            width={48}
-            height={48}
-            className="h-full w-full object-cover"
-          />
-        </div>
-      ),
+      cell: ({ row }) =>
+        row.original.icon ? (
+          <div className="h-12 w-12 overflow-hidden rounded-xl bg-[var(--color-neutral-100)] ring-1 ring-black/5 shadow-sm transition-transform duration-200 group-hover:scale-105">
+            <Image
+              src={getImageUrl(row.original.icon)}
+              alt={row.original.name}
+              width={48}
+              height={48}
+              className="h-full w-full object-cover"
+            />
+          </div>
+        ) : (
+          <NoImagePlaceholder size={48} />
+        ),
     },
     {
       accessorKey: "name",
@@ -171,10 +187,24 @@ export default function AdminCategoriesPage() {
             </div>
           </div>
 
+          <MissingImageBanner
+            count={missingImageCount}
+            noun="categories"
+            showingOnly={onlyMissingImage}
+            onShowOnly={() => {
+              setOnlyMissingImage(true);
+              setPage(1);
+            }}
+            onClearFilter={() => {
+              setOnlyMissingImage(false);
+              setPage(1);
+            }}
+          />
+
           <div className="mt-6 flex-1 min-h-0 overflow-hidden flex flex-col">
             <DataTable
               columns={columns}
-              data={rootCategories}
+              data={visibleCategories}
               pageSize={pageSize}
               pageSizeOptions={[10, 20, 30, 50]}
               page={page}
@@ -223,6 +253,7 @@ export default function AdminCategoriesPage() {
           { key: "sortOrder", header: "Sort Order", info: "Whole number 0-100. Defaults to 0.", type: "number", samples: [1, 2, 3] },
         ]}
         hint="Top-level categories only."
+        imageNotice="Category images cannot be sent in an Excel file. Imported categories show an empty image slot until you open each one and upload its image."
         prepare={(row) => ({
           ...row,
           slug: formatSlug(String(row.slug ?? row.name ?? "")),

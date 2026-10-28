@@ -117,14 +117,14 @@ export const CANCELLATION_REASONS = [
 
 // ── Return / replacement reasons ────────────────────────────────────────────
 
+/**
+ * Only wrong and damaged products are returnable (see the Return & Refund
+ * Policy page). Narrowing this list also narrows what submitReturnSchema
+ * accepts, so older requests may still carry a reason that is no longer here.
+ */
 export const RETURN_REASONS = [
   "Damaged product",
   "Wrong product received",
-  "Wrong size",
-  "Product quality issue",
-  "Missing item",
-  "Product does not match description",
-  "Other",
 ] as const;
 
 export const REPLACEMENT_REASONS = [

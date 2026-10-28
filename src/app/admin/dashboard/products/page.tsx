@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo } from "react";
 import { toast } from "@/components/ui/Toast";
 import {
   useAdminProducts,
+  useAdminProductsCount,
   useCreateProduct,
   useUpdateProduct,
   useDeleteProduct,
@@ -19,7 +20,11 @@ import {
 import { AdminTableSkeleton } from "@/components/admin/AdminTableSkeleton";
 import { ErrorState } from "@/components/ui/error-state";
 import { Button } from "@/components/ui/button";
+import Image from "next/image";
+import { getImageUrl } from "@/lib/utils";
 import { ExcelImportDialog } from "@/components/common/ExcelImportDialog";
+import { NoImagePlaceholder } from "@/components/common/NoImagePlaceholder";
+import { MissingImageBanner } from "@/components/common/MissingImageBanner";
 import { createAdminProductSchema } from "@/features/products/validations/admin-product.schema";
 import { Select } from "@/components/ui/select";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -59,6 +64,13 @@ export default function AdminProductsPage() {
   const { data, isLoading, error, refetch } = useAdminProducts({
     page,
     pageSize,
+    search: search || undefined,
+    categoryId: selectedCategoryFilter || undefined,
+  });
+
+  // Counted across the whole filtered set, not just the page on screen, so the
+  // reminder still shows when the products without an image sit on a later page.
+  const { data: counts, refetch: refetchCounts } = useAdminProductsCount({
     search: search || undefined,
     categoryId: selectedCategoryFilter || undefined,
   });
@@ -132,6 +144,24 @@ export default function AdminProductsPage() {
   }, [hsnCodes]);
 
   const columns: ColumnDef<AdminProductResponse>[] = [
+    {
+      id: "image",
+      header: "Image",
+      cell: ({ row }) =>
+        row.original.imageUrl ? (
+          <div className="h-12 w-12 overflow-hidden rounded-xl bg-[var(--color-neutral-100)] ring-1 ring-black/5 shadow-sm">
+            <Image
+              src={getImageUrl(row.original.imageUrl)}
+              alt={row.original.imageAlt || row.original.name}
+              width={48}
+              height={48}
+              className="h-full w-full object-cover"
+            />
+          </div>
+        ) : (
+          <NoImagePlaceholder size={48} />
+        ),
+    },
     {
       accessorKey: "name",
       header: "Product Name",
@@ -317,6 +347,8 @@ export default function AdminProductsPage() {
             </div>
           </div>
 
+          <MissingImageBanner count={counts?.withoutImage ?? 0} noun="products" />
+
           <div className="mt-6 flex-1 min-h-0 overflow-hidden flex flex-col">
             <DataTable
               columns={columns}
@@ -351,7 +383,8 @@ export default function AdminProductsPage() {
           { key: "hsn", header: "HSN Code", required: true, info: "Must match an existing HSN code (e.g. 6109).", samples: ["6104", "5007", "6109"] },
           { key: "gender", header: "Gender", required: true, info: "One of: men, women, kids, unisex, not_applicable.", samples: ["women", "women", "kids"] },
         ]}
-        hint="Category, Brand and HSN Code must already exist. Images and attributes are added from the product page after import."
+        hint="Category, Brand and HSN Code must already exist."
+        imageNotice="Product images cannot be sent in an Excel file. Imported products are created without one — open each product after the import and upload its images, along with its attributes."
         prepare={(row) => {
           const find = <T,>(list: T[], key: (item: T) => string, value: unknown) =>
             list.find((item) => key(item).trim().toLowerCase() === String(value ?? "").trim().toLowerCase());
@@ -382,7 +415,10 @@ export default function AdminProductsPage() {
         }}
         schema={createAdminProductSchema}
         createRow={(payload) => createMutation.mutateAsync(payload)}
-        onImported={() => refetch()}
+        onImported={() => {
+          refetch();
+          refetchCounts();
+        }}
       />
 
       <FormModal
