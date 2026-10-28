@@ -16,7 +16,14 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Spinner } from "@/components/ui/spinner";
 
 import { loginSchema, type LoginInput } from "@/lib/validations/auth";
-import { useLogin, useLoginCooldown, ACCOUNT_BLOCKED_MESSAGE, ACCOUNT_BLOCKED_TITLE } from "@/features/auth";
+import {
+  useLogin,
+  useLoginCooldown,
+  logoutApi,
+  ACCOUNT_BLOCKED_MESSAGE,
+  ACCOUNT_BLOCKED_TITLE,
+} from "@/features/auth";
+import { toast, suppressPendingSuccessToast } from "@/components/ui/Toast";
 
 function AdminLoginForm() {
   const [rememberMe, setRememberMe] = useState(false);
@@ -44,6 +51,7 @@ function AdminLoginForm() {
 
   const onSubmit = (data: LoginInput) => {
     if (busy || cooldown.coolingDown) return;
+    methods.clearErrors();
     setPhase("signing-in");
     loginMutation.mutate(
       {
@@ -54,13 +62,21 @@ function AdminLoginForm() {
         onSuccess: async (response) => {
           const userRole = response.data?.user?.role;
           if (userRole !== "ADMIN" && userRole !== "STAFF") {
+            suppressPendingSuccessToast();
             setPhase("idle");
+            try {
+              await logoutApi();
+            } catch {
+              // Ignore logout cleanup error
+            }
             methods.setError("root", {
               type: "manual",
               message: "Access denied. You are not authorized to access the Admin portal.",
             });
             return;
           }
+
+          toast.success("Success", "Login successful");
 
           // Keep the loader up through session sync and the page navigation.
           setPhase("redirecting");
@@ -84,12 +100,33 @@ function AdminLoginForm() {
         onError: (err: any) => {
           setPhase("idle");
           cooldown.startFromError(err);
-          methods.setError("root", {
-            type: "server",
-            message:
-              err?.message ||
-              "Invalid email or password. Please check your credentials.",
-          });
+          const field = (err?.details as { field?: string } | undefined)?.field;
+          const msg = err?.message || "";
+          const isBlocked =
+            msg === ACCOUNT_BLOCKED_MESSAGE ||
+            err?.code === "ACCOUNT_BLOCKED";
+
+          if (isBlocked) {
+            methods.setError("root", {
+              type: "server",
+              message: ACCOUNT_BLOCKED_MESSAGE,
+            });
+          } else if (field === "email" || msg.toLowerCase().includes("email")) {
+            methods.setError("email", {
+              type: "server",
+              message: "Invalid email address",
+            });
+          } else if (field === "password" || msg.toLowerCase().includes("password")) {
+            methods.setError("password", {
+              type: "server",
+              message: "Incorrect password",
+            });
+          } else {
+            methods.setError("root", {
+              type: "server",
+              message: msg || "Invalid email or password. Please check your credentials.",
+            });
+          }
         },
       }
     );

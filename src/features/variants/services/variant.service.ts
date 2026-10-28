@@ -1,5 +1,4 @@
 import crypto from "crypto";
-import { recordOpeningStockPurchase } from "@/features/purchases/services/opening-stock.service";
 import { db } from "@/lib/db/prisma";
 import { ApiError } from "@/lib/api/api-error";
 import { variantRepository } from "../repositories/variant.repository";
@@ -8,7 +7,12 @@ import { userRepository } from "@/features/users/repositories/user.repository";
 import { unitRepository } from "@/features/units/repositories/unit.repository";
 import { attributeRepository } from "@/features/attributes/repositories/attribute.repository";
 import { formatVariantMeasurement } from "../utils/measurement.util";
-import type { Prisma } from "@/generated/prisma";
+import {
+  buildAttributeSignature,
+  MAX_GENERATED_SKUS,
+  MAX_SKU_AXIS_ATTRIBUTES,
+} from "../utils/attribute-signature.util";
+import type { Prisma, variation_level_enum } from "@/generated/prisma";
 import type {
   AdminVariantResponse,
   AdminVariantAttributeValueResponse,
@@ -38,13 +42,41 @@ function slugify(text: string): string {
     .replace(/\-\-+/g, "-");
 }
 
-/** Which attribute is treated as the "Color" axis (Item -> ProductVariant level)
- * vs. the "Size" axis (ProductVariant -> VariantUnitPrice level). Attributes
- * flagged `type: "color"` in the Attribute Master are the dedicated grouping
- * dimension; everything else (Size, Fabric, Pattern, ...) varies within a
- * color. */
-function isColorAttribute(type: string): boolean {
-  return type === "color";
+/**
+ * Which axis each of a product's attributes varies on, keyed by attribute id.
+ *
+ * The level comes from the product's own configuration, not from the attribute's
+ * `type` - `type` only says how to render a value (a swatch or a chip), and keying
+ * generation off it meant a catalog holding both "Colour" (type color) and "Color"
+ * (type text) silently put them on different axes.
+ *
+ * An attribute selected without being configured on the product falls back to SKU,
+ * matching the column default.
+ */
+async function variationLevelsForProduct(
+  productId: bigint
+): Promise<Map<string, { level: variation_level_enum; sortOrder: number }>> {
+  const configs = await attributeRepository.findAttributeConfigsForProduct(productId);
+  return new Map(
+    configs.map((config) => [
+      config.attribute_id.toString(),
+      { level: config.variation_level, sortOrder: config.sort_order },
+    ])
+  );
+}
+
+/**
+ * The value that goes in `variant_unit_prices.attribute_value_id`: the SKU-axis value
+ * whose attribute sorts first on the product. The column no longer carries the row's
+ * identity (the signature does), but labels, size charts and a lot of existing reads
+ * still go through it, so it needs to be the same pick every time.
+ */
+function primarySkuValue<T extends { sortOrder: number; valueId: bigint }>(
+  combo: readonly T[]
+): T | undefined {
+  return [...combo].sort(
+    (a, b) => a.sortOrder - b.sortOrder || (a.valueId < b.valueId ? -1 : 1)
+  )[0];
 }
 
 function cartesian<T>(groups: T[][]): T[][] {
@@ -75,6 +107,10 @@ type VariantUnitPriceWithRelations = {
   updatedAt: Date;
   product_units?: { uuid: string | null; name: string; code: string; type?: string | null } | null;
   attribute_value?: { uuid: string | null; value: string } | null;
+  vup_attribute_values?: Array<{
+    product_attributes: { uuid: string | null; name: string };
+    attribute_values: { uuid: string | null; value: string };
+  }> | null;
   inventories?: { quantity_available: number; quantity_reserved: number } | null;
 };
 
@@ -105,6 +141,12 @@ export function formatUnitPriceResponse(
     unitCode: item.product_units?.code,
     sizeValueId: item.attribute_value?.uuid ?? undefined,
     sizeValue: item.attribute_value?.value ?? undefined,
+    attributeValues: (item.vup_attribute_values ?? []).map((av) => ({
+      attributeId: av.product_attributes.uuid || "",
+      attributeName: av.product_attributes.name,
+      valueId: av.attribute_values.uuid || "",
+      value: av.attribute_values.value,
+    })),
     isDefault: Boolean(item.is_default),
     isActive: Boolean(item.isActive),
     stock: item.inventories?.quantity_available,
@@ -584,18 +626,6 @@ export const variantService = {
   },
 
   /**
-   * Cartesian-generates Colors and, within each Color, Sizes, for this Item:
-   * selected option values are split into a Color axis (the attribute named
-   * "Color") and a Size axis (everything else - Size, Fabric, ...). Each Color
-   * combination becomes one ProductVariant; within it, each Size combination
-   * becomes one VariantUnitPrice with its own price/stock/SKU. An Item with no
-   * Color axis selected gets a single shell ProductVariant (color_name=null)
-   * carrying its Sizes directly; an Item with no Size axis gets one default
-   * VariantUnitPrice per Color. Anything that already exists for this Item (by
-   * exact combination) is silently skipped rather than erroring, so re-running
-   * generation after adding a new size/color value only creates the new rows.
-   */
-  /**
    * Item-driven entry point: builds the `options` (attributeId + valueIds per
    * attribute) straight from item_attribute_values - the value pool the admin
    * already selected on the Item's Attributes section - instead of requiring
@@ -607,7 +637,6 @@ export const variantService = {
     params: {
       unitId: string;
       defaultPrice?: number;
-      defaultStock?: number;
       activate?: boolean;
     },
     adminEmail?: string
@@ -644,13 +673,29 @@ export const variantService = {
         options,
         unitId: params.unitId,
         defaultPrice: params.defaultPrice,
-        defaultStock: params.defaultStock ?? 0,
         activate: params.activate ?? true,
       },
       adminEmail
     );
   },
 
+  /**
+   * Cartesian-generates this Item's variations, split by each attribute's configured
+   * variation level: VARIANT values combine into ProductVariants (which carry the
+   * images), and within each one the SKU values combine into VariantUnitPrices - the
+   * stock rows. INFO attributes take no part; they describe the Item rather than
+   * varying it.
+   *
+   * A stock row is identified by its whole SKU combination, so Size x Neck x Sleeve
+   * is three axes and eight rows, not two rows with the extra values dropped. An Item
+   * with no VARIANT axis gets a single shell ProductVariant (color_name=null) carrying
+   * its stock rows directly; one with no SKU axis gets a single default row per
+   * variant. Combinations that already exist are skipped rather than erroring, so
+   * re-running after adding one new value only creates the rows that are missing.
+   *
+   * Nothing is created with stock: it arrives through a purchase or an inventory
+   * adjustment so that every level is backed by a ledger movement.
+   */
   async generateVariants(
     itemUuid: string,
     data: GenerateVariantsInput,
@@ -675,7 +720,10 @@ export const variantService = {
       value: string;
       colorHex: string | null;
       priceAdjustment: number;
+      sortOrder: number;
     };
+
+    const levels = await variationLevelsForProduct(item.style.productId);
 
     const colorGroups: ResolvedValue[][] = [];
     const sizeGroups: ResolvedValue[][] = [];
@@ -701,6 +749,7 @@ export const variantService = {
         );
       }
 
+      const config = levels.get(attribute.id.toString());
       const resolved = values.map((v) => ({
         attributeId: attribute.id,
         attributeName: attribute.name,
@@ -708,13 +757,24 @@ export const variantService = {
         value: v.value,
         colorHex: v.color_hex,
         priceAdjustment: Number(v.price_adjustment ?? 0),
+        sortOrder: config?.sortOrder ?? 0,
       }));
 
-      if (isColorAttribute(attribute.type)) {
+      // An Info attribute describes the item rather than varying it, so it takes no
+      // part in generation at all - its values live on item_attribute_values.
+      const level = config?.level ?? "SKU";
+      if (level === "INFO") continue;
+      if (level === "VARIANT") {
         colorGroups.push(resolved);
       } else {
         sizeGroups.push(resolved);
       }
+    }
+
+    if (sizeGroups.length > MAX_SKU_AXIS_ATTRIBUTES) {
+      throw ApiError.badRequest(
+        `A stock row can carry at most ${MAX_SKU_AXIS_ATTRIBUTES} SKU attributes; this product has ${sizeGroups.length}. Move some to Info.`
+      );
     }
 
     let colorCombinations = cartesian(colorGroups);
@@ -722,6 +782,15 @@ export const variantService = {
 
     if (colorCombinations.length === 0) colorCombinations = [[]];
     if (sizeCombinations.length === 0) sizeCombinations = [[]];
+
+    // Attributes multiply, so a few extra axes turn into thousands of rows. Refuse
+    // up front with the real number rather than committing a catalog nobody can manage.
+    const totalCombinations = colorCombinations.length * sizeCombinations.length;
+    if (totalCombinations > MAX_GENERATED_SKUS) {
+      throw ApiError.badRequest(
+        `This would create ${totalCombinations} stock rows, over the limit of ${MAX_GENERATED_SKUS}. Move some attributes to Info, or select fewer values.`
+      );
+    }
 
     const existingVariants = await db.productVariant.findMany({
       where: { itemId: item.id, deleted_at: null },
@@ -731,7 +800,7 @@ export const variantService = {
         variant_attribute_values: { select: { attribute_value_id: true } },
         variant_unit_prices: {
           where: { deleted_at: null },
-          select: { attribute_value_id: true },
+          select: { attribute_signature: true },
         },
       },
     });
@@ -751,7 +820,6 @@ export const variantService = {
     const itemBasePrice = Number(item.base_price ?? 0);
     const createdVariantIds = new Set<bigint>();
     let skipped = 0;
-    const openingStock: { variantUnitPriceId: bigint; quantity: number }[] = [];
 
     // Generating N combinations does several sequential awaited queries each
     // (SKU/slug uniqueness while-loops, inventory rows) - Prisma's 5s default
@@ -762,16 +830,14 @@ export const variantService = {
       for (const colorCombo of colorCombinations) {
         const cKey = colorKey(colorCombo);
         let variantId: bigint;
-        let existingSizeValueIds: Set<string>;
+        let existingSignatures: Set<string>;
         let isNewColorVariant = false;
 
         const existingVariant = existingColorKeys.get(cKey);
         if (existingVariant) {
           variantId = existingVariant.id;
-          existingSizeValueIds = new Set(
-            existingVariant.variant_unit_prices
-              .map((up) => up.attribute_value_id?.toString())
-              .filter((v): v is string => Boolean(v))
+          existingSignatures = new Set(
+            existingVariant.variant_unit_prices.map((up) => up.attribute_signature)
           );
         } else {
           const variantName = colorCombo.length
@@ -802,7 +868,9 @@ export const variantService = {
               price_adjustment: 0,
               is_default: colorCombo.length === 0,
               isActive: data.activate !== false,
-              out_of_stock: (data.defaultStock ?? 0) <= 0,
+              // Nothing is generated with stock, so a new colour starts out of stock
+              // and the flag is cleared by the first movement that brings some in.
+              out_of_stock: true,
               created_by: adminId,
               updated_by: adminId,
             },
@@ -819,30 +887,28 @@ export const variantService = {
           }
 
           variantId = created.id;
-          existingSizeValueIds = new Set();
+          existingSignatures = new Set();
           isNewColorVariant = true;
         }
 
-        const sizeRowsBefore = existingSizeValueIds.size;
+        const sizeRowsBefore = existingSignatures.size;
 
         for (const sizeCombo of sizeCombinations) {
           const comboTogether = [...colorCombo, ...sizeCombo];
 
-          // This generator supports at most one Size-axis attribute value per
-          // row (VariantUnitPrice.attribute_value_id is a single FK); with
-          // multiple non-color attributes selected, only the first is used as
-          // the Size identity and the rest are recorded for information only.
-          const sizeEntry = sizeCombo[0];
-          const sizeKey = sizeEntry?.valueId.toString();
+          // The whole combination identifies the row, so Size x Neck x Sleeve are
+          // three distinct rows. Keying this on one value - as it did while
+          // attribute_value_id was the only place to put a value - made every
+          // combination that repeated that value look like a duplicate and skipped it.
+          const signature = buildAttributeSignature(sizeCombo.map((v) => v.valueId));
+          if (existingSignatures.has(signature)) {
+            skipped += 1;
+            continue;
+          }
 
-          if (sizeKey && existingSizeValueIds.has(sizeKey)) {
-            skipped += 1;
-            continue;
-          }
-          if (!sizeKey && existingSizeValueIds.has("__default__")) {
-            skipped += 1;
-            continue;
-          }
+          // Labels and size charts still read attribute_value_id, so it holds the
+          // first-sorting value of the combination.
+          const sizeEntry = primarySkuValue(sizeCombo);
 
           // Every new Color x Size starts at the Item's price - the one place
           // a price is entered. Sizes that cost more/less are changed on the
@@ -868,6 +934,7 @@ export const variantService = {
               unit_id: unit.id,
               unit_value: 1,
               attribute_value_id: sizeEntry?.valueId ?? null,
+              attribute_signature: signature,
               sku,
               base_price: basePrice,
               is_default: !sizeEntry,
@@ -877,7 +944,20 @@ export const variantService = {
             },
           });
 
-          const initialStock = data.defaultStock ?? 0;
+          // Every value of the combination, not just the primary one - this is what
+          // lets a shopper's full selection resolve back to exactly this row.
+          if (sizeCombo.length > 0) {
+            await tx.variant_unit_price_attribute_values.createMany({
+              data: sizeCombo.map((v) => ({
+                variant_unit_price_id: unitPrice.id,
+                attribute_id: v.attributeId,
+                attribute_value_id: v.valueId,
+              })),
+            });
+          }
+
+          // Generated rows always start empty; stock arrives through a purchase or an
+          // inventory adjustment, so it is always backed by a ledger movement.
           await tx.inventory.create({
             data: {
               variantUnitPriceId: unitPrice.id,
@@ -889,11 +969,7 @@ export const variantService = {
             },
           });
 
-          if (initialStock > 0) {
-            openingStock.push({ variantUnitPriceId: unitPrice.id, quantity: initialStock });
-          }
-
-          existingSizeValueIds.add(sizeKey ?? "__default__");
+          existingSignatures.add(signature);
           createdVariantIds.add(variantId);
         }
 
@@ -903,18 +979,11 @@ export const variantService = {
         // indistinguishable from the generator having silently done nothing
         // for that color. Roll it back instead, so it never appears at all
         // and the color's combinations are honestly counted as skipped.
-        if (isNewColorVariant && existingSizeValueIds.size === sizeRowsBefore) {
+        if (isNewColorVariant && existingSignatures.size === sizeRowsBefore) {
           await tx.variant_attribute_values.deleteMany({ where: { variant_id: variantId } });
           await tx.productVariant.delete({ where: { id: variantId } });
         }
       }
-
-      await recordOpeningStockPurchase(
-        tx,
-        openingStock,
-        adminId,
-        `Opening stock for ${item.name} (variant generation)`
-      );
     }, { timeout: 60000 });
 
     const variants = await Promise.all(
@@ -928,7 +997,7 @@ export const variantService = {
   },
 
   /**
-   * Read-only dry run for generateVariants: resolves the same Color/Size cartesian
+   * Read-only dry run for generateVariants: resolves the same Variant/SKU cartesian
    * product and reports what a real run would add, WITHOUT writing anything. Also
    * flags existing Colors/Sizes under this Item that fall outside the newly
    * selected attribute values, so the admin can see - and explicitly choose to
@@ -950,6 +1019,8 @@ export const variantService = {
       valueId: bigint;
       value: string;
     };
+
+    const levels = await variationLevelsForProduct(item.style.productId);
 
     const colorGroups: ResolvedValue[][] = [];
     const sizeGroups: ResolvedValue[][] = [];
@@ -981,7 +1052,9 @@ export const variantService = {
         value: v.value,
       }));
 
-      if (isColorAttribute(attribute.type)) {
+      const level = levels.get(attribute.id.toString())?.level ?? "SKU";
+      if (level === "INFO") continue;
+      if (level === "VARIANT") {
         colorGroups.push(resolved);
         touchesColorAxis = true;
       } else {
@@ -995,7 +1068,11 @@ export const variantService = {
     const colorKey = (combo: ResolvedValue[]) =>
       combo.map((v) => v.valueId.toString()).sort().join(",");
     const newColorKeys = new Set(colorCombinations.map(colorKey));
-    const newSizeValueIds = new Set(sizeGroups.flat().map((v) => v.valueId.toString()));
+    // Compared whole-combination, like generation does. A flat set of the selected
+    // values would call "M / Round" already covered because some other row uses M.
+    const newSizeSignatures = new Set(
+      sizeCombinations.map((combo) => buildAttributeSignature(combo.map((v) => v.valueId)))
+    );
 
     const existingVariants = await db.productVariant.findMany({
       where: { itemId: item.id, deleted_at: null },
@@ -1013,6 +1090,7 @@ export const variantService = {
             uuid: true,
             sku: true,
             attribute_value_id: true,
+            attribute_signature: true,
             attribute_value: { select: { value: true } },
           },
         },
@@ -1056,8 +1134,14 @@ export const variantService = {
       }
 
       for (const unitPrice of variant.variant_unit_prices) {
-        const sizeKey = unitPrice.attribute_value_id?.toString();
-        if (touchesSizeAxis && sizeKey && !newSizeValueIds.has(sizeKey)) {
+        // A row with no variation values of its own (a pack size, or a single
+        // unnamed row) is not something the Size selection can supersede, so it is
+        // left alone - same as before signatures existed.
+        if (
+          touchesSizeAxis &&
+          unitPrice.attribute_signature !== "" &&
+          !newSizeSignatures.has(unitPrice.attribute_signature)
+        ) {
           removeSizes.push({
             variantUuid: variant.uuid,
             unitPriceUuid: unitPrice.uuid,
@@ -1067,13 +1151,12 @@ export const variantService = {
       }
 
       if (touchesSizeAxis) {
-        const existingSizeKeysForColor = new Set(
-          variant.variant_unit_prices.map((up) => up.attribute_value_id?.toString() ?? "__default__")
+        const existingSignaturesForColor = new Set(
+          variant.variant_unit_prices.map((up) => up.attribute_signature)
         );
-        toAddSizes += sizeCombinations.filter((combo) => {
-          const key = combo[0]?.valueId.toString() ?? "__default__";
-          return !existingSizeKeysForColor.has(key);
-        }).length;
+        toAddSizes += [...newSizeSignatures].filter(
+          (signature) => !existingSignaturesForColor.has(signature)
+        ).length;
       }
     }
 

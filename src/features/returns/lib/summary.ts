@@ -36,17 +36,28 @@ export interface RequestHistoryEntry {
 
 export interface RequestSummary {
   id: string;
+  returnNumber?: string | null;
   kind: RequestKind;
   status: string;
   reason: string;
   description: string | null;
   unboxingVideoUrl: string | null;
+  refundMethod?: string | null;
+  bankAccountHolder?: string | null;
+  bankName?: string | null;
+  bankAccountLast4?: string | null;
+  bankIfsc?: string | null;
+  upiId?: string | null;
+  refundTransactionRef?: string | null;
   requestedAt: Date;
   approvedAt: Date | null;
   rejectedAt: Date | null;
   rejectionReason: string | null;
   adminComment: string | null;
   pickupScheduledAt: Date | null;
+  courierName?: string | null;
+  trackingNumber?: string | null;
+  pickupImageUrl?: string | null;
   completedAt: Date | null;
   items: RequestItemSummary[];
   history: RequestHistoryEntry[];
@@ -128,19 +139,36 @@ function mapHistory(rows: any[] | undefined): RequestHistoryEntry[] {
 }
 
 export function summarizeReturnRequest(req: any): RequestSummary {
+  const returnNumber =
+    req.return_number ||
+    (req.approved_at || (req.status && !["return_requested", "under_review", "rejected"].includes(req.status))
+      ? `RET-${new Date(req.created_at || Date.now()).toISOString().slice(0, 10).replace(/-/g, "")}-${String(req.id).padStart(4, "0")}`
+      : null);
+
   return {
     id: req.uuid || String(req.id),
+    returnNumber,
     kind: "return",
     status: req.status,
     reason: req.reason,
     description: req.description ?? null,
     unboxingVideoUrl: req.unboxing_video_url ?? null,
+    refundMethod: req.refund_method ?? null,
+    bankAccountHolder: req.bank_account_holder ?? null,
+    bankName: req.bank_name ?? null,
+    bankAccountLast4: req.bank_account_last4 ? `••••${req.bank_account_last4}` : null,
+    bankIfsc: req.bank_ifsc ?? null,
+    upiId: req.upi_id ?? null,
+    refundTransactionRef: req.refund_transaction_ref ?? null,
     requestedAt: req.requested_at,
     approvedAt: req.approved_at ?? null,
     rejectedAt: req.rejected_at ?? null,
     rejectionReason: req.rejection_reason ?? null,
     adminComment: req.admin_comment ?? null,
     pickupScheduledAt: req.pickup_scheduled_at ?? null,
+    courierName: req.courier_name ?? null,
+    trackingNumber: req.tracking_number ?? null,
+    pickupImageUrl: req.pickup_image_url ?? null,
     completedAt: req.completed_at ?? null,
     items: (req.return_items ?? []).map((ri: any) => ({
       ...summarizeOrderItem(ri.order_items),
@@ -151,19 +179,36 @@ export function summarizeReturnRequest(req: any): RequestSummary {
 }
 
 export function summarizeReplacementRequest(req: any): RequestSummary {
+  const replacementNumber =
+    req.replacement_number ||
+    (req.approved_at || (req.status && !["replacement_requested", "under_review", "rejected"].includes(req.status))
+      ? `REP-${new Date(req.created_at || Date.now()).toISOString().slice(0, 10).replace(/-/g, "")}-${String(req.id).padStart(4, "0")}`
+      : null);
+
   return {
     id: req.uuid || String(req.id),
+    returnNumber: replacementNumber,
     kind: "replacement",
     status: req.status,
     reason: req.reason,
     description: req.description ?? null,
     unboxingVideoUrl: req.unboxing_video_url ?? null,
+    refundMethod: null,
+    bankAccountHolder: null,
+    bankName: null,
+    bankAccountLast4: null,
+    bankIfsc: null,
+    upiId: null,
+    refundTransactionRef: null,
     requestedAt: req.requested_at,
     approvedAt: req.approved_at ?? null,
     rejectedAt: req.rejected_at ?? null,
     rejectionReason: req.rejection_reason ?? null,
     adminComment: req.admin_comment ?? null,
     pickupScheduledAt: req.pickup_scheduled_at ?? null,
+    courierName: req.courier_name ?? null,
+    trackingNumber: req.tracking_number ?? null,
+    pickupImageUrl: req.pickup_image_url ?? null,
     completedAt: req.completed_at ?? null,
     items: (req.items ?? []).map((ri: any) => ({
       ...summarizeOrderItem(ri.order_items),
@@ -252,10 +297,12 @@ export function buildOrderTimeline(input: {
   const ordered = [...input.statusHistory].sort(
     (a, b) => a.created_at.getTime() - b.created_at.getTime()
   );
-  for (const row of ordered) {
+  for (let idx = 0; idx < ordered.length; idx++) {
+    const row = ordered[idx];
     // "pending" is Order Placed; refund bookkeeping rows reuse the returned status.
     if (row.status === "pending") continue;
-    const key = `order-${row.status}-${row.created_at.getTime()}`;
+    const rowId = (row as any).id ?? idx;
+    const key = `order-${row.status}-${rowId}-${row.created_at.getTime()}`;
     if (row.status === "returned" && row.note?.startsWith("Refund")) continue;
     seen.add(row.status);
     events.push({

@@ -16,6 +16,10 @@ export function formatCustomerProfile(
     gender: "male" | "female" | "other" | "not_applicable" | null;
     profile_image: string | null;
     referral_code: string | null;
+    bank_account_holder?: string | null;
+    bank_name?: string | null;
+    bank_account_last4?: string | null;
+    bank_ifsc?: string | null;
     created_at: Date;
     updated_at: Date;
     users_customer_profiles_user_idTousers?: { uuid: string | null } | null;
@@ -43,6 +47,10 @@ export function formatCustomerProfile(
     gender: profile.gender ?? null,
     profileImage: profile.profile_image ?? null,
     referralCode: profile.referral_code ?? null,
+    bankAccountHolder: profile.bank_account_holder ?? null,
+    bankName: profile.bank_name ?? null,
+    bankAccountLast4: profile.bank_account_last4 ?? null,
+    bankIfsc: profile.bank_ifsc ?? null,
     createdAt: profile.created_at,
     updatedAt: profile.updated_at,
   };

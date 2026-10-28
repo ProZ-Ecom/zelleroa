@@ -8,6 +8,7 @@ import {
   useCreatePermission,
   useUpdatePermission,
   useDeletePermission,
+  useRoles,
 } from "@/features/roles/hooks";
 import { DataTable } from "@/components/admin/data-table/DataTable";
 import { AdminPageHeader, AdminContent } from "@/components/admin/AdminPageHeader";
@@ -34,8 +35,17 @@ export default function AdminPermissionsPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editingPermission, setEditingPermission] = useState<PermissionListItem | null>(null);
   const [deleteId, setDeleteId] = useState<number | null>(null);
+  const [selectedRoleIds, setSelectedRoleIds] = useState<number[]>([]);
 
   const { data: permissionsData, isLoading, error, refetch } = usePermissions();
+  const { data: rolesResult } = useRoles({ limit: 100 });
+  const HIDDEN_FORM_ROLES = ["ADMIN", "CUSTOMER"];
+  const assignableRoles = useMemo(() => {
+    return (rolesResult?.data ?? []).filter(
+      (r) => !HIDDEN_FORM_ROLES.includes(r.name?.toUpperCase())
+    );
+  }, [rolesResult?.data]);
+
   const createMutation = useCreatePermission();
   const updateMutation = useUpdatePermission();
   const deleteMutation = useDeletePermission();
@@ -79,22 +89,48 @@ export default function AdminPermissionsPage() {
     }
   }, [editingPermission, reset]);
 
+  const handleToggleRole = (roleId: number | string) => {
+    const numId = Number(roleId);
+    setSelectedRoleIds((prev) =>
+      prev.includes(numId) ? prev.filter((id) => id !== numId) : [...prev, numId]
+    );
+  };
+
+  const isAllSelected =
+    assignableRoles.length > 0 &&
+    assignableRoles.every((r) => selectedRoleIds.includes(Number(r.id)));
+
+  const handleToggleSelectAll = () => {
+    if (isAllSelected) {
+      setSelectedRoleIds([]);
+    } else {
+      setSelectedRoleIds(assignableRoles.map((r) => Number(r.id)));
+    }
+  };
+
   const onSubmit = (formData: CreatePermissionSchemaInput) => {
+    const payload = {
+      ...formData,
+      roleIds: selectedRoleIds.map((id) => Number(id)),
+    };
+
     if (editingPermission) {
       updateMutation.mutate(
-        { id: editingPermission.id, data: formData },
+        { id: editingPermission.id, data: payload },
         {
           onSuccess: () => {
             setModalOpen(false);
             setEditingPermission(null);
+            setSelectedRoleIds([]);
           },
         }
       );
     } else {
-      createMutation.mutate(formData, {
+      createMutation.mutate(payload, {
         onSuccess: () => {
           setModalOpen(false);
           reset();
+          setSelectedRoleIds([]);
         },
       });
     }
@@ -103,8 +139,14 @@ export default function AdminPermissionsPage() {
   const handleOpenModal = (permission?: PermissionListItem) => {
     if (permission) {
       setEditingPermission(permission);
+      setSelectedRoleIds(
+        (permission.roleIds ?? [])
+          .map((id) => Number(id))
+          .filter((id) => assignableRoles.some((r) => Number(r.id) === id))
+      );
     } else {
       setEditingPermission(null);
+      setSelectedRoleIds([]);
     }
     setModalOpen(true);
   };
@@ -124,6 +166,25 @@ export default function AdminPermissionsPage() {
       accessorKey: "description",
       header: "Description",
       cell: ({ row }) => row.original.description || "-",
+    },
+    {
+      id: "roles",
+      header: "Assigned Roles",
+      cell: ({ row }) => {
+        const roles = row.original.roles ?? [];
+        if (roles.length === 0) {
+          return <span className="text-xs text-neutral-400 font-medium">None</span>;
+        }
+        return (
+          <div className="flex flex-wrap gap-1">
+            {roles.map((r) => (
+              <Badge key={r.id} variant="secondary" className="text-[11px] font-semibold py-0.5 px-2">
+                {r.name}
+              </Badge>
+            ))}
+          </div>
+        );
+      },
     },
     {
       id: "actions",
@@ -267,13 +328,60 @@ export default function AdminPermissionsPage() {
             </label>
             <textarea
               {...register("description")}
-              rows={3}
+              rows={2}
               className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
               placeholder="Permission description"
             />
             {errors.description && (
               <p className="mt-1 text-xs text-red-500 font-medium">{errors.description.message}</p>
             )}
+          </div>
+
+          <div>
+            <div className="flex items-center justify-between mb-1">
+              <label className="block text-sm font-medium text-gray-700">
+                Assign to Roles
+              </label>
+              {assignableRoles.length > 0 && (
+                <button
+                  type="button"
+                  onClick={handleToggleSelectAll}
+                  className="text-xs font-semibold text-secondary-700 hover:text-secondary-800 underline cursor-pointer"
+                >
+                  {isAllSelected ? "Deselect All" : "Select All"}
+                </button>
+              )}
+            </div>
+            <p className="text-xs text-muted-foreground mb-2">
+              Select which roles will immediately have this permission
+            </p>
+            <div className="max-h-48 overflow-y-auto rounded-lg border border-gray-200 bg-neutral-50/50 p-2.5 space-y-1.5">
+              {assignableRoles.length === 0 ? (
+                <p className="text-xs text-neutral-400 py-1">No roles available</p>
+              ) : (
+                assignableRoles.map((role) => (
+                  <label
+                    key={role.id}
+                    className="flex items-center gap-2.5 rounded-md p-1.5 hover:bg-white cursor-pointer transition-colors"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={selectedRoleIds.includes(Number(role.id))}
+                      onChange={() => handleToggleRole(role.id)}
+                      className="h-4 w-4 rounded border-gray-300 text-secondary-600 focus:ring-secondary-500"
+                    />
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="text-xs font-semibold text-neutral-900">{role.name}</span>
+                      {role.description && (
+                        <span className="text-[11px] text-neutral-500 truncate">
+                          - {role.description}
+                        </span>
+                      )}
+                    </div>
+                  </label>
+                ))
+              )}
+            </div>
           </div>
         </form>
       </FormModal>

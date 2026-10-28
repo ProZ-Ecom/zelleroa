@@ -7,6 +7,7 @@ import { Select } from "@/components/ui/select";
 import { useConfiguredAttributesForProduct } from "@/features/attributes/hooks/use-attributes";
 import { useUnits } from "@/features/units/hooks";
 import { useGenerateVariants } from "../hooks";
+import { MAX_GENERATED_SKUS } from "../utils/attribute-signature.util";
 import type { AdminUnitResponse } from "@/features/units/types";
 import type { GenerateVariantsResponse } from "../types";
 
@@ -33,7 +34,6 @@ function VariantGenerator({ productUuid, onGenerated, itemUuid }: VariantGenerat
   const [selectedValues, setSelectedValues] = useState<Record<string, string[]>>({});
   const [unitId, setUnitId] = useState("");
   const [defaultPrice, setDefaultPrice] = useState("");
-  const [defaultStock, setDefaultStock] = useState("0");
   const [formError, setFormError] = useState<string | null>(null);
   const [result, setResult] = useState<GenerateVariantsResponse | null>(null);
 
@@ -58,17 +58,36 @@ function VariantGenerator({ productUuid, onGenerated, itemUuid }: VariantGenerat
     [productAttributes, selectedValues]
   );
 
-  const combinationCount = useMemo(
-    () => activeOptions.reduce((total, o) => total * o.valueIds.length, activeOptions.length > 0 ? 1 : 0),
+  // Info attributes describe the item instead of varying it, so they are not part of
+  // what gets generated - counting them here would promise rows that never appear.
+  const varyingOptions = useMemo(
+    () => activeOptions.filter((o) => o.attribute.variationLevel !== "INFO"),
     [activeOptions]
   );
+
+  const combinationCount = useMemo(
+    () =>
+      varyingOptions.reduce(
+        (total, o) => total * o.valueIds.length,
+        varyingOptions.length > 0 ? 1 : 0
+      ),
+    [varyingOptions]
+  );
+
+  const overLimit = combinationCount > MAX_GENERATED_SKUS;
 
   const handleGenerate = async () => {
     setFormError(null);
     setResult(null);
 
-    if (activeOptions.length === 0) {
+    if (varyingOptions.length === 0) {
       setFormError("Select at least one value for a variation option (e.g. pick some Colors)");
+      return;
+    }
+    if (overLimit) {
+      setFormError(
+        `This would create ${combinationCount} stock rows, over the limit of ${MAX_GENERATED_SKUS}. Mark some attributes as Info on the product, or select fewer values.`
+      );
       return;
     }
     if (!unitId) {
@@ -80,21 +99,18 @@ function VariantGenerator({ productUuid, onGenerated, itemUuid }: VariantGenerat
       setFormError("Price cannot be negative");
       return;
     }
-    const stock = Number(defaultStock);
-    if (Number.isNaN(stock) || stock < 0 || !Number.isInteger(stock)) {
-      setFormError("Stock must be a non-negative whole number");
-      return;
-    }
 
     try {
       const response = await generateMutation.mutateAsync({
         productUuid,
         itemUuid,
         data: {
-          options: activeOptions.map((o) => ({ attributeId: o.attribute.id, valueIds: o.valueIds })),
+          options: varyingOptions.map((o) => ({
+            attributeId: o.attribute.id,
+            valueIds: o.valueIds,
+          })),
           unitId,
           ...(trimmedPrice !== "" ? { defaultPrice: Number(trimmedPrice) } : {}),
-          defaultStock: stock,
           activate: true,
         },
       });
@@ -128,15 +144,32 @@ function VariantGenerator({ productUuid, onGenerated, itemUuid }: VariantGenerat
   return (
     <div className="space-y-5">
       <p className="text-xs text-neutral-500">
-        Pick the values you want to sell for each option. Every combination of the values you
-        select will become its own Item, each with its own price, stock, SKU and images.
+        Pick the values you want to sell for each option. Every combination becomes its own
+        stock row with its own SKU and price; Variant-level options also get their own images.
+        Options marked Info describe the item and do not create rows.
       </p>
 
       <div className="space-y-4">
         {attributesWithValues.map((attribute) => (
           <div key={attribute.id}>
-            <label className="block text-xs font-semibold text-neutral-800 mb-1.5">
+            <label className="flex items-center gap-2 text-xs font-semibold text-neutral-800 mb-1.5">
               {attribute.name}
+              <span
+                className={`px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide ${
+                  attribute.variationLevel === "VARIANT"
+                    ? "bg-secondary-100 text-secondary-700"
+                    : attribute.variationLevel === "SKU"
+                      ? "bg-neutral-100 text-neutral-600"
+                      : "bg-amber-100 text-amber-700"
+                }`}
+                title={
+                  attribute.variationLevel === "INFO"
+                    ? "Describes the item only — picking values here will not create stock rows"
+                    : undefined
+                }
+              >
+                {attribute.variationLevel}
+              </span>
             </label>
             <div className="flex flex-wrap gap-2">
               {attribute.values.map((value) => {
@@ -169,16 +202,30 @@ function VariantGenerator({ productUuid, onGenerated, itemUuid }: VariantGenerat
       </div>
 
       <div
-        className={`rounded-xl border px-4 py-3 text-sm font-semibold flex items-center gap-2 ${
-          combinationCount > 0
-            ? "border-secondary-200 bg-secondary-50 text-secondary-800"
-            : "border-neutral-200 bg-neutral-50 text-neutral-400"
+        className={`rounded-xl border px-4 py-3 text-sm font-semibold flex items-start gap-2 ${
+          overLimit
+            ? "border-error-200 bg-error-50 text-error-700"
+            : combinationCount > 0
+              ? "border-secondary-200 bg-secondary-50 text-secondary-800"
+              : "border-neutral-200 bg-neutral-50 text-neutral-400"
         }`}
       >
-        <Sparkles className="w-4 h-4 shrink-0" />
-        {combinationCount > 0
-          ? `${combinationCount} variant${combinationCount === 1 ? "" : "s"} will be generated`
-          : "Select values above to see how many variants will be generated"}
+        {overLimit ? (
+          <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+        ) : (
+          <Sparkles className="w-4 h-4 shrink-0 mt-0.5" />
+        )}
+        {combinationCount === 0 ? (
+          "Select values above to see how many stock rows will be generated"
+        ) : overLimit ? (
+          <span>
+            {combinationCount} stock rows — over the limit of {MAX_GENERATED_SKUS}. Mark the
+            attributes that are the same across the whole item as Info on the product, or select
+            fewer values.
+          </span>
+        ) : (
+          `${combinationCount} stock row${combinationCount === 1 ? "" : "s"} will be generated`
+        )}
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -222,20 +269,9 @@ function VariantGenerator({ productUuid, onGenerated, itemUuid }: VariantGenerat
           </p>
         </div>
 
-        <div>
-          <label className="block text-xs font-semibold text-neutral-800 mb-1.5">
-            Default stock
-          </label>
-          <input
-            type="number"
-            step="1"
-            min="0"
-            value={defaultStock}
-            onChange={(e) => setDefaultStock(e.target.value)}
-            disabled={generateMutation.isPending}
-            className="w-full h-10 px-3 rounded-lg border border-neutral-200 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-secondary-600/20 focus:border-secondary-600 disabled:opacity-60"
-          />
-        </div>
+        <p className="text-[11px] text-neutral-400 self-end">
+          Generated variants start with 0 stock. Add stock from Inventory or a Purchase Order.
+        </p>
       </div>
 
       {formError && (
@@ -265,8 +301,8 @@ function VariantGenerator({ productUuid, onGenerated, itemUuid }: VariantGenerat
         <Button
           type="button"
           onClick={handleGenerate}
-          disabled={generateMutation.isPending || combinationCount === 0}
-          className="h-10 rounded-xl bg-gradient-to-b from-[var(--color-primary-400)] to-[var(--color-primary-600)] shadow-[0_6px_16px_-6px_rgba(37,99,235,0.45),inset_0_1px_0_rgba(255,255,255,0.18)] transition-all px-5 text-sm font-semibold text-white hover:-translate-y-px hover:shadow-[0_10px_20px_-8px_rgba(37,99,235,0.5),inset_0_1px_0_rgba(255,255,255,0.18)] active:translate-y-0 cursor-pointer"
+          disabled={generateMutation.isPending || combinationCount === 0 || overLimit}
+          className="h-10 rounded-xl bg-theme-primary hover:bg-theme-primary-hover px-5 text-sm font-semibold text-white transition-colors cursor-pointer"
         >
           {generateMutation.isPending ? (
             <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" />

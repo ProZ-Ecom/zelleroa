@@ -60,27 +60,28 @@ const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
     ref
   ) => {
     const [mounted, setMounted] = React.useState(false);
-    const [isOpen, setIsOpenState] = React.useState(false);
+    const [isOpen, setIsOpen] = React.useState(false);
 
-    const setIsOpen = React.useCallback(
-      (action: boolean | ((prev: boolean) => boolean)) => {
-        setIsOpenState((prev) => {
-          const next = typeof action === "function" ? action(prev) : action;
-          if (next !== prev) {
-            onOpenChange?.(next);
-          }
-          return next;
-        });
-      },
-      [onOpenChange]
-    );
+    const onOpenChangeRef = React.useRef(onOpenChange);
+    React.useEffect(() => {
+      onOpenChangeRef.current = onOpenChange;
+    }, [onOpenChange]);
+
+    const isFirstRender = React.useRef(true);
+    React.useEffect(() => {
+      if (isFirstRender.current) {
+        isFirstRender.current = false;
+        return;
+      }
+      onOpenChangeRef.current?.(isOpen);
+    }, [isOpen]);
 
     const [internalValue, setInternalValue] = React.useState<string>(
-      (controlledValue !== undefined
-        ? controlledValue
-        : defaultValue !== undefined
-        ? defaultValue
-        : "") as string
+      controlledValue !== undefined && controlledValue !== null
+        ? String(controlledValue)
+        : defaultValue !== undefined && defaultValue !== null
+        ? String(defaultValue)
+        : ""
     );
     const [searchQuery, setSearchQuery] = React.useState("");
     const [menuStyle, setMenuStyle] = React.useState<React.CSSProperties>({});
@@ -99,7 +100,7 @@ const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
     // Sync controlled value if passed
     React.useEffect(() => {
       if (controlledValue !== undefined) {
-        setInternalValue(String(controlledValue));
+        setInternalValue(controlledValue === null ? "" : String(controlledValue));
       }
     }, [controlledValue]);
 
@@ -368,7 +369,7 @@ const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
           }}
           name={name}
           id={id}
-          value={internalValue}
+          value={internalValue ?? ""}
           onChange={onChange || (() => {})}
           disabled={disabled}
           tabIndex={-1}

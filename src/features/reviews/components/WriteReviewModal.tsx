@@ -270,11 +270,10 @@ export function WriteReviewModal({
                           key={pack.id}
                           type="button"
                           onClick={() => setActiveUnitPriceId(pack.id)}
-                          className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all cursor-pointer ${
-                            isSelected
+                          className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all cursor-pointer ${isSelected
                               ? "bg-[#7A2224] text-white border-[#7A2224] shadow-2xs"
                               : "bg-white text-stone-700 border-stone-200 hover:border-stone-400"
-                          }`}
+                            }`}
                         >
                           {getPackSizeLabel(pack)}
                         </button>
@@ -303,11 +302,10 @@ export function WriteReviewModal({
                         aria-label={`${starValue} Stars`}
                       >
                         <Star
-                          className={`w-7 h-7 sm:w-8 sm:h-8 transition-colors ${
-                            isFilled
+                          className={`w-7 h-7 sm:w-8 sm:h-8 transition-colors ${isFilled
                               ? "fill-amber-400 text-amber-400 drop-shadow-xs"
                               : "fill-stone-100 text-stone-300"
-                          }`}
+                            }`}
                         />
                       </button>
                     );

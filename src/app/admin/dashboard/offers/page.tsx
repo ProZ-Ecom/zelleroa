@@ -394,22 +394,61 @@ export default function AdminOffersPage() {
     return <ErrorState message="Failed to load offers" onRetry={() => refetch()} />;
   }
 
+  const handleExport = () => {
+    exportDataToCsv(
+      offers,
+      "offers",
+      [
+        { header: "Offer Name", accessor: (o) => o.name },
+        { header: "Offer Code", accessor: (o) => o.code || "—" },
+        { header: "Level", accessor: (o) => OFFER_LEVEL_LABELS[o.level] || o.level },
+        {
+          header: "Target (Product / Item)",
+          accessor: (o) =>
+            o.level === "product"
+              ? o.products.map((p) => p.name).join("; ") || "—"
+              : o.items.map((i) => i.label || i.sku).join("; ") || "—",
+        },
+        {
+          header: "Category",
+          accessor: (o) =>
+            o.level === "product"
+              ? Array.from(new Set(o.products.map((p) => p.categoryName).filter(Boolean))).join("; ") || "—"
+              : Array.from(new Set(o.items.map((i) => i.productName).filter(Boolean))).join("; ") || "—",
+        },
+        { header: "Type", accessor: (o) => OFFER_TYPE_LABELS[o.type] || o.type },
+        { header: "Discount", accessor: (o) => formatOfferDiscount(o) },
+        { header: "Starts At", accessor: (o) => formatDate(o.startsAt) },
+        { header: "Ends At", accessor: (o) => formatDate(o.endsAt) },
+        { header: "Priority", accessor: (o) => o.priority },
+        { header: "Status", accessor: (o) => OFFER_STATUS_LABELS[o.status] || o.status },
+        { header: "Created Date", accessor: (o) => formatDate(o.createdAt) },
+      ]
+    );
+  };
+
   return (
     <div className="flex flex-1 min-h-0 flex-col">
       <AdminPageHeader
         title="Offers"
         description="Create product-wise and item-wise offers, and control which one wins when several apply."
         actions={
-          <Button
-            onClick={() => {
-              setFormError(null);
-              setIsCreateOpen(true);
-            }}
-            className="h-11 rounded-xl bg-gradient-to-b from-[var(--color-primary-400)] to-[var(--color-primary-600)] shadow-[0_6px_16px_-6px_rgba(37,99,235,0.45),inset_0_1px_0_rgba(255,255,255,0.18)] transition-all px-5 text-sm font-semibold text-white hover:-translate-y-px hover:shadow-[0_10px_20px_-8px_rgba(37,99,235,0.5),inset_0_1px_0_rgba(255,255,255,0.18)] active:translate-y-0"
-          >
-            <Plus className="mr-2 h-4 w-4" />
-            Create Offer
-          </Button>
+          <div className="flex items-center gap-2">
+            <ExportButton
+              onClick={handleExport}
+              disabled={!offers.length}
+            />
+            <Button
+              onClick={() => {
+                setFormError(null);
+                setIsCreateOpen(true);
+              }}
+              className="h-11 rounded-xl bg-theme-primary hover:bg-theme-primary-hover px-5 text-sm font-semibold text-white transition-colors"
+            >
+              <Plus className="mr-2 h-4 w-4" />
+              Create Offer
+            </Button>
+          </div>
         }
       />
 

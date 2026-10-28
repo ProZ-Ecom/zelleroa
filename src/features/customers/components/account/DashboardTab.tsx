@@ -154,7 +154,7 @@ export function DashboardTab({
           variantId: vId,
           name: key,
           price: typeof item.unitPrice === "number" ? item.unitPrice : Number(item.unitPrice || 0),
-          image: imgSrc,
+          image: imgSrc || (item as any).primaryImage || (item as any).image || null,
           variantName: item.variantName || item.variant_snapshot || null,
         });
       }

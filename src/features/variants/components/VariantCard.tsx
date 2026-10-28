@@ -140,17 +140,12 @@ export function VariantCard({
             )
           )}
           <span
-            className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold shadow-xs backdrop-blur-md ${
+            className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold shadow-xs backdrop-blur-md ${
               variant.isActive
                 ? "bg-emerald-500/90 text-white"
                 : "bg-neutral-800/80 text-neutral-200"
             }`}
           >
-            <span
-              className={`h-1.5 w-1.5 rounded-full ${
-                variant.isActive ? "bg-white animate-pulse" : "bg-neutral-400"
-              }`}
-            />
             {variant.isActive ? "Active" : "Inactive"}
           </span>
         </div>

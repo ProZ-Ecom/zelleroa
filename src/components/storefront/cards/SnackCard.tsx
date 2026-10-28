@@ -173,24 +173,23 @@ export function SnackCard({
         {/* Wishlist Button (Top-Right) - a Style has no single row to save,
             so it is hidden until a Colour+Size is picked on the detail page */}
         {!viewOnly && (
-        <button
-          type="button"
-          onClick={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            onWishlistToggle?.(activeVariant?.id);
-          }}
-          aria-label={isWishlisted ? "Remove from wishlist" : "Add to wishlist"}
-          className="absolute top-2.5 right-2.5 z-10 w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-white/90 backdrop-blur-xs shadow-xs flex items-center justify-center text-[var(--neutral-600)] hover:bg-white hover:text-[var(--danger-base)] hover:scale-105 transition-all cursor-pointer active:scale-90"
-        >
-          <Heart
-            className={`w-5 h-5 transition-colors duration-200 ${
-              isWishlisted
-                ? "text-[var(--danger-base)] fill-[var(--danger-base)]"
-                : "text-[var(--neutral-500)] stroke-[2]"
-            }`}
-          />
-        </button>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              onWishlistToggle?.(activeVariant?.id);
+            }}
+            aria-label={isWishlisted ? "Remove from wishlist" : "Add to wishlist"}
+            className="absolute top-2.5 right-2.5 z-10 w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-white/90 backdrop-blur-xs shadow-xs flex items-center justify-center text-[var(--neutral-600)] hover:bg-white hover:text-[var(--danger-base)] hover:scale-105 transition-all cursor-pointer active:scale-90"
+          >
+            <Heart
+              className={`w-5 h-5 transition-colors duration-200 ${isWishlisted
+                  ? "text-[var(--danger-base)] fill-[var(--danger-base)]"
+                  : "text-[var(--neutral-500)] stroke-[2]"
+                }`}
+            />
+          </button>
         )}
       </div>
 
@@ -225,17 +224,16 @@ export function SnackCard({
                     key={v.id}
                     type="button"
                     onClick={() => handleSelectVariant(v.id)}
-                    className={`px-2 sm:px-2.5 py-0.5 text-xs font-bold rounded transition-all cursor-pointer select-none ${
-                      isSelected
+                    className={`px-2 sm:px-2.5 py-0.5 text-xs font-bold rounded transition-all cursor-pointer select-none ${isSelected
                         ? "bg-theme-primary text-white border border-theme-primary"
                         : "bg-white text-theme-primary border border-theme-primary hover:bg-theme-primary-light"
-                    }`}
+                      }`}
                   >
                     {typeof v.label === "string"
                       ? v.label
                       : typeof v.label === "object" && v.label !== null
-                      ? `${(v.label as any).value ?? ""} ${(v.label as any).unit ?? ""}`.trim() || "Standard"
-                      : String(v.label || "")}
+                        ? `${(v.label as any).value ?? ""} ${(v.label as any).unit ?? ""}`.trim() || "Standard"
+                        : String(v.label || "")}
                   </button>
                 );
               })}
@@ -275,19 +273,19 @@ export function SnackCard({
             {viewLabel}
           </Link>
         ) : (
-        <button
-          type="button"
-          disabled={disabled || isLoading || (activeVariant && activeVariant.inStock === false)}
-          onClick={() => onAddToCart?.(activeVariant?.id)}
-          className="w-full bg-theme-primary-light text-theme-primary hover:bg-theme-primary hover:text-theme-primary-fg font-bold text-xs sm:text-sm tracking-wide uppercase py-2.5 sm:py-3 px-4 rounded-lg shadow-xs flex items-center justify-center gap-2 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          <ShoppingCart className="w-4 h-4" strokeWidth={2} />
-          {isLoading
-            ? "Adding..."
-            : activeVariant?.inStock === false
-              ? "Out of Stock"
-              : "ADD TO CART"}
-        </button>
+          <button
+            type="button"
+            disabled={disabled || isLoading || (activeVariant && activeVariant.inStock === false)}
+            onClick={() => onAddToCart?.(activeVariant?.id)}
+            className="w-full bg-theme-primary-light text-theme-primary hover:bg-theme-primary hover:text-theme-primary-fg font-bold text-xs sm:text-sm tracking-wide uppercase py-2.5 sm:py-3 px-4 rounded-lg shadow-xs flex items-center justify-center gap-2 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <ShoppingCart className="w-4 h-4" strokeWidth={2} />
+            {isLoading
+              ? "Adding..."
+              : activeVariant?.inStock === false
+                ? "Out of Stock"
+                : "ADD TO CART"}
+          </button>
         )}
       </div>
     </div>

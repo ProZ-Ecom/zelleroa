@@ -9,13 +9,16 @@ import { AdminPageHeader, AdminContent } from "@/components/admin/AdminPageHeade
 import { AdminTableSkeleton } from "@/components/admin/AdminTableSkeleton";
 import { ErrorState } from "@/components/ui/error-state";
 import { Button } from "@/components/ui/button";
+import { formatSlug } from "@/components/forms/form-input";
+import { ExcelImportDialog } from "@/components/common/ExcelImportDialog";
+import { createAdminBrandSchema } from "@/features/brands/validations/admin-brand.schema";
 // import { Badge } from "@/components/ui/badge";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { FormModal } from "@/components/common/FormModal";
 import { ExportButton } from "@/components/common/export-button";
 import { exportDataToCsv } from "@/lib/export-csv";
 import { toast } from "@/components/ui/Toast";
-import { Plus, Pencil, Trash2, Filter } from "lucide-react";
+import { Upload, Plus, Pencil, Trash2, Filter } from "lucide-react";
 import type { ColumnDef } from "@tanstack/react-table";
 import type { BrandListItem } from "@/features/brands/types";
 import { BrandForm } from "@/features/brands/components/BrandForm";
@@ -29,6 +32,7 @@ export default function AdminBrandsPage() {
 
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [isImportOpen, setIsImportOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [selectedBrand, setSelectedBrand] = useState<BrandListItem | null>(null);
 
@@ -169,14 +173,45 @@ export default function AdminBrandsPage() {
               }}
               className="w-full max-w-md"
             />
+            <div className="flex items-center gap-2">
+              <ExportButton
+                onClick={() =>
+                  exportDataToCsv(
+                    brands,
+                    "brands",
+                    [
+                      { header: "Brand Name", accessor: (b) => b.name },
+                      { header: "Brand Code", accessor: (b) => b.slug || "—" },
+                      { header: "Description", accessor: (b) => b.description || "—" },
+                      { header: "Products", accessor: (b) => `${b._count?.products || 0} Items` },
+                      {
+                        header: "Created Date",
+                        accessor: (b) =>
+                          b.createdAt ? new Date(b.createdAt).toLocaleDateString("en-IN") : "—",
+                      },
+                    ]
+                  )
+                }
+                disabled={!brands.length}
+              />
 
-            <Button
-              onClick={() => setIsCreateOpen(true)}
-              className="h-11 rounded-xl bg-gradient-to-b from-[var(--color-primary-400)] to-[var(--color-primary-600)] shadow-[0_6px_16px_-6px_rgba(37,99,235,0.45),inset_0_1px_0_rgba(255,255,255,0.18)] transition-all px-5 text-sm font-semibold text-white hover:-translate-y-px hover:shadow-[0_10px_20px_-8px_rgba(37,99,235,0.5),inset_0_1px_0_rgba(255,255,255,0.18)] active:translate-y-0"
-            >
-              <Plus className="mr-2 h-4 w-4" />
-              Add Brand
-            </Button>
+              <Button
+                variant="outline"
+                onClick={() => setIsImportOpen(true)}
+                className="h-11 rounded-xl px-5 text-sm font-semibold"
+              >
+                <Upload className="mr-2 h-4 w-4" />
+                Import
+              </Button>
+
+              <Button
+                onClick={() => setIsCreateOpen(true)}
+                className="h-11 rounded-xl bg-theme-primary hover:bg-theme-primary-hover px-5 text-sm font-semibold text-white transition-colors"
+              >
+                <Plus className="mr-2 h-4 w-4" />
+                Add Brand
+              </Button>
+            </div>
           </div>
 
           {/* Table */}
@@ -199,6 +234,25 @@ export default function AdminBrandsPage() {
           </div>
         </div>
       </AdminContent>
+      <ExcelImportDialog
+        open={isImportOpen}
+        onClose={() => setIsImportOpen(false)}
+        title="Brands"
+        sampleFileName="brands"
+        columns={[
+          { key: "name", header: "Brand Name", required: true, info: "Brand name, must be unique.", samples: ["Aashirvaad", "Tata Salt"] },
+          { key: "slug", header: "Brand Code", info: "Capital letters, numbers and underscores only (e.g. ZELLEROA_COUTURE). Spaces become _ and other characters are removed. Generated from the name if blank.", samples: ["aashirvaad", "tata-salt"] },
+          { key: "description", header: "Description", samples: ["Atta and spices", "Iodised salt"] },
+        ]}
+                prepare={(row) => ({
+          ...row,
+          slug: formatSlug(String(row.slug ?? row.name ?? "")),
+        })}
+        schema={createAdminBrandSchema}
+        createRow={(payload) => createMutation.mutateAsync(payload)}
+        onImported={() => refetch()}
+      />
+
 
       <FormModal
         open={isCreateOpen}

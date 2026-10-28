@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useSession } from "next-auth/react";
-import { ArrowLeft, Check, X, Send, Truck, PackageCheck, Pencil, Ban } from "lucide-react";
+import { ArrowLeft, Check, X, Send, Truck, PackageCheck, Pencil, Ban, Undo2 } from "lucide-react";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminTableSkeleton } from "@/components/admin/AdminTableSkeleton";
 import { ErrorState } from "@/components/ui/error-state";
@@ -18,7 +18,7 @@ import { PurchaseStatusBadge } from "@/features/purchases/components/PurchaseSta
 import type { PurchaseOrderResponse } from "@/features/purchases/types";
 
 const primaryBtn =
-  "h-10 rounded-xl bg-gradient-to-b from-[var(--color-primary-400)] to-[var(--color-primary-600)] shadow-[0_6px_16px_-6px_rgba(37,99,235,0.45),inset_0_1px_0_rgba(255,255,255,0.18)] transition-all px-4 text-sm font-semibold text-white hover:-translate-y-px hover:shadow-[0_10px_20px_-8px_rgba(37,99,235,0.5),inset_0_1px_0_rgba(255,255,255,0.18)] active:translate-y-0";
+  "h-10 rounded-xl bg-theme-primary hover:bg-theme-primary-hover px-4 text-sm font-semibold text-white transition-colors";
 
 function fmt(d: string) {
   return new Date(d).toLocaleString();
@@ -193,6 +193,13 @@ export default function PurchaseOrderDetailPage() {
               <Button className={primaryBtn} onClick={() => setReceiveOpen(true)}>
                 <PackageCheck className="mr-2 h-4 w-4" /> Receive goods
               </Button>
+            )}
+            {(s === "PARTIALLY_RECEIVED" || s === "RECEIVED") && (
+              <Link href={`/admin/dashboard/purchase-orders/${uuid}/return`}>
+                <Button variant="outline" className="h-10 rounded-xl">
+                  <Undo2 className="mr-2 h-4 w-4" /> Return goods
+                </Button>
+              </Link>
             )}
             {["DRAFT", "PENDING_APPROVAL", "APPROVED", "REJECTED", "ORDERED"].includes(s) && (
               <Button variant="outline" className="h-10 rounded-xl" onClick={() => setCancelOpen(true)}>

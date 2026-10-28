@@ -193,10 +193,27 @@ export default function AdminRolesPage() {
         title="Roles"
         description="Manage user roles and their permissions"
         actions={
-          <Button variant="gradient" onClick={() => handleOpenModal()}>
-            <Plus className="mr-2 h-4 w-4" />
-            Add Role
-          </Button>
+          <div className="flex items-center gap-2">
+            <ExportButton
+              onClick={() =>
+                exportDataToCsv(
+                  roles,
+                  "roles",
+                  [
+                    { header: "Role Name", accessor: (r) => r.name },
+                    { header: "Description", accessor: (r) => r.description || "-" },
+                    { header: "Users", accessor: (r) => r._count?.users ?? 0 },
+                    { header: "Permissions", accessor: (r) => r._count?.rolePermissions ?? 0 },
+                  ]
+                )
+              }
+              disabled={!roles.length}
+            />
+            <Button variant="gradient" onClick={() => handleOpenModal()}>
+              <Plus className="mr-2 h-4 w-4" />
+              Add Role
+            </Button>
+          </div>
         }
       />
 

@@ -3,6 +3,7 @@ export {
   useProduct,
   useProductImages,
   useAdminProducts,
+  useAdminProductsCount,
   useAdminProduct,
   useCustomerProducts,
   useCustomerProduct,

@@ -90,6 +90,23 @@ export const adminReturnInclude = Prisma.validator<Prisma.return_requestsInclude
       updatedAt: true,
       placed_at: true,
       createdAt: true,
+      address: {
+        where: { is_active: true },
+      },
+      shipments: {
+        where: { is_active: true },
+        select: {
+          id: true,
+          tracking_number: true,
+          status: true,
+          delivery_partners: {
+            select: {
+              name: true,
+              code: true,
+            },
+          },
+        },
+      },
     },
   },
   users_return_requests_user_idTousers: {
@@ -112,9 +129,27 @@ export const adminReplacementInclude =
         updatedAt: true,
         placed_at: true,
         createdAt: true,
+        address: {
+          where: { is_active: true },
+        },
+        shipments: {
+          where: { is_active: true },
+          select: {
+            id: true,
+            tracking_number: true,
+            status: true,
+            delivery_partners: {
+              select: {
+                name: true,
+                code: true,
+              },
+            },
+          },
+        },
       },
     },
     user: {
       select: { id: true, uuid: true, name: true, email: true, phone: true },
     },
   });
+

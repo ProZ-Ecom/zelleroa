@@ -12,6 +12,7 @@ import {
   setAttributesForProduct,
   setAttributeValuesForItem,
 } from "../api/get-attributes";
+import type { VariationLevel } from "../types";
 
 export function useCreateAttribute() {
   const queryClient = useQueryClient();
@@ -110,13 +111,13 @@ export function useSetAttributesForProduct() {
   return useMutation({
     mutationFn: ({
       productUuid,
-      attributeIds,
+      attributes,
       force,
     }: {
       productUuid: string;
-      attributeIds: string[];
+      attributes: { attributeId: string; variationLevel: VariationLevel }[];
       force?: boolean;
-    }) => setAttributesForProduct(productUuid, attributeIds, force),
+    }) => setAttributesForProduct(productUuid, attributes, force),
     onSuccess: (_result, variables) => {
       queryClient.invalidateQueries({
         queryKey: [...attributeKeys.all, "by-product", variables.productUuid],

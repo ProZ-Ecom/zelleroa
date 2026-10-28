@@ -46,7 +46,7 @@ export function assertOrderEligible(order: Parameters<typeof resolveDeliveredAt>
   if (!window.eligible) {
     throw ApiError.badRequest(
       window.code === "WINDOW_EXPIRED"
-        ? "The return period for this order has expired."
+        ? "The return period for this order has expired. Returns are only allowed within 3 days of delivery."
         : window.message
     );
   }
@@ -117,10 +117,21 @@ export const eligibilityService = {
     });
 
     const anyFree = items.some((i) => i.canRequest);
+
+    const payment = await db.payment.findFirst({
+      where: { orderId: order.id },
+      include: { payment_methods: true },
+      orderBy: { createdAt: "desc" },
+    });
+    const paymentMethodCode = payment?.payment_methods?.code?.toUpperCase();
+    const isCod = !payment || paymentMethodCode === "COD" || payment.gateway === "COD";
+
     return {
       orderId: order.uuid || String(order.id),
       orderNumber: order.orderNumber,
       orderStatus: order.order_status,
+      isCod,
+      paymentMethod: payment?.payment_methods?.name ?? (isCod ? "Cash on Delivery" : "Online"),
       window: {
         eligible: window.eligible,
         code: window.code,

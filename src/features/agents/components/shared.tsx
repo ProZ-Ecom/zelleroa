@@ -56,12 +56,28 @@ export function StatusBadge({ status, className, title }: { status: string | nul
 const inr = new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", minimumFractionDigits: 2 });
 export const money = (n: number | null | undefined) => (n == null ? "—" : inr.format(n));
 export const pct = (n: number | null | undefined) => (n == null ? "—" : `${n}%`);
-export const dateOnly = (v: string | null | undefined) =>
+export const dateOnly = (v: string | Date | null | undefined) =>
   v ? new Date(v).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "—";
-export const dateTime = (v: string | null | undefined) =>
-  v
-    ? new Date(v).toLocaleString("en-IN", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })
-    : "—";
+export const dateTime = (v: string | Date | null | undefined) => {
+  if (!v) return "—";
+  const d = new Date(v);
+  if (isNaN(d.getTime())) return "—";
+
+  const datePart = d.toLocaleDateString("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+
+  let hours = d.getHours();
+  const minutes = String(d.getMinutes()).padStart(2, "0");
+  const ampm = hours >= 12 ? "PM" : "AM";
+  hours = hours % 12;
+  hours = hours ? hours : 12;
+  const strHours = String(hours).padStart(2, "0");
+
+  return `${datePart}, ${strHours}:${minutes} ${ampm}`;
+};
 
 export function Panel({
   title,
@@ -309,7 +325,7 @@ export function FilterForm({
       ))}
       {values.view ? <input type="hidden" name="view" value={values.view} /> : null}
       <div className="flex gap-2">
-        <button type="submit" className="h-10 rounded-xl bg-neutral-900 px-4 text-sm font-semibold text-white hover:bg-neutral-800">
+        <button type="submit" className="h-10 rounded-xl bg-theme-primary hover:bg-theme-primary-hover px-4 text-sm font-semibold text-white transition-colors">
           Apply
         </button>
         <Link href={values.view ? `${action}?view=${values.view}` : action} className="inline-flex h-10 items-center rounded-xl border border-neutral-200 px-4 text-sm font-medium hover:bg-neutral-50">

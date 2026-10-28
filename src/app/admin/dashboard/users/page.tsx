@@ -161,7 +161,7 @@ const { data, isLoading, error, refetch } = useUsers({ page, limit: pageSize });
         email: selectedUser.email ?? "",
         password: "",
         phone: selectedUser.phone ?? "",
-        roleId: selectedUser.roleId,
+        roleId: selectedUser.roleId ? Number(selectedUser.roleId) : undefined,
         status: (selectedUser.status as "active" | "inactive" | "banned") || "active",
       });
     } else if (modalMode === "create") {
@@ -336,10 +336,31 @@ const { data, isLoading, error, refetch } = useUsers({ page, limit: pageSize });
         title="Users"
         description="Manage user accounts and permissions"
         actions={
-          <Button variant="gradient" onClick={() => setModalMode("create")}>
-            <Plus className="mr-2 h-4 w-4" />
-            Add User
-          </Button>
+          <div className="flex items-center gap-2">
+            <ExportButton
+              onClick={() =>
+                exportDataToCsv(
+                  users,
+                  "users",
+                  [
+                    { header: "Name", accessor: (u) => u.name },
+                    { header: "Email", accessor: (u) => u.email || "-" },
+                    {
+                      header: "Phone",
+                      accessor: (u) => (u.phone ? u.phone.replace(/^\+91/, "") : "-"),
+                    },
+                    { header: "Role", accessor: (u) => u.roleName || "-" },
+                    { header: "Status", accessor: (u) => u.status || "-" },
+                  ]
+                )
+              }
+              disabled={!users.length}
+            />
+            <Button variant="gradient" onClick={() => setModalMode("create")}>
+              <Plus className="mr-2 h-4 w-4" />
+              Add User
+            </Button>
+          </div>
         }
       />
 
@@ -463,7 +484,7 @@ const { data, isLoading, error, refetch } = useUsers({ page, limit: pageSize });
                 {...register("roleId", { valueAsNumber: true })}
                 type="number"
                 className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
-                placeholder="1"
+                placeholder="e.g. 6"
               />
               {errors.roleId && (
                 <p className="mt-1 text-xs text-red-500 font-medium">{errors.roleId.message}</p>

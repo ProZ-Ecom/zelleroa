@@ -22,12 +22,12 @@ const SORT_OPTIONS: {
   sortBy: CustomerProductListInput["sortBy"];
   sortOrder: CustomerProductListInput["sortOrder"];
 }[] = [
-  { value: "createdAt_desc", label: "Newest First", sortBy: "createdAt", sortOrder: "desc" },
-  { value: "price_asc", label: "Price: Low to High", sortBy: "price", sortOrder: "asc" },
-  { value: "price_desc", label: "Price: High to Low", sortBy: "price", sortOrder: "desc" },
-  { value: "name_asc", label: "Name: A to Z", sortBy: "name", sortOrder: "asc" },
-  { value: "name_desc", label: "Name: Z to A", sortBy: "name", sortOrder: "desc" },
-];
+    { value: "createdAt_desc", label: "Newest First", sortBy: "createdAt", sortOrder: "desc" },
+    { value: "price_asc", label: "Price: Low to High", sortBy: "price", sortOrder: "asc" },
+    { value: "price_desc", label: "Price: High to Low", sortBy: "price", sortOrder: "desc" },
+    { value: "name_asc", label: "Name: A to Z", sortBy: "name", sortOrder: "asc" },
+    { value: "name_desc", label: "Name: Z to A", sortBy: "name", sortOrder: "desc" },
+  ];
 
 function ProductCatalogSkeleton() {
   return (
@@ -95,23 +95,41 @@ function ShopAllContent() {
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState(() => searchParams.get("search") ?? "");
   const [genderFilter, setGenderFilter] = useState<GenderFilter | undefined>(() => {
-    const raw = searchParams.get("gender");
-    return (VALID_GENDERS as readonly string[]).includes(raw ?? "")
-      ? (raw as GenderFilter)
+    const raw = searchParams.get("gender") || searchParams.get("category");
+    const lower = raw?.toLowerCase() ?? "";
+    return (VALID_GENDERS as readonly string[]).includes(lower)
+      ? (lower as GenderFilter)
       : undefined;
   });
-  // Nav links change only `?gender=` on this same route, so the page stays
-  // mounted and the initial state above never re-runs - follow the URL.
-  const urlGender = searchParams.get("gender");
+  // Nav links change `?gender=` or `?category=` on this same route, so follow the URL.
+  const urlGender = searchParams.get("gender") || searchParams.get("category");
   useEffect(() => {
+    const lower = (urlGender ?? "").toLowerCase();
     setGenderFilter(
-      (VALID_GENDERS as readonly string[]).includes(urlGender ?? "")
-        ? (urlGender as GenderFilter)
+      (VALID_GENDERS as readonly string[]).includes(lower)
+        ? (lower as GenderFilter)
         : undefined
     );
     setPage(1);
   }, [urlGender]);
-  const [sortKey, setSortKey] = useState("createdAt_desc");
+  // Tag nav links arrive as `?tag=slug` (or `?tag=a,b`); a product matches when it has any of them.
+  const urlTag = searchParams.get("tag") ?? "";
+  const tagSlugs = useMemo(
+    () =>
+      urlTag
+        .split(",")
+        .map((s) => s.trim().toLowerCase())
+        .filter(Boolean),
+    [urlTag]
+  );
+  useEffect(() => {
+    setPage(1);
+  }, [urlTag]);
+  const [sortKey, setSortKey] = useState(() => {
+    const rawSort = searchParams.get("sortBy") || searchParams.get("sort");
+    if (rawSort && SORT_OPTIONS.some((s) => s.value === rawSort)) return rawSort;
+    return "createdAt_desc";
+  });
   const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>([]);
   const [selectedProductIds, setSelectedProductIds] = useState<string[]>([]);
   const [stockStatus, setStockStatus] = useState<"all" | "in_stock" | "out_of_stock">("all");
@@ -126,6 +144,24 @@ function ShopAllContent() {
   // Fetch all categories (supports 250 categories)
   const { data: categoriesData, isLoading: isLoadingCategories } = useCustomerCategories({ pageSize: 250 });
   const categories = categoriesData?.data ?? [];
+
+  // Sync category param with selectedCategoryIds if it refers to a specific category
+  const urlCategory = searchParams.get("category");
+  useEffect(() => {
+    if (!urlCategory || categories.length === 0) return;
+    const catLower = urlCategory.toLowerCase();
+    if ((VALID_GENDERS as readonly string[]).includes(catLower)) return;
+    const matched = categories.find(
+      (c) =>
+        c.id.toLowerCase() === catLower ||
+        ((c as any).slug && (c as any).slug.toLowerCase() === catLower) ||
+        c.name.toLowerCase() === catLower
+    );
+    if (matched && !selectedCategoryIds.includes(matched.id)) {
+      setSelectedCategoryIds([matched.id]);
+      setPage(1);
+    }
+  }, [urlCategory, categories]);
 
   // Curated storefront header navigation menu to dynamically populate round category carousel
   const { data: headerMenu = [] } = useHeaderMenu();
@@ -155,7 +191,7 @@ function ShopAllContent() {
       }
     };
 
-    if (genderFilter && genderFilter !== "all") {
+    if (genderFilter) {
       const matchedMenu = headerMenu.find(
         (m) =>
           m.gender === genderFilter ||
@@ -254,10 +290,10 @@ function ShopAllContent() {
     vegType === "veg"
       ? ("veg" as const)
       : vegType === "non_veg"
-      ? ("non_veg" as const)
-      : vegType === "vegan"
-      ? ("vegan" as const)
-      : undefined;
+        ? ("non_veg" as const)
+        : vegType === "vegan"
+          ? ("vegan" as const)
+          : undefined;
 
   // Query the listing as Styles - one card per Style (Postman: POST /api/customer/styles)
   const {
@@ -272,6 +308,7 @@ function ShopAllContent() {
     search: search.trim() ? search.trim() : undefined,
     categoryIds: selectedCategoryIds.length > 0 ? selectedCategoryIds : undefined,
     productIds: selectedProductIds.length > 0 ? selectedProductIds : undefined,
+    tagSlugs: tagSlugs.length > 0 ? tagSlugs : undefined,
     minPrice: minPrice > 0 ? minPrice : undefined,
     maxPrice: maxPrice < 1000 ? maxPrice : undefined,
     inStock: inStockParam,
@@ -418,9 +455,8 @@ function ShopAllContent() {
             <button
               type="button"
               onClick={() => handleCategorySelect([])}
-              className={`transition-colors cursor-pointer ${
-                selectedCategoryIds.length === 0 ? "font-bold text-slate-900" : "text-slate-500 hover:text-slate-800"
-              }`}
+              className={`transition-colors cursor-pointer ${selectedCategoryIds.length === 0 ? "font-bold text-slate-900" : "text-slate-500 hover:text-slate-800"
+                }`}
             >
               Shop All
             </button>
@@ -470,11 +506,10 @@ function ShopAllContent() {
                     className="group flex w-[76px] shrink-0 flex-col items-center gap-2.5 sm:w-28 cursor-pointer select-none"
                   >
                     <span
-                      className={`relative flex h-[68px] w-[68px] items-center justify-center overflow-hidden rounded-full bg-slate-100 shadow-sm transition-all duration-300 sm:h-24 sm:w-24 ${
-                        isActive
+                      className={`relative flex h-[68px] w-[68px] items-center justify-center overflow-hidden rounded-full bg-slate-100 shadow-sm transition-all duration-300 sm:h-24 sm:w-24 ${isActive
                           ? "scale-105 ring-[3px] ring-theme-primary ring-offset-[3px] shadow-lg"
                           : "ring-1 ring-slate-200 group-hover:-translate-y-1 group-hover:shadow-lg group-hover:ring-2 group-hover:ring-theme-primary"
-                      }`}
+                        }`}
                     >
                       {tile.image ? (
                         <Image
@@ -492,20 +527,18 @@ function ShopAllContent() {
                       )}
                     </span>
                     <span
-                      className={`text-center text-[11px] uppercase tracking-wider transition-colors sm:text-[13px] truncate max-w-full ${
-                        isActive
+                      className={`text-center text-[11px] uppercase tracking-wider transition-colors sm:text-[13px] truncate max-w-full ${isActive
                           ? "font-extrabold text-theme-primary"
                           : "font-semibold text-slate-600 group-hover:text-theme-primary"
-                      }`}
+                        }`}
                       title={tile.name}
                     >
                       {tile.name}
                     </span>
                     <span
                       aria-hidden
-                      className={`-mt-1 h-0.5 rounded-full bg-theme-primary transition-all duration-300 ${
-                        isActive ? "w-6 opacity-100" : "w-0 opacity-0 group-hover:w-4 group-hover:opacity-60"
-                      }`}
+                      className={`-mt-1 h-0.5 rounded-full bg-theme-primary transition-all duration-300 ${isActive ? "w-6 opacity-100" : "w-0 opacity-0 group-hover:w-4 group-hover:opacity-60"
+                        }`}
                     />
                   </button>
                 );

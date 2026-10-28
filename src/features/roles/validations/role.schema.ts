@@ -24,6 +24,7 @@ export const createPermissionSchema = z.object({
   name: z.string().min(1, "Permission name is required").max(255),
   description: z.string().max(1000).optional(),
   module: z.string().min(1, "Module is required").max(255),
+  roleIds: z.array(z.number().int().positive()).optional(),
 });
 
 export type CreatePermissionSchemaInput = z.infer<typeof createPermissionSchema>;

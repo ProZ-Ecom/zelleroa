@@ -78,7 +78,7 @@ export function AdminRequestsTable({ kind }: { kind: RequestKind }) {
           onClick={() =>
             exportDataToCsv(
               rows.map((r) => ({
-                RequestId: r.id.slice(0, 8).toUpperCase(),
+                ReturnId: r.returnNumber || r.id.slice(0, 8).toUpperCase(),
                 OrderNumber: r.orderNumber,
                 Customer: r.customer.name,
                 CustomerContact: r.customer.phone || r.customer.email || "",
@@ -155,7 +155,15 @@ export function AdminRequestsTable({ kind }: { kind: RequestKind }) {
 
             {rows.map((r) => (
               <tr key={r.id} className="group hover:bg-neutral-50/70">
-                <td className="px-3 py-2.5 font-mono text-[11px]">{r.id.slice(0, 8).toUpperCase()}</td>
+                <td className="px-3 py-2.5 font-mono text-[11px]">
+                  {r.returnNumber ? (
+                    <span className="font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 inline-block shadow-2xs">
+                      {r.returnNumber}
+                    </span>
+                  ) : (
+                    <span className="text-neutral-500">{r.id.slice(0, 8).toUpperCase()}</span>
+                  )}
+                </td>
                 <td className="px-3 py-2.5 font-mono font-semibold">{r.orderNumber}</td>
                 <td className="px-3 py-2.5">
                   <div className="font-semibold">{r.customer.name}</div>

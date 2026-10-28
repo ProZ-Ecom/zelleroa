@@ -64,7 +64,12 @@ export default function AdminStylesPage() {
   const categoryOptions = useMemo(
     () => [
       { value: "", label: "All Categories" },
-      ...categories.map((c: any) => ({ value: String(c.uuid || c.id), label: c.name })),
+      ...categories
+        .filter((c: { parentId?: string | number | null }) => !c.parentId)
+        .map((c: { uuid?: string; id?: string | number; name: string }) => ({
+          value: String(c.uuid || c.id),
+          label: c.name,
+        })),
     ],
     [categories]
   );
@@ -91,7 +96,7 @@ export default function AdminStylesPage() {
   const columns: ColumnDef<AdminStyleResponse>[] = [
     {
       accessorKey: "name",
-      header: "Item Name",
+      header: "Model Name",
       cell: ({ row }) => (
         <Link href={`/admin/dashboard/styles/${row.original.id}`} className="group block cursor-pointer">
           <p className="font-semibold text-secondary-600 underline-offset-2 group-hover:underline transition-colors">
@@ -120,6 +125,36 @@ export default function AdminStylesPage() {
       accessorKey: "itemCount",
       header: "Items",
       cell: ({ row }) => <span className="text-[var(--color-neutral-700)]">{row.original.itemCount}</span>,
+    },
+    {
+      accessorKey: "colors",
+      header: "Color",
+      cell: ({ row }) => {
+        const colors = row.original.colors ?? [];
+        if (!colors.length) {
+          return <span className="text-[var(--color-neutral-400)]">—</span>;
+        }
+        return (
+          <span className="text-[var(--color-neutral-700)] text-sm">
+            {colors.join(", ")}
+          </span>
+        );
+      },
+    },
+    {
+      accessorKey: "totalStock",
+      header: "Total Stock",
+      cell: ({ row }) => (
+        <span
+          className={`font-semibold text-sm ${
+            (row.original.totalStock ?? 0) > 0
+              ? "text-emerald-700"
+              : "text-neutral-500"
+          }`}
+        >
+          {row.original.totalStock ?? 0}
+        </span>
+      ),
     },
     {
       accessorKey: "isActive",
@@ -151,7 +186,7 @@ export default function AdminStylesPage() {
       cell: ({ row }) => (
         <div className="flex items-center justify-center gap-1.5">
           <Link href={`/admin/dashboard/styles/${row.original.id}`}>
-            <Button variant="ghost" size="icon" title="View Item">
+            <Button variant="ghost" size="icon" title="View Model">
               <Eye className="h-4 w-4 text-[var(--color-neutral-500)]" />
             </Button>
           </Link>
@@ -159,7 +194,7 @@ export default function AdminStylesPage() {
             variant="ghost"
             size="icon"
             onClick={() => setEditingStyle(row.original)}
-            title="Edit Item"
+            title="Edit Model"
           >
             <Pencil className="h-4 w-4 text-[var(--color-neutral-500)]" />
           </Button>
@@ -167,7 +202,7 @@ export default function AdminStylesPage() {
             variant="ghost"
             size="icon"
             onClick={() => setDeletingStyle(row.original)}
-            title="Delete Item"
+            title="Delete Model"
           >
             <Trash2 className="h-4 w-4 text-[var(--color-error-600)]" />
           </Button>
@@ -181,14 +216,14 @@ export default function AdminStylesPage() {
   }
 
   if (error) {
-    return <ErrorState message="Failed to load items" onRetry={() => refetch()} />;
+    return <ErrorState message="Failed to load models" onRetry={() => refetch()} />;
   }
 
   return (
     <div className="flex flex-1 min-h-0 flex-col">
       <AdminPageHeader
-        title="Item Management"
-        description="Manage the sellable Items customers see - each groups one or more admin-only Models."
+        title="Model Management"
+        description="Manage models under products."
       />
 
       <AdminContent className="flex-1 min-h-0 overflow-hidden">
@@ -196,7 +231,7 @@ export default function AdminStylesPage() {
           <div className="flex-shrink-0 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <div className="flex flex-1 flex-col gap-3 sm:flex-row sm:items-center">
               <SearchInput
-                placeholder="Search items..."
+                placeholder="Search models..."
                 value={search}
                 onSearch={(val) => {
                   setSearch(val);
@@ -234,13 +269,46 @@ export default function AdminStylesPage() {
               {hasActiveFilters && <ClearFiltersButton onClick={handleClearFilters} />}
             </div>
 
-            <Button
-              onClick={() => setIsAddOpen(true)}
-              className="h-11 rounded-xl bg-gradient-to-b from-[var(--color-primary-400)] to-[var(--color-primary-600)] shadow-[0_6px_16px_-6px_rgba(37,99,235,0.45),inset_0_1px_0_rgba(255,255,255,0.18)] transition-all px-5 text-sm font-semibold text-white hover:-translate-y-px hover:shadow-[0_10px_20px_-8px_rgba(37,99,235,0.5),inset_0_1px_0_rgba(255,255,255,0.18)] active:translate-y-0"
-            >
-              <Plus className="mr-2 h-4 w-4" />
-              Add Item
-            </Button>
+            <div className="flex items-center gap-2">
+              <ExportButton
+                onClick={() =>
+                  exportDataToCsv(
+                    styles,
+                    "models",
+                    [
+                      { header: "Model Name", accessor: (row) => row.name },
+                      { header: "Model Code", accessor: (row) => row.slug },
+                      { header: "SKU", accessor: (row) => row.sku || "—" },
+                      { header: "Product", accessor: (row) => row.productName || "—" },
+                      { header: "Brand", accessor: (row) => row.brandName || "—" },
+                      { header: "Category", accessor: (row) => row.categoryName || "—" },
+                      {
+                        header: "Color",
+                        accessor: (row) => (row.colors && row.colors.length > 0 ? row.colors.join(", ") : "—"),
+                      },
+                      { header: "Total Stock", accessor: (row) => row.totalStock ?? 0 },
+                      { header: "Items Count", accessor: (row) => row.itemCount ?? 0 },
+                      { header: "Base Price (₹)", accessor: (row) => row.basePrice ?? 0 },
+                      { header: "Status", accessor: (row) => (row.isActive ? "Active" : "Inactive") },
+                      {
+                        header: "Created Date",
+                        accessor: (row) =>
+                          row.createdAt ? new Date(row.createdAt).toLocaleDateString("en-IN") : "—",
+                      },
+                    ]
+                  )
+                }
+                disabled={!styles.length}
+              />
+
+              <Button
+                onClick={() => setIsAddOpen(true)}
+                className="h-11 rounded-xl bg-theme-primary hover:bg-theme-primary-hover px-5 text-sm font-semibold text-white transition-colors"
+              >
+                <Plus className="mr-2 h-4 w-4" />
+                Add Model
+              </Button>
+            </div>
           </div>
 
           <div className="mt-6 flex-1 min-h-0 overflow-hidden flex flex-col">
@@ -271,8 +339,8 @@ export default function AdminStylesPage() {
           setAddProductUuid("");
           setIsProductSelectOpen(false);
         }}
-        title="Add Item"
-        description="Create a new sellable Item under a Product"
+        title="Add Model"
+        description="Create a new Model under a Product"
         size="lg"
         className={cn(
           "transition-all duration-300 ease-out",
@@ -308,7 +376,7 @@ export default function AdminStylesPage() {
           {addProductUuid && (
             <StyleForm
               isLoading={createStyleMutation.isPending}
-              submitLabel="Create Item"
+              submitLabel="Create Model"
               onSubmit={async (formData: StyleFormValues) => {
                 try {
                   await createStyleMutation.mutateAsync({
@@ -331,14 +399,15 @@ export default function AdminStylesPage() {
                       newArrivalUntil: formData.isNewArrival ? formData.newArrivalUntil || null : null,
                       isDefault: formData.isDefault ?? false,
                       isActive: formData.isActive,
+                      outOfStock: formData.outOfStock ?? false,
                     },
                   });
                   setIsAddOpen(false);
                   setAddProductUuid("");
-                  toast.success("Item created", `"${formData.name}" was added.`);
+                  toast.success("Model created", `"${formData.name}" was added.`);
                   refetch();
                 } catch (err: any) {
-                  toast.error("Failed to create item", err?.message || "Please try again.");
+                  toast.error("Failed to create model", err?.message || "Please try again.");
                 }
               }}
             />
@@ -350,7 +419,7 @@ export default function AdminStylesPage() {
       <FormModal
         open={Boolean(editingStyle)}
         onClose={() => setEditingStyle(null)}
-        title="Edit Item"
+        title="Edit Model"
         description={`Update information for ${editingStyle?.name || ""}`}
         size="lg"
       >
@@ -371,6 +440,7 @@ export default function AdminStylesPage() {
               newArrivalUntil: editingStyle.newArrivalUntil ?? "",
               isDefault: editingStyle.isDefault,
               isActive: editingStyle.isActive,
+              outOfStock: editingStyle.outOfStock ?? false,
             }}
             isLoading={updateStyleMutation.isPending}
             submitLabel="Save Changes"
@@ -398,13 +468,14 @@ export default function AdminStylesPage() {
                     newArrivalUntil: formData.isNewArrival ? formData.newArrivalUntil || null : null,
                     isDefault: formData.isDefault ?? false,
                     isActive: formData.isActive,
+                    outOfStock: formData.outOfStock ?? editingStyle.outOfStock ?? false,
                   },
                 });
                 setEditingStyle(null);
-                toast.success("Item updated", `"${formData.name}" was saved.`);
+                toast.success("Model updated", `"${formData.name}" was saved.`);
                 refetch();
               } catch (err: any) {
-                toast.error("Failed to update item", err?.message || "Please try again.");
+                toast.error("Failed to update model", err?.message || "Please try again.");
               }
             }}
           />
@@ -424,14 +495,14 @@ export default function AdminStylesPage() {
               productUuid: target.productId,
               styleUuid: target.id,
             });
-            toast.success("Item deleted", `"${target.name}" was removed.`);
+            toast.success("Model deleted", `"${target.name}" was removed.`);
             refetch();
           } catch (err: any) {
-            toast.error("Failed to delete item", err?.message || "Please try again.");
+            toast.error("Failed to delete model", err?.message || "Please try again.");
           }
         }}
-        title="Delete Item"
-        description={`Are you sure you want to delete "${deletingStyle?.name}"? Its Items, Colors and Sizes will no longer be manageable. This action cannot be undone.`}
+        title="Delete Model"
+        description={`Are you sure you want to delete "${deletingStyle?.name}"? Its Colors and Sizes will no longer be manageable. This action cannot be undone.`}
         confirmText="Delete"
         variant="destructive"
         isLoading={deleteStyleMutation.isPending}

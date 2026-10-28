@@ -1,4 +1,5 @@
 import crypto from "crypto";
+import { encryptField } from "@/lib/security/field-crypto";
 import { createCommissionsForOrder, syncCommissionsWithOrderStatus } from "@/features/agents/services/commission.service";
 import { db } from "@/lib/db/prisma";
 import { Prisma } from "@/generated/prisma";
@@ -418,6 +419,14 @@ export function formatOrderDetail(
     delivery: formatOrderDelivery((order as any).shipments),
     courierShipment: formatCourierShipment((order as any).shipments),
     notes: order.notes ?? null,
+    bankDetails: order.bank_account_holder
+      ? {
+          accountHolder: order.bank_account_holder,
+          bankName: order.bank_name,
+          accountNumberLast4: order.bank_account_last4,
+          ifsc: order.bank_ifsc,
+        }
+      : null,
     placedByAgent:
       order.order_source === "AGENT_PLACED_FOR_CUSTOMER" && order.ordered_by
         ? {
@@ -650,6 +659,12 @@ export const orderRepository = {
     shippingCharge?: number;
     totalAmount: number;
     notes?: string;
+    bankDetails?: {
+      accountHolder: string;
+      bankName: string;
+      accountNumber: string;
+      ifsc: string;
+    };
     orderStatus?: "pending" | "confirmed";
     paymentStatus?: "pending" | "paid";
     paymentMethod?: string;
@@ -748,12 +763,52 @@ export const orderRepository = {
           shipping_charge: params.shippingCharge ?? 0,
           totalAmount: params.totalAmount,
           notes: params.notes ?? null,
+          bank_account_holder: params.bankDetails?.accountHolder?.trim() || null,
+          bank_name: params.bankDetails?.bankName?.trim() || null,
+          bank_account_number_enc: params.bankDetails?.accountNumber?.trim()
+            ? encryptField(params.bankDetails.accountNumber.trim())
+            : null,
+          bank_account_last4: params.bankDetails?.accountNumber?.trim()
+            ? params.bankDetails.accountNumber.trim().slice(-4)
+            : null,
+          bank_ifsc: params.bankDetails?.ifsc?.trim()?.toUpperCase() || null,
           placed_at: now,
           is_active: true,
           created_by: actorId,
           updated_by: actorId,
         },
       });
+
+      // Update customer profile with bank details for future orders and refunds
+      if (params.bankDetails?.accountNumber?.trim() && params.userId) {
+        try {
+          const rawAcc = params.bankDetails.accountNumber.trim();
+          await tx.customer_profiles.upsert({
+            where: { user_id: BigInt(params.userId) },
+            update: {
+              bank_account_holder: params.bankDetails.accountHolder.trim(),
+              bank_name: params.bankDetails.bankName.trim(),
+              bank_account_number_enc: encryptField(rawAcc),
+              bank_account_last4: rawAcc.slice(-4),
+              bank_ifsc: params.bankDetails.ifsc.trim().toUpperCase(),
+              updated_at: now,
+            },
+            create: {
+              uuid: crypto.randomUUID(),
+              user_id: BigInt(params.userId),
+              bank_account_holder: params.bankDetails.accountHolder.trim(),
+              bank_name: params.bankDetails.bankName.trim(),
+              bank_account_number_enc: encryptField(rawAcc),
+              bank_account_last4: rawAcc.slice(-4),
+              bank_ifsc: params.bankDetails.ifsc.trim().toUpperCase(),
+              is_active: true,
+              status: true,
+            },
+          });
+        } catch (profileErr) {
+          console.warn("[order] could not update customer profile with bank details:", profileErr);
+        }
+      }
 
       // Convert this cart's stock holds into confirmed holds against the
       // order, before the exact-quantity decrement below.
@@ -815,6 +870,16 @@ export const orderRepository = {
       });
 
       // 3. Create Order Items
+      // What each SKU costs right now, frozen onto the line: margin on a past
+      // sale has to use the cost of the day, not whatever we pay for it later.
+      const costRows = await tx.variantUnitPrice.findMany({
+        where: { id: { in: params.items.map((i) => i.variantUnitPriceId) } },
+        select: { id: true, avg_cost: true, cost_price: true },
+      });
+      const costBySku = new Map(
+        costRows.map((r) => [String(r.id), r.avg_cost ?? r.cost_price ?? null])
+      );
+
       await tx.orderItem.createMany({
         data: params.items.map((item) => ({
           uuid: crypto.randomUUID(),
@@ -831,6 +896,7 @@ export const orderRepository = {
           sku_snapshot: item.sku,
           quantity: item.quantity,
           unit_price: item.unitPrice,
+          unit_cost: costBySku.get(String(item.variantUnitPriceId)) ?? null,
           discount_amount: item.discountAmount,
           tax_amount: item.taxAmount,
           total_price: item.totalPrice,
@@ -1136,13 +1202,21 @@ export const orderRepository = {
       ? { ...baseWhere, order_status: params.status }
       : baseWhere;
 
-    const grouped = await db.order.groupBy({
-      by: ["order_status"],
-      where: whereToUse,
-      _count: {
-        id: true,
-      },
-    });
+    const [grouped, returnRequestsCount, replacementRequestsCount] = await Promise.all([
+      db.order.groupBy({
+        by: ["order_status"],
+        where: whereToUse,
+        _count: {
+          id: true,
+        },
+      }),
+      db.return_requests.count({
+        where: { is_active: true },
+      }),
+      db.replacement_requests.count({
+        where: { is_active: true },
+      }),
+    ]);
 
     const statusCounts: AdminOrdersCountResponse = {
       pending: 0,
@@ -1155,11 +1229,19 @@ export const orderRepository = {
       cancelled: 0,
       returned: 0,
       total: 0,
+      return_requests: returnRequestsCount,
+      replacement_requests: replacementRequestsCount,
     };
 
     for (const g of grouped) {
       const status = g.order_status as keyof AdminOrdersCountResponse;
-      if (status && status in statusCounts && status !== "total") {
+      if (
+        status &&
+        status in statusCounts &&
+        status !== "total" &&
+        status !== "return_requests" &&
+        status !== "replacement_requests"
+      ) {
         statusCounts[status] = g._count.id;
         statusCounts.total += g._count.id;
       }

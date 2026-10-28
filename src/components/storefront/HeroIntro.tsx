@@ -86,7 +86,7 @@ export function HeroIntro() {
             </Link>
             <Link
               href="/products?gender=women"
-              className="rounded-md bg-slate-800 hover:bg-slate-900 px-6 py-3 text-sm font-bold uppercase tracking-wide text-white transition-colors"
+              className="rounded-md bg-theme-primary hover:bg-theme-primary-hover px-6 py-3 text-sm font-bold uppercase tracking-wide text-theme-primary-fg transition-colors"
             >
               Shop Women
             </Link>

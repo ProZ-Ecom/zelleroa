@@ -23,6 +23,30 @@ export const PAYMENT_STATUS_ENUM = [
   "partial_refund",
 ] as const;
 
+export const codBankDetailsSchema = z.object({
+  accountHolder: z
+    .string()
+    .trim()
+    .min(2, "Account holder name must be at least 2 characters")
+    .max(150, "Account holder name cannot exceed 150 characters"),
+  bankName: z
+    .string()
+    .trim()
+    .min(2, "Bank name must be at least 2 characters")
+    .max(150, "Bank name cannot exceed 150 characters"),
+  accountNumber: z
+    .string()
+    .trim()
+    .regex(/^\d{9,18}$/, "Bank account number must be between 9 and 18 digits"),
+  ifsc: z
+    .string()
+    .trim()
+    .toUpperCase()
+    .regex(/^[A-Z]{4}0[A-Z0-9]{6}$/, "Invalid IFSC code (e.g. SBIN0001234)"),
+});
+
+export type CodBankDetailsInput = z.infer<typeof codBankDetailsSchema>;
+
 export const customerCreateOrderSchema = z
   .object({
     shippingAddressId: z.string().uuid("Invalid shippingAddressId UUID format"),
@@ -30,6 +54,7 @@ export const customerCreateOrderSchema = z
     notes: z.string().max(500, "Notes cannot exceed 500 characters").optional(),
     paymentMethod: z.enum(["CARD", "COD", "UPI"]).default("CARD").optional(),
     paymentDetails: z.record(z.string(), z.any()).optional(),
+    bankDetails: codBankDetailsSchema.optional(),
     couponCode: z.string().trim().max(50).optional(),
     deliveryMethod: z.enum(["standard", "express"]).default("standard").optional(),
   })
@@ -60,6 +85,7 @@ export const guestCreateOrderSchema = z
     notes: z.string().max(500, "Notes cannot exceed 500 characters").optional(),
     paymentMethod: z.enum(["COD"]).default("COD").optional(),
     paymentDetails: z.record(z.string(), z.any()).optional(),
+    bankDetails: codBankDetailsSchema.optional(),
     couponCode: z.string().trim().max(50).optional(),
     deliveryMethod: z.enum(["standard", "express"]).default("standard").optional(),
   })

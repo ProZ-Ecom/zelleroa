@@ -146,7 +146,7 @@ export default function CommissionRatesPage() {
                 <input className={fieldCls} inputMode="decimal" value={percentage} onChange={(e) => setPercentage(e.target.value)} placeholder="e.g. 5" />
               </label>
               <div>
-                <button type="submit" disabled={saving} className="inline-flex h-10 items-center gap-2 rounded-xl bg-neutral-900 px-5 text-sm font-semibold text-white hover:bg-neutral-800 disabled:opacity-60">
+                <button type="submit" disabled={saving} className="inline-flex h-10 items-center gap-2 rounded-xl bg-theme-primary hover:bg-theme-primary-hover px-5 text-sm font-semibold text-white transition-colors disabled:opacity-60">
                   {saving && <Loader2 className="h-4 w-4 animate-spin" />}
                   Save rate
                 </button>
@@ -168,7 +168,7 @@ export default function CommissionRatesPage() {
                   type="button"
                   disabled={savingDays || currentDays === "" || Number(currentDays) === settings.data?.returnPeriodDays}
                   onClick={saveDays}
-                  className="inline-flex h-10 items-center gap-2 rounded-xl bg-neutral-900 px-5 text-sm font-semibold text-white hover:bg-neutral-800 disabled:opacity-50"
+                  className="inline-flex h-10 items-center gap-2 rounded-xl bg-theme-primary hover:bg-theme-primary-hover px-5 text-sm font-semibold text-white transition-colors disabled:opacity-50"
                 >
                   {savingDays && <Loader2 className="h-4 w-4 animate-spin" />}
                   Save

@@ -44,6 +44,8 @@ import {
   ClipboardList,
   SlidersHorizontal,
   Store,
+  Undo2,
+  IndianRupee,
 } from "lucide-react";
 import { cn, getInitials } from "@/lib/utils";
 import { APP_NAME } from "@/lib/constants";
@@ -68,7 +70,7 @@ const sidebarItems: SidebarItem[] = [
     section: "Operations",
     children: [
       { label: "Orders", href: "/admin/dashboard/orders", icon: ShoppingCart },
-      { label: "Bulk Orders", href: "/admin/dashboard/bulk-orders", icon: PackagePlus },
+      // { label: "Bulk Orders", href: "/admin/dashboard/bulk-orders", icon: PackagePlus },
       { label: "Customers", href: "/admin/dashboard/customers", icon: Users },
       { label: "Deliveries", href: "/admin/dashboard/delivery", icon: Truck },
     ],
@@ -80,8 +82,9 @@ const sidebarItems: SidebarItem[] = [
     children: [
       { label: "Categories", href: "/admin/dashboard/categories", icon: FolderTree },
       { label: "Header Menu", href: "/admin/dashboard/header-menu", icon: Menu },
+      { label: "Tags", href: "/admin/dashboard/tags", icon: Tag },
       { label: "Products", href: "/admin/dashboard/products", icon: Package },
-      { label: "Items", href: "/admin/dashboard/styles", icon: Shapes },
+      { label: "Models", href: "/admin/dashboard/styles", icon: Shapes },
       { label: "Colors", href: "/admin/dashboard/variants", icon: Palette },
       { label: "Brands", href: "/admin/dashboard/brands", icon: Crown },
       { label: "Attributes", href: "/admin/dashboard/attributes", icon: Tag },
@@ -95,8 +98,11 @@ const sidebarItems: SidebarItem[] = [
     children: [
       { label: "Dashboard", href: "/admin/dashboard/inventory", icon: LayoutDashboard },
       { label: "Current Stock", href: "/admin/dashboard/inventory/stock", icon: Warehouse },
+      { label: "Pricing", href: "/admin/dashboard/inventory/pricing", icon: Tag },
+      { label: "Valuation & Margin", href: "/admin/dashboard/inventory/valuation", icon: IndianRupee },
       { label: "Vendors", href: "/admin/dashboard/vendors", icon: Building2 },
       { label: "Purchases", href: "/admin/dashboard/purchase-orders", icon: ClipboardList },
+      { label: "Purchase Returns", href: "/admin/dashboard/purchase-returns", icon: Undo2 },
       { label: "Stock Movements", href: "/admin/dashboard/inventory/movements", icon: History },
       { label: "Stock Adjustment", href: "/admin/dashboard/inventory/adjustment", icon: SlidersHorizontal },
     ],

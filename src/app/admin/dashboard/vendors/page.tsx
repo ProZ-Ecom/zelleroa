@@ -73,7 +73,14 @@ export default function VendorsPage() {
       accessorKey: "isActive",
       header: "Status",
       cell: ({ row }) => (
-        <Badge variant={row.original.isActive ? "success" : "outline"}>
+        <Badge
+          variant={row.original.isActive ? "success" : "destructive"}
+          className={
+            row.original.isActive
+              ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+              : "border-red-200 bg-red-50 text-red-700"
+          }
+        >
           {row.original.isActive ? "Active" : "Inactive"}
         </Badge>
       ),
@@ -128,13 +135,35 @@ export default function VendorsPage() {
               }}
               className="w-full max-w-md"
             />
-            <Button
-              onClick={() => setIsCreateOpen(true)}
-              className="h-11 rounded-xl bg-gradient-to-b from-[var(--color-primary-400)] to-[var(--color-primary-600)] shadow-[0_6px_16px_-6px_rgba(37,99,235,0.45),inset_0_1px_0_rgba(255,255,255,0.18)] transition-all px-5 text-sm font-semibold text-white hover:-translate-y-px hover:shadow-[0_10px_20px_-8px_rgba(37,99,235,0.5),inset_0_1px_0_rgba(255,255,255,0.18)] active:translate-y-0"
-            >
-              <Plus className="mr-2 h-4 w-4" />
-              Add Vendor
-            </Button>
+            <div className="flex items-center gap-2">
+              <ExportButton
+                onClick={() =>
+                  exportDataToCsv(
+                    vendors,
+                    "vendors",
+                    [
+                      { header: "Vendor Name", accessor: (v) => v.name },
+                      { header: "Vendor Code", accessor: (v) => v.code },
+                      { header: "Contact Person", accessor: (v) => v.contactPerson || "—" },
+                      { header: "Phone", accessor: (v) => v.phone || "—" },
+                      { header: "Email", accessor: (v) => v.email || "—" },
+                      { header: "GSTIN", accessor: (v) => v.gstin || "—" },
+                      { header: "Address", accessor: (v) => v.address || "—" },
+                      { header: "Status", accessor: (v) => (v.isActive ? "Active" : "Inactive") },
+                    ]
+                  )
+                }
+                disabled={!vendors.length}
+              />
+
+              <Button
+                onClick={() => setIsCreateOpen(true)}
+                className="h-11 rounded-xl bg-theme-primary hover:bg-theme-primary-hover px-5 text-sm font-semibold text-white transition-colors"
+              >
+                <Plus className="mr-2 h-4 w-4" />
+                Add Vendor
+              </Button>
+            </div>
           </div>
 
           <div className="mt-6 flex-1 min-h-0 overflow-hidden flex flex-col">

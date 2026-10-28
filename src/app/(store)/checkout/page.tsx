@@ -25,6 +25,7 @@ import {
   Phone,
   Clock,
   Check,
+  Building2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
@@ -46,6 +47,7 @@ import {
   useCreateGuestOrder,
   CUSTOMER_ORDERS_QUERY_KEY,
 } from "@/features/customers/hooks/use-customer-orders";
+import { useCustomerProfile } from "@/features/customers/hooks/use-customer-profile";
 import { customerPaymentApi } from "@/features/customers/api/customer-payment.api";
 import { useCheckout } from "@/features/checkout/checkout-context";
 import { useIsAgent, useSignedIn } from "@/features/auth/hooks/use-signed-in";
@@ -128,6 +130,8 @@ export default function CheckoutPage() {
   const [orderFor, setOrderFor] = useState<"self" | "customer">("self");
   const isGuest = authStatus !== "loading" && !signedIn;
   const [guestEmail, setGuestEmail] = useState<string>("");
+
+  const { data: customerProfile } = useCustomerProfile({ enabled: !isGuest });
 
   // Selected state
   const [selectedAddressId, setSelectedAddressId] = useState<string>("");
@@ -598,6 +602,7 @@ export default function CheckoutPage() {
       setCheckoutError("Please fill in all required delivery and contact details correctly.");
       return;
     }
+
     setFieldErrors({});
 
     try {
@@ -1407,13 +1412,30 @@ export default function CheckoutPage() {
             )}
 
             {paymentMethod === "COD" && (
-              <div className="rounded-xl border border-theme-border-subtle bg-theme-surface-alt/60 p-4 sm:p-5 space-y-2">
-                <p className="text-xs font-bold text-theme-text-primary">
-                  Pay with Cash upon Doorstep Delivery
-                </p>
-                <p className="text-[11px] text-theme-text-subtle leading-relaxed">
-                  Please keep exact change ready upon delivery. Our delivery partner will verify and hand over your fresh package with a receipt.
-                </p>
+              <div className="rounded-xl border border-amber-200/80 bg-amber-50/40 p-4 sm:p-5 space-y-3">
+                <div className="flex items-start gap-3">
+                  <div className="p-2 rounded-lg bg-amber-100 text-amber-800 shrink-0 mt-0.5">
+                    <Building2 className="h-4 w-4" />
+                  </div>
+                  <div>
+                    <h3 className="text-xs font-bold text-theme-text-primary flex items-center gap-2">
+                      Cash on Delivery
+                      <span className="text-[10px] uppercase tracking-wider font-extrabold px-1.5 py-0.5 rounded bg-amber-200/80 text-amber-900">
+                        Doorstep Payment
+                      </span>
+                    </h3>
+                    <p className="text-[11px] text-theme-text-subtle mt-0.5 leading-relaxed">
+                      Pay with physical cash or UPI directly to the courier agent when your package is delivered to your doorstep.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="text-[11px] text-theme-text-subtle bg-white/90 border border-theme-border rounded-xl p-3 flex items-center gap-2">
+                  <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
+                  <span>
+                    No bank account details or online transaction required to place this order. If you ever need to return a product, you can provide your refund bank details directly during the return request.
+                  </span>
+                </div>
               </div>
             )}
           </div>
@@ -1555,10 +1577,17 @@ export default function CheckoutPage() {
               </Button>
 
               <div className="text-[11px] text-center text-theme-text-muted space-y-1 pt-1">
-                <p className="flex items-center justify-center gap-1.5 font-medium text-emerald-700">
-                  <ShieldCheck className="h-3.5 w-3.5 text-emerald-600" />
-                  256-bit Bank-Grade Encryption by Razorpay
-                </p>
+                {paymentMethod === "COD" ? (
+                  <p className="flex items-center justify-center gap-1.5 font-medium text-amber-700">
+                    <ShieldCheck className="h-3.5 w-3.5 text-amber-600" />
+                    Doorstep Cash Payment • Direct Return Refund Protection
+                  </p>
+                ) : (
+                  <p className="flex items-center justify-center gap-1.5 font-medium text-emerald-700">
+                    <ShieldCheck className="h-3.5 w-3.5 text-emerald-600" />
+                    256-bit Bank-Grade Encryption by Razorpay
+                  </p>
+                )}
                 <p>Premium collection delivered securely to your door.</p>
               </div>
 

@@ -25,6 +25,8 @@ export interface ReturnEligibility {
   orderId: string;
   orderNumber: string;
   orderStatus: string;
+  isCod?: boolean;
+  paymentMethod?: string;
   window: {
     eligible: boolean;
     code: string;
@@ -49,6 +51,45 @@ export interface AdminRequest extends RequestSummary {
   shippedAt?: string | null;
   deliveredReplacementAt?: string | null;
   customer: { id: string; name: string; email: string | null; phone: string | null };
+  shippingAddress?: {
+    id: string;
+    fullName: string;
+    phone: string;
+    addressLine1: string;
+    addressLine2?: string | null;
+    landmark?: string | null;
+    city: string;
+    state: string;
+    pincode: string;
+    country: string;
+  } | null;
+  originalCourier?: {
+    carrier: string | null;
+    trackingNumber: string;
+  } | null;
+}
+
+/** Outcome of the automatic gateway refund the `refund` action attempts. */
+export interface GatewayRefundResult {
+  attempted: boolean;
+  ok: boolean;
+  message: string;
+  transactionRef?: string;
+}
+
+/** An action response: the updated request, plus any gateway refund it triggered. */
+export interface AdminActionResult extends AdminRequest {
+  gatewayRefund?: GatewayRefundResult;
+}
+
+export interface CodRefundDetailsPayload {
+  method: "bank_transfer" | "upi";
+  accountHolderName?: string;
+  bankName?: string;
+  accountNumber?: string;
+  confirmAccountNumber?: string;
+  ifscCode?: string;
+  upiId?: string;
 }
 
 export interface SubmitReturnPayload {
@@ -56,9 +97,10 @@ export interface SubmitReturnPayload {
   description?: string;
   unboxingVideoUrl: string;
   items: { orderItemId: string; quantity: number }[];
+  codRefundDetails?: CodRefundDetailsPayload;
 }
 
-export interface SubmitReplacementPayload extends Omit<SubmitReturnPayload, "items"> {
+export interface SubmitReplacementPayload extends Omit<SubmitReturnPayload, "items" | "codRefundDetails"> {
   items: { orderItemId: string; quantity: number; requestedVariantUnitPriceId?: string }[];
 }
 
@@ -73,6 +115,10 @@ export interface RequestActionPayload {
   comment?: string;
   rejectionReason?: string;
   pickupDate?: string;
+  transactionRef?: string;
+  courierName?: string;
+  trackingNumber?: string;
+  pickupImageUrl?: string;
 }
 
 export interface UploadedVideo {
@@ -161,7 +207,10 @@ export const returnsApi = {
     action: string,
     payload: RequestActionPayload = {}
   ) {
-    const res = await apiClient.post<AdminRequest>(`/api/admin/${kind}/${uuid}/${action}`, payload);
+    const res = await apiClient.post<AdminActionResult>(
+      `/api/admin/${kind}/${uuid}/${action}`,
+      payload
+    );
     return res.data!;
   },
 };

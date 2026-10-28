@@ -4,24 +4,57 @@ import * as React from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { ShieldCheck } from "lucide-react";
-import { LOGOS, footerSocialIcons } from "@/constants/storefront";
+import { LOGOS, ICONS } from "@/constants/storefront";
 import { ContactFormModal } from "@/features/contact/components/ContactFormModal";
 import { useCustomerCompany } from "@/features/customers/hooks/use-customer-company";
-import { getImageUrl } from "@/lib/utils";
+import { getImageUrl, cn } from "@/lib/utils";
 
 const SHOP_LINKS = [
-  { label: "Men's Collection", href: "/men" },
-  { label: "Women's Wear", href: "/women" },
-  { label: "Kids & Teens", href: "/kids" },
-  { label: "Accessories & Footwear", href: "/accessories" },
+  { label: "Men's Collection", href: "/category/men" },
+  { label: "Women's Wear", href: "/category/women" },
+  { label: "Kids & Teens", href: "/category/kids" },
+  { label: "Accessories & Footwear", href: "/category/bags-leather" },
   { label: "New Arrivals", href: "/products" },
-  { label: "Offers & Clearance", href: "/products?sortBy=discount" },
+  { label: "Offers & Deals", href: "/offers" },
 ];
 
-const ABOUT_LINKS = [
+const POLICY_LINKS = [
   { label: "About Us", href: "/about" },
   { label: "Terms & Conditions", href: "/terms-and-conditions" },
   { label: "Privacy Policy", href: "/privacy-policy" },
+  { label: "Return & Refund Policy", href: "/return-refund-policy" },
+  { label: "Shipping & Delivery Policy", href: "/shipping-policy" },
+];
+
+const SOCIAL_PLATFORMS = [
+  {
+    name: "facebook",
+    label: "Facebook",
+    icon: ICONS.facebook,
+    bgClass: "bg-[#1877F2] hover:bg-[#1567d3] shadow-sm shadow-[#1877F2]/25",
+    href: "https://facebook.com",
+  },
+  {
+    name: "instagram",
+    label: "Instagram",
+    icon: ICONS.instagram,
+    bgClass: "bg-gradient-to-tr from-[#f09433] via-[#dc2743] to-[#bc1888] hover:opacity-90 shadow-sm shadow-pink-500/25",
+    href: "https://instagram.com",
+  },
+  {
+    name: "youtube",
+    label: "YouTube",
+    icon: ICONS.youtube,
+    bgClass: "bg-[#FF0000] hover:bg-[#d90000] shadow-sm shadow-red-500/25",
+    href: "https://youtube.com",
+  },
+  {
+    name: "whatsapp",
+    label: "WhatsApp",
+    icon: ICONS.whatsapp1,
+    bgClass: "bg-[#25D366] hover:bg-[#1ebc59] shadow-sm shadow-green-500/25",
+    href: null,
+  },
 ];
 
 const PAYMENT_METHODS = ["UPI", "Visa", "Mastercard", "RuPay", "NetBanking"];
@@ -59,7 +92,7 @@ export function Footer() {
                 </p>
               </div>
             </div>
-            <p className="mt-4 text-sm text-theme-text-subtle">
+            <p className="mt-4 text-sm text-theme-text-subtle leading-relaxed">
               Shop smarter. Shop better. Quality essentials and contemporary lifestyle picks
               for every day.
             </p>
@@ -97,11 +130,6 @@ export function Footer() {
                 </button>
               </li>
               <li>
-                <Link href="/offers" className="hover:text-theme-primary transition-colors">
-                  Offers &amp; Deals
-                </Link>
-              </li>
-              <li>
                 <Link href="/orders" className="hover:text-theme-primary transition-colors">
                   Track Order
                 </Link>
@@ -129,11 +157,11 @@ export function Footer() {
             </ul>
           </div>
 
-          {/* About */}
+          {/* Policies & Legal */}
           <div>
-            <h4 className="font-bold text-theme-text-primary">About {companyName}</h4>
+            <h4 className="font-bold text-theme-text-primary">Policies &amp; Legal</h4>
             <ul className="mt-4 space-y-2.5 text-sm text-theme-text-subtle">
-              {ABOUT_LINKS.map((link) => (
+              {POLICY_LINKS.map((link) => (
                 <li key={link.label}>
                   <Link href={link.href} className="hover:text-theme-primary transition-colors">
                     {link.label}
@@ -146,15 +174,43 @@ export function Footer() {
           {/* Connect */}
           <div>
             <h4 className="font-bold text-theme-text-primary">Connect With Us</h4>
+            <p className="mt-2 text-xs text-theme-text-subtle">
+              Follow our official channels for new arrivals &amp; exclusive offers.
+            </p>
             <div className="mt-4 flex items-center gap-3">
-              {footerSocialIcons.map((item) => (
-                <span
-                  key={item.id}
-                  className="flex h-9 w-9 items-center justify-center rounded-full bg-theme-surface-alt"
-                >
-                  <Image src={item.icon} alt={item.name} width={16} height={16} />
-                </span>
-              ))}
+              {SOCIAL_PLATFORMS.map((item) => {
+                const targetHref = item.name === "whatsapp" ? whatsappLink : item.href;
+                return (
+                  <a
+                    key={item.name}
+                    href={targetHref ?? "#"}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label={`Follow Zellora on ${item.label}`}
+                    className={cn(
+                      "flex h-9 w-9 items-center justify-center rounded-full text-white transition-all duration-200 hover:scale-110 cursor-pointer",
+                      item.bgClass
+                    )}
+                  >
+                    <Image
+                      src={item.icon}
+                      alt={item.label}
+                      width={17}
+                      height={17}
+                      className="object-contain"
+                    />
+                  </a>
+                );
+              })}
+            </div>
+            <div className="mt-5 space-y-1 text-xs text-theme-text-subtle">
+              <p className="font-semibold text-theme-text-primary">Customer Support</p>
+              <p>
+                <a href="mailto:support@zellora.com" className="hover:text-theme-primary transition-colors">
+                  support@zellora.com
+                </a>
+              </p>
+              <p>Mon – Sun: 10:00 AM – 6:00 PM</p>
             </div>
           </div>
         </div>

@@ -230,8 +230,7 @@ export default function AdminBannersPage() {
           );
         }
         return (
-          <div className="flex w-[160px] max-w-[200px] items-center gap-1.5">
-            <span className="h-1.5 w-1.5 flex-shrink-0 rounded-full bg-[var(--color-success-500)]" />
+          <div className="flex w-[160px] max-w-[200px] items-center">
             <span
               className="truncate text-xs text-[var(--color-neutral-700)]"
               title={[badgeLabel, subtitle, priceText].filter(Boolean).join(" · ")}
@@ -247,21 +246,18 @@ export default function AdminBannersPage() {
       header: "Status",
       cell: ({ row }) => (
         <Badge
-          variant={row.original.isActive ? "success" : "secondary"}
-          className="gap-1.5 text-xs"
+          variant={row.original.isActive ? "success" : "destructive"}
+          className={`text-xs ${
+            row.original.isActive
+              ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+              : "border-red-200 bg-red-50 text-red-700"
+          }`}
           title={
             row.original.isActive
               ? "Visible on the storefront"
               : "Hidden from the storefront"
           }
         >
-          <span
-            className={`h-1.5 w-1.5 rounded-full ${
-              row.original.isActive
-                ? "bg-[var(--color-success-500)]"
-                : "bg-[var(--color-neutral-400)]"
-            }`}
-          />
           {row.original.isActive ? "Active" : "Inactive"}
         </Badge>
       ),
@@ -401,13 +397,35 @@ export default function AdminBannersPage() {
               <ExportButton
                 onClick={() =>
                   exportDataToCsv(
-                    banners.map((b) => ({
-                      Title: b.title || "Untitled",
-                      Position: getBannerTypeLabel(b.bannerPosition?.slug, b.bannerPosition?.name),
-                      SortOrder: b.sortOrder ?? 0,
-                      Status: b.isActive ? "Active" : "Inactive",
-                      Schedule: formatDateDisplay(b.startsAt) || formatDateDisplay(b.endsAt) ? `${formatDateDisplay(b.startsAt)} - ${formatDateDisplay(b.endsAt)}` : "Always Live",
-                    })),
+                    banners.map((b) => {
+                      const starts = formatDateDisplay(b.startsAt);
+                      const ends = formatDateDisplay(b.endsAt);
+                      const scheduleText =
+                        !starts && !ends
+                          ? "Always Live"
+                          : starts && ends
+                          ? `${starts} – ${ends}`
+                          : starts
+                          ? `Starts ${starts}`
+                          : `Ends ${ends}`;
+
+                      return {
+                        "Banner Title": b.title || "Untitled",
+                        "Banner Type": getBannerTypeLabel(b.bannerPosition?.slug, b.bannerPosition?.name),
+                        "Media Type": b.mediaType === "video" ? "Video" : "Image",
+                        "Media URL": b.mediaType === "video" ? (b.videoUrl || b.imageUrl || "—") : (b.imageUrl || "—"),
+                        "Target Link": b.linkUrl || "—",
+                        "Floating Card": [b.badgeLabel, b.subtitle, b.priceText].filter(Boolean).join(" · ") || "—",
+                        "Badge Label": b.badgeLabel || "—",
+                        "Subtitle": b.subtitle || "—",
+                        "Price Text": b.priceText || "—",
+                        "Sort Order": b.sortOrder ?? 0,
+                        "Status": b.isActive ? "Active" : "Inactive",
+                        "Schedule": scheduleText,
+                        "Start Date": starts || "—",
+                        "End Date": ends || "—",
+                      };
+                    }),
                     "banners"
                   )
                 }
@@ -415,7 +433,7 @@ export default function AdminBannersPage() {
               />
               <Button
                 onClick={() => setIsCreateOpen(true)}
-                className="h-11 rounded-xl bg-gradient-to-b from-[var(--color-primary-400)] to-[var(--color-primary-600)] shadow-[0_6px_16px_-6px_rgba(37,99,235,0.45),inset_0_1px_0_rgba(255,255,255,0.18)] transition-all px-5 text-sm font-semibold text-white hover:-translate-y-px hover:shadow-[0_10px_20px_-8px_rgba(37,99,235,0.5),inset_0_1px_0_rgba(255,255,255,0.18)] active:translate-y-0"
+                className="h-11 rounded-xl bg-theme-primary hover:bg-theme-primary-hover px-5 text-sm font-semibold text-white transition-colors"
               >
                 <Plus className="mr-2 h-4 w-4" />
                 Add Banner

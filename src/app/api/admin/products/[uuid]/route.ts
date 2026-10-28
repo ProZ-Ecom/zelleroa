@@ -1,15 +1,31 @@
 import { createApiHandler } from "@/lib/api/api-handler";
-import { apiSuccess } from "@/lib/api/api-response";
+import { apiSuccess, apiError } from "@/lib/api/api-response";
 import { ApiError } from "@/lib/api/api-error";
 import { productService } from "@/features/products/services/product.service";
 import {
   updateAdminProductSchema,
   type UpdateAdminProductInput,
 } from "@/features/products/validations/admin-product.schema";
+import { db } from "@/lib/db/prisma";
 
 export const GET = createApiHandler(
   {
     GET: async (_request, context) => {
+      const userRole = context.session?.user?.role;
+      if (userRole !== "ADMIN") {
+        const hasPermission = await db.rolePermission.findFirst({
+          where: {
+            role: { name: userRole },
+            permission: {
+              OR: [{ name: "PRODUCT_VIEW" }, { slug: "product-view" }],
+            },
+          },
+        });
+        if (!hasPermission) {
+          return apiError("You don't have permission", 403);
+        }
+      }
+
       const uuid = context.params?.uuid;
       if (!uuid) {
         throw ApiError.badRequest("Product UUID is required");
@@ -21,13 +37,28 @@ export const GET = createApiHandler(
   },
   {
     requireAuth: true,
-    requiredRole: ["ADMIN"],
+    requiredRole: ["ADMIN", "STAFF"],
   }
 );
 
 export const PUT = createApiHandler(
   {
     PUT: async (_request, context) => {
+      const userRole = context.session?.user?.role;
+      if (userRole !== "ADMIN") {
+        const hasPermission = await db.rolePermission.findFirst({
+          where: {
+            role: { name: userRole },
+            permission: {
+              OR: [{ name: "PRODUCT_UPDATE" }, { slug: "product-update" }],
+            },
+          },
+        });
+        if (!hasPermission) {
+          return apiError("You don't have permission", 403);
+        }
+      }
+
       const uuid = context.params?.uuid;
       if (!uuid) {
         throw ApiError.badRequest("Product UUID is required");
@@ -43,7 +74,7 @@ export const PUT = createApiHandler(
   {
     method: "PUT",
     requireAuth: true,
-    requiredRole: ["ADMIN"],
+    requiredRole: ["ADMIN", "STAFF"],
     bodySchema: updateAdminProductSchema,
   }
 );
@@ -51,6 +82,21 @@ export const PUT = createApiHandler(
 export const DELETE = createApiHandler(
   {
     DELETE: async (_request, context) => {
+      const userRole = context.session?.user?.role;
+      if (userRole !== "ADMIN") {
+        const hasPermission = await db.rolePermission.findFirst({
+          where: {
+            role: { name: userRole },
+            permission: {
+              OR: [{ name: "PRODUCT_DELETE" }, { slug: "product-delete" }],
+            },
+          },
+        });
+        if (!hasPermission) {
+          return apiError("You don't have permission", 403);
+        }
+      }
+
       const uuid = context.params?.uuid;
       if (!uuid) {
         throw ApiError.badRequest("Product UUID is required");
@@ -65,6 +111,6 @@ export const DELETE = createApiHandler(
   {
     method: "DELETE",
     requireAuth: true,
-    requiredRole: ["ADMIN"],
+    requiredRole: ["ADMIN", "STAFF"],
   }
 );

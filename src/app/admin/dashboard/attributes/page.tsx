@@ -143,13 +143,38 @@ export default function AttributesPage() {
               className="w-full max-w-md"
             />
 
-            <Button
-              onClick={() => setIsCreateOpen(true)}
-              className="h-11 rounded-xl bg-gradient-to-b from-[var(--color-primary-400)] to-[var(--color-primary-600)] shadow-[0_6px_16px_-6px_rgba(37,99,235,0.45),inset_0_1px_0_rgba(255,255,255,0.18)] transition-all px-5 text-sm font-semibold text-white hover:-translate-y-px hover:shadow-[0_10px_20px_-8px_rgba(37,99,235,0.5),inset_0_1px_0_rgba(255,255,255,0.18)] active:translate-y-0"
-            >
-              <Plus className="mr-2 h-4 w-4" />
-              Add Attribute
-            </Button>
+            <div className="flex items-center gap-2">
+              <ExportButton
+                onClick={() =>
+                  exportDataToCsv(
+                    attributes,
+                    "attributes",
+                    [
+                      { header: "Attribute", accessor: (a) => a.name },
+                      { header: "Code", accessor: (a) => a.slug },
+                      { header: "Type", accessor: (a) => (a.type === "color" ? "Color" : "Text") },
+                      { header: "Selection", accessor: (a) => (a.multipleSelection ? "Multiple" : "Single") },
+                      {
+                        header: "Values",
+                        accessor: (a) =>
+                          a.values && a.values.length > 0
+                            ? a.values.map((v) => v.value).join(", ")
+                            : "—",
+                      },
+                    ]
+                  )
+                }
+                disabled={!attributes.length}
+              />
+
+              <Button
+                onClick={() => setIsCreateOpen(true)}
+                className="h-11 rounded-xl bg-theme-primary hover:bg-theme-primary-hover px-5 text-sm font-semibold text-white transition-colors"
+              >
+                <Plus className="mr-2 h-4 w-4" />
+                Add Attribute
+              </Button>
+            </div>
           </div>
 
           <div className="mt-6 flex-1 min-h-0 overflow-hidden flex flex-col">

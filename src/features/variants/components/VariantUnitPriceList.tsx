@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useMemo, useState } from "react";
-import { Plus, Pencil, Trash2, Star, Loader2, Tag, PackagePlus, PackageMinus, Boxes } from "lucide-react";
+import Link from "next/link";
+import { Plus, Pencil, Trash2, Star, Loader2, Tag, Boxes } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -21,26 +22,20 @@ import {
 import type { VariantUnitPriceResponse, AdminVariantResponse } from "../types";
 
 interface UnitPriceRowFormState {
-  sizeValueId: string;
+  /** attributeId -> valueId, one entry per SKU axis this product splits stock on. */
+  attributeValues: Record<string, string>;
   unitId: string;
   unitValue: string;
   sku: string;
-  basePrice: string;
-  /** Sell this size at the Item's price (the default) instead of its own. */
-  useItemPrice: boolean;
-  stock: string;
   isDefault: boolean;
   isActive: boolean;
 }
 
 const emptyRow: UnitPriceRowFormState = {
-  sizeValueId: "",
+  attributeValues: {},
   unitId: "",
   unitValue: "",
   sku: "",
-  basePrice: "",
-  useItemPrice: true,
-  stock: "0",
   isDefault: false,
   isActive: true,
 };
@@ -55,8 +50,9 @@ interface VariantUnitPriceListProps {
 
 /**
  * Manages the Size leaf level for one Color variant - each row is an
- * independent Color+Size combination with its own price, stock, SKU and
- * active status. Different Colors are free to carry entirely different sets
+ * independent Color+Size combination with its own SKU and active status; its
+ * price and stock are shown here but belong to Inventory, which is the only
+ * place either can be changed. Different Colors are free to carry different sets
  * of Sizes; nothing here assumes symmetry across Colors.
  *
  * The Size options offered are read from the category's dynamically
@@ -81,15 +77,25 @@ function VariantUnitPriceList({
     (variantResponse as unknown as AdminVariantResponse) ??
     null;
 
-  // Dynamic Size options for this Color, from the Product's configured Size
-  // attribute (curated by a size chart when one exists for the category+gender).
+  // The axes this Product splits stock on, in the admin's own order - taken from the
+  // product's configuration rather than from an attribute called "Size", because a
+  // catalog can hold several attributes by that name and a product can split stock on
+  // more than one axis (Size AND Neck AND Sleeve).
   const { data: productAttributes = [] } = useConfiguredAttributesForProduct(productUuid);
   const { data: sizeChart = [] } = useSizeChart(categoryUuid, productGender);
-  const sizeAttribute = productAttributes.find(
-    (a) => a.name.trim().toLowerCase() === "size"
+  const skuAttributes = useMemo(
+    () =>
+      productAttributes.filter((a) => a.variationLevel === "SKU" && a.values.length > 0),
+    [productAttributes]
   );
-  const sizeOptions = sizeChart.length > 0 ? sizeChart : (sizeAttribute?.values ?? []);
-  const hasDynamicSizes = sizeOptions.length > 0;
+  // A size chart curates the first axis only - it exists to limit which sizes a
+  // category/gender sells, and says nothing about a second axis like Neck.
+  const primaryAttribute = skuAttributes[0] ?? null;
+  const optionsFor = (attributeId: string) =>
+    attributeId === primaryAttribute?.id && sizeChart.length > 0
+      ? sizeChart
+      : (skuAttributes.find((a) => a.id === attributeId)?.values ?? []);
+  const hasDynamicSizes = skuAttributes.length > 0;
 
   // When Sizes are dynamic, the underlying unit/pack-size dimension is not
   // shown to the admin at all - silently default to the first active "count"
@@ -114,11 +120,6 @@ function VariantUnitPriceList({
   const [formError, setFormError] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<VariantUnitPriceResponse | null>(null);
 
-  // Quick stock in/out adjustment (separate from the add/edit form)
-  const [stockAdjustId, setStockAdjustId] = useState<string | null>(null);
-  const [stockAdjustMode, setStockAdjustMode] = useState<"in" | "out">("in");
-  const [stockAdjustQty, setStockAdjustQty] = useState("");
-  const [stockAdjustError, setStockAdjustError] = useState<string | null>(null);
 
   const selectedUnit = units.find((u: AdminUnitResponse) => u.id === form.unitId);
   const fieldConfig = getMeasurementFieldConfig(selectedUnit ?? null);
@@ -126,19 +127,28 @@ function VariantUnitPriceList({
   // Sizes already used by another row for this Color, excluded from the "add"
   // dropdown so the same Size can't be picked twice (the server also rejects
   // this, but filtering here keeps the picker honest about what's left).
-  const usedSizeValueIds = useMemo(
+  // Keyed on the whole combination: with more than one axis, "M" is not taken just
+  // because some row uses it - only "M + Round" is.
+  const signatureOf = (valueIds: string[]) => [...valueIds].sort().join("|");
+  const usedSignatures = useMemo(
     () =>
       new Set(
         unitPrices
           .filter((u) => (editingId ? u.id !== editingId : true))
-          .map((u) => u.sizeValueId)
-          .filter((id): id is string => Boolean(id))
+          .map((u) => signatureOf(u.attributeValues.map((av) => av.valueId)))
       ),
     [unitPrices, editingId]
   );
-  const availableSizeOptions = sizeOptions.filter(
-    (s) => !usedSizeValueIds.has(s.id) || s.id === form.sizeValueId
-  );
+  const currentSignature = signatureOf(Object.values(form.attributeValues).filter(Boolean));
+  const isCombinationTaken =
+    currentSignature !== "" && usedSignatures.has(currentSignature);
+
+  // Nothing left to add once every combination of the axes already has a row.
+  const totalCombinations = hasDynamicSizes
+    ? skuAttributes.reduce((total, a) => total * optionsFor(a.id).length, 1)
+    : 0;
+  const allCombinationsUsed =
+    hasDynamicSizes && totalCombinations > 0 && usedSignatures.size >= totalCombinations;
 
   const resetForm = () => {
     setForm(emptyRow);
@@ -148,7 +158,7 @@ function VariantUnitPriceList({
   };
 
   const startAdd = () => {
-    setForm({ ...emptyRow, useItemPrice: itemPrice !== null });
+    setForm({ ...emptyRow });
     setFormError(null);
     setEditingId(null);
     setIsAdding(true);
@@ -156,61 +166,18 @@ function VariantUnitPriceList({
 
   const startEdit = (item: VariantUnitPriceResponse) => {
     setForm({
-      sizeValueId: item.sizeValueId || "",
+      attributeValues: Object.fromEntries(
+        item.attributeValues.map((av) => [av.attributeId, av.valueId])
+      ),
       unitId: item.unitId,
       unitValue: String(item.unitValue ?? ""),
       sku: item.sku,
-      basePrice: String(item.basePrice ?? ""),
-      useItemPrice: itemPrice !== null && item.basePrice === itemPrice,
-      stock: String(item.stock ?? 0),
       isDefault: item.isDefault,
       isActive: item.isActive,
     });
     setFormError(null);
     setIsAdding(false);
     setEditingId(item.id);
-  };
-
-  const startStockAdjust = (item: VariantUnitPriceResponse, mode: "in" | "out") => {
-    setStockAdjustId(item.id);
-    setStockAdjustMode(mode);
-    setStockAdjustQty("");
-    setStockAdjustError(null);
-  };
-
-  const cancelStockAdjust = () => {
-    setStockAdjustId(null);
-    setStockAdjustQty("");
-    setStockAdjustError(null);
-  };
-
-  const handleStockAdjustSave = async (item: VariantUnitPriceResponse) => {
-    const qty = Number(stockAdjustQty);
-    if (!qty || qty <= 0 || !Number.isInteger(qty)) {
-      setStockAdjustError("Enter a whole number greater than 0");
-      return;
-    }
-
-    const currentStock = item.stock ?? 0;
-    const delta = stockAdjustMode === "in" ? qty : -qty;
-    const nextStock = currentStock + delta;
-
-    if (nextStock < 0) {
-      setStockAdjustError(`Only ${currentStock} in stock — cannot remove ${qty}`);
-      return;
-    }
-
-    try {
-      await updateMutation.mutateAsync({
-        productUuid,
-        variantUuid,
-        unitPriceUuid: item.id,
-        data: { stock: nextStock },
-      });
-      cancelStockAdjust();
-    } catch (err: unknown) {
-      setStockAdjustError(err instanceof Error ? err.message : "Failed to update stock");
-    }
   };
 
   const isBusy = createMutation.isPending || updateMutation.isPending;
@@ -222,8 +189,15 @@ function VariantUnitPriceList({
     let unitValue = Number(form.unitValue);
 
     if (hasDynamicSizes) {
-      if (!form.sizeValueId) {
-        setFormError("Please select a Size");
+      // Every axis has to be answered, or the row would describe a combination the
+      // product does not actually sell.
+      const unanswered = skuAttributes.find((a) => !form.attributeValues[a.id]);
+      if (unanswered) {
+        setFormError(`Please select a ${unanswered.name}`);
+        return;
+      }
+      if (!editingId && isCombinationTaken) {
+        setFormError("This combination already has a row");
         return;
       }
       if (!fallbackUnit) {
@@ -247,29 +221,21 @@ function VariantUnitPriceList({
       setFormError("SKU is required");
       return;
     }
-    let basePrice: number;
-    if (form.useItemPrice && itemPrice !== null) {
-      basePrice = itemPrice;
-    } else {
-      basePrice = Number(form.basePrice.trim());
-      if (form.basePrice.trim() === "" || Number.isNaN(basePrice) || basePrice <= 0) {
-        setFormError("Enter the price for this size");
-        return;
-      }
-    }
-    const stock = Number(form.stock);
-    if (Number.isNaN(stock) || stock < 0 || !Number.isInteger(stock)) {
-      setFormError("Stock must be a non-negative whole number");
-      return;
-    }
-
     const payload = {
       unitId,
       unitValue,
-      ...(hasDynamicSizes ? { sizeValueId: form.sizeValueId } : {}),
+      ...(hasDynamicSizes
+        ? {
+            attributeValueIds: skuAttributes
+              .map((a) => form.attributeValues[a.id])
+              .filter(Boolean),
+          }
+        : {}),
       sku: form.sku.trim(),
-      basePrice,
-      stock,
+      // No price or stock here on purpose: the catalog says what a thing is,
+      // Inventory says what it sells for and how many there are. Omitting the
+      // price leaves an existing one untouched and starts a new row from the
+      // Item's price; stock only moves through a purchase or an adjustment.
       isDefault: form.isDefault,
       isActive: form.isActive,
     };
@@ -329,7 +295,7 @@ function VariantUnitPriceList({
             variant="ghost"
             size="sm"
             onClick={startAdd}
-            disabled={isBusy || (hasDynamicSizes && availableSizeOptions.length === 0)}
+            disabled={isBusy || allCombinationsUsed}
             className="h-8 text-xs font-semibold text-secondary-700 hover:text-secondary-900 hover:bg-secondary-50 cursor-pointer disabled:opacity-50"
           >
             <Plus className="w-3.5 h-3.5 mr-1" />
@@ -366,8 +332,12 @@ function VariantUnitPriceList({
                 <div className="flex flex-col min-w-0">
                   <div className="flex items-center gap-2">
                     <span className="text-sm font-bold text-neutral-900">
-                      {item.sizeValue ||
-                        `${item.measurement?.value} ${item.unitCode || item.measurement?.unit}`}
+                      {/* The whole combination, not just the first axis - with more
+                          than one axis two rows would otherwise both read "M". */}
+                      {item.attributeValues.length > 0
+                        ? item.attributeValues.map((av) => av.value).join(" / ")
+                        : item.sizeValue ||
+                          `${item.measurement?.value} ${item.unitCode || item.measurement?.unit}`}
                     </span>
                     {item.isDefault && (
                       <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-50 text-amber-800 text-[10px] font-bold">
@@ -418,26 +388,6 @@ function VariantUnitPriceList({
                   <Button
                     variant="ghost"
                     size="icon"
-                    onClick={() => startStockAdjust(item, "in")}
-                    disabled={isBusy}
-                    className="h-8 w-8 text-neutral-500 hover:text-emerald-700 hover:bg-emerald-50 disabled:opacity-40"
-                    title="Stock in (add stock)"
-                  >
-                    <PackagePlus className="w-3.5 h-3.5" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => startStockAdjust(item, "out")}
-                    disabled={isBusy}
-                    className="h-8 w-8 text-neutral-500 hover:text-amber-700 hover:bg-amber-50 disabled:opacity-40"
-                    title="Stock out (remove stock)"
-                  >
-                    <PackageMinus className="w-3.5 h-3.5" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
                     onClick={() => startEdit(item)}
                     disabled={isBusy}
                     className="h-8 w-8 text-neutral-500 hover:text-secondary-700 hover:bg-secondary-50 disabled:opacity-40"
@@ -460,152 +410,91 @@ function VariantUnitPriceList({
             </div>
           ))}
 
-          {unitPrices.map(
-            (item) =>
-              stockAdjustId === item.id && (
-                <div
-                  key={`stock-adjust-${item.id}`}
-                  className="px-6 py-4 bg-cream-50/60 border-t border-cream-border-subtle space-y-3"
-                >
-                  <p className="text-xs font-semibold text-neutral-800 flex items-center gap-1.5">
-                    {stockAdjustMode === "in" ? (
-                      <>
-                        <PackagePlus className="w-3.5 h-3.5 text-emerald-600" /> Stock in for{" "}
-                        {item.sizeValue || `${item.measurement?.value} ${item.unitCode || item.measurement?.unit}`}{" "}
-                        — currently {item.stock ?? 0}
-                      </>
-                    ) : (
-                      <>
-                        <PackageMinus className="w-3.5 h-3.5 text-amber-600" /> Stock out for{" "}
-                        {item.sizeValue || `${item.measurement?.value} ${item.unitCode || item.measurement?.unit}`}{" "}
-                        — currently {item.stock ?? 0}
-                      </>
-                    )}
-                  </p>
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="number"
-                      min="1"
-                      step="1"
-                      autoFocus
-                      value={stockAdjustQty}
-                      onChange={(e) => setStockAdjustQty(e.target.value)}
-                      placeholder="Quantity"
-                      disabled={updateMutation.isPending}
-                      className="w-32 h-9 px-3 rounded-lg border border-neutral-200 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-secondary-600/20 focus:border-secondary-600 disabled:opacity-60"
-                    />
-                    <Button
-                      size="sm"
-                      onClick={() => handleStockAdjustSave(item)}
-                      disabled={updateMutation.isPending}
-                      className={
-                        stockAdjustMode === "in"
-                          ? "bg-emerald-600 text-white hover:bg-emerald-700"
-                          : "bg-amber-600 text-white hover:bg-amber-700"
-                      }
-                    >
-                      {updateMutation.isPending ? (
-                        <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" />
-                      ) : null}
-                      {stockAdjustMode === "in" ? "Add Stock" : "Remove Stock"}
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={cancelStockAdjust}
-                      disabled={updateMutation.isPending}
-                    >
-                      Cancel
-                    </Button>
-                  </div>
-                  {stockAdjustError && (
-                    <p className="text-xs text-red-500 font-medium">{stockAdjustError}</p>
-                  )}
-                </div>
-              )
-          )}
-
           {showForm && (
             <div className="p-6 bg-cream-50/60 space-y-4">
               <p className="text-xs text-neutral-500 -mt-1">
                 {hasDynamicSizes
-                  ? "Add one row for every Size you sell this color in — e.g. S, M, L and XL — with its SKU and stock. Each size sells at the Item's price unless you give it its own."
-                  : "Add one row for every option you sell this item in — e.g. 250 Grams, 500 Grams and 1 Kilogram — each with its own price, SKU and stock."}
+                  ? "Add one row for every Size you sell this color in — e.g. S, M, L and XL — each with its own SKU. Price and stock are set in Inventory."
+                  : "Add one row for every option you sell this item in — e.g. 250 Grams, 500 Grams and 1 Kilogram — each with its own SKU. Price and stock are set in Inventory."}
               </p>
 
               {hasDynamicSizes ? (
                 <div className="space-y-3">
-                  {/* Quick Pick Size Chips */}
-                  {!editingId && availableSizeOptions.length > 0 && (
-                    <div>
-                      <label className="block text-[11px] font-semibold text-neutral-500 uppercase tracking-wider mb-1.5">
-                        Quick Pick Size:
-                      </label>
-                      <div className="flex flex-wrap gap-1.5">
-                        {availableSizeOptions.map((s) => {
-                          const isSelected = form.sizeValueId === s.id;
-                          return (
-                            <button
-                              key={s.id}
-                              type="button"
-                              onClick={() => {
-                                const sizeCode = s.value.toUpperCase().replace(/[^A-Z0-9]/g, "");
-                                const baseVariantSlug = (variant?.slug || "VAR").toUpperCase().replace(/[^A-Z0-9_]/g, "_");
-                                const autoSku = `${baseVariantSlug}_${sizeCode}`;
-                                setForm((f) => ({
-                                  ...f,
-                                  sizeValueId: s.id,
-                                  sku: f.sku || autoSku,
-                                  stock: f.stock && f.stock !== "0" ? f.stock : "50",
-                                }));
-                              }}
-                              className={`px-3 py-1.5 text-xs font-bold rounded-lg border transition-all cursor-pointer select-none ${
-                                isSelected
-                                  ? "bg-secondary-600 text-white border-secondary-600 shadow-xs"
-                                  : "bg-white text-neutral-700 border-neutral-200 hover:border-secondary-500 hover:bg-secondary-50"
-                              }`}
-                            >
-                              + {s.value}
-                            </button>
-                          );
-                        })}
+                  {skuAttributes.map((attribute, index) => {
+                    const options = optionsFor(attribute.id);
+                    const selectedValueId = form.attributeValues[attribute.id] ?? "";
+                    return (
+                      <div key={attribute.id}>
+                        <label className="block text-xs font-semibold text-neutral-800 mb-1.5">
+                          {attribute.name} <span className="text-red-500">*</span>
+                        </label>
+                        {/* Chips on the first axis only - with several axes the row is
+                            built one dropdown at a time, and a chip grid per axis would
+                            take over the form. */}
+                        {index === 0 && !editingId && options.length > 0 && (
+                          <div className="flex flex-wrap gap-1.5 mb-2">
+                            {options.map((option) => {
+                              const isSelected = selectedValueId === option.id;
+                              return (
+                                <button
+                                  key={option.id}
+                                  type="button"
+                                  onClick={() => {
+                                    const code = option.value.toUpperCase().replace(/[^A-Z0-9]/g, "");
+                                    const baseVariantSlug = (variant?.slug || "VAR")
+                                      .toUpperCase()
+                                      .replace(/[^A-Z0-9_]/g, "_");
+                                    setForm((f) => ({
+                                      ...f,
+                                      attributeValues: {
+                                        ...f.attributeValues,
+                                        [attribute.id]: option.id,
+                                      },
+                                      sku: f.sku || `${baseVariantSlug}_${code}`,
+                                    }));
+                                  }}
+                                  className={`px-3 py-1.5 text-xs font-bold rounded-lg border transition-all cursor-pointer select-none ${
+                                    isSelected
+                                      ? "bg-secondary-600 text-white border-secondary-600 shadow-xs"
+                                      : "bg-white text-neutral-700 border-neutral-200 hover:border-secondary-500 hover:bg-secondary-50"
+                                  }`}
+                                >
+                                  + {option.value}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        )}
+                        <Select
+                          value={selectedValueId}
+                          onValueChange={(valId) =>
+                            setForm((f) => ({
+                              ...f,
+                              attributeValues: { ...f.attributeValues, [attribute.id]: valId },
+                            }))
+                          }
+                          disabled={isBusy || Boolean(editingId)}
+                          placeholder={`Select ${attribute.name.toLowerCase()}`}
+                          options={[
+                            { value: "", label: `Select ${attribute.name.toLowerCase()}` },
+                            ...options.map((option) => ({ value: option.id, label: option.value })),
+                          ]}
+                        />
                       </div>
-                    </div>
-                  )}
+                    );
+                  })}
 
-                  <div>
-                    <label className="block text-xs font-semibold text-neutral-800 mb-1.5">
-                      Size <span className="text-red-500">*</span>
-                    </label>
-                    <Select
-                      value={form.sizeValueId}
-                      onValueChange={(valId) => {
-                        const sObj = availableSizeOptions.find((s) => s.id === valId);
-                        const sizeCode = sObj ? sObj.value.toUpperCase().replace(/[^A-Z0-9]/g, "") : "";
-                        const baseVariantSlug = (variant?.slug || "VAR").toUpperCase().replace(/[^A-Z0-9_]/g, "_");
-                        const autoSku = sizeCode ? `${baseVariantSlug}_${sizeCode}` : "";
-                        setForm((f) => ({
-                          ...f,
-                          sizeValueId: valId,
-                          sku: f.sku || autoSku,
-                        }));
-                      }}
-                      disabled={isBusy || Boolean(editingId)}
-                      placeholder="Select size"
-                      options={[
-                        { value: "", label: "Select size" },
-                        ...availableSizeOptions.map((s) => ({
-                          value: s.id,
-                          label: s.value,
-                        })),
-                      ]}
-                    />
-                    {editingId && (
-                      <p className="text-[11px] text-neutral-400 mt-1">
-                        Size can&apos;t be changed after creation — delete this row and add a new one instead.
-                      </p>
-                    )}
-                  </div>
+                  {editingId && (
+                    <p className="text-[11px] text-neutral-400">
+                      The combination can&apos;t be changed after creation — delete this row and
+                      add a new one instead.
+                    </p>
+                  )}
+                  {!editingId && isCombinationTaken && (
+                    <p className="text-[11px] text-red-500 font-medium">
+                      This combination already has a row.
+                    </p>
+                  )}
                 </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -685,42 +574,20 @@ function VariantUnitPriceList({
                   <label className="block text-xs font-semibold text-neutral-800 mb-1.5">
                     Price {hasDynamicSizes ? "" : "per pack"} (₹)
                   </label>
-                  {itemPrice !== null && (
-                    <label className="mb-2 inline-flex items-center gap-2 text-xs font-medium text-neutral-700 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={form.useItemPrice}
-                        onChange={(e) =>
-                          setForm((f) => ({
-                            ...f,
-                            useItemPrice: e.target.checked,
-                            basePrice: e.target.checked ? "" : f.basePrice || String(itemPrice),
-                          }))
-                        }
-                        disabled={isBusy}
-                        className="w-4 h-4 accent-secondary-600"
-                      />
-                      Same as item price (₹{itemPrice.toLocaleString("en-IN")})
-                    </label>
-                  )}
-                  {(itemPrice === null || !form.useItemPrice) && (
-                    <input
-                      type="number"
-                      step="any"
-                      min="0"
-                      value={form.basePrice}
-                      onChange={(e) => setForm((f) => ({ ...f, basePrice: e.target.value }))}
-                      disabled={isBusy}
-                      placeholder="e.g. 649"
-                      className="w-full h-10 px-3 rounded-lg border border-neutral-200 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-secondary-600/20 focus:border-secondary-600 disabled:opacity-60 disabled:bg-neutral-100"
-                    />
-                  )}
+                  <div className="flex h-10 items-center rounded-lg border border-neutral-200 bg-neutral-50 px-3 text-sm font-mono text-neutral-600">
+                    {editingId
+                      ? `₹${(unitPrices.find((u) => u.id === editingId)?.basePrice ?? 0).toLocaleString("en-IN")}`
+                      : "Set after saving"}
+                  </div>
                   <p className="text-[11px] text-neutral-400 mt-1">
-                    {itemPrice === null
-                      ? "What the customer pays for this option."
-                      : form.useItemPrice
-                        ? "Follows the Item's price - change it there and this size moves with it."
-                        : "Only for a size that costs more or less than the rest, e.g. XXL."}
+                    Prices are set in{" "}
+                    <Link
+                      href="/admin/dashboard/inventory/pricing"
+                      className="font-medium text-[var(--color-primary-600)] hover:underline"
+                    >
+                      Inventory &rsaquo; Pricing
+                    </Link>
+                    , where cost and margin are shown alongside and every change is recorded.
                   </p>
                 </div>
               </div>
@@ -728,22 +595,29 @@ function VariantUnitPriceList({
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-semibold text-neutral-800 mb-1.5">
-                    Stock {editingId ? "" : <span className="text-red-500">*</span>}
+                    Stock
                   </label>
-                  <input
-                    type="number"
-                    step="1"
-                    min="0"
-                    value={form.stock}
-                    onChange={(e) => setForm((f) => ({ ...f, stock: e.target.value }))}
-                    disabled={isBusy}
-                    placeholder="e.g. 50"
-                    className="w-full h-10 px-3 rounded-lg border border-neutral-200 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-secondary-600/20 focus:border-secondary-600 disabled:opacity-60 disabled:bg-neutral-100"
-                  />
-                  <p className="text-[11px] text-neutral-400 mt-1">
+                  <div className="flex h-10 items-center rounded-lg border border-neutral-200 bg-neutral-50 px-3 text-sm text-neutral-600">
                     {editingId
-                      ? "Sets the stock quantity directly. Use the stock in/out buttons on the row for quick adjustments instead."
-                      : "How many units of this pack are available right now. 0 means only this Color + Size is out of stock — every other size stays unaffected."}
+                      ? `${unitPrices.find((u) => u.id === editingId)?.stock ?? 0} in stock`
+                      : "Starts at 0"}
+                  </div>
+                  <p className="text-[11px] text-neutral-400 mt-1">
+                    Stock arrives through{" "}
+                    <Link
+                      href="/admin/dashboard/purchase-orders/import"
+                      className="font-medium text-[var(--color-primary-600)] hover:underline"
+                    >
+                      a purchase
+                    </Link>{" "}
+                    or an{" "}
+                    <Link
+                      href="/admin/dashboard/inventory/adjustment"
+                      className="font-medium text-[var(--color-primary-600)] hover:underline"
+                    >
+                      inventory adjustment
+                    </Link>
+                    , so every level is backed by a ledger movement.
                   </p>
                 </div>
               </div>
@@ -784,7 +658,7 @@ function VariantUnitPriceList({
                   size="sm"
                   onClick={handleSave}
                   disabled={isBusy}
-                  className="bg-gradient-to-b from-[var(--color-primary-400)] to-[var(--color-primary-600)] shadow-[0_6px_16px_-6px_rgba(37,99,235,0.45),inset_0_1px_0_rgba(255,255,255,0.18)] transition-all text-white hover:-translate-y-px hover:shadow-[0_10px_20px_-8px_rgba(37,99,235,0.5),inset_0_1px_0_rgba(255,255,255,0.18)] active:translate-y-0"
+                  className="bg-theme-primary hover:bg-theme-primary-hover text-white transition-colors"
                 >
                   {isBusy ? (
                     <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" />
@@ -802,7 +676,11 @@ function VariantUnitPriceList({
         onClose={() => setDeleteTarget(null)}
         onConfirm={handleDelete}
         title="Delete Size"
-        description={`Are you sure you want to delete "${deleteTarget?.sizeValue || deleteTarget?.sku}"? This action cannot be undone.`}
+        description={`Are you sure you want to delete "${
+          deleteTarget?.attributeValues.length
+            ? deleteTarget.attributeValues.map((av) => av.value).join(" / ")
+            : deleteTarget?.sizeValue || deleteTarget?.sku
+        }"? This action cannot be undone.`}
         confirmText="Delete"
         cancelText="Cancel"
         variant="destructive"

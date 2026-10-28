@@ -287,7 +287,6 @@ export default function AdminStaffPage() {
                   { header: "Phone", accessor: (s) => s.phone || "-" },
                   { header: "Role", accessor: (s) => s.role || "-" },
                   { header: "Status", accessor: (s) => (s.isActive ? "Active" : "Inactive") },
-                  { header: "Created At", accessor: (s) => s.createdAt || "-" },
                 ]
               )
             }
@@ -297,7 +296,7 @@ export default function AdminStaffPage() {
           <Button
             type="button"
             onClick={handleOpenCreateModal}
-            className="h-10 rounded-xl bg-secondary-600 px-4 text-sm font-semibold text-white hover:bg-secondary-700 shadow-xs cursor-pointer shrink-0"
+            className="h-10 rounded-xl bg-theme-primary hover:bg-theme-primary-hover px-4 text-sm font-semibold text-white transition-colors cursor-pointer shrink-0"
           >
             <Plus className="mr-2 h-4 w-4" />
             Create Staff

@@ -8,11 +8,18 @@ export interface RoleListItem {
   };
 }
 
+export interface RoleRef {
+  id: number;
+  name: string;
+}
+
 export interface PermissionListItem {
   id: number;
   name: string;
   description: string | null;
   module: string;
+  roleIds?: number[];
+  roles?: RoleRef[];
 }
 
 export interface RoleDetail extends RoleListItem {
@@ -31,6 +38,7 @@ export interface CreatePermissionInput {
   name: string;
   description?: string;
   module: string;
+  roleIds?: number[];
 }
 
 export interface UpdatePermissionInput extends Partial<CreatePermissionInput> {}

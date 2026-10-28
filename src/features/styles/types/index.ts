@@ -29,6 +29,8 @@ export interface AdminStyleResponse {
   outOfStock: boolean;
   primaryImage: string | null;
   itemCount: number;
+  totalStock: number;
+  colors: string[];
   createdAt: Date;
   updatedAt: Date;
 }

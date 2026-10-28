@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
-import { Check, Package, X, CreditCard, Loader2, AlertCircle } from "lucide-react";
+import { Check, Package, X, CreditCard, Loader2, AlertCircle, Undo2 } from "lucide-react";
 import { formatPrice } from "@/lib/utils";
 import type { OrderDetailResponse } from "@/features/orders/types";
 import { useCustomerOrders, useCancelCustomerOrder } from "../../hooks/use-customer-orders";
@@ -15,6 +15,7 @@ import { ProductImage } from "@/components/common/ProductImage";
 import { toast } from "@/components/ui/Toast";
 import { CancelOrderDialog } from "@/features/orders/components/CancelOrderDialog";
 import { isOrderCancellable } from "@/features/returns/lib/policy";
+import { RequestWizard } from "@/features/returns/components/RequestWizard";
 
 const STATUS_OPTIONS: DropdownOption[] = [
   { value: "all", label: "All Orders" },
@@ -52,6 +53,7 @@ export function OrdersTab({
 
   const [cancelTarget, setCancelTarget] = useState<OrderDetailResponse | null>(null);
   const [cancelError, setCancelError] = useState<string | null>(null);
+  const [returnTarget, setReturnTarget] = useState<{ orderId: string; mode: "return" | "replacement" } | null>(null);
   const cancelMutation = useCancelCustomerOrder();
   const addToCartMutation = useAddToCartMutation();
   const createRazorpayOrderMutation = useCreateRazorpayOrder();
@@ -395,9 +397,13 @@ export function OrdersTab({
                       <div className="text-[10px] uppercase tracking-wider font-semibold text-theme-text-muted">
                         Order
                       </div>
-                      <div className="text-xs sm:text-sm font-bold text-theme-text-primary mt-0.5 font-mono">
+                      <Link
+                        href={`/orders/${order.id}`}
+                        className="text-xs sm:text-sm font-bold text-theme-text-primary mt-0.5 font-mono hover:text-theme-primary hover:underline transition-colors block"
+                        title="View order details"
+                      >
                         {order.orderNumber || `#${String(order.id).slice(0, 8)}`}
-                      </div>
+                      </Link>
                     </div>
 
                     <div>
@@ -436,12 +442,19 @@ export function OrdersTab({
                     )}
                   </div>
 
-                  <span
-                    className={`inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider px-3 py-1.5 rounded-full border ${statusMeta.bg}`}
-                  >
-                    <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${statusMeta.dot}`} />
-                    {order.status.replace(/_/g, " ")}
-                  </span>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {order.returnRequests?.some((r) => r.returnNumber) && (
+                      <span className="inline-flex items-center gap-1 font-mono text-[11px] font-bold text-emerald-800 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200 shadow-2xs">
+                        Return ID: {order.returnRequests.find((r) => r.returnNumber)?.returnNumber}
+                      </span>
+                    )}
+                    <span
+                      className={`inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider px-3 py-1.5 rounded-full border ${statusMeta.bg}`}
+                    >
+                      <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${statusMeta.dot}`} />
+                      {order.status.replace(/_/g, " ")}
+                    </span>
+                  </div>
                 </div>
 
                 {/* Ordered Items List */}
@@ -555,6 +568,38 @@ export function OrdersTab({
                   >
                     Invoice
                   </button>
+
+                  <Link href={`/orders/${order.id}`}>
+                    <button
+                      type="button"
+                      className="border border-theme-border hover:bg-theme-surface-alt text-theme-text-subtle text-xs font-semibold uppercase tracking-wider py-2.5 px-4 rounded-lg transition-colors cursor-pointer min-h-[40px]"
+                    >
+                      View Details
+                    </button>
+                  </Link>
+
+                  {order.status === "delivered" && (
+                    order.returnWindow && !order.returnWindow.eligible ? (
+                      <span
+                        className="border border-theme-border bg-theme-surface-alt text-theme-text-muted text-xs font-semibold uppercase tracking-wider py-2.5 px-4 rounded-lg inline-flex items-center gap-1.5 cursor-not-allowed select-none opacity-70"
+                        title="Return period expired (only allowed within 3 days of delivery)"
+                      >
+                        <Undo2 className="h-3.5 w-3.5 text-theme-text-muted" />
+                        Return Expired (3-Day Limit)
+                      </span>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setReturnTarget({ orderId: order.id, mode: "return" })
+                        }
+                        className="border border-secondary-600 bg-secondary-50 hover:bg-secondary-100 text-secondary-800 text-xs font-semibold uppercase tracking-wider py-2.5 px-4 rounded-lg transition-colors cursor-pointer min-h-[40px] inline-flex items-center gap-1.5"
+                      >
+                        <Undo2 className="h-3.5 w-3.5" />
+                        Return / Replace{order.returnWindow?.daysLeft ? ` (${order.returnWindow.daysLeft}d left)` : ""}
+                      </button>
+                    )
+                  )}
 
                   <Link href="/contact">
                     <button
@@ -838,6 +883,18 @@ export function OrdersTab({
               }
             )
           }
+        />
+      )}
+
+      {returnTarget && (
+        <RequestWizard
+          open
+          orderUuid={returnTarget.orderId}
+          initialMode={returnTarget.mode}
+          onClose={() => {
+            setReturnTarget(null);
+            handleRefetch();
+          }}
         />
       )}
     </div>

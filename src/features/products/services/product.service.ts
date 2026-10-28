@@ -34,6 +34,7 @@ async function formatAdminProductResponse(
     updatedAt: Date;
     brand?: { id: bigint; uuid: string | null; name: string; isActive: boolean } | null;
     product_hsn_codes?: { id: bigint; uuid: string | null; code: string; description: string | null; is_active: boolean } | null;
+    images?: { image_url: string; altText: string | null }[];
   },
   cachedCategory?: { uuid: string | null; name: string | null } | null
 ): Promise<AdminProductResponse> {
@@ -70,6 +71,8 @@ async function formatAdminProductResponse(
     name: product.name,
     slug: product.slug,
     gender: (product.gender as AdminProductResponse["gender"]) ?? null,
+    imageUrl: product.images?.[0]?.image_url ?? null,
+    imageAlt: product.images?.[0]?.altText ?? null,
     status: Boolean(product.status),
     isActive: Boolean(product.isActive),
     createdAt: product.createdAt,
@@ -262,6 +265,7 @@ export const productService = {
           active: 0,
           inactive: 0,
           all: 0,
+          withoutImage: 0,
         };
       }
       resolvedCategoryInternalId = category.id;
@@ -274,6 +278,7 @@ export const productService = {
           active: 0,
           inactive: 0,
           all: 0,
+          withoutImage: 0,
         };
       }
       resolvedBrandInternalId = brand.id;
@@ -286,6 +291,7 @@ export const productService = {
           active: 0,
           inactive: 0,
           all: 0,
+          withoutImage: 0,
         };
       }
       resolvedHsnCodeInternalId = hsnCode.id;

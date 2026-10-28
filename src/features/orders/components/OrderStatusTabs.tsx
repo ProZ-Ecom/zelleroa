@@ -30,8 +30,8 @@ const PRIMARY_TABS: StatusTab[] = [
 const MORE_TABS: StatusTab[] = [
   { label: "Cancelled", href: "/admin/dashboard/orders/cancelled", countKey: "cancelled" },
   { label: "Returned", href: "/admin/dashboard/orders/returned", countKey: "returned" },
-  { label: "Return Requests", href: "/admin/dashboard/orders/returns" },
-  { label: "Replacement Requests", href: "/admin/dashboard/orders/replacements" },
+  { label: "Return Requests", href: "/admin/dashboard/orders/returns", countKey: "return_requests" },
+  { label: "Replacement Requests", href: "/admin/dashboard/orders/replacements", countKey: "replacement_requests" },
 ];
 
 function Badge({

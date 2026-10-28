@@ -140,49 +140,103 @@ export const roleRepository = {
   },
 };
 
-const permissionListInclude = Prisma.validator<Prisma.PermissionInclude>()({});
+const permissionListInclude = Prisma.validator<Prisma.PermissionInclude>()({
+  rolePermissions: {
+    include: {
+      role: {
+        select: {
+          id: true,
+          name: true,
+        },
+      },
+    },
+  },
+});
+
+function formatPermission(p: any) {
+  return {
+    id: Number(p.id),
+    name: p.name,
+    slug: p.slug,
+    module: p.module,
+    description: p.description ?? null,
+    roleIds: p.rolePermissions?.map((rp: any) => Number(rp.role.id)) ?? [],
+    roles: p.rolePermissions?.map((rp: any) => ({ id: Number(rp.role.id), name: rp.role.name })) ?? [],
+  };
+}
 
 export const permissionRepository = {
   async findAll() {
-    return db.permission.findMany({
+    const list = await db.permission.findMany({
       include: permissionListInclude,
       orderBy: [{ module: "asc" }, { name: "asc" }],
     });
+    return list.map(formatPermission);
   },
 
   async findById(id: number) {
-    return db.permission.findUnique({
+    const p = await db.permission.findUnique({
       where: { id },
+      include: permissionListInclude,
     });
+    return p ? formatPermission(p) : null;
   },
 
   async findByName(name: string) {
-    return db.permission.findFirst({ where: { name } });
+    const p = await db.permission.findFirst({
+      where: { name },
+      include: permissionListInclude,
+    });
+    return p ? formatPermission(p) : null;
   },
 
-  async create(data: { name: string; slug?: string; description?: string; module: string }) {
+  async create(data: { name: string; slug?: string; description?: string; module: string; roleIds?: number[] }) {
     const slug = data.slug || data.name.toLowerCase().replace(/[^a-z0-9]+/g, "-");
-    return db.permission.create({
+    const created = await db.permission.create({
       data: {
         name: data.name,
         slug,
         module: data.module,
+        rolePermissions: data.roleIds?.length
+          ? {
+              create: data.roleIds.map((roleId) => ({
+                roleId: BigInt(roleId),
+              })),
+            }
+          : undefined,
       },
+      include: permissionListInclude,
     });
+    return formatPermission(created);
   },
 
   async update(
     id: number,
-    data: { name?: string; slug?: string; description?: string; module?: string }
+    data: { name?: string; slug?: string; description?: string; module?: string; roleIds?: number[] }
   ) {
-    return db.permission.update({
+    if (data.roleIds !== undefined) {
+      await db.rolePermission.deleteMany({ where: { permissionId: BigInt(id) } });
+    }
+
+    const updated = await db.permission.update({
       where: { id },
       data: {
         name: data.name,
         slug: data.slug,
         module: data.module,
+        ...(data.roleIds !== undefined
+          ? {
+              rolePermissions: {
+                create: data.roleIds.map((roleId) => ({
+                  roleId: BigInt(roleId),
+                })),
+              },
+            }
+          : {}),
       },
+      include: permissionListInclude,
     });
+    return formatPermission(updated);
   },
 
   async delete(id: number) {

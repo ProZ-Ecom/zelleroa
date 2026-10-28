@@ -11,10 +11,17 @@ export interface AdminHeaderMenuItemCategory {
   slug: string;
 }
 
+export interface AdminHeaderMenuItemTag {
+  id: string; // Tag id
+  name: string;
+  slug: string;
+}
+
 export interface AdminHeaderMenuItemResponse {
   id: string; // Public UUID
   label: string;
   categories: AdminHeaderMenuItemCategory[];
+  tags: AdminHeaderMenuItemTag[];
   link: string | null;
   gender: HeaderMenuGender | null;
   sortOrder: number;
@@ -32,6 +39,7 @@ export interface GetAdminHeaderMenuParams {
 export interface CreateHeaderMenuItemInput {
   label: string;
   categoryIds?: string[];
+  tagIds?: string[];
   link?: string | null;
   gender?: HeaderMenuGender | null;
   sortOrder?: number;
@@ -55,4 +63,6 @@ export interface HeaderNavItem {
   link: string | null;
   gender: HeaderMenuGender | null;
   categories: CategoryTreeNode[];
+  /** Active tags this item links to; the storefront resolves them to `/products?tag=slug`. */
+  tags: AdminHeaderMenuItemTag[];
 }
