@@ -84,6 +84,9 @@ async function buildWhere(params: PricingListParams): Promise<Prisma.VariantUnit
         }
       : {}),
     ...(params.unpriced ? { base_price: { lte: 0 } } : {}),
+    // Cost is only ever written when a purchase order is received, so a SKU
+    // with neither figure has never been bought in and cannot show a margin.
+    ...(params.noCost ? { cost_price: null, avg_cost: null } : {}),
   };
 }
 

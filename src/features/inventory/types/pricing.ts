@@ -36,6 +36,8 @@ export interface PricingListParams {
   belowCost?: boolean;
   /** Only rows with no selling price set yet. */
   unpriced?: boolean;
+  /** Only rows that have never been purchased, so there is no cost to price against. */
+  noCost?: boolean;
 }
 
 export interface PricingSummary {

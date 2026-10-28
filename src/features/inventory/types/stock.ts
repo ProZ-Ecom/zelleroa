@@ -35,13 +35,49 @@ export interface MovementRow extends StockItemLabel {
   createdAt: string;
 }
 
+export interface MovementSummaryRow {
+  movementType: MovementType | null;
+  movements: number;
+  unitsIn: number;
+  unitsOut: number;
+}
+
+export interface StockValueSummary {
+  costValue: number;
+  retailValue: number;
+  potentialProfit: number;
+  marginPercent: number | null;
+  /** SKUs with stock but no cost on record, so they are missing from the money columns. */
+  unvaluedSkus: number;
+}
+
+export interface CategoryStockValue {
+  key: string;
+  name: string;
+  skuCount: number;
+  units: number;
+  costValue: number;
+  retailValue: number;
+}
+
 export interface InventoryDashboard {
   lowStockThreshold: number;
+  /** How many days back the movement summary covers. */
+  windowDays: number;
   totalProducts: number;
   totalVariants: number;
   totalAvailableStock: number;
+  totalReservedStock: number;
+  inStockItems: number;
   lowStockItems: number;
   outOfStockItems: number;
+  stockValue: StockValueSummary;
+  topCategories: CategoryStockValue[];
+  /** The emptiest low / out-of-stock rows, worst first. */
+  needsReorder: StockRow[];
+  /** Every low or out-of-stock row, not just the ones listed. */
+  reorderCount: number;
+  movementSummary: MovementSummaryRow[];
   recentPurchases: {
     id: string;
     poNumber: string;

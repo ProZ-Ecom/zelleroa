@@ -1,6 +1,7 @@
 "use client";
 
-import { Suspense, useMemo, useState } from "react";
+import type { Dispatch, SetStateAction } from "react";
+import { Suspense, createContext, useContext, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import type { ColumnDef } from "@tanstack/react-table";
 import { Info, Percent, Save, X } from "lucide-react";
@@ -48,6 +49,171 @@ function preview(row: PricingRow, mode: BulkMode, value: number, roundRupee: boo
   return Math.round(next * 100) / 100;
 }
 
+/**
+ * The table renders each cell straight from the column definitions, so a column
+ * array rebuilt on every keystroke hands React a new component type and
+ * remounts the price inputs — the cursor would drop out after each digit. The
+ * definitions below are therefore module-level and never change identity; the
+ * cells that need live state read it from this context instead.
+ */
+interface PricingTableState {
+  rows: PricingRow[];
+  drafts: Record<string, string>;
+  selected: Set<string>;
+  setDrafts: Dispatch<SetStateAction<Record<string, string>>>;
+  setSelected: Dispatch<SetStateAction<Set<string>>>;
+}
+
+const PricingTableContext = createContext<PricingTableState | null>(null);
+
+function usePricingTable() {
+  const ctx = useContext(PricingTableContext);
+  if (!ctx) throw new Error("Pricing table cells must render inside PricingTableContext");
+  return ctx;
+}
+
+function SelectAllHeader() {
+  const { rows, selected, setSelected } = usePricingTable();
+  return (
+    <Checkbox
+      checked={rows.length > 0 && rows.every((r) => selected.has(r.id))}
+      aria-label="Select all on this page"
+      onChange={(e) =>
+        setSelected((prev) => {
+          const next = new Set(prev);
+          for (const r of rows) {
+            if (e.target.checked) next.add(r.id);
+            else next.delete(r.id);
+          }
+          return next;
+        })
+      }
+    />
+  );
+}
+
+function SelectCell({ row }: { row: PricingRow }) {
+  const { selected, setSelected } = usePricingTable();
+  return (
+    <Checkbox
+      checked={selected.has(row.id)}
+      aria-label={`Select ${row.sku}`}
+      onChange={() =>
+        setSelected((prev) => {
+          const next = new Set(prev);
+          if (next.has(row.id)) next.delete(row.id);
+          else next.add(row.id);
+          return next;
+        })
+      }
+    />
+  );
+}
+
+function PriceCell({ row }: { row: PricingRow }) {
+  const { drafts, setDrafts } = usePricingTable();
+  const draft = drafts[row.id];
+  const changed = draft !== undefined && draft !== "" && Number(draft) !== row.sellingPrice;
+  return (
+    <Input
+      type="number"
+      min={0}
+      // Prices are nudged in rupees, so the arrow keys move by ₹1; paise can
+      // still be typed in.
+      step={1}
+      className={`w-28 ${changed ? "border-amber-400 bg-amber-50" : ""}`}
+      value={draft ?? String(row.sellingPrice)}
+      onFocus={(e) => e.target.select()}
+      onChange={(e) => setDrafts((p) => ({ ...p, [row.id]: e.target.value }))}
+    />
+  );
+}
+
+const COLUMNS: ColumnDef<PricingRow>[] = [
+  {
+    id: "select",
+    header: () => <SelectAllHeader />,
+    cell: ({ row }) => <SelectCell row={row.original} />,
+  },
+  {
+    id: "product",
+    header: "Product",
+    accessorFn: (row) => row.productName,
+    cell: ({ row }) => <VariantLabel item={row.original} />,
+  },
+  {
+    id: "stock",
+    header: "Stock",
+    accessorFn: (row) => row.stock,
+    cell: ({ row }) => <span className="tabular-nums">{row.original.stock}</span>,
+  },
+  {
+    id: "cost",
+    header: "Last cost",
+    accessorFn: (row) => row.costPrice ?? -1,
+    cell: ({ row }) => {
+      const r = row.original;
+      if (r.costPrice !== null) return <span className="tabular-nums">{money(r.costPrice)}</span>;
+      // Nothing to price against until the SKU has been bought in, so say so
+      // rather than leaving a dash the admin has to interpret.
+      if (r.avgCost === null) {
+        return (
+          <span
+            className="inline-flex items-center rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700"
+            title="This SKU has never been received on a purchase order, so there is no cost to price against."
+          >
+            Not purchased
+          </span>
+        );
+      }
+      return dash;
+    },
+  },
+  {
+    id: "avgCost",
+    header: "Avg cost",
+    accessorFn: (row) => row.avgCost ?? -1,
+    cell: ({ row }) =>
+      row.original.avgCost === null ? (
+        dash
+      ) : (
+        <span className="tabular-nums text-[var(--color-neutral-500)]">
+          {money(row.original.avgCost)}
+        </span>
+      ),
+  },
+  {
+    id: "price",
+    header: "Selling price",
+    accessorFn: (row) => row.sellingPrice,
+    cell: ({ row }) => <PriceCell row={row.original} />,
+  },
+  {
+    id: "margin",
+    header: "Margin",
+    accessorFn: (row) => row.marginPercent ?? -999,
+    cell: ({ row }) => {
+      const m = row.original.marginPercent;
+      if (m === null) return dash;
+      const tone = m < 0 ? "text-red-600" : m < 10 ? "text-amber-600" : "text-emerald-600";
+      return <span className={`tabular-nums font-medium ${tone}`}>{m.toFixed(1)}%</span>;
+    },
+  },
+  {
+    id: "stockValue",
+    header: "Stock value",
+    accessorFn: (row) => row.stockValue ?? -1,
+    cell: ({ row }) =>
+      row.original.stockValue === null ? (
+        dash
+      ) : (
+        <span className="tabular-nums text-[var(--color-neutral-500)]">
+          {money(row.original.stockValue)}
+        </span>
+      ),
+  },
+];
+
 function PricingContent() {
   // The catalog links here per product, e.g. "Edit prices" on a product page.
   const searchParams = useSearchParams();
@@ -56,6 +222,7 @@ function PricingContent() {
   const [brandSlug, setBrandSlug] = useState("");
   const [belowCost, setBelowCost] = useState(false);
   const [unpriced, setUnpriced] = useState(false);
+  const [noCost, setNoCost] = useState(false);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
 
@@ -73,6 +240,7 @@ function PricingContent() {
     brandSlug: brandSlug || undefined,
     belowCost,
     unpriced,
+    noCost,
   });
   const rows = useMemo(() => data?.data ?? [], [data]);
   const apply = useApplyPricing();
@@ -80,7 +248,7 @@ function PricingContent() {
   const { data: categoryData } = useCategories({ page: 1, pageSize: 200 });
   const { data: brandData } = useBrands({ page: 1, limit: 100 });
 
-  const hasFilters = !!search || !!categorySlug || !!brandSlug || belowCost || unpriced;
+  const hasFilters = !!search || !!categorySlug || !!brandSlug || belowCost || unpriced || noCost;
   const resetPage = () => setPage(1);
 
   // Only rows still on screen can be acted on, so a filter change drops the rest.
@@ -88,16 +256,6 @@ function PricingContent() {
   const dirty = rows.filter(
     (r) => drafts[r.id] !== undefined && drafts[r.id] !== "" && Number(drafts[r.id]) !== r.sellingPrice
   );
-
-  const toggle = (id: string) =>
-    setSelected((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-
-  const allOnPageSelected = rows.length > 0 && rows.every((r) => selected.has(r.id));
 
   const saveDrafts = async () => {
     const invalid = dirty.find((r) => {
@@ -125,115 +283,10 @@ function PricingContent() {
     setBulkValue("");
   };
 
-  const columns: ColumnDef<PricingRow>[] = [
-    {
-      id: "select",
-      header: () => (
-        <Checkbox
-          checked={allOnPageSelected}
-          aria-label="Select all on this page"
-          onChange={(e) =>
-            setSelected((prev) => {
-              const next = new Set(prev);
-              for (const r of rows) {
-                if (e.target.checked) next.add(r.id);
-                else next.delete(r.id);
-              }
-              return next;
-            })
-          }
-        />
-      ),
-      cell: ({ row }) => (
-        <Checkbox
-          checked={selected.has(row.original.id)}
-          aria-label={`Select ${row.original.sku}`}
-          onChange={() => toggle(row.original.id)}
-        />
-      ),
-    },
-    {
-      id: "product",
-      header: "Product",
-      accessorFn: (row) => row.productName,
-      cell: ({ row }) => <VariantLabel item={row.original} />,
-    },
-    {
-      id: "stock",
-      header: "Stock",
-      accessorFn: (row) => row.stock,
-      cell: ({ row }) => <span className="tabular-nums">{row.original.stock}</span>,
-    },
-    {
-      id: "cost",
-      header: "Last cost",
-      accessorFn: (row) => row.costPrice ?? -1,
-      cell: ({ row }) =>
-        row.original.costPrice === null ? (
-          dash
-        ) : (
-          <span className="tabular-nums">{money(row.original.costPrice)}</span>
-        ),
-    },
-    {
-      id: "avgCost",
-      header: "Avg cost",
-      accessorFn: (row) => row.avgCost ?? -1,
-      cell: ({ row }) =>
-        row.original.avgCost === null ? (
-          dash
-        ) : (
-          <span className="tabular-nums text-[var(--color-neutral-500)]">
-            {money(row.original.avgCost)}
-          </span>
-        ),
-    },
-    {
-      id: "price",
-      header: "Selling price",
-      accessorFn: (row) => row.sellingPrice,
-      cell: ({ row }) => {
-        const r = row.original;
-        const draft = drafts[r.id];
-        const changed = draft !== undefined && draft !== "" && Number(draft) !== r.sellingPrice;
-        return (
-          <Input
-            type="number"
-            min={0}
-            step="0.01"
-            className={`w-28 ${changed ? "border-amber-400 bg-amber-50" : ""}`}
-            value={draft ?? String(r.sellingPrice)}
-            onFocus={(e) => e.target.select()}
-            onChange={(e) => setDrafts((p) => ({ ...p, [r.id]: e.target.value }))}
-          />
-        );
-      },
-    },
-    {
-      id: "margin",
-      header: "Margin",
-      accessorFn: (row) => row.marginPercent ?? -999,
-      cell: ({ row }) => {
-        const m = row.original.marginPercent;
-        if (m === null) return dash;
-        const tone = m < 0 ? "text-red-600" : m < 10 ? "text-amber-600" : "text-emerald-600";
-        return <span className={`tabular-nums font-medium ${tone}`}>{m.toFixed(1)}%</span>;
-      },
-    },
-    {
-      id: "stockValue",
-      header: "Stock value",
-      accessorFn: (row) => row.stockValue ?? -1,
-      cell: ({ row }) =>
-        row.original.stockValue === null ? (
-          dash
-        ) : (
-          <span className="tabular-nums text-[var(--color-neutral-500)]">
-            {money(row.original.stockValue)}
-          </span>
-        ),
-    },
-  ];
+  const tableState = useMemo<PricingTableState>(
+    () => ({ rows, drafts, selected, setDrafts, setSelected }),
+    [rows, drafts, selected]
+  );
 
   if (error) return <ErrorState message="Failed to load pricing" onRetry={() => refetch()} />;
 
@@ -243,6 +296,7 @@ function PricingContent() {
   const samples = canBulk ? selectedRows.slice(0, 3) : [];
 
   return (
+    <PricingTableContext.Provider value={tableState}>
     <div className="flex flex-1 min-h-0 flex-col">
       <AdminPageHeader
         title="Pricing"
@@ -305,6 +359,14 @@ function PricingContent() {
                     resetPage();
                   }}
                 />
+                <Checkbox
+                  label="No purchase cost"
+                  checked={noCost}
+                  onChange={(e) => {
+                    setNoCost(e.target.checked);
+                    resetPage();
+                  }}
+                />
                 {hasFilters && (
                   <ClearFiltersButton
                     onClick={() => {
@@ -313,6 +375,7 @@ function PricingContent() {
                       setBrandSlug("");
                       setBelowCost(false);
                       setUnpriced(false);
+                      setNoCost(false);
                       resetPage();
                     }}
                   />
@@ -420,7 +483,7 @@ function PricingContent() {
               <AdminTableSkeleton />
             ) : (
               <DataTable
-                columns={columns}
+                columns={COLUMNS}
                 data={rows}
                 emptyMessage={hasFilters ? "No items match these filters" : "No items yet"}
                 pageSize={pageSize}
@@ -440,6 +503,7 @@ function PricingContent() {
         </div>
       </AdminContent>
     </div>
+    </PricingTableContext.Provider>
   );
 }
 

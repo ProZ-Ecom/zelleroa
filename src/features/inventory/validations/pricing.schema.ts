@@ -17,6 +17,7 @@ export const pricingListQuerySchema = z
     brandSlug: slug("brand").optional(),
     belowCost: flag,
     unpriced: flag,
+    noCost: flag,
   })
   .strict();
 

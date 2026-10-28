@@ -4,6 +4,7 @@ import type { Prisma, stock_movement_type } from "@/generated/prisma";
 import { getAdminInternalId } from "@/features/purchases/services/vendor.service";
 import { recordStockMovement } from "./stock-ledger.service";
 import { categoryFilterIds } from "./category-filter";
+import { valuationService } from "./valuation.service";
 import type {
   AdjustmentInput,
   StockListQuery,
@@ -12,6 +13,12 @@ import type {
 
 export const LOW_STOCK_SETTING_KEY = "inventory.low_stock_threshold";
 export const DEFAULT_LOW_STOCK_THRESHOLD = 5;
+
+/** How far back the dashboard's movement summary looks. */
+const DASHBOARD_WINDOW_DAYS = 30;
+/** How many reorder candidates and category rows the dashboard shows. */
+const REORDER_LIST_SIZE = 8;
+const TOP_CATEGORY_SIZE = 5;
 
 export type StockStatus = "in_stock" | "low_stock" | "out_of_stock";
 
@@ -63,10 +70,34 @@ async function readThreshold(): Promise<number> {
   return Number.isInteger(n) && n >= 0 ? n : DEFAULT_LOW_STOCK_THRESHOLD;
 }
 
+// A colour/size counts as our own stock only while everything above it is
+// still live; a deleted product's rows would otherwise keep adding to the
+// totals, and an item with no style resolves to no product at all.
+const liveChain = {
+  deleted_at: null,
+  item: { deleted_at: null, style: { deleted_at: null, product: { deleted_at: null } } },
+} satisfies Prisma.ProductVariantWhereInput;
+
 const sellableVup: Prisma.VariantUnitPriceWhereInput = {
   isActive: true,
   deleted_at: null,
-  variant: { deleted_at: null },
+  variant: liveChain,
+};
+
+type StockRowLike = ReturnType<typeof labelOf> & {
+  available: number;
+  reserved: number;
+  reorderLevel: number;
+  threshold: number;
+  status: StockStatus;
+  updatedAt: string | null;
+};
+
+type MovementSummary = {
+  movementType: stock_movement_type | null;
+  movements: number;
+  unitsIn: number;
+  unitsOut: number;
 };
 
 export const stockService = {
@@ -89,42 +120,123 @@ export const stockService = {
 
   async dashboard() {
     const threshold = await readThreshold();
+    const since = new Date();
+    since.setDate(since.getDate() - DASHBOARD_WINDOW_DAYS);
 
-    const [totalProducts, vups, recentPurchases, recentMovements] = await Promise.all([
-      db.product.count({ where: { deleted_at: null, isActive: true } }),
-      db.variantUnitPrice.findMany({
-        where: sellableVup,
+    const vupSelect = {
+      ...stockLabelSelect,
+      inventories: {
         select: {
-          id: true,
-          inventories: { select: { quantity_available: true, reorderLevel: true } },
+          quantity_available: true,
+          quantity_reserved: true,
+          reorderLevel: true,
+          updatedAt: true,
         },
-      }),
-      db.purchase_orders.findMany({
-        orderBy: { created_at: "desc" },
-        take: 5,
-        include: { vendor: { select: { name: true } }, _count: { select: { items: true } } },
-      }),
-      stockService.movements({ page: 1, limit: 8 }),
-    ]);
+      },
+    } satisfies Prisma.VariantUnitPriceSelect;
+
+    const [totalProducts, vups, recentPurchases, recentMovements, movementGroups, valuation] =
+      await Promise.all([
+        db.product.count({ where: { deleted_at: null, isActive: true } }),
+        db.variantUnitPrice.findMany({ where: sellableVup, select: vupSelect }),
+        db.purchase_orders.findMany({
+          orderBy: { created_at: "desc" },
+          take: 5,
+          include: { vendor: { select: { name: true } }, _count: { select: { items: true } } },
+        }),
+        stockService.movements({ page: 1, limit: 8 }),
+        db.inventoryTransaction.groupBy({
+          by: ["movement_type", "type"],
+          where: { is_active: true, createdAt: { gte: since } },
+          _sum: { quantity: true },
+          _count: { _all: true },
+        }),
+        // Money columns live in the valuation report, so the dashboard reads
+        // them from there instead of working out costs a second way.
+        valuationService.stockValuation({ groupBy: "category" }),
+      ]);
 
     let totalStock = 0;
+    let reservedStock = 0;
     let low = 0;
     let out = 0;
+    const needsReorder: StockRowLike[] = [];
+
     for (const v of vups) {
       const qty = v.inventories?.quantity_available ?? 0;
-      const status = statusOf(qty, v.inventories?.reorderLevel ?? 0, threshold);
+      const reorderLevel = v.inventories?.reorderLevel ?? 0;
+      const status = statusOf(qty, reorderLevel, threshold);
       totalStock += Math.max(0, qty);
+      reservedStock += Math.max(0, v.inventories?.quantity_reserved ?? 0);
       if (status === "out_of_stock") out += 1;
       else if (status === "low_stock") low += 1;
+
+      if (status !== "in_stock") {
+        needsReorder.push({
+          ...labelOf(v),
+          available: qty,
+          reserved: v.inventories?.quantity_reserved ?? 0,
+          reorderLevel,
+          threshold: reorderLevel > 0 ? reorderLevel : threshold,
+          status,
+          updatedAt: v.inventories?.updatedAt?.toISOString() ?? null,
+        });
+      }
     }
+
+    // Emptiest first, so whatever is already sold out heads the list.
+    needsReorder.sort(
+      (a, b) =>
+        a.available - b.available ||
+        b.threshold - a.threshold ||
+        a.productName.localeCompare(b.productName)
+    );
+
+    // Legacy rows carry no movement type; they are kept as their own line
+    // rather than folded into one of the real types.
+    const perType = new Map<string, MovementSummary>();
+    for (const g of movementGroups) {
+      const key = g.movement_type ?? "LEGACY";
+      const row =
+        perType.get(key) ?? { movementType: g.movement_type, movements: 0, unitsIn: 0, unitsOut: 0 };
+      const units = g._sum.quantity ?? 0;
+      row.movements += g._count._all;
+      if (g.type === "out") row.unitsOut += units;
+      else row.unitsIn += units;
+      perType.set(key, row);
+    }
+    const movementSummary = [...perType.values()].sort(
+      (a, b) => b.unitsIn + b.unitsOut - (a.unitsIn + a.unitsOut)
+    );
 
     return {
       lowStockThreshold: threshold,
+      windowDays: DASHBOARD_WINDOW_DAYS,
       totalProducts,
       totalVariants: vups.length,
       totalAvailableStock: totalStock,
+      totalReservedStock: reservedStock,
+      inStockItems: vups.length - low - out,
       lowStockItems: low,
       outOfStockItems: out,
+      stockValue: {
+        costValue: valuation.totals.costValue,
+        retailValue: valuation.totals.retailValue,
+        potentialProfit: valuation.totals.potentialProfit,
+        marginPercent: valuation.totals.marginPercent,
+        unvaluedSkus: valuation.totals.unvaluedSkus,
+      },
+      topCategories: valuation.rows.slice(0, TOP_CATEGORY_SIZE).map((r) => ({
+        key: r.key,
+        name: r.name,
+        skuCount: r.skuCount,
+        units: r.units,
+        costValue: r.costValue,
+        retailValue: r.retailValue,
+      })),
+      needsReorder: needsReorder.slice(0, REORDER_LIST_SIZE),
+      reorderCount: needsReorder.length,
+      movementSummary,
       recentPurchases: recentPurchases.map((p) => ({
         id: p.uuid,
         poNumber: p.po_number,
@@ -145,20 +257,21 @@ export const stockService = {
     const threshold = await readThreshold();
 
     // A category covers its sub-categories, and a product covers every colour
-    // and size under it; both only narrow the rows when actually asked for.
+    // and size under it; both only narrow the rows when actually asked for,
+    // on top of the live products the list is limited to anyway.
     const product: Prisma.ProductWhereInput = {
+      deleted_at: null,
       ...(categorySlug ? { categoryId: { in: await categoryFilterIds(categorySlug) } } : {}),
       ...(productSlug ? { slug: productSlug } : {}),
     };
-    const byProduct = Object.keys(product).length > 0;
 
     const where: Prisma.VariantUnitPriceWhereInput = {
       ...sellableVup,
       ...(variantUnitPriceId ? { id: BigInt(variantUnitPriceId) } : {}),
       variant: {
-        deleted_at: null,
+        ...liveChain,
         ...(color ? { color_name: { contains: color } } : {}),
-        ...(byProduct ? { item: { style: { product } } } : {}),
+        item: { deleted_at: null, style: { deleted_at: null, product } },
       },
       ...(search
         ? {
