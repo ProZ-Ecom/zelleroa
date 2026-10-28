@@ -204,9 +204,9 @@ export const returnService = {
       upiId?: string;
     } | undefined = undefined;
 
-    if (isCod && input.codRefundDetails) {
-      if (input.codRefundDetails.method === "bank_transfer") {
-        const rawAcc = input.codRefundDetails.accountNumber!.trim();
+    if (input.codRefundDetails) {
+      if (input.codRefundDetails.method === "bank_transfer" && input.codRefundDetails.accountNumber) {
+        const rawAcc = input.codRefundDetails.accountNumber.trim();
         codRefundDetails = {
           method: "bank_transfer",
           accountHolderName: input.codRefundDetails.accountHolderName?.trim(),

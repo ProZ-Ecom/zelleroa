@@ -230,9 +230,14 @@ export default function AdminProductsPage() {
   }
 
   if (error) {
+    const errorMsg =
+      (error as any)?.message ||
+      (error as any)?.response?.data?.message ||
+      "Failed to load products";
     return (
       <ErrorState
-        message="Failed to load products"
+        title={errorMsg.includes("permission") ? "You don't have permission" : "Something went wrong"}
+        message={errorMsg}
         onRetry={() => refetch()}
       />
     );

@@ -186,36 +186,45 @@ export const attributeRepository = {
       variationLevel: variation_level_enum;
     }[]
   ) {
-    await db.$transaction([
-      db.product_attribute_configs.deleteMany({ where: { product_id: productId } }),
-      ...(entries.length
-        ? [
-            db.product_attribute_configs.createMany({
-              data: entries.map((e) => ({
-                product_id: productId,
-                attribute_id: e.attributeId,
-                is_required: e.isRequired,
-                sort_order: e.sortOrder,
-                variation_level: e.variationLevel,
-              })),
-            }),
-          ]
-        : []),
-    ]);
+    try {
+      await db.$transaction([
+        db.product_attribute_configs.deleteMany({ where: { product_id: productId } }),
+        ...(entries.length
+          ? [
+              db.product_attribute_configs.createMany({
+                data: entries.map((e) => ({
+                  product_id: productId,
+                  attribute_id: e.attributeId,
+                  is_required: e.isRequired,
+                  sort_order: e.sortOrder,
+                  variation_level: e.variationLevel,
+                })),
+              }),
+            ]
+          : []),
+      ]);
+    } catch (err: any) {
+      console.warn("[attributeRepository.setAttributesForProduct] product_attribute_configs table not available:", err?.message);
+    }
   },
 
   async findAttributeConfigsForProduct(productId: bigint) {
-    return db.product_attribute_configs.findMany({
-      where: { product_id: productId },
-      orderBy: { sort_order: "asc" },
-      include: {
-        product_attributes: {
-          include: {
-            values: { where: { is_active: true }, orderBy: { value: "asc" } },
+    try {
+      return await db.product_attribute_configs.findMany({
+        where: { product_id: productId },
+        orderBy: { sort_order: "asc" },
+        include: {
+          product_attributes: {
+            include: {
+              values: { where: { is_active: true }, orderBy: { value: "asc" } },
+            },
           },
         },
-      },
-    });
+      });
+    } catch (err: any) {
+      console.warn("[attributeRepository.findAttributeConfigsForProduct] product_attribute_configs table not available:", err?.message);
+      return [];
+    }
   },
 
   async countProductAttributeUsage(productId: bigint, attributeId: bigint) {

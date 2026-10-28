@@ -20,7 +20,7 @@ export const GET = createApiHandler(
   {
     querySchema: getUsersQuerySchema,
     requireAuth: true,
-    requiredRole: ["ADMIN"],
+    requiredRole: ["ADMIN", "STAFF"],
   }
 );
 
@@ -35,7 +35,7 @@ export const POST = createApiHandler(
   {
     method: "POST",
     requireAuth: true,
-    requiredRole: ["ADMIN"],
+    requiredRole: ["ADMIN", "STAFF"],
     bodySchema: createUserSchema,
   }
 );

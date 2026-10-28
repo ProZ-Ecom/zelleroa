@@ -36,7 +36,7 @@ export type CreateReturnItemInput = z.infer<typeof createReturnItemSchema>;
 
 export const codRefundDetailsSchema = z
   .object({
-    method: z.enum(["bank_transfer", "upi"]),
+    method: z.enum(["bank_transfer", "upi"]).default("bank_transfer"),
     accountHolderName: z.string().trim().max(150).optional(),
     bankName: z.string().trim().max(150).optional(),
     accountNumber: z.string().trim().max(30).optional(),
@@ -46,36 +46,43 @@ export const codRefundDetailsSchema = z
   })
   .superRefine((data, ctx) => {
     if (data.method === "bank_transfer") {
-      if (!data.accountHolderName || data.accountHolderName.length < 2) {
+      if (!data.accountHolderName || data.accountHolderName.trim().length < 2) {
         ctx.addIssue({
           code: "custom",
           path: ["accountHolderName"],
           message: "Account holder name is required (at least 2 characters)",
         });
       }
-      if (!data.accountNumber || !/^\d{9,18}$/.test(data.accountNumber)) {
+      if (!data.accountNumber || !/^\d{9,18}$/.test(data.accountNumber.trim())) {
         ctx.addIssue({
           code: "custom",
           path: ["accountNumber"],
           message: "Please enter a valid bank account number (9 to 18 digits)",
         });
       }
-      if (data.accountNumber !== data.confirmAccountNumber) {
+      if (!data.confirmAccountNumber || data.accountNumber?.trim() !== data.confirmAccountNumber?.trim()) {
         ctx.addIssue({
           code: "custom",
           path: ["confirmAccountNumber"],
           message: "Account numbers do not match",
         });
       }
-      if (!data.ifscCode || !/^[A-Z]{4}0[A-Z0-9]{6}$/i.test(data.ifscCode)) {
+      if (!data.ifscCode || !/^[A-Z]{4}0[A-Z0-9]{6}$/i.test(data.ifscCode.trim())) {
         ctx.addIssue({
           code: "custom",
           path: ["ifscCode"],
           message: "Please enter a valid 11-character IFSC code (e.g. HDFC0001234)",
         });
       }
+      if (!data.bankName || data.bankName.trim().length < 2) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["bankName"],
+          message: "Bank name is required (at least 2 characters)",
+        });
+      }
     } else if (data.method === "upi") {
-      if (!data.upiId || !/^[\w.-]+@[\w.-]+$/.test(data.upiId)) {
+      if (!data.upiId || !/^[\w.-]+@[\w.-]+$/.test(data.upiId.trim())) {
         ctx.addIssue({
           code: "custom",
           path: ["upiId"],

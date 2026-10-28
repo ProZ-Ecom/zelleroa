@@ -210,7 +210,7 @@ export function Footer() {
                   support@zellora.com
                 </a>
               </p>
-              <p>Mon – Sat: 9:00 AM – 7:00 PM</p>
+              <p>Mon – Sun: 10:00 AM – 6:00 PM</p>
             </div>
           </div>
         </div>
