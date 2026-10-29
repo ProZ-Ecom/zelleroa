@@ -11,19 +11,18 @@ import {
   useDeleteRole,
   usePermissions,
 } from "@/features/roles/hooks";
+import { getRole } from "@/features/roles/api/get-roles";
 import { DataTable } from "@/components/admin/data-table/DataTable";
 import { AdminPageHeader, AdminContent } from "@/components/admin/AdminPageHeader";
 import { AdminBreadcrumb } from "@/components/admin/AdminBreadcrumb";
 import { AdminTableSkeleton } from "@/components/admin/AdminTableSkeleton";
 import { ErrorState } from "@/components/ui/error-state";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { FormModal } from "@/components/common/FormModal";
 import { ExportButton } from "@/components/common/export-button";
 import { exportDataToCsv } from "@/lib/export-csv";
-import { SearchInput } from "@/components/ui/search-input";
-import { Plus, Pencil, Trash2, RotateCcw } from "lucide-react";
+import { Plus, Pencil, Trash2 } from "lucide-react";
 import {
   createRoleSchema,
   type CreateRoleSchemaInput,
@@ -62,8 +61,9 @@ export default function AdminRolesPage() {
     if (!permissions) return {};
     const grouped: Record<string, typeof permissions> = {};
     for (const perm of permissions) {
-      if (!grouped[perm.module]) grouped[perm.module] = [];
-      grouped[perm.module].push(perm);
+      const moduleName = perm.module || "GENERAL";
+      if (!grouped[moduleName]) grouped[moduleName] = [];
+      grouped[moduleName].push(perm);
     }
     return grouped;
   }, [permissions]);
@@ -95,8 +95,9 @@ export default function AdminRolesPage() {
   }, [editingRole, reset]);
 
   const handleTogglePermission = (permId: number) => {
+    const idNum = Number(permId);
     setSelectedPermissionIds((prev) =>
-      prev.includes(permId) ? prev.filter((id) => id !== permId) : [...prev, permId]
+      prev.includes(idNum) ? prev.filter((id) => id !== idNum) : [...prev, idNum]
     );
   };
 
@@ -126,14 +127,33 @@ export default function AdminRolesPage() {
     }
   };
 
-  const handleOpenModal = (role?: RoleListItem) => {
+  const handleOpenModal = async (role?: RoleListItem) => {
     if (role) {
       setEditingRole(role);
+      const roleIdNum = Number(role.id);
+      
+      // Immediately prefill permissions that already belong to this role
+      const initialIds = (permissions ?? [])
+        .filter((p) => p.roleIds?.some((id) => Number(id) === roleIdNum))
+        .map((p) => Number(p.id));
+      setSelectedPermissionIds(initialIds);
+      setModalOpen(true);
+
+      // Also fetch full role detail to guarantee complete accuracy
+      try {
+        const res = await getRole(roleIdNum);
+        if (res.data?.permissions) {
+          const freshIds = res.data.permissions.map((p: any) => Number(p.id));
+          setSelectedPermissionIds(freshIds);
+        }
+      } catch {
+        // Fallback to initialIds
+      }
     } else {
       setEditingRole(null);
+      setSelectedPermissionIds([]);
+      setModalOpen(true);
     }
-    setSelectedPermissionIds([]);
-    setModalOpen(true);
   };
 
   const columns: ColumnDef<RoleListItem, unknown>[] = [
@@ -166,6 +186,7 @@ export default function AdminRolesPage() {
             variant="ghost"
             size="icon"
             onClick={() => handleOpenModal(row.original)}
+            title="Edit Role"
           >
             <Pencil className="h-4 w-4" />
           </Button>
@@ -173,6 +194,7 @@ export default function AdminRolesPage() {
             variant="ghost"
             size="icon"
             onClick={() => setDeleteId(row.original.id)}
+            title="Delete Role"
           >
             <Trash2 className="h-4 w-4 text-error-600" />
           </Button>
@@ -324,11 +346,11 @@ export default function AdminRolesPage() {
                       >
                         <input
                           type="checkbox"
-                          checked={selectedPermissionIds.includes(perm.id)}
-                          onChange={() => handleTogglePermission(perm.id)}
-                          className="h-4 w-4 rounded border-gray-300"
+                          checked={selectedPermissionIds.includes(Number(perm.id))}
+                          onChange={() => handleTogglePermission(Number(perm.id))}
+                          className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary accent-primary"
                         />
-                        <span className="text-sm">{perm.name}</span>
+                        <span className="text-sm font-medium text-neutral-800">{perm.name}</span>
                         {perm.description && (
                           <span className="text-xs text-muted-foreground">
                             - {perm.description}

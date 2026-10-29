@@ -2,6 +2,7 @@ import { createApiHandler } from "@/lib/api/api-handler";
 import { apiSuccess, apiError } from "@/lib/api/api-response";
 import { brandService } from "@/features/brands/services/brand.service";
 import { updateBrandSchema } from "@/features/brands/validations/brand.schema";
+import { db } from "@/lib/db/prisma";
 
 export const GET = createApiHandler({
   GET: async (_request, context) => {
@@ -15,6 +16,30 @@ export const GET = createApiHandler({
 export const PUT = createApiHandler(
   {
     PUT: async (_request, context) => {
+      const rawRole = (context.session?.user as { role?: string })?.role;
+      const userRole = rawRole?.toUpperCase();
+      if (userRole !== "ADMIN" && userRole !== "SUPER_ADMIN") {
+        const hasPermission = await db.rolePermission.findFirst({
+          where: {
+            role: {
+              OR: [
+                ...(userRole ? [{ name: userRole }] : []),
+                ...(rawRole ? [{ name: rawRole }, { slug: rawRole.toLowerCase() }] : []),
+              ],
+            },
+            permission: {
+              OR: [
+                { name: "BRAND_UPDATE" },
+                { slug: "brand-update" },
+              ],
+            },
+          },
+        });
+        if (!hasPermission) {
+          return apiError("You don't have permission", 403);
+        }
+      }
+
       const id = context.params?.id;
       if (!id) return apiError("Brand ID is required", 400);
       const body = context.body as ReturnType<typeof updateBrandSchema.parse>;
@@ -33,6 +58,30 @@ export const PUT = createApiHandler(
 export const DELETE = createApiHandler(
   {
     DELETE: async (_request, context) => {
+      const rawRole = (context.session?.user as { role?: string })?.role;
+      const userRole = rawRole?.toUpperCase();
+      if (userRole !== "ADMIN" && userRole !== "SUPER_ADMIN") {
+        const hasPermission = await db.rolePermission.findFirst({
+          where: {
+            role: {
+              OR: [
+                ...(userRole ? [{ name: userRole }] : []),
+                ...(rawRole ? [{ name: rawRole }, { slug: rawRole.toLowerCase() }] : []),
+              ],
+            },
+            permission: {
+              OR: [
+                { name: "BRAND_DELETE" },
+                { slug: "brand-delete" },
+              ],
+            },
+          },
+        });
+        if (!hasPermission) {
+          return apiError("You don't have permission", 403);
+        }
+      }
+
       const id = context.params?.id;
       if (!id) return apiError("Brand ID is required", 400);
       await brandService.deleteBrand(parseInt(id));

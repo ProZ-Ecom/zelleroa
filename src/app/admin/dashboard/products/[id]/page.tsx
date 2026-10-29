@@ -202,8 +202,26 @@ export default function AdminProductDetailsPage() {
     { pageSize: 100 }
   );
   const items = React.useMemo<AdminItemResponse[]>(
-    () => itemsResponse?.data ?? [],
-    [itemsResponse]
+    () => {
+      const allItems = itemsResponse?.data ?? [];
+      if (allItems.length > 1 && product?.name) {
+        const productNameLower = product.name.trim().toLowerCase();
+        const hasCustomModel = allItems.some(
+          (i) => i.name.trim().toLowerCase() !== productNameLower
+        );
+        if (hasCustomModel) {
+          return allItems.filter(
+            (i) =>
+              !(
+                i.name.trim().toLowerCase() === productNameLower &&
+                (i.slug.toLowerCase().includes("default-item") || !i.basePrice)
+              )
+          );
+        }
+      }
+      return allItems;
+    },
+    [itemsResponse, product?.name]
   );
 
   const [selectedItemUuid, setSelectedItemUuid] = React.useState<string | null>(null);
@@ -279,12 +297,12 @@ export default function AdminProductDetailsPage() {
     }
     // The hidden Style still needs a Brand; use the Product's if set,
     // otherwise ask the admin to pick one right here.
-    if (!product.brandId) {
+    if (false && !product.brandId) {
       setPickedBrandId("");
       setIsPickBrandOpen(true);
       return;
     }
-    await createHiddenStyleAndOpenItemForm(product.brandId);
+    setIsAddStyleOpen(true);
   };
 
   // The Colors/Sizes section below is scoped to whichever Item is selected
@@ -809,7 +827,7 @@ export default function AdminProductDetailsPage() {
         <section className="bg-white border border-cream-border rounded-lg overflow-hidden">
           <div className="p-3.5 sm:p-4 border-b border-cream-border flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div className="flex items-center gap-2.5">
-              <h2 className="text-base font-bold text-neutral-900 tracking-tight">Step 1 &middot; Items</h2>
+              <h2 className="text-base font-bold text-neutral-900 tracking-tight">Product Styles</h2>
               <span className="px-2.5 py-0.5 rounded-full bg-cream-200 border border-cream-border text-xs font-bold text-neutral-500">
                 {styles.length}
               </span>
@@ -855,7 +873,7 @@ export default function AdminProductDetailsPage() {
       <section className="bg-white border border-cream-border rounded-lg overflow-hidden">
         <div className="p-3.5 sm:p-4 border-b border-cream-border flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="flex items-center gap-2.5">
-            <h2 className="text-base font-bold text-neutral-900 tracking-tight">Step 2 &middot; Models</h2>
+            <h2 className="text-base font-bold text-neutral-900 tracking-tight">Step 1 &middot; Models</h2>
             <span className="px-2.5 py-0.5 rounded-full bg-cream-200 border border-cream-border text-xs font-bold text-neutral-500">
               {items.length}
             </span>
@@ -876,7 +894,7 @@ export default function AdminProductDetailsPage() {
 
         <div className="px-4 pt-3 space-y-2">
           <p className="text-xs text-neutral-500">
-            Setup order: <strong>1 Item</strong> &rarr; <strong>2 Model</strong> &rarr; <strong>3 Color</strong> &rarr; <strong>4 Size &amp; Price</strong>
+            Setup order: <strong>1 Model</strong> &rarr; <strong>2 Color</strong> &rarr; <strong>3 Size &amp; Price</strong>
           </p>
           {!isLoadingItems && items.length === 0 && (
             <p className="text-xs rounded-md border border-amber-300 bg-amber-50 text-amber-800 px-3 py-2">
@@ -1046,10 +1064,10 @@ export default function AdminProductDetailsPage() {
         <section className="bg-white border border-cream-border rounded-lg overflow-hidden">
           <div className="p-3.5 sm:p-4 border-b border-cream-border flex items-center gap-2.5">
             <h2 className="text-base font-bold text-neutral-900 tracking-tight">
-              Step 3 &amp; 4 &middot; Colors &amp; Sizes
+              Step 2 &amp; 3 &middot; Colors, Sizes &amp; Prices
             </h2>
             <span className="text-xs text-neutral-400 hidden sm:inline">
-              For &ldquo;{items.find((i) => i.id === selectedItemUuid)?.name || "this item"}&rdquo;
+              For &ldquo;{items.find((i) => i.id === selectedItemUuid)?.name || "this model"}&rdquo;
             </span>
           </div>
           <div className="p-4">

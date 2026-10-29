@@ -428,17 +428,62 @@ export default function AdminVariantsPage() {
     refetch();
   };
 
-  if (isLoading && !data) {
-    return <AdminTableSkeleton />;
-  }
-
+  // Check permission / auth errors FIRST — before isLoading — so that even when
+  // keepPreviousData is active and stale data exists, a permission error takes
+  // priority over rendering the table with stale data.
   if (error) {
+    const errMsg = (error as { message?: string })?.message ?? "";
+    const isPermissionError =
+      errMsg.toLowerCase().includes("permission") ||
+      errMsg.toLowerCase().includes("unauthorized") ||
+      (error as { status?: number })?.status === 403;
+
+    if (isPermissionError) {
+      return (
+        <div className="flex flex-1 min-h-0 flex-col">
+          <AdminPageHeader
+            title="Product Items Management"
+            description="Manage product Items, sizing, packaging, pricing, SKUs, and images with realistic customer card preview."
+          />
+          <AdminContent>
+            <div className="flex flex-col items-center justify-center py-24 gap-4 text-center">
+              <div className="rounded-full bg-red-50 p-5">
+                <svg
+                  className="h-10 w-10 text-red-400"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={1.5}
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z"
+                  />
+                </svg>
+              </div>
+              <h2 className="text-lg font-semibold text-neutral-800">
+                Access Denied
+              </h2>
+              <p className="text-sm text-neutral-500 max-w-sm">
+                You don&apos;t have permission to view Colors &amp; Items. Please contact your administrator.
+              </p>
+            </div>
+          </AdminContent>
+        </div>
+      );
+    }
+
     return (
       <ErrorState
         message="Failed to load product Items"
         onRetry={() => refetch()}
       />
     );
+  }
+
+  if (isLoading && !data) {
+    return <AdminTableSkeleton />;
   }
 
   const startEntry = totalItems > 0 ? (page - 1) * pageSize + 1 : 0;
