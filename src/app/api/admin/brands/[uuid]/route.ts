@@ -52,7 +52,6 @@ export const GET = createApiHandler(
 
 export const PUT = createApiHandler(
   {
-    POST: async () => {}, // unused
     PUT: async (_request, context) => {
       const rawRole = (context.session?.user as { role?: string })?.role;
       const userRole = rawRole?.toUpperCase();

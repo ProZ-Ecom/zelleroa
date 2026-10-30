@@ -64,6 +64,7 @@ export const paymentRepository = {
         },
         payments: {
           where: { is_active: true },
+          include: { payment_methods: true },
           orderBy: { createdAt: "desc" },
           take: 5,
         },
