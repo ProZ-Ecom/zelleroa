@@ -60,6 +60,7 @@ export function useCreateRole() {
     mutationFn: (data: Record<string, unknown>) => createRole(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: roleKeys.all });
+      queryClient.invalidateQueries({ queryKey: permissionKeys.all });
     },
   });
 }
@@ -73,6 +74,7 @@ export function useUpdateRole() {
     onSuccess: (_result, variables) => {
       queryClient.invalidateQueries({ queryKey: roleKeys.all });
       queryClient.invalidateQueries({ queryKey: roleKeys.detail(variables.id) });
+      queryClient.invalidateQueries({ queryKey: permissionKeys.all });
     },
   });
 }
@@ -84,6 +86,7 @@ export function useDeleteRole() {
     mutationFn: (id: number) => deleteRole(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: roleKeys.all });
+      queryClient.invalidateQueries({ queryKey: permissionKeys.all });
     },
   });
 }

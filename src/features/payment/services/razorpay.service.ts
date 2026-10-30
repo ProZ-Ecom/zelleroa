@@ -225,6 +225,21 @@ export const razorpayService = {
       throw ApiError.badRequest("Cannot pay for a cancelled order.");
     }
 
+    // For COD orders, allow payment only after delivery.
+    // Restrict payment during Processing, Packing, and Shipped stages.
+    const payment = order.payments?.[0];
+    const paymentMethodCode = payment?.payment_methods?.code?.toUpperCase();
+    const isCodOrder = !payment || paymentMethodCode === "COD" || payment.gateway === "COD";
+
+    if (isCodOrder) {
+      const allowedCodPayStatuses = ["delivered"];
+      if (!allowedCodPayStatuses.includes(order.order_status.toLowerCase())) {
+        throw ApiError.badRequest(
+          `For Cash on Delivery orders, payment is allowed only after delivery. Payment cannot be made during ${order.order_status} stage.`
+        );
+      }
+    }
+
     const payableAmount = Number(order.totalAmount);
     if (isNaN(payableAmount) || payableAmount <= 0) {
       throw ApiError.badRequest("Invalid order payable amount.");

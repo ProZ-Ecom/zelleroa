@@ -1,9 +1,10 @@
 import { createApiHandler } from "@/lib/api/api-handler";
-import { apiSuccess } from "@/lib/api/api-response";
+import { apiSuccess, apiError } from "@/lib/api/api-response";
 import { categoryRepository } from "@/features/categories/repositories/category.repository";
 import { styleRepository } from "@/features/styles/repositories/style.repository";
 import { adminStyleListQuerySchema, type AdminStyleListQueryInput } from "@/features/styles/validations/admin-style.schema";
 import type { AdminStyleResponse } from "@/features/styles/types";
+import { db } from "@/lib/db/prisma";
 
 type StyleListRow = Awaited<ReturnType<typeof styleRepository.findAdminList>>["data"][number];
 
@@ -26,6 +27,28 @@ function formatStyleListRow(style: StyleListRow, categoryNames: Map<string, stri
     }
   }
 
+  // If the style was given the parent product's name (e.g. "pant" with "women_women-default"),
+  // but a custom model item exists under it (e.g. "palloza"), display the custom model name/slug.
+  const productNameLower = (style.product?.name || "").trim().toLowerCase();
+  const customModelItem = (style.items as any[])?.find(
+    (it) => it.name && it.name.trim().toLowerCase() !== productNameLower
+  );
+
+  const modelName =
+    customModelItem && style.name.trim().toLowerCase() === productNameLower
+      ? customModelItem.name
+      : style.name;
+
+  const modelSlug =
+    customModelItem && style.name.trim().toLowerCase() === productNameLower
+      ? customModelItem.slug || style.slug
+      : style.slug;
+
+  const modelPrice =
+    customModelItem && customModelItem.base_price && Number(customModelItem.base_price) > 0
+      ? Number(customModelItem.base_price)
+      : Number(style.base_price ?? 0);
+
   return {
     id: style.uuid,
     productId: style.product?.uuid ?? String(style.productId),
@@ -37,8 +60,8 @@ function formatStyleListRow(style: StyleListRow, categoryNames: Map<string, stri
       : null,
     brandId: brand?.uuid ?? null,
     brandName: brand?.name ?? null,
-    name: style.name,
-    slug: style.slug,
+    name: modelName,
+    slug: modelSlug,
     sku: style.sku,
     shortDescription: style.short_description,
     description: style.description,
@@ -47,7 +70,7 @@ function formatStyleListRow(style: StyleListRow, categoryNames: Map<string, stri
     cookingRecipe: style.cooking_recipe,
     shelfLife: style.shelf_life,
     vegType: (style.veg_type as AdminStyleResponse["vegType"]) || "na",
-    basePrice: Number(style.base_price ?? 0),
+    basePrice: modelPrice,
     isFeatured: Boolean(style.is_featured),
     isNewArrival: Boolean(style.is_new_arrival),
     newArrivalUntil: style.new_arrival_until ? style.new_arrival_until.toISOString().slice(0, 10) : null,
@@ -66,6 +89,32 @@ function formatStyleListRow(style: StyleListRow, categoryNames: Map<string, stri
 export const GET = createApiHandler(
   {
     GET: async (_request, context) => {
+      // STAFF users need the MODELS_VIEW permission to access the Model Management list.
+      // ADMIN users always have full access.
+      const rawRole = (context.session?.user as { role?: string })?.role;
+      const userRole = rawRole?.toUpperCase();
+      if (userRole !== "ADMIN" && userRole !== "SUPER_ADMIN") {
+        const hasPermission = await db.rolePermission.findFirst({
+          where: {
+            role: {
+              OR: [
+                ...(userRole ? [{ name: userRole }] : []),
+                ...(rawRole ? [{ name: rawRole }, { slug: rawRole.toLowerCase() }] : []),
+              ],
+            },
+            permission: {
+              OR: [
+                { name: "MODELS_VIEW" },
+                { slug: "models-view" },
+              ],
+            },
+          },
+        });
+        if (!hasPermission) {
+          return apiError("You don't have permission", 403);
+        }
+      }
+
       const query = context.query as AdminStyleListQueryInput & {
         productId?: string;
         categoryId?: string;

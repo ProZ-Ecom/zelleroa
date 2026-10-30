@@ -108,6 +108,7 @@ export interface OrderListItemResponse {
   customer: OrderCustomerDto;
   status: OrderStatus;
   paymentStatus: PaymentStatus;
+  paymentMethod?: string;
   subtotal: number;
   discountAmount: number;
   taxAmount: number;

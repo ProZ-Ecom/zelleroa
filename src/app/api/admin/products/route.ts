@@ -12,15 +12,25 @@ import { db } from "@/lib/db/prisma";
 export const GET = createApiHandler(
   {
     GET: async (_request, context) => {
-      const userRole = context.session?.user?.role;
-      if (userRole !== "ADMIN") {
+      const rawRole = (context.session?.user as { role?: string })?.role;
+      const userRole = rawRole?.toUpperCase();
+      if (userRole !== "ADMIN" && userRole !== "SUPER_ADMIN") {
         const hasPermission = await db.rolePermission.findFirst({
           where: {
-            role: { name: userRole },
+            role: {
+              OR: [
+                ...(userRole ? [{ name: userRole }] : []),
+                ...(rawRole ? [{ name: rawRole }, { slug: rawRole.toLowerCase() }] : []),
+              ],
+            },
             permission: {
               OR: [
                 { name: "PRODUCT_VIEW" },
                 { slug: "product-view" },
+                { name: "MODELS_VIEW" },
+                { slug: "models-view" },
+                { name: "COLORS_LIST" },
+                { slug: "colors-list" },
               ],
             },
           },
@@ -50,11 +60,17 @@ export const GET = createApiHandler(
 export const POST = createApiHandler(
   {
     POST: async (_request, context) => {
-      const userRole = context.session?.user?.role;
-      if (userRole !== "ADMIN") {
+      const rawRole = (context.session?.user as { role?: string })?.role;
+      const userRole = rawRole?.toUpperCase();
+      if (userRole !== "ADMIN" && userRole !== "SUPER_ADMIN") {
         const hasPermission = await db.rolePermission.findFirst({
           where: {
-            role: { name: userRole },
+            role: {
+              OR: [
+                ...(userRole ? [{ name: userRole }] : []),
+                ...(rawRole ? [{ name: rawRole }, { slug: rawRole.toLowerCase() }] : []),
+              ],
+            },
             permission: {
               OR: [
                 { name: "PRODUCT_CREATE" },

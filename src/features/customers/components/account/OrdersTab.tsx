@@ -49,7 +49,7 @@ export function OrdersTab({
   const [reorderingId, setReorderingId] = useState<string | null>(null);
   const [reorderSuccessId, setReorderSuccessId] = useState<string | null>(null);
   const [payingOrderId, setPayingOrderId] = useState<string | null>(null);
-  const [paymentError, setPaymentError] = useState<string | null>(null);
+  const [paymentError, setPaymentError] = useState<{ orderId: string; message: string } | null>(null);
 
   const [cancelTarget, setCancelTarget] = useState<OrderDetailResponse | null>(null);
   const [cancelError, setCancelError] = useState<string | null>(null);
@@ -206,9 +206,10 @@ export function OrdersTab({
             }
           } catch (verifyErr: any) {
             setPayingOrderId(null);
-            setPaymentError(
-              verifyErr.message || "Payment verification failed. Please contact support."
-            );
+            setPaymentError({
+              orderId: order.id,
+              message: verifyErr.message || "Payment verification failed. Please contact support.",
+            });
           }
         },
       };
@@ -216,17 +217,19 @@ export function OrdersTab({
       const rzpInstance = new RazorpayConstructor(options);
       rzpInstance.on("payment.failed", (failRes: any) => {
         setPayingOrderId(null);
-        setPaymentError(
-          failRes.error?.description || "Payment failed. Please try again."
-        );
+        setPaymentError({
+          orderId: order.id,
+          message: failRes.error?.description || "Payment failed. Please try again.",
+        });
       });
 
       rzpInstance.open();
     } catch (err: any) {
       setPayingOrderId(null);
-      setPaymentError(
-        err.message || "Failed to launch payment checkout. Please try again."
-      );
+      setPaymentError({
+        orderId: order.id,
+        message: err.message || "Failed to launch payment checkout. Please try again.",
+      });
     }
   };
 
@@ -506,8 +509,18 @@ export function OrdersTab({
 
                 {/* Card Action Buttons */}
                 <div className="px-5 pb-4 pt-1 flex items-center gap-2.5 flex-wrap border-t border-theme-border-subtle">
-                  {/* Pay Now button — shown when order exists but payment is still pending */}
-                  {order.paymentStatus === "pending" && order.status !== "cancelled" && (
+                  {/* Pay Now button — shown when order exists but payment is still pending (for COD, only allowed after delivery) */}
+                  {(() => {
+                    const isCod =
+                      (order as any).paymentMethod === "COD" ||
+                      (order as any).paymentDetails?.method?.toUpperCase()?.includes("COD") ||
+                      Boolean((order as any).bankDetails?.accountHolder);
+                    const canPay =
+                      order.paymentStatus === "pending" &&
+                      order.status !== "cancelled" &&
+                      (isCod ? order.status === "delivered" : true);
+                    return canPay;
+                  })() && (
                     <button
                       type="button"
                       disabled={payingOrderId === order.id}
@@ -625,11 +638,11 @@ export function OrdersTab({
                   )}
                 </div>
 
-                {/* Payment error banner */}
-                {paymentError && payingOrderId === null && (
+                {/* Payment error banner - only shown on the specific order that failed */}
+                {paymentError && paymentError.orderId === order.id && payingOrderId === null && (
                   <div className="mx-5 mb-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 flex items-start gap-2 text-xs text-red-700">
                     <AlertCircle className="h-3.5 w-3.5 flex-shrink-0 mt-0.5 text-red-500" />
-                    <span>{paymentError}</span>
+                    <span>{paymentError.message}</span>
                     <button
                       type="button"
                       onClick={() => setPaymentError(null)}

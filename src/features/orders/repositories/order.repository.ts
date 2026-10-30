@@ -410,6 +410,7 @@ export function formatOrderDetail(
     customer,
     status: order.order_status,
     paymentStatus: order.payment_status,
+    paymentMethod: order.bank_account_holder ? "COD" : "CARD",
     subtotal: Number(order.subtotal),
     discountAmount: Number(order.discountAmount),
     taxAmount: Number(order.taxAmount),
