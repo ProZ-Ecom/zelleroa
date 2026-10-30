@@ -1,15 +1,40 @@
 import { createApiHandler } from "@/lib/api/api-handler";
-import { apiSuccess } from "@/lib/api/api-response";
+import { apiSuccess, apiError } from "@/lib/api/api-response";
 import { ApiError } from "@/lib/api/api-error";
 import { headerMenuService } from "@/features/header-menu/services/header-menu.service";
 import {
   updateAdminHeaderMenuItemSchema,
   type UpdateAdminHeaderMenuItemInput,
 } from "@/features/header-menu/validations/admin-header-menu.schema";
+import { db } from "@/lib/db/prisma";
 
 export const GET = createApiHandler(
   {
     GET: async (_request, context) => {
+      const rawRole = (context.session?.user as { role?: string })?.role;
+      const userRole = rawRole?.toUpperCase();
+      if (userRole !== "ADMIN" && userRole !== "SUPER_ADMIN") {
+        const hasPermission = await db.rolePermission.findFirst({
+          where: {
+            role: {
+              OR: [
+                ...(userRole ? [{ name: userRole }] : []),
+                ...(rawRole ? [{ name: rawRole }, { slug: rawRole.toLowerCase() }] : []),
+              ],
+            },
+            permission: {
+              OR: [
+                { name: "HEADER_MENU_VIEW" },
+                { slug: "header-menu-view" },
+              ],
+            },
+          },
+        });
+        if (!hasPermission) {
+          return apiError("You don't have permission", 403);
+        }
+      }
+
       const uuid = context.params?.uuid;
       if (!uuid) {
         throw ApiError.badRequest("Header menu item UUID is required");
@@ -21,13 +46,37 @@ export const GET = createApiHandler(
   },
   {
     requireAuth: true,
-    requiredRole: ["ADMIN"],
+    requiredRole: ["ADMIN", "STAFF"],
   }
 );
 
 export const PUT = createApiHandler(
   {
     PUT: async (_request, context) => {
+      const rawRole = (context.session?.user as { role?: string })?.role;
+      const userRole = rawRole?.toUpperCase();
+      if (userRole !== "ADMIN" && userRole !== "SUPER_ADMIN") {
+        const hasPermission = await db.rolePermission.findFirst({
+          where: {
+            role: {
+              OR: [
+                ...(userRole ? [{ name: userRole }] : []),
+                ...(rawRole ? [{ name: rawRole }, { slug: rawRole.toLowerCase() }] : []),
+              ],
+            },
+            permission: {
+              OR: [
+                { name: "HEADER_MENU_UPDATE" },
+                { slug: "header-menu-update" },
+              ],
+            },
+          },
+        });
+        if (!hasPermission) {
+          return apiError("You don't have permission", 403);
+        }
+      }
+
       const uuid = context.params?.uuid;
       if (!uuid) {
         throw ApiError.badRequest("Header menu item UUID is required");
@@ -43,7 +92,7 @@ export const PUT = createApiHandler(
   {
     method: "PUT",
     requireAuth: true,
-    requiredRole: ["ADMIN"],
+    requiredRole: ["ADMIN", "STAFF"],
     bodySchema: updateAdminHeaderMenuItemSchema,
   }
 );
@@ -51,6 +100,30 @@ export const PUT = createApiHandler(
 export const DELETE = createApiHandler(
   {
     DELETE: async (_request, context) => {
+      const rawRole = (context.session?.user as { role?: string })?.role;
+      const userRole = rawRole?.toUpperCase();
+      if (userRole !== "ADMIN" && userRole !== "SUPER_ADMIN") {
+        const hasPermission = await db.rolePermission.findFirst({
+          where: {
+            role: {
+              OR: [
+                ...(userRole ? [{ name: userRole }] : []),
+                ...(rawRole ? [{ name: rawRole }, { slug: rawRole.toLowerCase() }] : []),
+              ],
+            },
+            permission: {
+              OR: [
+                { name: "HEADER_MENU_DELETE" },
+                { slug: "header-menu-delete" },
+              ],
+            },
+          },
+        });
+        if (!hasPermission) {
+          return apiError("You don't have permission", 403);
+        }
+      }
+
       const uuid = context.params?.uuid;
       if (!uuid) {
         throw ApiError.badRequest("Header menu item UUID is required");
@@ -65,6 +138,6 @@ export const DELETE = createApiHandler(
   {
     method: "DELETE",
     requireAuth: true,
-    requiredRole: ["ADMIN"],
+    requiredRole: ["ADMIN", "STAFF"],
   }
 );

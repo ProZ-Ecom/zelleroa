@@ -179,6 +179,17 @@ export function OrdersTab({
         theme: {
           color: "#7A211B",
         },
+        config: {
+          display: {
+            hide: [
+              { method: "emi" },
+              { method: "paylater" },
+            ],
+            preferences: {
+              show_default_blocks: true,
+            },
+          },
+        },
         modal: {
           ondismiss: () => {
             setPayingOrderId(null);

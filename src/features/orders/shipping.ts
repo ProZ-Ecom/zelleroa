@@ -6,9 +6,9 @@
  * - Express Delivery: flat ₹99 (1 - 2 days)
  */
 export const FREE_DELIVERY_STATE = "Tamil Nadu";
-export const STANDARD_DELIVERY_CHARGE = 49;
+export const STANDARD_DELIVERY_CHARGE = 80;
 export const EXPRESS_DELIVERY_CHARGE = 99;
-export const OTHER_STATE_DELIVERY_CHARGE = 49;
+export const OTHER_STATE_DELIVERY_CHARGE = 80;
 export const STANDARD_DELIVERY_ESTIMATE = "3 - 5 days";
 export const EXPRESS_DELIVERY_ESTIMATE = "1 - 2 days";
 export const DELIVERY_ESTIMATE = STANDARD_DELIVERY_ESTIMATE;

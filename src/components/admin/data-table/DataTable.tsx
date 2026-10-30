@@ -33,6 +33,7 @@ interface DataTableProps<TData, TValue> {
   totalItems?: number;
   onPageChange?: (page: number) => void;
   className?: string;
+  tableClassName?: string;
   emptyMessage?: string;
   /** Show the CSV export button (default true). */
   exportable?: boolean;
@@ -57,6 +58,7 @@ function DataTable<TData, TValue>({
   totalItems,
   onPageChange,
   className,
+  tableClassName,
   emptyMessage = "No results found.",
   exportable = false,
   exportFileName,
@@ -187,9 +189,14 @@ function DataTable<TData, TValue>({
         </div>
       )}
 
-      <div className="min-h-[240px] flex-1 overflow-hidden flex flex-col">
-        <div className="flex-1 overflow-x-auto overflow-y-scroll overscroll-x-contain">
-          <table className="w-full min-w-[720px] table-auto caption-bottom text-sm border-separate border-spacing-0">
+      <div className="min-h-[240px] flex-1 flex flex-col">
+        <div
+          tabIndex={0}
+          role="region"
+          aria-label="Scrollable table content"
+          className="flex-1 overflow-x-auto overflow-y-auto overscroll-x-contain scrollbar-table focus:outline-hidden focus-visible:ring-1 focus-visible:ring-secondary-300"
+        >
+          <table className={cn("w-full min-w-[720px] table-auto caption-bottom text-sm border-separate border-spacing-0", tableClassName)}>
             <thead>
               {table.getHeaderGroups().map((headerGroup) => (
                 <tr key={headerGroup.id} className="transition-colors">
@@ -275,7 +282,7 @@ function DataTable<TData, TValue>({
         </div>
       </div>
 
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-4 sm:px-5 py-2.5 flex-shrink-0 border-t border-neutral-200/70 bg-neutral-50/40">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-4 sm:px-5 py-2.5 flex-shrink-0 border-t border-neutral-200/70 bg-neutral-50/95 backdrop-blur sticky bottom-0 z-20">
         <div className="flex flex-wrap items-center gap-3 sm:gap-6 text-sm text-[var(--color-neutral-500)]">
           <p>
             Showing {startEntry}–{endEntry} of {computedTotalItems} entries

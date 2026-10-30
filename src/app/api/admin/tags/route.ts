@@ -23,7 +23,7 @@ export const GET = createApiHandler(
   },
   {
     requireAuth: true,
-    requiredRole: ["ADMIN"],
+    requiredRole: ["ADMIN", "STAFF"],
     querySchema: adminTagQuerySchema,
   }
 );

@@ -495,7 +495,7 @@ export function AdminOrderListTable({
   ];
 
   return (
-    <div className="flex h-full flex-col overflow-hidden bg-[var(--color-background)] rounded-2xl">
+    <div className="flex flex-1 flex-col bg-[var(--color-background)] rounded-2xl">
       {/* Filter and Search Bar */}
       <div className="flex-shrink-0 mb-4 flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-1 flex-wrap items-center gap-3 min-w-0">
@@ -560,7 +560,7 @@ export function AdminOrderListTable({
       </div>
 
       {/* Table & Pagination Content */}
-      <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
+      <div className="flex-1 flex flex-col">
         {isLoading ? (
           <LoadingState text="Loading orders..." />
         ) : error ? (
@@ -586,6 +586,7 @@ export function AdminOrderListTable({
               setPage(1);
             }}
             className="bg-white border border-cream-border"
+            tableClassName="min-w-[1700px]"
             emptyMessage={emptyMessage}
           />
         )}

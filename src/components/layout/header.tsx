@@ -295,7 +295,7 @@ export function Header({
           <span className="hidden sm:inline text-white/40">|</span>
           <span className="hidden sm:inline truncate">Delivered in 3–7 Days</span>
           <span className="hidden md:inline text-white/40">|</span>
-          <span className="hidden md:inline truncate">Easy 3-Day Hassle-Free Returns</span>
+          <span className="hidden md:inline truncate">3-Day Easy Returns</span>
         </div>
       </div>
 

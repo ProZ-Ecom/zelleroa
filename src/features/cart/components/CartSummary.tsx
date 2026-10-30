@@ -45,7 +45,7 @@ function CartSummary({
             Standard Delivery: {formatPrice(STANDARD_DELIVERY_CHARGE)} · Delivered in {DELIVERY_ESTIMATE}
           </p>
           <p className="text-[11px] text-theme-text-muted">
-            Express Delivery ({formatPrice(EXPRESS_DELIVERY_CHARGE)}) also available at checkout
+            Standard doorstep delivery across India
           </p>
         </div>
 
