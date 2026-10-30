@@ -160,6 +160,17 @@ export default function CheckoutPaymentPage() {
         theme: {
           color: "#2563EB", // Zellora Royal Cobalt brand color
         },
+        config: {
+          display: {
+            hide: [
+              { method: "emi" },
+              { method: "paylater" },
+            ],
+            preferences: {
+              show_default_blocks: true,
+            },
+          },
+        },
         modal: {
           ondismiss: () => {
             setIsRazorpayLoading(false);
