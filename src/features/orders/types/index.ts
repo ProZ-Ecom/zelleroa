@@ -118,6 +118,7 @@ export interface OrderListItemResponse {
   delivery?: OrderDeliveryDto;
   courierShipment?: OrderCourierShipmentDto | null;
   notes: string | null;
+  invoiceNumber?: string | null;
   /** Set when a Sales Partner placed this order on the customer's behalf. Safe to show the customer (no commission data). */
   placedByAgent?: { name: string; agentCode: string | null } | null;
   placedAt: Date | null;

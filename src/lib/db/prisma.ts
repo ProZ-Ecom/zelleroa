@@ -31,6 +31,18 @@ function createPrismaClient() {
   });
 }
 
+// Ensure stale dev client instance is refreshed when Prisma models change
+if (process.env.NODE_ENV !== "production" && globalForPrisma.prisma) {
+  try {
+    const fields = (globalForPrisma.prisma as any)?._runtimeDataModel?.models?.Order?.fields;
+    if (fields && !fields.some((f: any) => f.name === "invoice_number")) {
+      globalForPrisma.prisma = undefined;
+    }
+  } catch {
+    globalForPrisma.prisma = undefined;
+  }
+}
+
 export const db = globalForPrisma.prisma ?? createPrismaClient();
 
 if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = db;

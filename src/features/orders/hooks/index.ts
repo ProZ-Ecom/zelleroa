@@ -17,6 +17,7 @@ import {
   packAdminOrder,
   assignOrderDelivery,
   getCheckoutSummary,
+  updateOrderInvoiceNumber,
   type AssignDeliveryInput,
 } from "../api/get-orders";
 import type {
@@ -225,3 +226,22 @@ export function useCheckoutSummary(
   });
 }
 
+export function useUpdateOrderInvoiceNumber() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ id, invoiceNumber }: { id: string | number; invoiceNumber: string }) =>
+      updateOrderInvoiceNumber(id, invoiceNumber),
+    meta: {
+      successMessage: "Invoice number saved successfully",
+      errorMessage: "Failed to update invoice number",
+    },
+    onSuccess: (_result, variables) => {
+      queryClient.invalidateQueries({ queryKey: adminOrderKeys.all });
+      queryClient.invalidateQueries({
+        queryKey: adminOrderKeys.detail(variables.id),
+      });
+      queryClient.invalidateQueries({ queryKey: orderKeys.all });
+    },
+  });
+}

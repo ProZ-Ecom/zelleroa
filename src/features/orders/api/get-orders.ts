@@ -230,6 +230,17 @@ export async function assignOrderDelivery(
   return response.data!;
 }
 
+export async function updateOrderInvoiceNumber(
+  uuid: string | number,
+  invoiceNumber: string
+): Promise<OrderDetailResponse> {
+  const response = await apiClient.patch<OrderDetailResponse>(
+    `/api/admin/orders/${uuid}`,
+    { invoiceNumber }
+  );
+  return response.data!;
+}
+
 export async function getCheckoutSummary(
   input: { deliveryMethod?: DeliveryMethod; couponCode?: string; shippingAddressId?: string }
 ): Promise<CheckoutSummary> {

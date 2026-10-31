@@ -14,6 +14,7 @@ import {
   ArrowRight,
   Truck,
   Package,
+  FileText,
 } from "lucide-react";
 import { DataTable } from "@/components/admin/data-table/DataTable";
 import { LoadingState } from "@/components/ui/loading-state";
@@ -36,6 +37,7 @@ import {
   useProcessAdminOrder,
   usePackAdminOrder,
   useCancelOrderAdmin,
+  useUpdateOrderInvoiceNumber,
 } from "@/features/orders/hooks";
 import { useShipViaCourier, useUpdateCourierStatus } from "@/features/delivery/hooks";
 import { isManualDeliveryStatusEnabled } from "@/features/delivery/lib/delivery-config";
@@ -100,9 +102,13 @@ export function AdminOrderListTable({
   const cancelOrder = useCancelOrderAdmin();
   const shipViaCourier = useShipViaCourier();
   const updateCourierStatus = useUpdateCourierStatus();
+  const updateOrderInvoiceNumber = useUpdateOrderInvoiceNumber();
   const canManuallyUpdateDelivery = isManualDeliveryStatusEnabled();
   const [courierCode, setCourierCode] = useState(DEFAULT_COURIER_CODE);
   const [consignmentNumber, setConsignmentNumber] = useState("");
+  const [courierInvoiceNumber, setCourierInvoiceNumber] = useState("");
+  const [editInvoiceOrder, setEditInvoiceOrder] = useState<{ id: string; orderNumber: string; invoiceNumber?: string | null } | null>(null);
+  const [editInvoiceInput, setEditInvoiceInput] = useState("");
 
   const orders = data?.data ?? [];
   const meta = data?.meta;
@@ -405,17 +411,41 @@ export function AdminOrderListTable({
             {orderStatus === "packed" && (
               <button
                 type="button"
-                onClick={() =>
+                onClick={() => {
                   setCourierOrder({
                     id: row.original.id,
                     orderNumber: row.original.orderNumber,
-                  })
-                }
+                  });
+                  setCourierInvoiceNumber(row.original.invoiceNumber || "");
+                }}
                 title="Ship via Courier"
                 className="grid h-8 w-8 place-items-center rounded-lg border border-secondary-600 bg-secondary-600 text-xs font-semibold text-white hover:bg-secondary-700 transition-all cursor-pointer shadow-xs"
                 disabled={isTransitionPending}
               >
                 <Truck className="h-3.5 w-3.5" />
+              </button>
+            )}
+
+            {orderStatus === "shipped" && (
+              <button
+                type="button"
+                onClick={() => {
+                  setEditInvoiceOrder({
+                    id: row.original.id,
+                    orderNumber: row.original.orderNumber,
+                    invoiceNumber: row.original.invoiceNumber,
+                  });
+                  setEditInvoiceInput(row.original.invoiceNumber || "");
+                }}
+                title={
+                  row.original.invoiceNumber
+                    ? `Invoice: ${row.original.invoiceNumber} (Click to edit)`
+                    : "Enter Invoice Number"
+                }
+                className="grid h-8 w-8 place-items-center rounded-lg border border-sky-300 bg-sky-50 text-xs font-semibold text-sky-700 hover:bg-sky-100 transition-all cursor-pointer shadow-xs"
+                disabled={isTransitionPending}
+              >
+                <FileText className="h-3.5 w-3.5" />
               </button>
             )}
 
@@ -788,6 +818,23 @@ export function AdminOrderListTable({
                 <Button
                   variant="outline"
                   size="sm"
+                  onClick={() => {
+                    setEditInvoiceOrder({
+                      id: orderDetail.id,
+                      orderNumber: orderDetail.orderNumber,
+                      invoiceNumber: orderDetail.invoiceNumber,
+                    });
+                    setEditInvoiceInput(orderDetail.invoiceNumber || "");
+                  }}
+                  title={orderDetail.invoiceNumber ? `Invoice: ${orderDetail.invoiceNumber}` : "Enter Invoice Number"}
+                >
+                  <FileText className="mr-1.5 h-4 w-4" />
+                  {orderDetail.invoiceNumber ? `Invoice: ${orderDetail.invoiceNumber}` : "Enter Invoice No."}
+                </Button>
+
+                <Button
+                  variant="outline"
+                  size="sm"
                   onClick={() => handlePrint(orderDetail.id)}
                 >
                   <Printer className="mr-1.5 h-4 w-4" />
@@ -843,12 +890,25 @@ export function AdminOrderListTable({
                     orderId: courierOrder.id,
                     courier: courierCode,
                     trackingNumber: consignmentNumber.trim().toUpperCase(),
+                    invoiceNumber: courierInvoiceNumber.trim() || undefined,
                   },
                   {
                     onSuccess: () => {
+                      toast.success(
+                        "Order Shipped",
+                        `Order ${courierOrder.orderNumber} has been marked as shipped.`
+                      );
                       setCourierOrder(null);
                       setConsignmentNumber("");
+                      setCourierInvoiceNumber("");
                       refetch();
+                    },
+                    onError: (err: any) => {
+                      const msg =
+                        (Array.isArray(err?.errors) && err.errors[0]) ||
+                        err?.message ||
+                        "Failed to record shipment. Please check the tracking number.";
+                      toast.error("Shipping Failed", msg);
                     },
                   }
                 );
@@ -884,6 +944,17 @@ export function AdminOrderListTable({
               maxLength={50}
             />
           </div>
+          <div className="space-y-1.5">
+            <label className="block text-xs font-semibold text-neutral-700">
+              Invoice Number <span className="text-neutral-400 font-normal text-[11px]">(optional / from billing)</span>
+            </label>
+            <Input
+              placeholder="e.g. INV-2026-001"
+              value={courierInvoiceNumber}
+              onChange={(e) => setCourierInvoiceNumber(e.target.value)}
+              maxLength={50}
+            />
+          </div>
         </div>
       </FormModal>
 
@@ -913,6 +984,72 @@ export function AdminOrderListTable({
           isLoading={updateCourierStatus.isPending}
         />
       )}
+
+
+      {/* Enter / Edit Invoice Number Modal */}
+      <FormModal
+        open={!!editInvoiceOrder}
+        onClose={() => setEditInvoiceOrder(null)}
+        title={`Invoice Number - ${editInvoiceOrder?.orderNumber ?? ""}`}
+        description="Enter the tax invoice number for this order."
+        size="sm"
+        footer={
+          <>
+            <Button variant="outline" onClick={() => setEditInvoiceOrder(null)}>
+              Cancel
+            </Button>
+            <Button
+              disabled={updateOrderInvoiceNumber.isPending || !editInvoiceInput.trim()}
+              onClick={() => {
+                if (!editInvoiceOrder) return;
+                updateOrderInvoiceNumber.mutate(
+                  {
+                    id: editInvoiceOrder.id,
+                    invoiceNumber: editInvoiceInput.trim(),
+                  },
+                  {
+                    onSuccess: () => {
+                      toast.success(
+                        "Invoice Number Saved",
+                        `Invoice number set to ${editInvoiceInput.trim()}`
+                      );
+                      setEditInvoiceOrder(null);
+                      setEditInvoiceInput("");
+                      refetch();
+                    },
+                    onError: (err: any) => {
+                      toast.error("Failed to save invoice number", err?.message || "Please try again.");
+                    },
+                  }
+                );
+              }}
+            >
+              {updateOrderInvoiceNumber.isPending && (
+                <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+              )}
+              Save Invoice Number
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-4">
+          <div className="space-y-1.5">
+            <label className="block text-xs font-semibold text-neutral-700">
+              Tax Invoice Number <span className="text-red-500">*</span>
+            </label>
+            <Input
+              placeholder="e.g. INV-2026-001"
+              value={editInvoiceInput}
+              onChange={(e) => setEditInvoiceInput(e.target.value)}
+              maxLength={50}
+              autoFocus
+            />
+            <p className="text-[11px] text-neutral-500">
+              This invoice number will appear on the customer Tax Invoice document.
+            </p>
+          </div>
+        </div>
+      </FormModal>
 
       {/* Mark Delivered Modal (Testing only, disabled in production) */}
       {canManuallyUpdateDelivery && (

@@ -1,4 +1,5 @@
 import { ApiError } from "@/lib/api/api-error";
+import { db } from "@/lib/db/prisma";
 import { userRepository } from "@/features/users/repositories/user.repository";
 import { invoiceRepository } from "../repositories/invoice.repository";
 import { rupeesInWords } from "../utils/amount-in-words";
@@ -184,8 +185,21 @@ export const invoiceService = {
 
     const invoiceDate = order.placed_at ?? order.createdAt;
 
+    let invoiceNumber = (order as any).invoice_number;
+    if (!invoiceNumber) {
+      try {
+        const rows = await db.$queryRawUnsafe<Array<{ invoice_number: string | null }>>(
+          "SELECT invoice_number FROM orders WHERE id = ? LIMIT 1",
+          order.id
+        );
+        invoiceNumber = rows?.[0]?.invoice_number;
+      } catch {
+        // ignore
+      }
+    }
+
     return {
-      invoiceNumber: order.orderNumber,
+      invoiceNumber: invoiceNumber || "Not Generated",
       invoiceDate,
       orderNumber: order.orderNumber,
       paymentStatus: order.payment_status,

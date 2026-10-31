@@ -520,16 +520,26 @@ export function OrdersTab({
 
                 {/* Card Action Buttons */}
                 <div className="px-5 pb-4 pt-1 flex items-center gap-2.5 flex-wrap border-t border-theme-border-subtle">
-                  {/* Pay Now button — shown when order exists but payment is still pending (for COD, only allowed after delivery) */}
+                  {/* Pay Now button — ONLY for online payment orders (Card/UPI/Razorpay) when payment is pending */}
                   {(() => {
+                    const method = String((order as any).paymentMethod || "").toUpperCase();
+                    const paymentDetailsMethod = String((order as any).paymentDetails?.method || "").toUpperCase();
+                    const notes = String((order as any).notes || "").toUpperCase();
+
                     const isCod =
-                      (order as any).paymentMethod === "COD" ||
-                      (order as any).paymentDetails?.method?.toUpperCase()?.includes("COD") ||
+                      method === "COD" ||
+                      method.includes("CASH") ||
+                      paymentDetailsMethod.includes("COD") ||
+                      paymentDetailsMethod.includes("CASH") ||
+                      notes.includes("COD") ||
+                      notes.includes("CASH ON DELIVERY") ||
+
+
                       Boolean((order as any).bankDetails?.accountHolder);
                     const canPay =
                       order.paymentStatus === "pending" &&
                       order.status !== "cancelled" &&
-                      (isCod ? order.status === "delivered" : true);
+                      !isCod;
                     return canPay;
                   })() && (
                     <button

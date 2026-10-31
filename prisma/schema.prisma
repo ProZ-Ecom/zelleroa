@@ -1059,6 +1059,7 @@ model Order {
   id                             BigInt                   @id @default(autoincrement()) @db.UnsignedBigInt
   uuid                           String?                  @default("UUID()") @db.VarChar(255)
   orderNumber                    String                   @unique(map: "order_number") @map("order_number") @db.VarChar(50)
+  invoice_number                 String?                  @map("invoice_number") @db.VarChar(100)
   userId                         BigInt                   @map("user_id") @db.UnsignedBigInt
   cart_id                        BigInt?                  @db.UnsignedBigInt
   couponId                       BigInt?                  @map("coupon_id") @db.UnsignedBigInt

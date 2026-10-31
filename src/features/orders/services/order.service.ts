@@ -574,6 +574,12 @@ export const orderService = {
     return { ...order, referral, payments };
   },
 
+  async updateOrderInvoiceNumber(uuid: string, invoiceNumber: string): Promise<OrderDetailResponse> {
+    const trimmed = invoiceNumber.trim();
+    await orderRepository.updateOrderInvoiceNumber(uuid, trimmed || null);
+    return orderService.getAdminOrderByUuid(uuid);
+  },
+
   async cancelCustomerOrder(
     sessionUserId: string,
     uuid: string,

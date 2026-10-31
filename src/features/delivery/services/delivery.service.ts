@@ -1,4 +1,5 @@
 import { ApiError } from "@/lib/api/api-error";
+import { db } from "@/lib/db/prisma";
 import { isManualDeliveryStatusEnabled } from "../lib/delivery-config";
 import { deliveryRepository } from "../repositories/delivery.repository";
 import { userRepository } from "@/features/users/repositories/user.repository";
@@ -595,6 +596,21 @@ export const deliveryService = {
       trackingNumber: input.trackingNumber,
       adminId,
     });
+
+    if (input.invoiceNumber?.trim()) {
+      try {
+        await db.order.update({
+          where: { id: order.id },
+          data: { invoice_number: input.invoiceNumber.trim() },
+        });
+      } catch {
+        await db.$executeRawUnsafe(
+          "UPDATE orders SET invoice_number = ? WHERE id = ?",
+          input.invoiceNumber.trim(),
+          order.id
+        );
+      }
+    }
 
     return {
       id: shipment.uuid || String(shipment.id),
