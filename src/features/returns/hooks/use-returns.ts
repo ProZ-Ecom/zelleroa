@@ -61,3 +61,23 @@ export function useAdminRequestAction(kind: RequestKind) {
     onSuccess: () => qc.invalidateQueries({ queryKey: ADMIN_REQUESTS_KEY }),
   });
 }
+
+export const ADMIN_STORAGE_KEY = ["admin", "video-storage"] as const;
+
+export function useAdminStorageUsage() {
+ return useQuery({
+ queryKey: ADMIN_STORAGE_KEY,
+ queryFn: () => returnsApi.getStorageUsage(),
+ refetchInterval: 60000,
+ });
+}
+
+export function useClearStorage() {
+ const qc = useQueryClient();
+ return useMutation({
+ mutationFn: () => returnsApi.clearStorage(),
+ onSuccess: () => {
+ qc.invalidateQueries({ queryKey: ADMIN_STORAGE_KEY });
+ },
+ });
+}

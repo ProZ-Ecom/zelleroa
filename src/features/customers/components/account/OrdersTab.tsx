@@ -627,10 +627,15 @@ export function OrdersTab({
                         onClick={() =>
                           setReturnTarget({ orderId: order.id, mode: "return" })
                         }
-                        className="border border-secondary-600 bg-secondary-50 hover:bg-secondary-100 text-secondary-800 text-xs font-semibold uppercase tracking-wider py-2.5 px-4 rounded-lg transition-colors cursor-pointer min-h-[40px] inline-flex items-center gap-1.5"
+                        className="border-2 border-amber-500 bg-amber-50 hover:bg-amber-100 text-amber-900 dark:bg-amber-950/50 dark:border-amber-400 dark:text-amber-200 text-xs font-bold uppercase tracking-wider py-2.5 px-4 rounded-lg transition-all duration-200 cursor-pointer min-h-[40px] inline-flex items-center gap-1.5 shadow-xs hover:shadow active:scale-[0.98]"
                       >
-                        <Undo2 className="h-3.5 w-3.5" />
-                        Return / Replace{order.returnWindow?.daysLeft ? ` (${order.returnWindow.daysLeft}d left)` : ""}
+                        <Undo2 className="h-3.5 w-3.5 text-amber-600 stroke-[2.5]" />
+                        <span>Return / Replace</span>
+                        {order.returnWindow?.daysLeft ? (
+                          <span className="ml-1 rounded bg-amber-200 text-amber-950 px-1.5 py-0.5 text-[10px] font-extrabold tracking-normal">
+                            {order.returnWindow.daysLeft}d left
+                          </span>
+                        ) : null}
                       </button>
                     )
                   )}

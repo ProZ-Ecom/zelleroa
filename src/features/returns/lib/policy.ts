@@ -118,13 +118,15 @@ export const CANCELLATION_REASONS = [
 // ── Return / replacement reasons ────────────────────────────────────────────
 
 /**
- * Only wrong and damaged products are returnable (see the Return & Refund
- * Policy page). Narrowing this list also narrows what submitReturnSchema
- * accepts, so older requests may still carry a reason that is no longer here.
+ * Reasons available when requesting a product return.
  */
 export const RETURN_REASONS = [
   "Damaged product",
   "Wrong product received",
+  "Wrong size",
+  "Quality issue",
+  "Missing item",
+  "Other",
 ] as const;
 
 export const REPLACEMENT_REASONS = [
@@ -138,7 +140,7 @@ export const REPLACEMENT_REASONS = [
 
 // ── Unboxing video ─────────────────────────────────────────────────────────
 
-export const UNBOXING_VIDEO_MAX_BYTES = 50 * 1024 * 1024; // 50 MB
+export const UNBOXING_VIDEO_MAX_BYTES = 5 * 1024 * 1024; // 5 MB
 export const UNBOXING_VIDEO_MIME_TYPES = [
   "video/mp4",
   "video/webm",

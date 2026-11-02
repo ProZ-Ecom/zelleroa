@@ -127,6 +127,24 @@ export interface UploadedVideo {
   contentType: string;
 }
 
+export interface VideoStorageUsage {
+  totalBytes: number;
+  totalMb: number;
+  limitMb: number;
+  thresholdMb: number;
+  thresholdPercent: number;
+  usedPercent: number;
+  fileCount: number;
+  isReached: boolean;
+  storageType: "google_drive" | "local" | "both";
+}
+
+export interface ClearStorageResult {
+  clearedLocalCount: number;
+  clearedDriveCount: number;
+  totalCleared: number;
+}
+
 export const returnsApi = {
   async getEligibility(orderUuid: string) {
     const res = await apiClient.get<ReturnEligibility>(
@@ -211,6 +229,16 @@ export const returnsApi = {
       `/api/admin/${kind}/${uuid}/${action}`,
       payload
     );
+    return res.data!;
+  },
+
+  async getStorageUsage(): Promise<VideoStorageUsage> {
+    const res = await apiClient.get<VideoStorageUsage>('/api/admin/returns/storage');
+    return res.data!;
+  },
+
+  async clearStorage(): Promise<ClearStorageResult> {
+    const res = await apiClient.post<ClearStorageResult>('/api/admin/returns/storage');
     return res.data!;
   },
 };
