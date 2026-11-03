@@ -11,8 +11,11 @@ import { toast } from "@/components/ui/Toast";
 import { formatDateTime, formatPrice } from "@/lib/utils";
 import {
   availableActions,
+  formatStoreDate,
   REPLACEMENT_TRANSITIONS,
+  RETURN_SHIP_WINDOW_DAYS,
   RETURN_TRANSITIONS,
+  returnStatusLabel,
 } from "../lib/policy";
 import {
   useAdminRequest,
@@ -29,6 +32,17 @@ interface Props {
 
 type Pending = { action: string; label: string } | null;
 
+/** Actions that end the request badly; rendered as red outline buttons. */
+const DESTRUCTIVE_ACTIONS = ["reject", "qc-fail", "expire", "cancel"];
+
+/** Actions whose confirmation panel asks for a free-text reason. */
+const REASON_LABELS: Record<string, string> = {
+  reject: "Rejection Reason *",
+  "qc-fail": "QC Failure Reason *",
+  cancel: "Cancellation Reason (Optional)",
+  approve: "Return Address & Instructions for the Customer",
+};
+
 export function AdminRequestDetailModal({ kind, uuid, onClose }: Props) {
   const { data: req, isLoading, error } = useAdminRequest(kind, uuid);
   const mutation = useAdminRequestAction(kind);
@@ -39,11 +53,14 @@ export function AdminRequestDetailModal({ kind, uuid, onClose }: Props) {
   const [courierName, setCourierName] = useState("");
   const [trackingNumber, setTrackingNumber] = useState("");
   const [pickupImageUrl, setPickupImageUrl] = useState<string | null>(null);
+  const [slipUrl, setSlipUrl] = useState<string | null>(null);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [fieldError, setFieldError] = useState<string | null>(null);
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  /** Which field the shared hidden file input is currently filling. */
+  const uploadTargetRef = useRef<"pickup" | "slip">("pickup");
 
   const originalTracking = req?.originalCourier?.trackingNumber?.trim();
   const isPickupAction = pending?.action === "pickup" || pending?.action === "picked-up";
@@ -78,7 +95,8 @@ export function AdminRequestDetailModal({ kind, uuid, onClose }: Props) {
       const data = await res.json();
       const uploadedUrl = data?.data?.url || data?.data?.path;
       if (res.ok && uploadedUrl) {
-        setPickupImageUrl(uploadedUrl);
+        if (uploadTargetRef.current === "slip") setSlipUrl(uploadedUrl);
+        else setPickupImageUrl(uploadedUrl);
         setFieldError(null);
         toast.success("Image uploaded successfully");
       } else {
@@ -97,9 +115,28 @@ export function AdminRequestDetailModal({ kind, uuid, onClose }: Props) {
   const confirm = () => {
     if (!pending || !req) return;
     const isReject = pending.action === "reject";
+    const isQcFail = pending.action === "qc-fail";
     if (isReject && comment.trim().length < 3) {
       setFieldError("A rejection reason is required.");
       return;
+    }
+    if (isQcFail && comment.trim().length < 3) {
+      setFieldError("A quality check failure reason is required.");
+      return;
+    }
+    if (pending.action === "shipped") {
+      if (courierName.trim().length < 2) {
+        setFieldError("Enter the courier the customer shipped with.");
+        return;
+      }
+      if (trackingNumber.trim().length < 3) {
+        setFieldError("Enter the tracking / AWB number.");
+        return;
+      }
+      if (!slipUrl) {
+        setFieldError("A photo of the courier / delivery slip is mandatory.");
+        return;
+      }
     }
     if (hasCourierMismatch && originalTracking) {
       setFieldError(`Courier number mismatch! Must match original delivered courier no: ${originalTracking}. Pickup is not allowed on mismatch.`);
@@ -115,13 +152,31 @@ export function AdminRequestDetailModal({ kind, uuid, onClose }: Props) {
         uuid: req.id,
         action: pending.action,
         payload: {
-          ...(isReject ? { rejectionReason: comment.trim() } : comment.trim() ? { comment: comment.trim() } : {}),
+          ...(isReject
+            ? { rejectionReason: comment.trim() }
+            : isQcFail
+              ? { qcFailureReason: comment.trim() }
+              : pending.action === "cancel"
+                ? comment.trim()
+                  ? { cancellationReason: comment.trim() }
+                  : {}
+                : comment.trim()
+                  ? { comment: comment.trim() }
+                  : {}),
           ...(pending.action === "pickup" && pickupDate ? { pickupDate: new Date(pickupDate).toISOString() } : {}),
-          ...(pending.action === "pickup" || pending.action === "picked-up"
+          ...(pending.action === "shipped" && pickupDate
+            ? { shippedDate: new Date(pickupDate).toISOString() }
+            : {}),
+          ...(pending.action === "pickup" ||
+          pending.action === "picked-up" ||
+          pending.action === "shipped"
             ? {
                 ...(courierName.trim() ? { courierName: courierName.trim() } : {}),
                 ...(trackingNumber.trim() ? { trackingNumber: trackingNumber.trim() } : {}),
                 ...(pickupImageUrl ? { pickupImageUrl } : {}),
+                ...(pending.action === "shipped" && slipUrl
+                  ? { shippingSlipUrl: slipUrl }
+                  : {}),
               }
             : {}),
           ...(pending.action === "complete" && transactionRef.trim() ? { transactionRef: transactionRef.trim() } : {}),
@@ -148,6 +203,7 @@ export function AdminRequestDetailModal({ kind, uuid, onClose }: Props) {
           setCourierName("");
           setTrackingNumber("");
           setPickupImageUrl(null);
+          setSlipUrl(null);
         },
         onError: (err) => setFieldError(err instanceof Error ? err.message : "Action failed"),
       }
@@ -177,8 +233,37 @@ export function AdminRequestDetailModal({ kind, uuid, onClose }: Props) {
               <span className="text-xs text-neutral-400">Request:</span>
               <p className="font-mono text-xs font-semibold text-neutral-700">{req.id.slice(0, 8).toUpperCase()}</p>
             </div>
-            <RequestStatusBadge status={req.status} />
+            <RequestStatusBadge status={req.status} kind={kind === "returns" ? "return" : "replacement"} />
           </div>
+
+          {kind === "returns" && req.status === "approved" && req.shipDeadline && (
+            <div
+              className={`flex items-start gap-2 rounded-xl border px-4 py-2.5 text-xs ${
+                req.shipWindowExpired
+                  ? "border-red-200 bg-red-50 text-red-800"
+                  : "border-amber-200 bg-amber-50 text-amber-900"
+              }`}
+            >
+              <Truck className="mt-0.5 h-4 w-4 shrink-0" />
+              <span>
+                {req.shipWindowExpired ? (
+                  <>
+                    <strong>Shipping deadline passed</strong> ({formatStoreDate(new Date(req.shipDeadline))}).
+                    The customer never shipped the item - close the request as expired.
+                  </>
+                ) : (
+                  <>
+                    <strong>Awaiting shipment from the customer.</strong> They must courier the
+                    item by {formatStoreDate(new Date(req.shipDeadline))}
+                    {typeof req.shipDaysLeft === "number" && req.shipDaysLeft > 0
+                      ? ` (${req.shipDaysLeft} ${req.shipDaysLeft === 1 ? "day" : "days"} left)`
+                      : ""}
+                    .
+                  </>
+                )}
+              </span>
+            </div>
+          )}
 
           {req.returnNumber && (
             <div className="flex items-center justify-between gap-3 rounded-xl border border-emerald-300 bg-emerald-50 px-4 py-2.5 shadow-2xs">
@@ -277,7 +362,11 @@ export function AdminRequestDetailModal({ kind, uuid, onClose }: Props) {
             </Block>
           </div>
 
-          {(req.originalCourier || req.courierName || req.trackingNumber || req.pickupImageUrl) && (
+          {(req.originalCourier ||
+            req.courierName ||
+            req.trackingNumber ||
+            req.shippingSlipUrl ||
+            req.pickupImageUrl) && (
             <Block title="Courier & Tracking Details">
               <div className="grid gap-3 sm:grid-cols-3 text-xs">
                 {req.originalCourier && (
@@ -335,6 +424,18 @@ export function AdminRequestDetailModal({ kind, uuid, onClose }: Props) {
                         </button>
                       )}
                     </div>
+                  </div>
+                )}
+                {req.shippingSlipUrl && (
+                  <div>
+                    <span className="text-[11px] font-bold text-neutral-500 uppercase tracking-wider block">Delivery Slip Photo</span>
+                    <button
+                      type="button"
+                      onClick={() => setPreviewImage(req.shippingSlipUrl!)}
+                      className="group relative mt-1 block h-14 w-14 overflow-hidden rounded-lg border border-neutral-300 bg-neutral-100 hover:opacity-90 transition-opacity cursor-pointer"
+                    >
+                      <Image src={req.shippingSlipUrl} alt="Delivery slip" fill sizes="56px" className="object-cover" unoptimized />
+                    </button>
                   </div>
                 )}
                 {req.pickupImageUrl && (
@@ -481,7 +582,12 @@ export function AdminRequestDetailModal({ kind, uuid, onClose }: Props) {
             <ol className="space-y-1 text-xs">
               {req.history.map((h) => (
                 <li key={h.id}>
-                  <strong>{h.toStatus.replace(/_/g, " ")}</strong> · {formatDateTime(h.createdAt)} ·{" "}
+                  <strong>
+                    {kind === "returns"
+                      ? returnStatusLabel(h.toStatus)
+                      : h.toStatus.replace(/_/g, " ")}
+                  </strong>{" "}
+                  · {formatDateTime(h.createdAt)} ·{" "}
                   <span className="text-neutral-500">{h.actorType}</span>
                   {h.note && <span className="text-neutral-600"> — {h.note}</span>}
                 </li>
@@ -496,8 +602,12 @@ export function AdminRequestDetailModal({ kind, uuid, onClose }: Props) {
                 <Button
                   key={a.action}
                   size="sm"
-                  variant={a.action === "reject" ? "outline" : "default"}
-                  className={a.action === "reject" ? "border-red-200 text-red-700 hover:bg-red-50" : ""}
+                  variant={DESTRUCTIVE_ACTIONS.includes(a.action) ? "outline" : "default"}
+                  className={
+                    DESTRUCTIVE_ACTIONS.includes(a.action)
+                      ? "border-red-200 text-red-700 hover:bg-red-50"
+                      : ""
+                  }
                   onClick={() => {
                     setFieldError(null);
                     setPending(a);
@@ -506,6 +616,9 @@ export function AdminRequestDetailModal({ kind, uuid, onClose }: Props) {
                     let autoTrack = req.trackingNumber || origTrack || "";
                     let autoCourier = req.courierName || origCarrier || "";
 
+                    // Only the replacement pickup is bound to the original
+                    // delivery courier; a return is shipped by the customer
+                    // with whatever courier they choose.
                     if (origTrack && (a.action === "pickup" || a.action === "picked-up")) {
                       if (!req.trackingNumber || req.trackingNumber.toUpperCase() !== origTrack.toUpperCase()) {
                         autoTrack = origTrack;
@@ -518,6 +631,7 @@ export function AdminRequestDetailModal({ kind, uuid, onClose }: Props) {
                     setCourierName(autoCourier);
                     setTrackingNumber(autoTrack);
                     setPickupImageUrl(req.pickupImageUrl || null);
+                    setSlipUrl(req.shippingSlipUrl || null);
                   }}
                 >
                   {a.label}
@@ -535,8 +649,163 @@ export function AdminRequestDetailModal({ kind, uuid, onClose }: Props) {
                     ? "Reject this request"
                     : pending.action === "complete"
                       ? "Complete Refund & Mark Refunded"
-                      : `${pending.label}?`}
+                      : pending.action === "qc-fail"
+                        ? "Fail the quality check"
+                        : `${pending.label}?`}
               </p>
+
+              {pending.action === "approve" && kind === "returns" && (
+                <p className="text-xs text-neutral-600">
+                  The customer gets {RETURN_SHIP_WINDOW_DAYS} days from today to courier the item
+                  back. Put the return address in the box below - it is shown to them with the
+                  approval.
+                </p>
+              )}
+
+              {pending.action === "qc-fail" && (
+                <p className="text-xs text-red-700">
+                  The item will not be refunded or restocked, and the reason below is shown to the
+                  customer. Use this only when the returned item fails inspection.
+                </p>
+              )}
+
+              {pending.action === "expire" && (
+                <p className="text-xs text-neutral-600">
+                  Closes the request because the customer did not ship the item before the
+                  deadline. No refund is issued.
+                </p>
+              )}
+
+              {pending.action === "cancel" && (
+                <p className="text-xs text-neutral-600">
+                  Cancels the request on the customer&apos;s behalf. The item stays with them and
+                  they may raise a fresh request while the return window is open.
+                </p>
+              )}
+
+              {pending.action === "refund" && kind === "returns" && (
+                <p className="text-xs text-emerald-800">
+                  This marks the quality check as passed: the item is restocked and the refund is
+                  initiated.
+                </p>
+              )}
+
+              {pending.action === "shipped" && (
+                <div className="space-y-2.5 rounded-lg border border-sky-200 bg-white p-3 text-xs">
+                  <p className="font-semibold text-sky-950">
+                    Courier details as given by the customer
+                  </p>
+                  <p className="text-neutral-600">
+                    The customer picks their own courier, so this is not checked against the
+                    original delivery shipment. Correct it here whenever they send an update.
+                  </p>
+                  <div className="grid gap-2.5 sm:grid-cols-3">
+                    <div>
+                      <label className="mb-1 block font-semibold text-neutral-700">
+                        Courier / Partner *
+                      </label>
+                      <Input
+                        value={courierName}
+                        onChange={(e) => setCourierName(e.target.value)}
+                        placeholder="e.g. Delhivery, India Post"
+                      />
+                    </div>
+                    <div>
+                      <label className="mb-1 block font-semibold text-neutral-700">
+                        Tracking / AWB No *
+                      </label>
+                      <Input
+                        value={trackingNumber}
+                        onChange={(e) => setTrackingNumber(e.target.value)}
+                        placeholder="Tracking number"
+                      />
+                    </div>
+                    <div>
+                      <label className="mb-1 block font-semibold text-neutral-700">
+                        Shipped on
+                      </label>
+                      <Input
+                        type="date"
+                        value={pickupDate}
+                        onChange={(e) => setPickupDate(e.target.value)}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="border-t border-neutral-100 pt-2.5">
+                    <p className="font-semibold text-neutral-700">
+                      Courier / Delivery Slip Photo *
+                    </p>
+                    <p className="mt-0.5 text-neutral-600">
+                      The customer normally uploads this themselves. Attach it here only when
+                      they sent it to you another way.
+                    </p>
+                    {slipUrl ? (
+                      <div className="mt-2 flex items-center gap-2.5">
+                        <button
+                          type="button"
+                          onClick={() => setPreviewImage(slipUrl)}
+                          className="relative h-12 w-12 shrink-0 overflow-hidden rounded border border-neutral-200 bg-neutral-100 cursor-pointer"
+                        >
+                          <Image
+                            src={slipUrl}
+                            alt="Delivery slip"
+                            fill
+                            sizes="48px"
+                            className="object-cover"
+                            unoptimized
+                          />
+                        </button>
+                        <div className="min-w-0 flex-1">
+                          <p className="font-semibold text-emerald-700">Slip photo attached</p>
+                          <button
+                            type="button"
+                            className="text-sky-700 underline cursor-pointer"
+                            onClick={() => {
+                              uploadTargetRef.current = "slip";
+                              fileInputRef.current?.click();
+                            }}
+                          >
+                            Replace photo
+                          </button>
+                        </div>
+                        <button
+                          type="button"
+                          aria-label="Remove photo"
+                          className="rounded-full p-1 text-neutral-500 hover:bg-neutral-100 cursor-pointer"
+                          onClick={() => setSlipUrl(null)}
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    ) : (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        className="mt-2"
+                        disabled={isUploadingImage}
+                        onClick={() => {
+                          uploadTargetRef.current = "slip";
+                          fileInputRef.current?.click();
+                        }}
+                      >
+                        {isUploadingImage ? (
+                          <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                        ) : (
+                          <Upload className="mr-1.5 h-3.5 w-3.5" />
+                        )}
+                        {isUploadingImage ? "Uploading…" : "Upload slip photo"}
+                      </Button>
+                    )}
+                    {!slipUrl && (
+                      <p className="mt-1.5 font-semibold text-amber-800">
+                        ⚠️ The slip photo is mandatory before the return can be marked as shipped.
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )}
               {pending.action === "refund" && (
                 <p className="text-xs text-neutral-600">
                   {req.refundMethod
@@ -703,6 +972,7 @@ export function AdminRequestDetailModal({ kind, uuid, onClose }: Props) {
                             onClick={(e) => {
                               e.preventDefault();
                               e.stopPropagation();
+                              uploadTargetRef.current = "pickup";
                               fileInputRef.current?.click();
                             }}
                             className="inline-flex items-center gap-1.5 rounded-lg border border-neutral-300 bg-white px-3 py-1.5 text-xs font-semibold text-neutral-700 hover:bg-neutral-50 cursor-pointer transition-colors shadow-2xs"
@@ -870,6 +1140,7 @@ export function AdminRequestDetailModal({ kind, uuid, onClose }: Props) {
                             onClick={(e) => {
                               e.preventDefault();
                               e.stopPropagation();
+                              uploadTargetRef.current = "pickup";
                               fileInputRef.current?.click();
                             }}
                             className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-300 bg-white px-3 py-1.5 text-xs font-semibold text-emerald-900 hover:bg-emerald-100/50 cursor-pointer transition-colors shadow-2xs"
@@ -913,14 +1184,25 @@ export function AdminRequestDetailModal({ kind, uuid, onClose }: Props) {
               )}
               <div className="space-y-1">
                 <label className="text-xs font-semibold text-neutral-700">
-                  {pending.action === "reject" ? "Rejection Reason *" : "Admin Comment (Optional)"}
+                  {(kind === "returns" ? REASON_LABELS[pending.action] : undefined) ??
+                    (pending.action === "reject"
+                      ? "Rejection Reason *"
+                      : "Admin Comment (Optional)")}
                 </label>
                 <Textarea
                   value={comment}
                   maxLength={500}
                   onChange={(e) => setComment(e.target.value)}
                   placeholder={
-                    pending.action === "reject" ? "Describe why this request is being rejected" : "Internal note or remark"
+                    pending.action === "reject"
+                      ? "Describe why this request is being rejected"
+                      : pending.action === "qc-fail"
+                        ? "Describe what failed the quality check"
+                        : pending.action === "approve" && kind === "returns"
+                          ? "Return address the customer should courier the item to"
+                          : pending.action === "cancel"
+                            ? "Why the customer is cancelling"
+                            : "Internal note or remark"
                   }
                   className="bg-white"
                 />

@@ -24,13 +24,14 @@ const PRIMARY_TABS: StatusTab[] = [
   { label: "Shipped", href: "/admin/dashboard/orders/shipped", countKey: "shipped" },
   { label: "Out for Delivery", href: "/admin/dashboard/orders/out-for-delivery", countKey: "out_for_delivery" },
   { label: "Delivered", href: "/admin/dashboard/orders/delivered", countKey: "delivered" },
+  // Returns need reviewing on a clock, so this one stays in sight.
+  { label: "Return Requests", href: "/admin/dashboard/orders/returns", countKey: "return_requests" },
 ];
 
 // Exceptions & after-sales — tucked into a menu
 const MORE_TABS: StatusTab[] = [
   { label: "Cancelled", href: "/admin/dashboard/orders/cancelled", countKey: "cancelled" },
   { label: "Returned", href: "/admin/dashboard/orders/returned", countKey: "returned" },
-  { label: "Return Requests", href: "/admin/dashboard/orders/returns", countKey: "return_requests" },
   { label: "Replacement Requests", href: "/admin/dashboard/orders/replacements", countKey: "replacement_requests" },
 ];
 

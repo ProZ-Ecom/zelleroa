@@ -1,10 +1,13 @@
-import Link from "next/link";
 import { CheckCircle2, Circle } from "lucide-react";
 import type { Completion } from "../lib/profile-completion";
 import { ProfileCompletionMeter } from "@/components/ui/ProfileCompletionMeter";
 import { Panel } from "./shared";
 
-/** Progress bar + the sections still to do. `onNavigate` lets the wizard jump a step instead of linking. */
+/**
+ * Progress bar + the sections still to do. The "Complete Details" CTA only appears
+ * when `onNavigate` is given (the agent's own wizard): the admin view is read-only,
+ * and linking it to /agent/profile just bounced staff back to /admin/dashboard.
+ */
 export function ProfileCompletionCard({
   completion,
   compact = false,
@@ -18,17 +21,12 @@ export function ProfileCompletionCard({
   const first = incomplete[0];
   const ctaClass =
     "inline-flex h-10 w-full items-center justify-center rounded-xl bg-neutral-900 px-5 text-sm font-semibold text-white hover:bg-neutral-800 sm:w-auto";
-  const cta = first ? (
-    onNavigate ? (
+  const cta =
+    first && onNavigate ? (
       <button type="button" onClick={() => onNavigate(first.step)} className={ctaClass}>
         Complete Details
       </button>
-    ) : (
-      <Link href={`/agent/profile?step=${first.step}`} className={ctaClass}>
-        Complete Details
-      </Link>
-    )
-  ) : null;
+    ) : null;
 
   return (
     <Panel title="Profile completion">

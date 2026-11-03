@@ -1227,8 +1227,14 @@ export const orderRepository = {
           id: true,
         },
       }),
+      // Only the ones waiting on us, so the tab badge means "needs action".
       db.return_requests.count({
-        where: { is_active: true },
+        where: {
+          is_active: true,
+          status: {
+            in: ["return_requested", "under_review", "shipped_by_customer", "received", "refund_pending"],
+          },
+        },
       }),
       db.replacement_requests.count({
         where: { is_active: true },

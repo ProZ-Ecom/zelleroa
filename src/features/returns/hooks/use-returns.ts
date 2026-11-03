@@ -4,6 +4,7 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tansta
 import { CUSTOMER_ORDERS_QUERY_KEY } from "@/features/customers/hooks/use-customer-orders";
 import {
   returnsApi,
+  type CustomerReturnActionPayload,
   type RequestActionPayload,
   type RequestListParams,
   type SubmitReplacementPayload,
@@ -33,6 +34,22 @@ export function useSubmitReplacement(orderUuid: string) {
   return useMutation({
     mutationFn: (payload: SubmitReplacementPayload) =>
       returnsApi.submitReplacement(orderUuid, payload),
+    onSuccess: () => qc.invalidateQueries({ queryKey: CUSTOMER_ORDERS_QUERY_KEY }),
+  });
+}
+
+/**
+ * The customer's own two steps on a return: handing over the courier and
+ * tracking number, or cancelling before the parcel ships.
+ */
+export function useCustomerReturnAction() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (v: {
+      uuid: string;
+      action: "shipped" | "cancel";
+      payload?: CustomerReturnActionPayload;
+    }) => returnsApi.customerAction(v.uuid, v.action, v.payload),
     onSuccess: () => qc.invalidateQueries({ queryKey: CUSTOMER_ORDERS_QUERY_KEY }),
   });
 }

@@ -5,8 +5,17 @@ import { userRepository } from "@/features/users/repositories/user.repository";
 import { resolveDeliveredAt, formatOrderAddress } from "@/features/orders/repositories/order.repository";
 import { razorpayService } from "@/features/payment/services/razorpay.service";
 import { returnRepository, type Actor } from "../repositories/return.repository";
-import { getReturnWindow, RETURN_TRANSITIONS, type ReturnAction, type ReturnStatus } from "../lib/policy";
+import {
+  getReturnWindow,
+  getShipWindow,
+  RETURN_CUSTOMER_ACTIONS,
+  RETURN_TRANSITIONS,
+  SHIPPING_SLIP_MANDATORY_NOTICE,
+  type ReturnAction,
+  type ReturnStatus,
+} from "../lib/policy";
 import { summarizeReturnRequest } from "../lib/summary";
+import { slipService } from "./slip.service";
 import { videoService } from "./video.service";
 import {
   assertOrderEligible,
@@ -32,8 +41,14 @@ function formatRequest(req: any) {
         trackingNumber: originalShipment.tracking_number,
       }
     : null;
+  const ship = getShipWindow(req.approved_at);
   return {
     ...summarizeReturnRequest(req),
+    /** Ship-back deadline and how much of it is left, for the approved state. */
+    shipDeadline: req.ship_deadline_at ?? ship.deadline,
+    shipDaysLeft: ship.daysLeft,
+    /** True when the request sat in `approved` past the deadline. */
+    shipWindowExpired: ship.expired && req.status === "approved",
     orderId: req.orders.uuid || String(req.orders.id),
     orderNumber: req.orders.orderNumber,
     orderStatus: req.orders.order_status,
@@ -261,18 +276,49 @@ export const returnService = {
     return formatRequest(req);
   },
 
+  /** Admin / staff workflow step. */
   async performAction(
     adminSessionUserId: string,
     uuid: string,
     action: ReturnAction,
     input: RequestActionInput = {}
   ) {
-    const rule = RETURN_TRANSITIONS[action];
-    if (!rule) throw ApiError.notFound("Unknown action");
-
     const actor = await resolveActor(adminSessionUserId);
     const req = await returnRepository.findByUuid(uuid);
     if (!req) throw ApiError.notFound("Return request not found");
+    return applyAction(actor, req, uuid, action, input);
+  },
+
+  /**
+   * The two steps the customer drives themselves: entering the courier and
+   * tracking number once they have posted the parcel, and pulling the request
+   * before it ships. Everything else stays with the admin.
+   */
+  async performCustomerAction(
+    sessionUserId: string,
+    uuid: string,
+    action: ReturnAction,
+    input: RequestActionInput = {}
+  ) {
+    if (!RETURN_CUSTOMER_ACTIONS.includes(action)) {
+      throw ApiError.forbidden("This action can only be performed by our team.");
+    }
+    const customerId = await resolveCustomerId(sessionUserId);
+    const req = await returnRepository.findByUuid(uuid, customerId);
+    if (!req) throw ApiError.notFound("Return request not found");
+    return applyAction({ id: customerId, type: "USER" }, req, uuid, action, input);
+  },
+};
+
+async function applyAction(
+  actor: Actor,
+  req: NonNullable<Awaited<ReturnType<typeof returnRepository.findByUuid>>>,
+  uuid: string,
+  action: ReturnAction,
+  input: RequestActionInput = {}
+) {
+  const rule = RETURN_TRANSITIONS[action];
+    if (!rule) throw ApiError.notFound("Unknown action");
 
     const current = req.status as ReturnStatus;
     if (!rule.from.includes(current)) {
@@ -286,31 +332,49 @@ export const returnService = {
       throw ApiError.badRequest("A rejection reason is required");
     }
 
-    let pickupAt: Date | undefined;
-    if (action === "pickup" && input.pickupDate) {
-      pickupAt = new Date(input.pickupDate);
-      if (Number.isNaN(pickupAt.getTime())) throw ApiError.badRequest("Invalid pickup date");
+    const qcFailureReason = (input.qcFailureReason ?? input.comment ?? "").trim();
+    if (action === "qc-fail" && qcFailureReason.length < 3) {
+      throw ApiError.badRequest("A quality check failure reason is required");
     }
 
-    if (action === "pickup" || action === "picked-up") {
-      const photo = input.pickupImageUrl?.trim() || (req as any).pickup_image_url?.trim();
-      if (!photo) {
-        throw ApiError.badRequest("Courier receipt / package photo is mandatory for pickup.");
-      }
+    let shipDeadlineAt: Date | undefined;
+    if (action === "approve") {
+      shipDeadlineAt = getShipWindow(new Date()).deadline ?? undefined;
+    }
 
-      const originalShipments = await db.shipments.findMany({
-        where: { order_id: req.order_id, is_active: true },
-        select: { tracking_number: true },
+    // The customer picks their own courier, so the carrier is free text and is
+    // deliberately not matched against the original delivery shipment. The slip
+    // photo is the proof that the parcel was actually posted, so it is required.
+    let shippedAt: Date | undefined;
+    let shippingSlipUrl: string | undefined;
+    if (action === "shipped") {
+      const courier = (input.courierName ?? req.courier_name ?? "").trim();
+      const tracking = (input.trackingNumber ?? req.tracking_number ?? "").trim();
+      if (!courier) throw ApiError.badRequest("Courier name is required");
+      if (!tracking) throw ApiError.badRequest("Tracking number is required");
+
+      const slip = (input.shippingSlipUrl ?? req.shipping_slip_url ?? "").trim();
+      if (!slip) throw ApiError.badRequest(SHIPPING_SLIP_MANDATORY_NOTICE);
+      // Checked against the request's owner, so an admin entering the details
+      // on the customer's behalf still validates the customer's own upload.
+      shippingSlipUrl = await slipService.assertUsableSlip(req.user_id, slip, {
+        allowAdminUpload: actor.type !== "USER",
       });
-      const originalTracking = originalShipments.find((s) => s.tracking_number)?.tracking_number?.trim();
 
-      if (originalTracking && input.trackingNumber) {
-        const entered = input.trackingNumber.trim();
-        if (entered.toUpperCase() !== originalTracking.toUpperCase()) {
-          throw ApiError.badRequest(
-            `Courier number mismatch. Pickup not allowed (Expected delivery courier no: ${originalTracking}, got: ${entered}).`
-          );
-        }
+      if (input.shippedDate) {
+        shippedAt = new Date(input.shippedDate);
+        if (Number.isNaN(shippedAt.getTime())) throw ApiError.badRequest("Invalid shipped date");
+      }
+    }
+
+    if (action === "expire") {
+      // Prefer the deadline stored at approval; fall back to recomputing it for
+      // requests approved before that column existed.
+      const deadline = req.ship_deadline_at ?? getShipWindow(req.approved_at).deadline;
+      if (!deadline || Date.now() <= deadline.getTime()) {
+        throw ApiError.badRequest(
+          "The customer's shipping deadline has not passed yet, so this request cannot be expired."
+        );
       }
     }
 
@@ -321,10 +385,14 @@ export const returnService = {
       actor,
       comment: input.comment,
       rejectionReason: action === "reject" ? rejectionReason : undefined,
-      pickupAt,
+      qcFailureReason: action === "qc-fail" ? qcFailureReason : undefined,
+      cancellationReason: action === "cancel" ? input.cancellationReason : undefined,
+      shipDeadlineAt,
+      shippedAt,
       transactionRef: input.transactionRef,
       courierName: input.courierName,
       trackingNumber: input.trackingNumber,
+      shippingSlipUrl,
       pickupImageUrl: input.pickupImageUrl,
       note: input.note,
     });
@@ -337,5 +405,4 @@ export const returnService = {
     }
 
     return formatRequest(updated);
-  },
-};
+}

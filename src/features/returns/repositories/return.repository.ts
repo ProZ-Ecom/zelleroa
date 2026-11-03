@@ -105,10 +105,20 @@ export interface TransitionParams {
   actor: Actor;
   comment?: string;
   rejectionReason?: string;
+  /** `qc-fail` only: why the returned item failed the quality check. */
+  qcFailureReason?: string;
+  /** `cancel` only: why the customer pulled the request. */
+  cancellationReason?: string;
   pickupAt?: Date;
+  /** `approve` only: last day the customer may ship the item back. */
+  shipDeadlineAt?: Date;
+  /** `shipped` only: when the customer handed the parcel to the courier. */
+  shippedAt?: Date;
   transactionRef?: string;
   courierName?: string;
   trackingNumber?: string;
+  /** `shipped` only: the courier / delivery slip photo, mandatory for returns. */
+  shippingSlipUrl?: string;
   pickupImageUrl?: string;
   note?: string;
 }
@@ -273,7 +283,10 @@ export const returnRepository = {
       const now = new Date();
 
       // Optimistic guard: only succeeds if nobody moved the request meanwhile.
-      const data: Prisma.return_requestsUpdateManyMutationInput & { updated_by: bigint } = {
+      // The *unchecked* input is the one that carries the relation-backed
+      // foreign keys (`updated_by`, `created_by`); the checked variant omits
+      // them, so passing one through it is rejected at runtime.
+      const data: Prisma.return_requestsUncheckedUpdateManyInput = {
         status: p.to,
         updated_at: now,
         updated_by: p.actor.id,
@@ -288,6 +301,7 @@ export const returnRepository = {
           approved_by: p.actor.id,
           admin_comment: p.comment ?? null,
           return_number: generatedReturnNumber,
+          ship_deadline_at: p.shipDeadlineAt ?? null,
         });
       } else if (p.action === "reject") {
         Object.assign(data, {
@@ -296,10 +310,31 @@ export const returnRepository = {
           rejection_reason: p.rejectionReason,
           admin_comment: p.comment ?? null,
         });
-      } else if (p.action === "pickup") {
-        Object.assign(data, { pickup_scheduled_at: p.pickupAt ?? now });
+      } else if (p.action === "shipped") {
+        Object.assign(data, { shipped_at: p.shippedAt ?? now });
+      } else if (p.action === "received") {
+        Object.assign(data, { received_at: now });
+      } else if (p.action === "qc-fail") {
+        Object.assign(data, {
+          qc_failed_at: now,
+          qc_failure_reason: p.qcFailureReason ?? null,
+          admin_comment: p.comment ?? null,
+        });
+      } else if (p.action === "expire") {
+        Object.assign(data, { expired_at: now });
+      } else if (p.action === "cancel") {
+        Object.assign(data, {
+          cancelled_at: now,
+          cancelled_by: p.actor.id,
+          cancellation_reason: p.cancellationReason ?? null,
+        });
       } else if (p.action === "complete" || p.action === "close") {
-        Object.assign(data, { completed_at: now });
+        Object.assign(data, {
+          completed_at: now,
+          // Must be part of this update: assigning it after `updateMany` ran
+          // silently dropped a manually entered reference.
+          ...(p.transactionRef ? { refund_transaction_ref: p.transactionRef } : {}),
+        });
       }
       if (p.courierName !== undefined) {
         Object.assign(data, { courier_name: p.courierName.trim() || null });
@@ -309,6 +344,9 @@ export const returnRepository = {
       }
       if (p.pickupImageUrl !== undefined) {
         Object.assign(data, { pickup_image_url: p.pickupImageUrl.trim() || null });
+      }
+      if (p.shippingSlipUrl !== undefined) {
+        Object.assign(data, { shipping_slip_url: p.shippingSlipUrl.trim() || null });
       }
       if (p.comment && !["approve", "reject"].includes(p.action)) {
         Object.assign(data, { admin_comment: p.comment });
@@ -333,18 +371,7 @@ export const returnRepository = {
       const orderId = p.request.orderId;
       let historyNote = p.rejectionReason ?? p.note ?? p.comment ?? null;
 
-      if (p.action === "pickup" && !p.note && !p.comment) {
-        const ret = await tx.return_requests.findUnique({
-          where: { id: p.request.id },
-          select: { return_number: true },
-        });
-        const dt = p.pickupAt ? ` for ${p.pickupAt.toLocaleDateString("en-IN")}` : "";
-        const courierStr = p.courierName ? ` via ${p.courierName}` : "";
-        const trackingStr = p.trackingNumber ? ` (Tracking: ${p.trackingNumber})` : "";
-        historyNote = ret?.return_number
-          ? `Pickup scheduled${dt}${courierStr}${trackingStr}. Return ID: ${ret.return_number}`
-          : `Pickup scheduled${dt}${courierStr}${trackingStr}`;
-      } else if (p.action === "picked-up" && !p.note && !p.comment) {
+      if (p.action === "shipped" && !p.note && !p.comment) {
         const ret = await tx.return_requests.findUnique({
           where: { id: p.request.id },
           select: { return_number: true, courier_name: true, tracking_number: true },
@@ -352,31 +379,54 @@ export const returnRepository = {
         const courier = p.courierName || ret?.courier_name;
         const tracking = p.trackingNumber || ret?.tracking_number;
         const courierStr = courier ? ` via ${courier}` : "";
-        const trackingStr = tracking ? ` (Tracking: ${tracking})` : "";
+        const trackingStr = tracking ? ` (Tracking no: ${tracking})` : "";
         historyNote = ret?.return_number
-          ? `Item picked up from customer${courierStr}${trackingStr}. Return ID: ${ret.return_number}`
-          : `Item picked up from customer${courierStr}${trackingStr}`;
+          ? `Item shipped by customer${courierStr}${trackingStr}. Return ID: ${ret.return_number}`
+          : `Item shipped by customer${courierStr}${trackingStr}`;
+      } else if (p.action === "received" && !p.note && !p.comment) {
+        historyNote = "Returned item received. Quality check in progress.";
+      } else if (p.action === "qc-fail") {
+        historyNote = p.qcFailureReason
+          ? `Quality check failed: ${p.qcFailureReason}`
+          : "Quality check failed";
+      } else if (p.action === "expire" && !p.note && !p.comment) {
+        historyNote = "Closed as the item was not shipped before the deadline";
+      } else if (p.action === "cancel") {
+        historyNote = p.cancellationReason
+          ? `Return cancelled: ${p.cancellationReason}`
+          : "Return request cancelled";
       }
 
-      if (p.action === "received") {
-        // Goods are physically back: put them on the shelf, one ledger row per line.
-        const orderRow = await tx.order.findUnique({
-          where: { id: orderId },
-          select: { orderNumber: true },
-        });
-        for (const item of items) {
-          if (!item.order_items.variantUnitPriceId) continue;
-          await recordStockMovement(tx, {
-            variantUnitPriceId: item.order_items.variantUnitPriceId,
-            movementType: "RETURN",
-            direction: "in",
-            quantity: item.quantity,
+      if (p.action === "refund") {
+        // The quality check passed, so the goods can go back on the shelf. This
+        // deliberately happens here and not on `received`: a QC failure must
+        // never restock an item that is about to be sent back to the customer.
+        const alreadyRestocked = await tx.inventoryTransaction.count({
+          where: {
             referenceType: "return_request",
             referenceId: p.request.id,
-            referenceNumber: orderRow?.orderNumber,
-            reason: "Returned item received",
-            actorId: p.actor.id,
+            movement_type: "RETURN",
+          },
+        });
+        if (alreadyRestocked === 0) {
+          const orderRow = await tx.order.findUnique({
+            where: { id: orderId },
+            select: { orderNumber: true },
           });
+          for (const item of items) {
+            if (!item.order_items.variantUnitPriceId) continue;
+            await recordStockMovement(tx, {
+              variantUnitPriceId: item.order_items.variantUnitPriceId,
+              movementType: "RETURN",
+              direction: "in",
+              quantity: item.quantity,
+              referenceType: "return_request",
+              referenceId: p.request.id,
+              referenceNumber: orderRow?.orderNumber,
+              reason: "Returned item passed quality check",
+              actorId: p.actor.id,
+            });
+          }
         }
 
         await voidCommissions(tx, {
@@ -394,8 +444,11 @@ export const returnRepository = {
             return_requests: {
               is_active: true,
               order_id: orderId,
-              status: { in: ["received", "refund_pending", "refunded", "closed"] },
+              status: { in: ["refund_pending", "refunded", "closed"] },
               rejected_at: null,
+              qc_failed_at: null,
+              cancelled_at: null,
+              expired_at: null,
             },
           },
           select: { order_item_id: true, quantity: true },
@@ -409,7 +462,7 @@ export const returnRepository = {
           where: { orderId, is_active: true },
           select: { id: true, quantity: true },
         });
-        // this request's own rows are already flipped to "received" by the update above
+        // this request's own rows are already flipped to "refund_pending" above
         const full = orderItems.every((oi) => (backById.get(String(oi.id)) ?? 0) >= oi.quantity);
         if (full) {
           await tx.order.update({
@@ -421,16 +474,14 @@ export const returnRepository = {
             data: {
               order_id: orderId,
               status: "returned",
-              note: "All items returned and received",
+              note: "All items returned and passed quality check",
               changed_by: p.actor.id,
               created_by: p.actor.id,
               updated_by: p.actor.id,
             },
           });
         }
-      }
 
-      if (p.action === "refund") {
         const amount = items.reduce((sum, i) => sum + Number(i.refund_amount ?? i.order_items.total_price), 0);
         let payment = await tx.payment.findFirst({ where: { orderId }, orderBy: { id: "asc" } });
         if (!payment) {
@@ -469,9 +520,6 @@ export const returnRepository = {
       }
 
       if (p.action === "complete") {
-        if (p.transactionRef) {
-          Object.assign(data, { refund_transaction_ref: p.transactionRef });
-        }
         const refunds = await tx.refunds.updateMany({
           where: { return_request_id: p.request.id, status: { in: ["initiated", "processing"] } },
           data: {

@@ -2647,9 +2647,21 @@ model return_requests {
   rejection_reason                        String?                  @db.VarChar(500)
   admin_comment                           String?                  @db.VarChar(500)
   pickup_scheduled_at                     DateTime?                @db.Timestamp(0)
+  /// Last day the customer may ship the item back (approval + RETURN_SHIP_WINDOW_DAYS).
+  ship_deadline_at                        DateTime?                @db.Timestamp(0)
+  shipped_at                              DateTime?                @db.Timestamp(0)
   courier_name                            String?                  @db.VarChar(100)
   tracking_number                         String?                  @db.VarChar(100)
+  /// Courier / delivery slip photo the customer uploads with their shipping details.
+  shipping_slip_url                       String?                  @db.VarChar(500)
   pickup_image_url                        String?                  @db.VarChar(500)
+  received_at                             DateTime?                @db.Timestamp(0)
+  qc_failed_at                            DateTime?                @db.Timestamp(0)
+  qc_failure_reason                       String?                  @db.VarChar(500)
+  expired_at                              DateTime?                @db.Timestamp(0)
+  cancelled_at                            DateTime?                @db.Timestamp(0)
+  cancelled_by                            BigInt?                  @db.UnsignedBigInt
+  cancellation_reason                     String?                  @db.VarChar(500)
   completed_at                            DateTime?                @db.Timestamp(0)
   created_at                              DateTime                 @default(now()) @db.Timestamp(0)
   updated_at                              DateTime                 @default(now()) @db.Timestamp(0)
@@ -3178,9 +3190,13 @@ enum return_requests_status {
   rejected
   pickup_scheduled
   picked_up
+  shipped_by_customer
   received
+  qc_failed
   refund_pending
   refunded
+  expired
+  cancelled
   closed
 }
 
