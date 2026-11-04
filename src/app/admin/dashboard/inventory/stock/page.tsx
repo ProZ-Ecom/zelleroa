@@ -283,8 +283,10 @@ function CurrentStockContent() {
           </>
         }
       />
-      <AdminContent className="flex-1 min-h-0 overflow-hidden">
-        <div className="flex h-full flex-col overflow-hidden py-1">
+      {/* No overflow-hidden above the table: on a short window the card hits its
+          380px floor and must spill so the admin <main> can scroll to the pager. */}
+      <AdminContent className="flex-1">
+        <div className="flex h-full flex-col py-1">
           <div className="flex-shrink-0 space-y-4">
             {/* One click per stock state, with how many items are in each. */}
             <ScrollableTabs>
@@ -404,7 +406,7 @@ function CurrentStockContent() {
             )}
           </div>
 
-          <div className="mt-6 flex min-h-0 flex-1 flex-col overflow-hidden">
+          <div className="mt-6 flex min-h-0 flex-1 flex-col">
             {isLoading && !data ? (
               <AdminTableSkeleton />
             ) : (
@@ -467,7 +469,7 @@ function CurrentStockContent() {
                   )}
                 </div>
 
-                <div className="hidden min-h-0 flex-1 flex-col overflow-hidden md:flex">
+                <div className="hidden min-h-0 flex-1 flex-col md:flex">
                   <DataTable
                     columns={columns}
                     data={rows}

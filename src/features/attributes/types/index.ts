@@ -97,6 +97,14 @@ export interface ProductAttributeUsage {
   variantCount: number;
   /** Stock rows whose identity includes this attribute. */
   skuCount: number;
-  /** Whether the attribute is being unconfigured outright or just moved off the SKU axis. */
-  change: "removed" | "demoted";
+  /**
+   * `removed` - unconfigured outright. `demoted` - moved off the SKU axis, so stock
+   * rows keep an identity the product no longer declares. `relevelled` - any other
+   * level change; variants and stock rows are keyed by the old level's axes, so they
+   * stop matching what generation would now produce.
+   */
+  change: "removed" | "demoted" | "relevelled";
+  /** Levels involved in a `demoted` / `relevelled` change, for the confirmation text. */
+  fromLevel?: VariationLevel;
+  toLevel?: VariationLevel;
 }

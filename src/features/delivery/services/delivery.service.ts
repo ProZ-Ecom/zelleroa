@@ -582,6 +582,22 @@ export const deliveryService = {
       throw ApiError.conflict("Order already has an active shipment");
     }
 
+    const invoiceNumber = input.invoiceNumber?.trim() || null;
+    if (invoiceNumber) {
+      const duplicateInvoice = await db.order.findFirst({
+        where: {
+          invoice_number: invoiceNumber,
+          id: { not: order.id },
+        },
+        select: { orderNumber: true },
+      });
+      if (duplicateInvoice) {
+        throw ApiError.conflict(
+          `Invoice number "${invoiceNumber}" is already used by order ${duplicateInvoice.orderNumber}`
+        );
+      }
+    }
+
     const shippingAddress =
       order.address.find((a) => a.type === "shipping") ?? order.address[0] ?? null;
     if (!shippingAddress) {
@@ -597,16 +613,16 @@ export const deliveryService = {
       adminId,
     });
 
-    if (input.invoiceNumber?.trim()) {
+    if (invoiceNumber) {
       try {
         await db.order.update({
           where: { id: order.id },
-          data: { invoice_number: input.invoiceNumber.trim() },
+          data: { invoice_number: invoiceNumber },
         });
       } catch {
         await db.$executeRawUnsafe(
           "UPDATE orders SET invoice_number = ? WHERE id = ?",
-          input.invoiceNumber.trim(),
+          invoiceNumber,
           order.id
         );
       }

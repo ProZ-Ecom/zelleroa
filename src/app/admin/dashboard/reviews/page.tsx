@@ -19,7 +19,7 @@ export default function ReviewsPage() {
         description="Monitor, approve, reject, and manage customer feedback and ratings"
       />
 
-      <AdminContent className="flex-1 min-h-0 overflow-hidden">
+      <AdminContent className="flex-1 min-h-0">
         <AdminReviewListTable />
       </AdminContent>
     </div>

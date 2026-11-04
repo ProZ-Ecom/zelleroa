@@ -15,6 +15,8 @@ import {
   Truck,
   Package,
   FileText,
+  RefreshCw,
+  AlertTriangle,
 } from "lucide-react";
 import { DataTable } from "@/components/admin/data-table/DataTable";
 import { LoadingState } from "@/components/ui/loading-state";
@@ -85,7 +87,7 @@ export function AdminOrderListTable({
   } | null>(null);
   const [deliveryNote, setDeliveryNote] = useState("");
 
-  const { data, isLoading, error, refetch } = useAdminOrders({
+  const { data, isLoading, isFetching, error, refetch } = useAdminOrders({
     page,
     pageSize,
     search: search || undefined,
@@ -109,6 +111,7 @@ export function AdminOrderListTable({
   const [courierInvoiceNumber, setCourierInvoiceNumber] = useState("");
   const [editInvoiceOrder, setEditInvoiceOrder] = useState<{ id: string; orderNumber: string; invoiceNumber?: string | null } | null>(null);
   const [editInvoiceInput, setEditInvoiceInput] = useState("");
+  const [editInvoiceError, setEditInvoiceError] = useState<string | null>(null);
 
   const orders = data?.data ?? [];
   const meta = data?.meta;
@@ -436,6 +439,7 @@ export function AdminOrderListTable({
                     invoiceNumber: row.original.invoiceNumber,
                   });
                   setEditInvoiceInput(row.original.invoiceNumber || "");
+                  setEditInvoiceError(null);
                 }}
                 title={
                   row.original.invoiceNumber
@@ -566,6 +570,19 @@ export function AdminOrderListTable({
         </div>
 
         <div className="flex items-center gap-2.5 shrink-0">
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-10 rounded-xl gap-2"
+            onClick={() => refetch()}
+            disabled={isFetching}
+            title="Refresh orders"
+          >
+            <RefreshCw
+              className={`h-4 w-4 ${isFetching ? "animate-spin" : ""}`}
+            />
+            <span className="hidden sm:inline">Refresh</span>
+          </Button>
           <ExportButton
             onClick={() =>
               exportDataToCsv(
@@ -825,6 +842,7 @@ export function AdminOrderListTable({
                       invoiceNumber: orderDetail.invoiceNumber,
                     });
                     setEditInvoiceInput(orderDetail.invoiceNumber || "");
+                    setEditInvoiceError(null);
                   }}
                   title={orderDetail.invoiceNumber ? `Invoice: ${orderDetail.invoiceNumber}` : "Enter Invoice Number"}
                 >
@@ -989,19 +1007,29 @@ export function AdminOrderListTable({
       {/* Enter / Edit Invoice Number Modal */}
       <FormModal
         open={!!editInvoiceOrder}
-        onClose={() => setEditInvoiceOrder(null)}
+        onClose={() => {
+          setEditInvoiceOrder(null);
+          setEditInvoiceError(null);
+        }}
         title={`Invoice Number - ${editInvoiceOrder?.orderNumber ?? ""}`}
         description="Enter the tax invoice number for this order."
         size="sm"
         footer={
           <>
-            <Button variant="outline" onClick={() => setEditInvoiceOrder(null)}>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setEditInvoiceOrder(null);
+                setEditInvoiceError(null);
+              }}
+            >
               Cancel
             </Button>
             <Button
               disabled={updateOrderInvoiceNumber.isPending || !editInvoiceInput.trim()}
               onClick={() => {
                 if (!editInvoiceOrder) return;
+                setEditInvoiceError(null);
                 updateOrderInvoiceNumber.mutate(
                   {
                     id: editInvoiceOrder.id,
@@ -1015,10 +1043,14 @@ export function AdminOrderListTable({
                       );
                       setEditInvoiceOrder(null);
                       setEditInvoiceInput("");
+                      setEditInvoiceError(null);
                       refetch();
                     },
                     onError: (err: any) => {
-                      toast.error("Failed to save invoice number", err?.message || "Please try again.");
+                      const message =
+                        err?.message || "Could not save the invoice number. Please try again.";
+                      setEditInvoiceError(message);
+                      toast.error("Invoice number not saved", message);
                     },
                   }
                 );
@@ -1040,13 +1072,25 @@ export function AdminOrderListTable({
             <Input
               placeholder="e.g. INV-2026-001"
               value={editInvoiceInput}
-              onChange={(e) => setEditInvoiceInput(e.target.value)}
+              onChange={(e) => {
+                setEditInvoiceInput(e.target.value);
+                if (editInvoiceError) setEditInvoiceError(null);
+              }}
               maxLength={50}
               autoFocus
+              aria-invalid={!!editInvoiceError}
+              className={editInvoiceError ? "border-red-400 focus-visible:ring-red-400" : undefined}
             />
-            <p className="text-[11px] text-neutral-500">
-              This invoice number will appear on the customer Tax Invoice document.
-            </p>
+            {editInvoiceError ? (
+              <p className="flex items-start gap-1.5 text-[11px] font-medium text-red-600">
+                <AlertTriangle className="mt-[1px] h-3.5 w-3.5 shrink-0" />
+                <span>{editInvoiceError}</span>
+              </p>
+            ) : (
+              <p className="text-[11px] text-neutral-500">
+                This invoice number will appear on the customer Tax Invoice document.
+              </p>
+            )}
           </div>
         </div>
       </FormModal>

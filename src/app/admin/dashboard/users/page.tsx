@@ -364,7 +364,7 @@ const { data, isLoading, error, refetch } = useUsers({ page, limit: pageSize });
         }
       />
 
-      <AdminContent className="flex-1 min-h-0 overflow-hidden mt-4">
+      <AdminContent className="flex-1 min-h-0 mt-4">
         <div className="flex-1 min-h-0 overflow-hidden flex flex-col rounded-2xl border border-neutral-200 bg-white shadow-xs">
           <DataTable
             columns={columns}

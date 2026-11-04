@@ -174,7 +174,7 @@ export default function CheckoutPage() {
     addressLine2: "",
     landmark: "",
     city: "",
-    state: "Tamil Nadu",
+    state: "",
     pincode: "",
     country: "India",
     addressType: "shipping" as const,
@@ -356,12 +356,13 @@ export default function CheckoutPage() {
   // Pricing calculations
   const items = cart?.items || [];
   const subtotal = Number(cart?.subtotal || 0);
-  // Delivery is priced by chosen delivery method (Standard = ₹49, Express = ₹99)
-  const deliveryState = isGuest
+  // Standard delivery is free within Tamil Nadu and ₹80 elsewhere; Express is flat ₹99.
+  const isUsingNewAddress = isGuest || isAddingAddress;
+  const deliveryState = isUsingNewAddress
     ? newAddressForm.state
     : addresses.find((a) => a.id === effectiveAddressId)?.state;
   const hasDeliveryState = !!deliveryState?.trim();
-  const isFreeDelivery = false;
+  const isFreeDelivery = hasDeliveryState && isFreeDeliveryState(deliveryState);
   const shippingCharge = getShippingCharge(deliveryState, deliveryMethod);
   const grandTotal = subtotal + shippingCharge;
 
@@ -464,7 +465,7 @@ export default function CheckoutPage() {
         addressLine2: "",
         landmark: "",
         city: "",
-        state: "Tamil Nadu",
+        state: "",
         pincode: "",
         country: "India",
         addressType: "shipping",
@@ -1253,7 +1254,11 @@ export default function CheckoutPage() {
                     </span>
                   </div>
                   <span className="text-xs font-extrabold text-theme-primary">
-                    {formatPrice(STANDARD_DELIVERY_CHARGE)}
+                    {isFreeDelivery
+                      ? "FREE"
+                      : formatPrice(
+                          hasDeliveryState ? shippingCharge : STANDARD_DELIVERY_CHARGE
+                        )}
                   </span>
                 </div>
                 <p className="text-[11px] text-theme-text-subtle flex items-center gap-1 mb-1">
@@ -1261,7 +1266,9 @@ export default function CheckoutPage() {
                   <span>Estimated: {STANDARD_DELIVERY_ESTIMATE}</span>
                 </p>
                 <p className="text-[11px] text-theme-text-muted">
-                  Standard doorstep delivery across India.
+                  {isFreeDelivery
+                    ? `Free delivery within ${FREE_DELIVERY_STATE}.`
+                    : `Standard doorstep delivery across India. Free within ${FREE_DELIVERY_STATE}.`}
                 </p>
               </div>
             </div>
@@ -1491,7 +1498,7 @@ export default function CheckoutPage() {
                     </span>
                   </div>
                   <span className="font-semibold text-theme-text-primary">
-                    {formatPrice(shippingCharge)}
+                    {isFreeDelivery ? "FREE" : formatPrice(shippingCharge)}
                   </span>
                 </div>
 

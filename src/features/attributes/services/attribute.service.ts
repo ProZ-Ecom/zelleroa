@@ -377,23 +377,35 @@ export const attributeService = {
 
     const existingConfigs = await attributeRepository.findAttributeConfigsForProduct(product.id);
 
-    // Both of these leave data behind that no longer matches the configuration.
+    // Every one of these leaves data behind that no longer matches the configuration.
+    // Variants are keyed by their VARIANT-axis values and stock rows by their SKU
+    // signature, so ANY level change re-shapes the key: the existing rows stop
+    // matching what generation would now produce, and the next generate run adds a
+    // parallel set beside them instead of reusing them. Only an unchanged level is safe.
+    type AtRisk = {
+      config: (typeof existingConfigs)[number];
+      change: "removed" | "demoted" | "relevelled";
+      fromLevel?: VariationLevel;
+      toLevel?: VariationLevel;
+    };
     const atRisk = existingConfigs
-      .map((config) => {
+      .map((config): AtRisk | null => {
         const nextLevel = nextLevelByAttributeId.get(config.attribute_id.toString());
-        if (nextLevel === undefined) return { config, change: "removed" as const };
-        if (config.variation_level === "SKU" && nextLevel !== "SKU") {
-          return { config, change: "demoted" as const };
-        }
-        return null;
+        if (nextLevel === undefined) return { config, change: "removed" };
+        const fromLevel = config.variation_level as VariationLevel;
+        if (fromLevel === nextLevel) return null;
+        return {
+          config,
+          change: fromLevel === "SKU" ? "demoted" : "relevelled",
+          fromLevel,
+          toLevel: nextLevel,
+        };
       })
-      .filter((entry): entry is { config: (typeof existingConfigs)[number]; change: "removed" | "demoted" } =>
-        entry !== null
-      );
+      .filter((entry): entry is AtRisk => entry !== null);
 
     if (atRisk.length && !force) {
       const usage: ProductAttributeUsage[] = await Promise.all(
-        atRisk.map(async ({ config, change }) => {
+        atRisk.map(async ({ config, change, fromLevel, toLevel }) => {
           const counts = await attributeRepository.countProductAttributeUsage(
             product.id,
             config.attribute_id
@@ -405,6 +417,8 @@ export const attributeService = {
             variantCount: counts.variantCount,
             skuCount: counts.skuCount,
             change,
+            fromLevel,
+            toLevel,
           };
         })
       );

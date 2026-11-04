@@ -277,7 +277,7 @@ export default function AdminFaqsPage() {
         description="Manage the questions and answers shown on the storefront FAQ page."
       />
 
-      <AdminContent className="min-h-0 flex-1 overflow-hidden">
+      <AdminContent className="min-h-0 flex-1">
         <div className="flex h-full flex-col overflow-hidden rounded-2xl bg-[var(--color-background)] py-1">
           {/* Top Bar: Search, Filters, Add Button */}
           <div className="flex flex-shrink-0 flex-col gap-4 md:flex-row md:items-center md:justify-between">
@@ -356,7 +356,7 @@ export default function AdminFaqsPage() {
           )}
 
           {/* Data Table */}
-          <div className="mt-6 flex min-h-0 flex-1 flex-col overflow-hidden">
+          <div className="mt-6 flex min-h-0 flex-1 flex-col">
             <DataTable
               columns={columns}
               data={faqs}

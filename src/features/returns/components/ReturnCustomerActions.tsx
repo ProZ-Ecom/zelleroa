@@ -4,6 +4,7 @@ import { useRef, useState } from "react";
 import Image from "next/image";
 import { AlertCircle, Loader2, PackageCheck, Truck, Upload, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/components/ui/Toast";
@@ -34,6 +35,7 @@ export function ReturnCustomerActions({ req }: { req: RequestSummary }) {
   const [slipUrl, setSlipUrl] = useState<string | null>(req.shippingSlipUrl ?? null);
   const [isUploadingSlip, setIsUploadingSlip] = useState(false);
   const [fieldError, setFieldError] = useState<string | null>(null);
+  const [confirmShip, setConfirmShip] = useState(false);
   const slipInputRef = useRef<HTMLInputElement>(null);
 
   const canShip = req.status === "approved";
@@ -67,7 +69,9 @@ export function ReturnCustomerActions({ req }: { req: RequestSummary }) {
     }
   };
 
-  const submit = () => {
+  /** Shipping details are final once saved, so the save button only validates
+   *  and then asks for a confirmation; `submit` is what the dialog runs. */
+  const requestSubmit = () => {
     if (!mode) return;
     if (mode === "ship") {
       if (courierName.trim().length < 2) {
@@ -82,7 +86,15 @@ export function ReturnCustomerActions({ req }: { req: RequestSummary }) {
         setFieldError("A photo of the courier / delivery slip is mandatory.");
         return;
       }
+      setFieldError(null);
+      setConfirmShip(true);
+      return;
     }
+    submit();
+  };
+
+  const submit = () => {
+    if (!mode) return;
     setFieldError(null);
     mutation.mutate(
       {
@@ -292,7 +304,7 @@ export function ReturnCustomerActions({ req }: { req: RequestSummary }) {
                 (mode === "ship" && !slipUrl)
               }
               className={mode === "cancel" ? "bg-red-600 text-white hover:bg-red-700" : ""}
-              onClick={submit}
+              onClick={requestSubmit}
             >
               {mutation.isPending && <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />}
               {mode === "ship" ? "Save tracking details" : "Yes, cancel request"}
@@ -329,6 +341,20 @@ export function ReturnCustomerActions({ req }: { req: RequestSummary }) {
           </>
         )}
       </div>
+
+      <ConfirmDialog
+        open={confirmShip}
+        onClose={() => setConfirmShip(false)}
+        onConfirm={submit}
+        title="Save these shipping details?"
+        description={`Courier: ${courierName.trim()} · Tracking / AWB: ${trackingNumber.trim()}${
+          shippedDate ? ` · Shipped on: ${formatStoreDate(new Date(shippedDate))}` : ""
+        }. Once saved these details cannot be edited, so please check the tracking number and the slip photo carefully.`}
+        confirmText="Yes, save details"
+        cancelText="Go back and check"
+        variant="default"
+        isLoading={mutation.isPending}
+      />
     </div>
   );
 }

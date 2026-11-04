@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { formatPrice } from "@/lib/utils";
 import {
   DELIVERY_ESTIMATE,
+  FREE_DELIVERY_STATE,
   STANDARD_DELIVERY_CHARGE,
   EXPRESS_DELIVERY_CHARGE,
 } from "@/features/orders/shipping";
@@ -45,7 +46,7 @@ function CartSummary({
             Standard Delivery: {formatPrice(STANDARD_DELIVERY_CHARGE)} · Delivered in {DELIVERY_ESTIMATE}
           </p>
           <p className="text-[11px] text-theme-text-muted">
-            Standard doorstep delivery across India
+            Standard doorstep delivery across India · Free within {FREE_DELIVERY_STATE}
           </p>
         </div>
 

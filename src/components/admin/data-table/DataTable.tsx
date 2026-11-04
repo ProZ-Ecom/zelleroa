@@ -190,11 +190,14 @@ function DataTable<TData, TValue>({
       )}
 
       <div className="min-h-[240px] flex-1 flex flex-col">
+        {/* `relative` keeps absolutely positioned cell content (sr-only labels,
+            badges) inside this scroller; without it they resolve against the
+            page and stretch the document with empty space below the layout. */}
         <div
           tabIndex={0}
           role="region"
           aria-label="Scrollable table content"
-          className="flex-1 overflow-x-auto overflow-y-auto overscroll-x-contain scrollbar-table focus:outline-hidden focus-visible:ring-1 focus-visible:ring-secondary-300"
+          className="relative flex-1 overflow-x-auto overflow-y-auto overscroll-x-contain scrollbar-table focus:outline-hidden focus-visible:ring-1 focus-visible:ring-secondary-300"
         >
           <table className={cn("w-full min-w-[720px] table-auto caption-bottom text-sm border-separate border-spacing-0", tableClassName)}>
             <thead>

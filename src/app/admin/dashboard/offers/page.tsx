@@ -452,8 +452,8 @@ export default function AdminOffersPage() {
         }
       />
 
-      <AdminContent className="flex-1 min-h-0 overflow-hidden">
-        <div className="flex h-full flex-col overflow-hidden rounded-2xl bg-[var(--color-background)] py-1">
+      <AdminContent className="flex-1 min-h-0">
+        <div className="flex h-full flex-col rounded-2xl bg-[var(--color-background)] py-1">
           {/* Filters */}
           <div className="flex-shrink-0 space-y-3">
             <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
@@ -548,7 +548,7 @@ export default function AdminOffersPage() {
           </div>
 
           {/* Table */}
-          <div className="mt-6 flex min-h-0 flex-1 flex-col overflow-hidden">
+          <div className="mt-6 flex min-h-0 flex-1 flex-col">
             <DataTable
               columns={columns}
               data={offers}

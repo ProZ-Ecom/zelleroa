@@ -18,7 +18,7 @@ import {
 import { useAdminRequests, type RequestKind } from "../hooks/use-returns";
 import { RequestStatusBadge } from "./RequestStatusBadge";
 import { AdminRequestDetailModal } from "./AdminRequestDetailModal";
-import { AdminVideoStorageAlert, AdminVideoStorageButton } from "./AdminVideoStorageAlert";
+import { AdminVideoStorageButton } from "./AdminVideoStorageAlert";
 
 const PAGE_SIZE = 10;
 
@@ -42,8 +42,7 @@ export function AdminRequestsTable({ kind }: { kind: RequestKind }) {
   const isReturn = kind === "returns";
 
   return (
-    <div className="flex h-full min-h-0 flex-col gap-3">
-      {isReturn && <AdminVideoStorageAlert />}
+    <div className="flex h-full min-h-0 flex-col gap-3">
       <form
         className="flex flex-wrap items-center gap-3"
         onSubmit={(e) => {

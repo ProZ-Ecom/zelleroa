@@ -219,8 +219,8 @@ export default function ValuationPage() {
         description="What the stock on hand is worth, and what the sales actually made."
       />
 
-      <AdminContent className="flex-1 min-h-0 overflow-hidden">
-        <div className="flex h-full flex-col overflow-hidden py-1">
+      <AdminContent className="flex-1 min-h-0">
+        <div className="flex h-full flex-col py-1">
           <div className="flex-shrink-0 space-y-4">
             <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
               <div className="flex flex-wrap items-center gap-3">
@@ -386,7 +386,7 @@ export default function ValuationPage() {
             )}
           </div>
 
-          <div className="mt-5 flex-1 min-h-0 overflow-hidden flex flex-col">
+          <div className="mt-5 flex-1 min-h-0 flex flex-col">
             {active.isLoading && !active.data ? (
               <AdminTableSkeleton />
             ) : view === "stock" ? (

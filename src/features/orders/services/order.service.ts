@@ -340,7 +340,7 @@ export const orderService = {
 
 
 
-    // Delivery charge based on delivery method (standard = 49, express = 99)
+    // Standard delivery is free within Tamil Nadu and ₹80 elsewhere; express is flat ₹99.
     const payableBeforeShipping = subtotal - totalDiscount;
     const deliveryMethod = input.deliveryMethod || "standard";
     const shippingCharge = getShippingCharge(shippingAddress.state, deliveryMethod);

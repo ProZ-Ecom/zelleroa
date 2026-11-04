@@ -109,8 +109,8 @@ export default function AdminTagsPage() {
         title="Tags"
         description="Group products under tags like Summer Sale or New Arrivals, then pick a tag when adding a header menu item."
       />
-      <AdminContent className="flex-1 min-h-0 overflow-hidden">
-        <div className="flex h-full flex-col overflow-hidden bg-[var(--color-background)] py-1 rounded-2xl">
+      <AdminContent className="flex-1 min-h-0">
+        <div className="flex h-full flex-col bg-[var(--color-background)] py-1 rounded-2xl">
           <div className="flex-shrink-0 mt-6 flex items-center justify-end gap-2">
             <ExportButton
               onClick={() =>
@@ -146,7 +146,7 @@ export default function AdminTagsPage() {
             </Button>
           </div>
 
-          <div className="mt-6 flex-1 min-h-0 overflow-hidden flex flex-col">
+          <div className="mt-6 flex-1 min-h-0 flex flex-col">
             <DataTable
               columns={columns}
               data={items}

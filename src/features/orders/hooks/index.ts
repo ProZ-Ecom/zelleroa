@@ -110,12 +110,24 @@ export function useCancelOrderAdmin() {
 
 export const useCancelAdminOrder = useCancelOrderAdmin;
 
+/**
+ * Admin order lists must surface newly placed customer orders without the
+ * operator reloading the page, so these two queries opt out of the app-wide
+ * "fetch once, stay stale" defaults: they poll while the tab is in the
+ * foreground and refetch when the admin comes back to the window.
+ */
+const ADMIN_ORDERS_REFRESH_MS = 30_000;
+
 export function useAdminOrders(params?: AdminOrdersListParams) {
   return useQuery({
     queryKey: adminOrderKeys.list(
       params as Record<string, unknown> | undefined
     ),
     queryFn: () => getAdminOrders(params),
+    refetchInterval: ADMIN_ORDERS_REFRESH_MS,
+    refetchIntervalInBackground: false,
+    refetchOnWindowFocus: true,
+    refetchOnMount: "always",
   });
 }
 
@@ -123,6 +135,10 @@ export function useAdminOrdersCount(params?: Partial<AdminOrdersListParams>) {
   return useQuery({
     queryKey: ["admin-orders", "count", params ?? {}] as const,
     queryFn: () => getAdminOrdersCount(params),
+    refetchInterval: ADMIN_ORDERS_REFRESH_MS,
+    refetchIntervalInBackground: false,
+    refetchOnWindowFocus: true,
+    refetchOnMount: "always",
   });
 }
 

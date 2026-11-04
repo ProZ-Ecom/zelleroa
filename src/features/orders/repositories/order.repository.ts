@@ -1627,12 +1627,36 @@ export const orderRepository = {
     if (!existing) {
       throw ApiError.notFound("Order not found");
     }
+
+    if (invoiceNumber) {
+      const duplicate = await db.order.findFirst({
+        where: {
+          invoice_number: invoiceNumber,
+          id: { not: existing.id },
+        },
+        select: { orderNumber: true },
+      });
+      if (duplicate) {
+        throw ApiError.conflict(
+          `Invoice number "${invoiceNumber}" is already used by order ${duplicate.orderNumber}`
+        );
+      }
+    }
+
     try {
       return await db.order.update({
         where: { id: existing.id },
         data: { invoice_number: invoiceNumber },
       });
-    } catch {
+    } catch (error) {
+      if (error instanceof ApiError) {
+        throw error;
+      }
+      if ((error as { code?: string })?.code === "P2002") {
+        throw ApiError.conflict(
+          `Invoice number "${invoiceNumber}" is already used by another order`
+        );
+      }
       await db.$executeRawUnsafe(
         "UPDATE orders SET invoice_number = ? WHERE id = ?",
         invoiceNumber,
