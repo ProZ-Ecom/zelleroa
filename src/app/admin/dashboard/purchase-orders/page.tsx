@@ -12,6 +12,7 @@ import { ErrorState } from "@/components/ui/error-state";
 import { Button } from "@/components/ui/button";
 import { ExportButton } from "@/components/common/export-button";
 import { exportDataToCsv } from "@/lib/export-csv";
+import { formatDate } from "@/lib/utils";
 import { SearchInput } from "@/components/ui/search-input";
 import { Select } from "@/components/ui/select";
 import { usePurchaseOrders } from "@/features/purchases/hooks";
@@ -75,7 +76,7 @@ export default function PurchaseOrdersPage() {
     {
       accessorKey: "purchaseDate",
       header: "Purchase date",
-      cell: ({ row }) => <span className="text-sm">{row.original.purchaseDate ?? "—"}</span>,
+      cell: ({ row }) => <span className="text-sm">{formatDate(row.original.purchaseDate)}</span>,
     },
     {
       accessorKey: "status",
@@ -86,7 +87,7 @@ export default function PurchaseOrdersPage() {
       accessorKey: "createdAt",
       header: "Created",
       cell: ({ row }) => (
-        <span className="text-sm">{new Date(row.original.createdAt).toLocaleDateString()}</span>
+        <span className="text-sm">{formatDate(row.original.createdAt)}</span>
       ),
     },
     {
@@ -118,8 +119,8 @@ export default function PurchaseOrdersPage() {
 
       <AdminContent className="flex-1 min-h-0">
         <div className="flex h-full flex-col bg-[var(--color-background)] py-1 rounded-2xl">
-          <div className="flex-shrink-0 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-            <div className="flex items-center gap-3">
+          <div className="flex-shrink-0 flex flex-wrap items-center justify-between gap-4">
+            <div className="flex flex-wrap items-center gap-3">
               <div className="w-64 lg:w-72 shrink-0">
                 <SearchInput
                   placeholder="Search PO number or vendor..."
@@ -144,7 +145,7 @@ export default function PurchaseOrdersPage() {
                 />
               </div>
             </div>
-            <div className="flex items-center gap-2 xl:gap-3 shrink-0">
+            <div className="flex flex-wrap items-center gap-2 xl:gap-3">
               <ExportButton
                 onClick={() =>
                   exportDataToCsv(
@@ -156,12 +157,11 @@ export default function PurchaseOrdersPage() {
                       { header: "Items", accessor: (po) => po.itemCount },
                       { header: "Total Amount", accessor: (po) => `₹${po.totalAmount.toFixed(2)}` },
                       { header: "Invoice", accessor: (po) => po.invoiceNumber || "—" },
-                      { header: "Purchase Date", accessor: (po) => po.purchaseDate || "—" },
+                      { header: "Purchase Date", accessor: (po) => formatDate(po.purchaseDate) },
                       { header: "Status", accessor: (po) => po.status },
                       {
                         header: "Created",
-                        accessor: (po) =>
-                          po.createdAt ? new Date(po.createdAt).toLocaleDateString("en-IN") : "—",
+                        accessor: (po) => formatDate(po.createdAt),
                       },
                     ]
                   )

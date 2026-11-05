@@ -24,6 +24,7 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { FormModal } from "@/components/common/FormModal";
 import { ExportButton } from "@/components/common/export-button";
 import { exportDataToCsv } from "@/lib/export-csv";
+import { formatDate } from "@/lib/utils";
 import { useRoles } from "@/features/roles/hooks";
 import { SearchInput } from "@/components/ui/search-input";
 import { Plus, Pencil, Trash2, KeyRound, RotateCcw } from "lucide-react";
@@ -298,11 +299,7 @@ const { data, isLoading, error, refetch } = useUsers({ page, limit: pageSize });
       accessorKey: "createdAt",
       header: "Joined",
       cell: ({ row }) =>
-        new Date(row.original.createdAt).toLocaleDateString("en-IN", {
-          year: "numeric",
-          month: "short",
-          day: "numeric",
-        }),
+        formatDate(row.original.createdAt),
     },
     {
       id: "actions",

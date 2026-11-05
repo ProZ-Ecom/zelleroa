@@ -17,6 +17,7 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { FormModal } from "@/components/common/FormModal";
 import { ExportButton } from "@/components/common/export-button";
 import { exportDataToCsv } from "@/lib/export-csv";
+import { formatDate } from "@/lib/utils";
 import { toast } from "@/components/ui/Toast";
 import { Upload, Plus, Pencil, Trash2, Filter } from "lucide-react";
 import type { ColumnDef } from "@tanstack/react-table";
@@ -115,7 +116,7 @@ export default function AdminBrandsPage() {
     header: "Created Date",
     cell: ({ row }) => (
       <span className="text-[var(--color-neutral-700)]">
-        {new Date(row.original.createdAt).toLocaleDateString("en-IN")}
+        {formatDate(row.original.createdAt)}
       </span>
     ),
   },
@@ -236,7 +237,7 @@ export default function AdminBrandsPage() {
                       {
                         header: "Created Date",
                         accessor: (b) =>
-                          b.createdAt ? new Date(b.createdAt).toLocaleDateString("en-IN") : "—",
+                          formatDate(b.createdAt),
                       },
                     ]
                   )

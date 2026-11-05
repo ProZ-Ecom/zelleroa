@@ -12,12 +12,42 @@ export function formatPrice(amount: number, currency = "INR"): string {
   }).format(amount);
 }
 
-export function formatDate(date: Date | string): string {
-  return new Intl.DateTimeFormat("en-IN", {
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  }).format(new Date(date));
+/**
+ * Formats a date, string, or timestamp into the standardized application format: DD-MM-YYYY
+ * Handles Date objects, ISO strings, YYYY-MM-DD, already-formatted DD-MM-YYYY / DD/MM/YYYY, etc.
+ */
+export function formatDate(
+  date: Date | string | number | null | undefined,
+  separator: "-" | "/" = "-"
+): string {
+  if (!date) return "—";
+
+  if (typeof date === "string") {
+    const trimmed = date.trim();
+    if (!trimmed) return "—";
+
+    // If already in DD-MM-YYYY or DD/MM/YYYY
+    if (/^\d{2}[-/]\d{2}[-/]\d{4}$/.test(trimmed)) {
+      return separator === "-" ? trimmed.replace(/\//g, "-") : trimmed.replace(/-/g, "/");
+    }
+
+    // If in YYYY-MM-DD format (standard ISO date-only)
+    if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+      const [year, month, day] = trimmed.split("-");
+      return `${day}${separator}${month}${separator}${year}`;
+    }
+  }
+
+  const d = new Date(date);
+  if (isNaN(d.getTime())) {
+    return typeof date === "string" ? date : "—";
+  }
+
+  const day = String(d.getDate()).padStart(2, "0");
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const year = d.getFullYear();
+
+  return `${day}${separator}${month}${separator}${year}`;
 }
 
 export function formatDateTime(date: Date | string): string {

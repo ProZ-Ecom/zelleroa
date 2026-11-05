@@ -16,12 +16,13 @@ import { FormModal } from "@/components/common/FormModal";
 import { usePurchaseOrder, usePurchaseMutations } from "@/features/purchases/hooks";
 import { PurchaseStatusBadge } from "@/features/purchases/components/PurchaseStatusBadge";
 import type { PurchaseOrderResponse } from "@/features/purchases/types";
+import { formatDate } from "@/lib/utils";
 
 const primaryBtn =
   "h-10 rounded-xl bg-theme-primary hover:bg-theme-primary-hover px-4 text-sm font-semibold text-white transition-colors";
 
 function fmt(d: string) {
-  return new Date(d).toLocaleString();
+  return formatDate(d);
 }
 
 function ReceiveModal({
@@ -304,10 +305,10 @@ export default function PurchaseOrderDetailPage() {
             <h3 className="mb-3 font-semibold">Details</h3>
             <dl className="space-y-2">
               <div className="flex justify-between"><dt className="text-neutral-500">Invoice no.</dt><dd>{po.invoiceNumber ?? "—"}</dd></div>
-              <div className="flex justify-between"><dt className="text-neutral-500">Purchase date</dt><dd>{po.purchaseDate ?? "—"}</dd></div>
-              <div className="flex justify-between"><dt className="text-neutral-500">Created</dt><dd>{fmt(po.createdAt)}</dd></div>
-              <div className="flex justify-between"><dt className="text-neutral-500">Expected</dt><dd>{po.expectedDate ?? "—"}</dd></div>
-              <div className="flex justify-between"><dt className="text-neutral-500">Approved</dt><dd>{po.approvedAt ? fmt(po.approvedAt) : "—"}</dd></div>
+              <div className="flex justify-between"><dt className="text-neutral-500">Purchase date</dt><dd>{formatDate(po.purchaseDate)}</dd></div>
+              <div className="flex justify-between"><dt className="text-neutral-500">Created</dt><dd>{formatDate(po.createdAt)}</dd></div>
+              <div className="flex justify-between"><dt className="text-neutral-500">Expected</dt><dd>{formatDate(po.expectedDate)}</dd></div>
+              <div className="flex justify-between"><dt className="text-neutral-500">Approved</dt><dd>{formatDate(po.approvedAt)}</dd></div>
             </dl>
             {po.notes && <p className="mt-3 border-t border-neutral-100 pt-3 text-neutral-700">{po.notes}</p>}
           </div>

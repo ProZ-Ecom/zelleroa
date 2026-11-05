@@ -111,7 +111,10 @@ const detailInclude = {
 type DetailRow = Prisma.purchase_returnsGetPayload<{ include: typeof detailInclude }>;
 type ListRow = Prisma.purchase_returnsGetPayload<{ include: typeof listInclude }>;
 
-const isoDate = (d: Date | null) => (d ? d.toISOString().slice(0, 10) : null);
+const isoDate = (d: Date | null) =>
+  d
+    ? `${String(d.getUTCDate()).padStart(2, "0")}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${d.getUTCFullYear()}`
+    : null;
 
 function formatItem(i: DetailRow["items"][number]): PurchaseReturnItemResponse {
   const vup = i.variant_unit_price;

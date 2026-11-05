@@ -17,6 +17,7 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { FormModal } from "@/components/common/FormModal";
 import { ExportButton } from "@/components/common/export-button";
 import { exportDataToCsv } from "@/lib/export-csv";
+import { formatDate } from "@/lib/utils";
 import { SearchInput } from "@/components/ui/search-input";
 import { Plus, Pencil, Trash2 } from "lucide-react";
 import { slugify } from "@/lib/utils";
@@ -146,7 +147,7 @@ export default function AdminBlogsPage() {
       header: "Published Date",
       cell: ({ row }) =>
         row.original.publishedAt
-          ? new Date(row.original.publishedAt).toLocaleDateString("en-IN")
+          ? formatDate(row.original.publishedAt)
           : "—",
     },
     {
@@ -202,7 +203,7 @@ export default function AdminBlogsPage() {
                       Slug: b.slug,
                       Author: b.author?.name || "—",
                       Status: b.status,
-                      PublishedAt: b.publishedAt ? new Date(b.publishedAt).toLocaleDateString("en-IN") : "—",
+                      PublishedAt: formatDate(b.publishedAt),
                     })),
                     "blogs"
                   )

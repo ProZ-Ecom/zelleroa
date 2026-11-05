@@ -140,7 +140,7 @@ export function OrderStatusTabs() {
         {open && (
           <div
             role="menu"
-            className="absolute left-0 top-full z-30 mt-2 w-56 overflow-hidden rounded-xl border border-cream-border-subtle bg-white p-1 shadow-lg"
+            className="absolute right-0 top-full z-50 mt-2 min-w-[240px] w-max overflow-hidden rounded-xl border border-cream-border bg-white p-1.5 shadow-xl"
           >
             {MORE_TABS.map((tab, i) => {
               const active = isActive(tab);
@@ -152,13 +152,13 @@ export function OrderStatusTabs() {
                     role="menuitem"
                     href={tab.href}
                     className={cn(
-                      "flex items-center justify-between rounded-lg px-3 py-2 text-xs font-semibold transition-colors",
+                      "flex items-center justify-between gap-4 rounded-lg px-3 py-2 text-xs font-semibold transition-colors",
                       active
                         ? "bg-secondary-600 text-cream-white"
                         : "text-neutral-700 hover:bg-cream-200 hover:text-secondary-800"
                     )}
                   >
-                    <span>{tab.label}</span>
+                    <span className="whitespace-nowrap">{tab.label}</span>
                     {tab.countKey && <Badge active={active}>{isLoading ? "…" : count ?? 0}</Badge>}
                   </Link>
                 </div>

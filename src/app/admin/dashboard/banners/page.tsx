@@ -18,6 +18,7 @@ import {
 import { FormModal } from "@/components/common/FormModal";
 import { ExportButton } from "@/components/common/export-button";
 import { exportDataToCsv } from "@/lib/export-csv";
+import { formatDate } from "@/lib/utils";
 import { SearchInput } from "@/components/ui/search-input";
 import { ClearFiltersButton } from "@/components/common/clear-filters-button";
 import {
@@ -98,18 +99,7 @@ export default function AdminBannersPage() {
   }, [positionOptions]);
 
   const formatDateDisplay = (dateVal: unknown): string => {
-    if (!dateVal) return "";
-    try {
-      const d = new Date(dateVal as string | Date);
-      if (isNaN(d.getTime())) return "";
-      return d.toLocaleDateString("en-IN", {
-        day: "numeric",
-        month: "short",
-        year: "numeric",
-      });
-    } catch {
-      return "";
-    }
+    return formatDate(dateVal as string | Date);
   };
 
   const columns: ColumnDef<BannerDto>[] = [

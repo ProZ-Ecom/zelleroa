@@ -773,21 +773,25 @@ export function AddressesTab() {
               </div>
             )}
 
-            {/* City (Auto-filled, ReadOnly, Normal Background) */}
+            {/* City (Auto-filled or editable) */}
             <div className="flex flex-col gap-1.5">
               <label className="text-xs font-semibold text-theme-text-primary flex items-center justify-between">
                 <span>
                   City / District <span className="text-red-500 font-bold">*</span>
                 </span>
-                <span className="text-[10px] text-theme-text-muted font-normal">Auto-filled</span>
+                <span className="text-[10px] text-theme-text-muted font-normal">
+                  {pincodeLookupError ? "Enter manually" : "Auto-filled from PIN Code"}
+                </span>
               </label>
               <input
                 type="text"
-                readOnly
-                tabIndex={-1}
-                placeholder={isPincodeLoading ? "Fetching city..." : "Auto-filled from PIN Code"}
+                readOnly={isPincodeLoading}
+                placeholder={isPincodeLoading ? "Fetching city..." : "Enter city / district"}
                 value={formData.city}
-                className={`border rounded-lg px-3.5 py-2.5 text-xs text-theme-text-muted bg-theme-surface-alt/70 transition-colors outline-none cursor-not-allowed select-none shadow-none ${
+                onChange={(e) => handleFieldChange("city", e.target.value)}
+                className={`border rounded-lg px-3.5 py-2.5 text-xs text-theme-text-primary bg-white transition-colors outline-none focus:border-theme-primary ${
+                  isPincodeLoading ? "cursor-wait bg-theme-surface-alt/70 text-theme-text-muted select-none shadow-none" : ""
+                } ${
                   fieldErrors.city
                     ? "border-red-500 bg-red-50/20 ring-1 ring-red-500/40"
                     : "border-theme-border-input"
@@ -800,21 +804,25 @@ export function AddressesTab() {
               )}
             </div>
 
-            {/* State (Auto-filled, ReadOnly, Disabled Styling) */}
+            {/* State (Auto-filled or editable) */}
             <div className="flex flex-col gap-1.5">
               <label className="text-xs font-semibold text-theme-text-primary flex items-center justify-between">
                 <span>
                   State <span className="text-red-500 font-bold">*</span>
                 </span>
-                <span className="text-[10px] text-theme-text-muted font-normal">Auto-filled</span>
+                <span className="text-[10px] text-theme-text-muted font-normal">
+                  {pincodeLookupError ? "Enter manually" : "Auto-filled from PIN Code"}
+                </span>
               </label>
               <input
                 type="text"
-                readOnly
-                tabIndex={-1}
-                placeholder={isPincodeLoading ? "Fetching state..." : "Auto-filled from PIN Code"}
+                readOnly={isPincodeLoading}
+                placeholder={isPincodeLoading ? "Fetching state..." : "Enter state"}
                 value={formData.state}
-                className={`border rounded-lg px-3.5 py-2.5 text-xs text-theme-text-muted bg-theme-surface-alt/70 transition-colors outline-none cursor-not-allowed select-none shadow-none ${
+                onChange={(e) => handleFieldChange("state", e.target.value)}
+                className={`border rounded-lg px-3.5 py-2.5 text-xs text-theme-text-primary bg-white transition-colors outline-none focus:border-theme-primary ${
+                  isPincodeLoading ? "cursor-wait bg-theme-surface-alt/70 text-theme-text-muted select-none shadow-none" : ""
+                } ${
                   fieldErrors.state
                     ? "border-red-500 bg-red-50/20 ring-1 ring-red-500/40"
                     : "border-theme-border-input"

@@ -17,6 +17,7 @@ import { StatsCard } from "@/components/admin/StatsCard";
 import { Button } from "@/components/ui/button";
 import { ExportButton } from "@/components/common/export-button";
 import { exportDataToCsv } from "@/lib/export-csv";
+import { formatDate } from "@/lib/utils";
 import { SearchInput } from "@/components/ui/search-input";
 import { Select } from "@/components/ui/select";
 import { AdminTableSkeleton } from "@/components/admin/AdminTableSkeleton";
@@ -165,11 +166,7 @@ export default function AdminStaffPage() {
         cell: ({ row }) => {
           const dateVal = row.original.createdAt;
           if (!dateVal) return <span className="text-neutral-400">—</span>;
-          const formatted = new Date(dateVal).toLocaleDateString("en-US", {
-            year: "numeric",
-            month: "short",
-            day: "numeric",
-          });
+          const formatted = formatDate(dateVal);
           return <span className="text-sm text-neutral-600">{formatted}</span>;
         },
       },

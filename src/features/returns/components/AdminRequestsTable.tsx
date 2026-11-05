@@ -110,7 +110,7 @@ export function AdminRequestsTable({ kind }: { kind: RequestKind }) {
         )}
       </form>
 
-      <div className="min-h-0 flex-1 overflow-auto rounded-xl border border-cream-border-subtle bg-white">
+      <div className="min-h-0 flex-1 overflow-auto scrollbar-table rounded-xl border border-cream-border-subtle bg-white">
         <table className="w-full min-w-[900px] text-left text-xs">
           <thead className="sticky top-0 bg-neutral-50 text-[11px] uppercase tracking-wider text-neutral-500">
             <tr>
