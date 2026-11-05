@@ -23,6 +23,7 @@ import type { ColumnDef } from "@tanstack/react-table";
 import type { BrandListItem } from "@/features/brands/types";
 import { BrandForm } from "@/features/brands/components/BrandForm";
 import { SearchInput } from "@/components/ui/search-input";
+import { CanAct } from "@/features/access";
 
 export default function AdminBrandsPage() {
   const [search, setSearch] = useState("");
@@ -252,13 +253,15 @@ export default function AdminBrandsPage() {
                 Import
               </Button>
 
-              <Button
-                onClick={() => setIsCreateOpen(true)}
-                className="h-11 rounded-xl bg-theme-primary hover:bg-theme-primary-hover px-5 text-sm font-semibold text-white transition-colors"
-              >
-                <Plus className="mr-2 h-4 w-4" />
-                Add Brand
-              </Button>
+              <CanAct action="CREATE">
+                <Button
+                  onClick={() => setIsCreateOpen(true)}
+                  className="h-11 rounded-xl bg-theme-primary hover:bg-theme-primary-hover px-5 text-sm font-semibold text-white transition-colors"
+                >
+                  <Plus className="mr-2 h-4 w-4" />
+                  Add Brand
+                </Button>
+              </CanAct>
             </div>
           </div>
 

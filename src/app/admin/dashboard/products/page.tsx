@@ -40,6 +40,7 @@ import type { AdminProductResponse } from "@/features/products/types";
 import { ProductForm } from "@/features/products/components/ProductForm";
 import { ProductAttributesPanel } from "@/features/products/components/ProductAttributesPanel";
 import { ProductImageUploader } from "@/features/products/components/ProductImageUploader";
+import { CanAct } from "@/features/access";
 
 export default function AdminProductsPage() {
   const [search, setSearch] = useState("");
@@ -230,26 +231,30 @@ export default function AdminProductsPage() {
       header: "Actions",
       cell: ({ row }) => (
         <div className="flex items-center justify-center gap-1.5">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => {
-              setSelectedProduct(row.original);
-              setIsEditOpen(true);
-            }}
-            title="Edit Product"
-          >
-            <Pencil className="h-4 w-4 text-[var(--color-neutral-500)]" />
-          </Button>
+          <CanAct action="UPDATE">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => {
+                setSelectedProduct(row.original);
+                setIsEditOpen(true);
+              }}
+              title="Edit Product"
+            >
+              <Pencil className="h-4 w-4 text-[var(--color-neutral-500)]" />
+            </Button>
+          </CanAct>
 
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setDeleteId(row.original.id)}
-            title="Delete Product"
-          >
-            <Trash2 className="h-4 w-4 text-[var(--color-error-600)]" />
-          </Button>
+          <CanAct action="DELETE">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setDeleteId(row.original.id)}
+              title="Delete Product"
+            >
+              <Trash2 className="h-4 w-4 text-[var(--color-error-600)]" />
+            </Button>
+          </CanAct>
         </div>
       ),
     },
@@ -337,13 +342,15 @@ export default function AdminProductsPage() {
                 Import
               </Button>
 
-              <Button
-                onClick={() => setIsCreateOpen(true)}
-                className="h-11 rounded-xl bg-theme-primary hover:bg-theme-primary-hover px-5 text-sm font-semibold text-white transition-colors"
-              >
-                <Plus className="mr-2 h-4 w-4" />
-                Add Product
-              </Button>
+              <CanAct action="CREATE">
+                <Button
+                  onClick={() => setIsCreateOpen(true)}
+                  className="h-11 rounded-xl bg-theme-primary hover:bg-theme-primary-hover px-5 text-sm font-semibold text-white transition-colors"
+                >
+                  <Plus className="mr-2 h-4 w-4" />
+                  Add Product
+                </Button>
+              </CanAct>
             </div>
           </div>
 

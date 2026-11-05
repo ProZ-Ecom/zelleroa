@@ -23,6 +23,7 @@ import { slugify } from "@/lib/utils";
 import { createBlogSchema, type CreateBlogSchemaInput } from "@/features/blogs/validations/blog.schema";
 import type { ColumnDef } from "@tanstack/react-table";
 import type { BlogListItem } from "@/features/blogs/types";
+import { CanAct } from "@/features/access";
 
 const statusBadgeVariant: Record<string, "secondary" | "success" | "warning"> = {
   DRAFT: "secondary",
@@ -208,13 +209,15 @@ export default function AdminBlogsPage() {
                 }
                 disabled={blogs.length === 0}
               />
-              <Button
-                onClick={() => handleOpenModal()}
-                className="h-11 rounded-xl bg-[var(--color-primary-500)] px-5 text-sm font-semibold text-white hover:bg-[var(--color-primary-600)]"
-              >
-                <Plus className="mr-2 h-4 w-4" />
-                Add Blog
-              </Button>
+              <CanAct action="CREATE">
+                <Button
+                  onClick={() => handleOpenModal()}
+                  className="h-11 rounded-xl bg-[var(--color-primary-500)] px-5 text-sm font-semibold text-white hover:bg-[var(--color-primary-600)]"
+                >
+                  <Plus className="mr-2 h-4 w-4" />
+                  Add Blog
+                </Button>
+              </CanAct>
             </div>
           </div>
 

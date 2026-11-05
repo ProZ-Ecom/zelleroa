@@ -16,6 +16,7 @@ import { exportDataToCsv } from "@/lib/export-csv";
 import { Plus, Pencil, Trash2, Package } from "lucide-react";
 import { toast } from "@/components/ui/Toast";
 import type { ColumnDef } from "@tanstack/react-table";
+import { CanAct } from "@/features/access";
 
 function errorMessage(err: unknown, fallback: string) {
   return err instanceof Error && err.message ? err.message : fallback;
@@ -136,14 +137,16 @@ export default function AdminTagsPage() {
               disabled={!items.length}
             />
 
-            <Button
-              type="button"
-              onClick={() => setIsCreateOpen(true)}
-              className="h-11 rounded-xl px-5 text-sm font-semibold shadow-xs bg-theme-primary hover:bg-theme-primary-hover text-white transition-colors"
-            >
-              <Plus className="mr-2 h-4 w-4" />
-              Add Tag
-            </Button>
+            <CanAct action="CREATE">
+              <Button
+                type="button"
+                onClick={() => setIsCreateOpen(true)}
+                className="h-11 rounded-xl px-5 text-sm font-semibold shadow-xs bg-theme-primary hover:bg-theme-primary-hover text-white transition-colors"
+              >
+                <Plus className="mr-2 h-4 w-4" />
+                Add Tag
+              </Button>
+            </CanAct>
           </div>
 
           <div className="mt-6 flex-1 min-h-0 flex flex-col">

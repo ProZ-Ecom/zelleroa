@@ -28,6 +28,7 @@ import { StyleForm, type StyleFormValues } from "@/features/styles/components";
 import type { AdminStyleResponse } from "@/features/styles/types";
 import { toast } from "@/components/ui/Toast";
 import { cn } from "@/lib/utils";
+import { CanAct } from "@/features/access";
 
 export default function AdminStylesPage() {
   const [search, setSearch] = useState("");
@@ -190,22 +191,26 @@ export default function AdminStylesPage() {
               <Eye className="h-4 w-4 text-[var(--color-neutral-500)]" />
             </Button>
           </Link>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setEditingStyle(row.original)}
-            title="Edit Model"
-          >
-            <Pencil className="h-4 w-4 text-[var(--color-neutral-500)]" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setDeletingStyle(row.original)}
-            title="Delete Model"
-          >
-            <Trash2 className="h-4 w-4 text-[var(--color-error-600)]" />
-          </Button>
+          <CanAct action="UPDATE">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setEditingStyle(row.original)}
+              title="Edit Model"
+            >
+              <Pencil className="h-4 w-4 text-[var(--color-neutral-500)]" />
+            </Button>
+          </CanAct>
+          <CanAct action="DELETE">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setDeletingStyle(row.original)}
+              title="Delete Model"
+            >
+              <Trash2 className="h-4 w-4 text-[var(--color-error-600)]" />
+            </Button>
+          </CanAct>
         </div>
       ),
     },
@@ -344,13 +349,15 @@ export default function AdminStylesPage() {
                 disabled={!styles.length}
               />
 
-              <Button
-                onClick={() => setIsAddOpen(true)}
-                className="h-11 rounded-xl bg-theme-primary hover:bg-theme-primary-hover px-5 text-sm font-semibold text-white transition-colors"
-              >
-                <Plus className="mr-2 h-4 w-4" />
-                Add Model
-              </Button>
+              <CanAct action="CREATE">
+                <Button
+                  onClick={() => setIsAddOpen(true)}
+                  className="h-11 rounded-xl bg-theme-primary hover:bg-theme-primary-hover px-5 text-sm font-semibold text-white transition-colors"
+                >
+                  <Plus className="mr-2 h-4 w-4" />
+                  Add Model
+                </Button>
+              </CanAct>
             </div>
           </div>
 

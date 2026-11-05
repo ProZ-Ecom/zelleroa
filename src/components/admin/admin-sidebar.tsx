@@ -52,6 +52,8 @@ import { APP_NAME } from "@/lib/constants";
 import { useSession } from "next-auth/react";
 import { useLogout } from "@/features/auth/hooks/use-auth-mutations";
 import { Drawer } from "@/components/common/drawer";
+import { useAdminAccess } from "@/features/access";
+import { permissionForAdminPath } from "@/lib/permissions/admin-routes";
 
 interface SidebarItem {
   label: string;
@@ -352,24 +354,34 @@ function SidebarNavigation({
   const { data: session } = useSession();
   const userRole = (session?.user as { role?: string })?.role;
   const isStaff = userRole === "STAFF";
+  const { access } = useAdminAccess();
 
+  // A link is shown only when the role holds the permission that screen needs; a group is
+  // shown only when at least one of its links survives. The permission comes from the same
+  // table the page guard uses, so the sidebar can never offer a page that then refuses.
   const navigationItems = useMemo(() => {
+    const canOpen = (href: string) => {
+      if (access.isOwner) return true;
+      const required = permissionForAdminPath(href);
+      return !required || access.permissions.includes(required);
+    };
+
     return sidebarItems
       .map((item) => {
-        if (!item.children) return item;
+        if (!item.children) return canOpen(item.href) ? item : null;
         const filteredChildren = item.children.filter((child) => {
           if (child.href === "/admin/dashboard/delivery") {
-            return isStaff;
+            return isStaff && canOpen(child.href);
           }
           if (child.href === "/admin/dashboard/orders") {
-            return !isStaff;
+            return !isStaff && canOpen(child.href);
           }
-          return true;
+          return canOpen(child.href);
         });
-        return { ...item, children: filteredChildren };
+        return filteredChildren.length > 0 ? { ...item, children: filteredChildren } : null;
       })
-      .filter((item) => !item.children || item.children.length > 0);
-  }, [isStaff]);
+      .filter((item): item is SidebarItem => item !== null);
+  }, [isStaff, access]);
 
   return (
     <nav className="relative flex-1 space-y-0.5 overflow-y-auto overflow-x-hidden scrollbar-hide px-3 pt-2 pb-6 [mask-image:linear-gradient(to_bottom,black_calc(100%-24px),transparent)]">

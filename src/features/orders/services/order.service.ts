@@ -8,6 +8,7 @@ import { couponValidationService } from "@/features/coupons/services/coupon-vali
 import { customerAddressService } from "@/features/customers/services/customer-address.service";
 import { cartRepository } from "@/features/cart/repositories/cart.repository";
 import { generateAccessToken, generateRefreshToken } from "@/lib/auth/jwt";
+import { resolveRoleScope } from "@/lib/auth/role-routes";
 import { referralService, type ReferralAgent } from "@/features/agents/services/referral.service";
 import { customerAssignmentService } from "@/features/agents/services/customer-assignment.service";
 import { orderRepository } from "../repositories/order.repository";
@@ -505,6 +506,7 @@ export const orderService = {
       userId: shadowUser.uuid,
       email: shadowUser.email ?? "",
       role: userRole,
+      scope: resolveRoleScope(shadowUser.roleScope, userRole),
     });
     const refreshToken = generateRefreshToken({ userId: shadowUser.uuid });
 

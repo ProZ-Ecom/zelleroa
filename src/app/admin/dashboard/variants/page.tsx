@@ -57,6 +57,7 @@ import {
   VariantCustomerPreviewModal,
   VariantUnitPriceList,
 } from "@/features/variants/components";
+import { CanAct } from "@/features/access";
 
 type ViewMode = "table" | "cards";
 
@@ -390,32 +391,36 @@ export default function AdminVariantsPage() {
             <Eye className="h-4 w-4" />
           </Link>
 
-          <Button
-            variant="ghost"
-            size="icon"
-            title="Edit item (details, pricing & images)"
-            onClick={() => {
-              setSelectedVariant(row.original);
-              setEditTab("details");
-              setIsEditOpen(true);
-            }}
-          >
-            <Pencil className="h-4 w-4 text-[var(--color-neutral-500)]" />
-          </Button>
+          <CanAct action="UPDATE">
+            <Button
+              variant="ghost"
+              size="icon"
+              title="Edit item (details, pricing & images)"
+              onClick={() => {
+                setSelectedVariant(row.original);
+                setEditTab("details");
+                setIsEditOpen(true);
+              }}
+            >
+              <Pencil className="h-4 w-4 text-[var(--color-neutral-500)]" />
+            </Button>
+          </CanAct>
 
-          <Button
-            variant="ghost"
-            size="icon"
-            title="Delete item"
-            onClick={() =>
-              setDeleteTarget({
-                productUuid: row.original.productId,
-                variantUuid: row.original.id,
-              })
-            }
-          >
-            <Trash2 className="h-4 w-4 text-[var(--color-error-600)]" />
-          </Button>
+          <CanAct action="DELETE">
+            <Button
+              variant="ghost"
+              size="icon"
+              title="Delete item"
+              onClick={() =>
+                setDeleteTarget({
+                  productUuid: row.original.productId,
+                  variantUuid: row.original.id,
+                })
+              }
+            >
+              <Trash2 className="h-4 w-4 text-[var(--color-error-600)]" />
+            </Button>
+          </CanAct>
         </div>
       ),
     },
@@ -601,17 +606,19 @@ export default function AdminVariantsPage() {
                 className="h-11"
               />
 
-              <Button
-                onClick={() => {
-                  setCreateStep(1);
-                  setCreatedVariant(null);
-                  setIsCreateOpen(true);
-                }}
-                className="h-11 rounded-xl bg-theme-primary hover:bg-theme-primary-hover px-5 text-sm font-semibold text-white transition-colors cursor-pointer"
-              >
-                <Plus className="mr-2 h-4 w-4" />
-                Add Variant
-              </Button>
+              <CanAct action="CREATE">
+                <Button
+                  onClick={() => {
+                    setCreateStep(1);
+                    setCreatedVariant(null);
+                    setIsCreateOpen(true);
+                  }}
+                  className="h-11 rounded-xl bg-theme-primary hover:bg-theme-primary-hover px-5 text-sm font-semibold text-white transition-colors cursor-pointer"
+                >
+                  <Plus className="mr-2 h-4 w-4" />
+                  Add Variant
+                </Button>
+              </CanAct>
             </div>
           </div>
 
@@ -646,17 +653,19 @@ export default function AdminVariantsPage() {
                         ? "Try clearing filters or search query to find Items."
                         : "Start by adding your first product Item."}
                     </p>
-                    <Button
-                      onClick={() => {
-                        setCreateStep(1);
-                        setCreatedVariant(null);
-                        setIsCreateOpen(true);
-                      }}
-                      className="mt-5 rounded-xl bg-theme-primary hover:bg-theme-primary-hover px-4 text-xs font-semibold text-white transition-colors"
-                    >
-                      <Plus className="mr-1.5 h-3.5 w-3.5" />
-                      Add Variant
-                    </Button>
+                    <CanAct action="CREATE">
+                      <Button
+                        onClick={() => {
+                          setCreateStep(1);
+                          setCreatedVariant(null);
+                          setIsCreateOpen(true);
+                        }}
+                        className="mt-5 rounded-xl bg-theme-primary hover:bg-theme-primary-hover px-4 text-xs font-semibold text-white transition-colors"
+                      >
+                        <Plus className="mr-1.5 h-3.5 w-3.5" />
+                        Add Variant
+                      </Button>
+                    </CanAct>
                   </div>
                 ) : (
                   <div>

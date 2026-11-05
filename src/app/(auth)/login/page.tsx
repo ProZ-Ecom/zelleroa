@@ -99,9 +99,10 @@ function LoginForm() {
             console.error("NextAuth session sync failed", err);
           }
           const userRole = response?.data?.user?.role;
+          const userScope = response?.data?.user?.scope;
           // Role decides the landing page; callbackUrl is honoured only when
           // this role is allowed to open it.
-          const target = resolvePostLoginTarget(userRole, callbackUrl);
+          const target = resolvePostLoginTarget(userRole, callbackUrl, userScope);
           setDestination(target);
           setPhase("redirecting");
           // Full navigation so the fresh auth cookies are picked up by

@@ -22,6 +22,7 @@ import { Plus, Pencil, Trash2 } from "lucide-react";
 import { createCouponSchema, type CreateCouponSchemaInput } from "@/features/coupons/validations/coupon.schema";
 import type { ColumnDef } from "@tanstack/react-table";
 import type { CouponListItem } from "@/features/coupons/types";
+import { CanAct } from "@/features/access";
 
 const typeBadgeVariant: Record<string, "info" | "success"> = {
   PERCENTAGE: "info",
@@ -264,13 +265,15 @@ const numberField = (name: NumericField) => {
                 }
                 disabled={coupons.length === 0}
               />
-              <Button
-                onClick={() => handleOpenModal()}
-                className="h-11 rounded-xl bg-theme-primary hover:bg-theme-primary-hover px-5 text-sm font-semibold text-white transition-colors"
-              >
-                <Plus className="mr-2 h-4 w-4" />
-                Add Coupon
-              </Button>
+              <CanAct action="CREATE">
+                <Button
+                  onClick={() => handleOpenModal()}
+                  className="h-11 rounded-xl bg-theme-primary hover:bg-theme-primary-hover px-5 text-sm font-semibold text-white transition-colors"
+                >
+                  <Plus className="mr-2 h-4 w-4" />
+                  Add Coupon
+                </Button>
+              </CanAct>
             </div>
           </div>
 

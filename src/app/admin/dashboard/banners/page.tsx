@@ -38,6 +38,7 @@ import {
 } from "@/features/banners/constants/banner-types";
 import type { BannerDto } from "@/features/banners/types";
 import { Video } from "lucide-react";
+import { CanAct } from "@/features/access";
 
 export default function AdminBannersPage() {
   const [search, setSearch] = useState("");
@@ -309,33 +310,37 @@ export default function AdminBannersPage() {
               <Eye className="h-4 w-4" />
             </Button>
 
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => {
-                setSelectedBanner(banner);
-                setIsEditOpen(true);
-              }}
-              className="h-8 w-8 text-[var(--color-neutral-500)] hover:text-[var(--color-neutral-900)] hover:bg-[var(--color-neutral-100)]"
-              title="Edit Banner"
-            >
-              <Pencil className="h-4 w-4" />
-            </Button>
+            <CanAct action="UPDATE">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => {
+                  setSelectedBanner(banner);
+                  setIsEditOpen(true);
+                }}
+                className="h-8 w-8 text-[var(--color-neutral-500)] hover:text-[var(--color-neutral-900)] hover:bg-[var(--color-neutral-100)]"
+                title="Edit Banner"
+              >
+                <Pencil className="h-4 w-4" />
+              </Button>
+            </CanAct>
 
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() =>
-                setDeleteTarget({
-                  uuid: banner.id,
-                  title: banner.title || "Untitled Banner",
-                })
-              }
-              className="h-8 w-8 text-[var(--color-error-500)] hover:bg-[var(--color-error-50)] hover:text-[var(--color-error-700)]"
-              title="Delete Banner"
-            >
-              <Trash2 className="h-4 w-4" />
-            </Button>
+            <CanAct action="DELETE">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() =>
+                  setDeleteTarget({
+                    uuid: banner.id,
+                    title: banner.title || "Untitled Banner",
+                  })
+                }
+                className="h-8 w-8 text-[var(--color-error-500)] hover:bg-[var(--color-error-50)] hover:text-[var(--color-error-700)]"
+                title="Delete Banner"
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </CanAct>
           </div>
         );
       },
@@ -431,13 +436,15 @@ export default function AdminBannersPage() {
                 }
                 disabled={banners.length === 0}
               />
-              <Button
-                onClick={() => setIsCreateOpen(true)}
-                className="h-11 rounded-xl bg-theme-primary hover:bg-theme-primary-hover px-5 text-sm font-semibold text-white transition-colors"
-              >
-                <Plus className="mr-2 h-4 w-4" />
-                Add Banner
-              </Button>
+              <CanAct action="CREATE">
+                <Button
+                  onClick={() => setIsCreateOpen(true)}
+                  className="h-11 rounded-xl bg-theme-primary hover:bg-theme-primary-hover px-5 text-sm font-semibold text-white transition-colors"
+                >
+                  <Plus className="mr-2 h-4 w-4" />
+                  Add Banner
+                </Button>
+              </CanAct>
             </div>
           </div>
 

@@ -13,6 +13,7 @@
     "db:migrate": "prisma migrate dev",
     "db:seed": "node --experimental-strip-types scripts/seed-all-zellora.ts",
     "db:seed:basic": "node --experimental-strip-types prisma/seed.ts",
+    "db:permissions:sync": "node --experimental-strip-types scripts/sync-permissions.ts",
     "db:seed:orders": "node --experimental-strip-types scripts/seed-test-orders.ts",
     "db:seed:categories": "node --experimental-strip-types scripts/seed-zellora-categories.ts",
     "db:studio": "prisma studio",

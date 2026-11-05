@@ -28,6 +28,7 @@ import { Upload, Plus, Pencil, Trash2 } from "lucide-react";
 import type { ColumnDef } from "@tanstack/react-table";
 import type { AdminGstRateResponse } from "@/features/gst-rates/types";
 import { GstRateForm } from "@/features/gst-rates/components/GstRateForm";
+import { CanAct } from "@/features/access";
 
 export default function AdminGstRatesPage() {
   const [search, setSearch] = useState("");
@@ -185,13 +186,15 @@ export default function AdminGstRatesPage() {
                 Import
               </Button>
 
-              <Button
-                onClick={() => setIsCreateOpen(true)}
-                className="h-11 rounded-xl bg-theme-primary hover:bg-theme-primary-hover px-5 text-sm font-semibold text-white transition-colors"
-              >
-                <Plus className="mr-2 h-4 w-4" />
-                Add GST Rate
-              </Button>
+              <CanAct action="CREATE">
+                <Button
+                  onClick={() => setIsCreateOpen(true)}
+                  className="h-11 rounded-xl bg-theme-primary hover:bg-theme-primary-hover px-5 text-sm font-semibold text-white transition-colors"
+                >
+                  <Plus className="mr-2 h-4 w-4" />
+                  Add GST Rate
+                </Button>
+              </CanAct>
             </div>
           </div>
 

@@ -28,6 +28,7 @@ import { Upload, Plus, Pencil, Trash2 } from "lucide-react";
 import type { ColumnDef } from "@tanstack/react-table";
 import type { AdminUnitResponse } from "@/features/units/types";
 import { UnitForm } from "@/features/units/components/UnitForm";
+import { CanAct } from "@/features/access";
 
 export default function AdminUnitsPage() {
   const [search, setSearch] = useState("");
@@ -232,13 +233,15 @@ export default function AdminUnitsPage() {
                 Import
               </Button>
 
-              <Button
-                onClick={() => setIsCreateOpen(true)}
-                className="h-11 rounded-xl bg-theme-primary hover:bg-theme-primary-hover px-5 text-sm font-semibold text-white transition-colors"
-              >
-                <Plus className="mr-2 h-4 w-4" />
-                Add Unit
-              </Button>
+              <CanAct action="CREATE">
+                <Button
+                  onClick={() => setIsCreateOpen(true)}
+                  className="h-11 rounded-xl bg-theme-primary hover:bg-theme-primary-hover px-5 text-sm font-semibold text-white transition-colors"
+                >
+                  <Plus className="mr-2 h-4 w-4" />
+                  Add Unit
+                </Button>
+              </CanAct>
             </div>
           </div>
 

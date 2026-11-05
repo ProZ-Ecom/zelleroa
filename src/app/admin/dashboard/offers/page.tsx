@@ -46,6 +46,7 @@ import type {
   OfferStatusFilter,
   OfferType,
 } from "@/features/offers/types";
+import { CanAct } from "@/features/access";
 
 function formatDate(value: string | null): string {
   if (!value) return "—";
@@ -346,18 +347,20 @@ export default function AdminOffersPage() {
             >
               <Eye className="h-4 w-4" />
             </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => {
-                setFormError(null);
-                setEditingOffer(offer);
-              }}
-              className="h-8 w-8 text-neutral-500 hover:bg-neutral-100 hover:text-neutral-900"
-              title="Edit offer"
-            >
-              <Pencil className="h-4 w-4" />
-            </Button>
+            <CanAct action="UPDATE">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => {
+                  setFormError(null);
+                  setEditingOffer(offer);
+                }}
+                className="h-8 w-8 text-neutral-500 hover:bg-neutral-100 hover:text-neutral-900"
+                title="Edit offer"
+              >
+                <Pencil className="h-4 w-4" />
+              </Button>
+            </CanAct>
             <Button
               variant="ghost"
               size="icon"
@@ -371,15 +374,17 @@ export default function AdminOffersPage() {
             >
               <Power className="h-4 w-4" />
             </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setDeleteTarget(offer)}
-              className="h-8 w-8 text-[var(--color-error-500)] hover:bg-[var(--color-error-50)] hover:text-[var(--color-error-700)]"
-              title="Delete offer"
-            >
-              <Trash2 className="h-4 w-4" />
-            </Button>
+            <CanAct action="DELETE">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setDeleteTarget(offer)}
+                className="h-8 w-8 text-[var(--color-error-500)] hover:bg-[var(--color-error-50)] hover:text-[var(--color-error-700)]"
+                title="Delete offer"
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </CanAct>
           </div>
         );
       },
@@ -438,16 +443,18 @@ export default function AdminOffersPage() {
               onClick={handleExport}
               disabled={!offers.length}
             />
-            <Button
-              onClick={() => {
-                setFormError(null);
-                setIsCreateOpen(true);
-              }}
-              className="h-11 rounded-xl bg-theme-primary hover:bg-theme-primary-hover px-5 text-sm font-semibold text-white transition-colors"
-            >
-              <Plus className="mr-2 h-4 w-4" />
-              Create Offer
-            </Button>
+            <CanAct action="CREATE">
+              <Button
+                onClick={() => {
+                  setFormError(null);
+                  setIsCreateOpen(true);
+                }}
+                className="h-11 rounded-xl bg-theme-primary hover:bg-theme-primary-hover px-5 text-sm font-semibold text-white transition-colors"
+              >
+                <Plus className="mr-2 h-4 w-4" />
+                Create Offer
+              </Button>
+            </CanAct>
           </div>
         }
       />

@@ -31,6 +31,7 @@ import {
 } from "@/features/faqs/hooks";
 import { FaqForm } from "@/features/faqs/components";
 import type { FaqDto, FaqStatus } from "@/features/faqs/types";
+import { CanAct } from "@/features/access";
 
 const STATUS_FILTER_OPTIONS = [
   { value: "", label: "All Statuses" },
@@ -232,30 +233,34 @@ export default function AdminFaqsPage() {
         const faq = row.original;
         return (
           <div className="flex items-center gap-1">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => {
-                setSelectedFaq(faq);
-                setIsEditOpen(true);
-              }}
-              className="h-8 w-8 text-[var(--color-neutral-500)] hover:bg-[var(--color-neutral-100)] hover:text-[var(--color-neutral-900)]"
-              title="Edit FAQ"
-            >
-              <Pencil className="h-4 w-4" />
-            </Button>
+            <CanAct action="UPDATE">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => {
+                  setSelectedFaq(faq);
+                  setIsEditOpen(true);
+                }}
+                className="h-8 w-8 text-[var(--color-neutral-500)] hover:bg-[var(--color-neutral-100)] hover:text-[var(--color-neutral-900)]"
+                title="Edit FAQ"
+              >
+                <Pencil className="h-4 w-4" />
+              </Button>
+            </CanAct>
 
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() =>
-                setDeleteTarget({ id: faq.id, question: faq.question })
-              }
-              className="h-8 w-8 text-[var(--color-error-500)] hover:bg-[var(--color-error-50)] hover:text-[var(--color-error-700)]"
-              title="Delete FAQ"
-            >
-              <Trash2 className="h-4 w-4" />
-            </Button>
+            <CanAct action="DELETE">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() =>
+                  setDeleteTarget({ id: faq.id, question: faq.question })
+                }
+                className="h-8 w-8 text-[var(--color-error-500)] hover:bg-[var(--color-error-50)] hover:text-[var(--color-error-700)]"
+                title="Delete FAQ"
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </CanAct>
           </div>
         );
       },
@@ -339,13 +344,15 @@ export default function AdminFaqsPage() {
                 }
                 disabled={faqs.length === 0}
               />
-              <Button
-                onClick={() => setIsCreateOpen(true)}
-                className="h-11 rounded-xl bg-theme-primary hover:bg-theme-primary-hover px-5 text-sm font-semibold text-white transition-colors"
-              >
-                <Plus className="mr-2 h-4 w-4" />
-                Add FAQ
-              </Button>
+              <CanAct action="CREATE">
+                <Button
+                  onClick={() => setIsCreateOpen(true)}
+                  className="h-11 rounded-xl bg-theme-primary hover:bg-theme-primary-hover px-5 text-sm font-semibold text-white transition-colors"
+                >
+                  <Plus className="mr-2 h-4 w-4" />
+                  Add FAQ
+                </Button>
+              </CanAct>
             </div>
           </div>
 

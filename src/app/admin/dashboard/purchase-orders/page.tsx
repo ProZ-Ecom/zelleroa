@@ -20,6 +20,7 @@ import {
   purchaseStatusOptions,
 } from "@/features/purchases/components/PurchaseStatusBadge";
 import type { PurchaseOrderResponse, PurchaseStatus } from "@/features/purchases/types";
+import { CanAct } from "@/features/access";
 
 export default function PurchaseOrdersPage() {
   const router = useRouter();
@@ -182,13 +183,15 @@ export default function PurchaseOrdersPage() {
               >
                 New Purchase Order (draft)
               </Button>
-              <Button
-                onClick={() => router.push("/admin/dashboard/purchase-orders/confirm")}
-                className="h-11 rounded-xl bg-theme-primary hover:bg-theme-primary-hover px-4 xl:px-5 text-sm font-semibold text-white transition-colors whitespace-nowrap shrink-0"
-              >
-                <Plus className="mr-1.5 h-4 w-4" />
-                Create Purchase
-              </Button>
+              <CanAct action="CREATE">
+                <Button
+                  onClick={() => router.push("/admin/dashboard/purchase-orders/confirm")}
+                  className="h-11 rounded-xl bg-theme-primary hover:bg-theme-primary-hover px-4 xl:px-5 text-sm font-semibold text-white transition-colors whitespace-nowrap shrink-0"
+                >
+                  <Plus className="mr-1.5 h-4 w-4" />
+                  Create Purchase
+                </Button>
+              </CanAct>
             </div>
           </div>
 

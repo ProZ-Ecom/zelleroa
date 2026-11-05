@@ -21,6 +21,7 @@ import { Plus, Pencil, Trash2, FolderTree, Link2, Tag } from "lucide-react";
 import { toast } from "@/components/ui/Toast";
 import type { ColumnDef } from "@tanstack/react-table";
 import { type AdminHeaderMenuItemResponse, MAX_HEADER_MENU_ITEMS } from "@/features/header-menu/types";
+import { CanAct } from "@/features/access";
 
 export default function AdminHeaderMenuPage() {
   const [page, setPage] = useState(1);
@@ -265,25 +266,27 @@ export default function AdminHeaderMenuPage() {
                 disabled={!items.length}
               />
 
-              <Button
-                type="button"
-                disabled={isLimitReached}
-                onClick={() => {
-                  if (isLimitReached) {
-                    toast.error(`A maximum of ${MAX_HEADER_MENU_ITEMS} header menu items can exist. Please delete or modify an existing item.`);
-                    return;
-                  }
-                  setIsCreateOpen(true);
-                }}
-                className={`h-11 rounded-xl transition-all px-5 text-sm font-semibold shadow-xs ${
-                  isLimitReached
-                    ? "bg-slate-200 text-slate-500 cursor-not-allowed opacity-75 shadow-none"
-                    : "bg-theme-primary hover:bg-theme-primary-hover text-white transition-colors"
-                }`}
-              >
-                <Plus className="mr-2 h-4 w-4" />
-                Add Menu Item
-              </Button>
+              <CanAct action="CREATE">
+                <Button
+                  type="button"
+                  disabled={isLimitReached}
+                  onClick={() => {
+                    if (isLimitReached) {
+                      toast.error(`A maximum of ${MAX_HEADER_MENU_ITEMS} header menu items can exist. Please delete or modify an existing item.`);
+                      return;
+                    }
+                    setIsCreateOpen(true);
+                  }}
+                  className={`h-11 rounded-xl transition-all px-5 text-sm font-semibold shadow-xs ${
+                    isLimitReached
+                      ? "bg-slate-200 text-slate-500 cursor-not-allowed opacity-75 shadow-none"
+                      : "bg-theme-primary hover:bg-theme-primary-hover text-white transition-colors"
+                  }`}
+                >
+                  <Plus className="mr-2 h-4 w-4" />
+                  Add Menu Item
+                </Button>
+              </CanAct>
             </div>
           </div>
 

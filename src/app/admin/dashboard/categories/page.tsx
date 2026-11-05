@@ -29,6 +29,7 @@ import { DataTable } from "@/components/admin/data-table/DataTable";
 import { Upload, Plus, Pencil, Trash2 } from "lucide-react";
 import type { ColumnDef } from "@tanstack/react-table";
 import type { CategoryListItem } from "@/features/categories/types";
+import { CanAct } from "@/features/access";
 
 export default function AdminCategoriesPage() {
   const [search, setSearch] = useState("");
@@ -224,14 +225,16 @@ export default function AdminCategoriesPage() {
                 Import
               </Button>
 
-            <Button
-              type="button"
-              onClick={() => setIsCreateOpen(true)}
-              className="h-11 rounded-xl bg-theme-primary hover:bg-theme-primary-hover px-5 text-sm font-semibold text-white transition-colors"
-            >
-              <Plus className="mr-2 h-4 w-4" />
-              Add Category
-            </Button>
+            <CanAct action="CREATE">
+              <Button
+                type="button"
+                onClick={() => setIsCreateOpen(true)}
+                className="h-11 rounded-xl bg-theme-primary hover:bg-theme-primary-hover px-5 text-sm font-semibold text-white transition-colors"
+              >
+                <Plus className="mr-2 h-4 w-4" />
+                Add Category
+              </Button>
+            </CanAct>
             </div>
           </div>
 

@@ -24,6 +24,7 @@ import {
   ACCOUNT_BLOCKED_TITLE,
 } from "@/features/auth";
 import { toast, suppressPendingSuccessToast } from "@/components/ui/Toast";
+import { resolveRoleScope } from "@/lib/auth/role-routes";
 
 function AdminLoginForm() {
   const [rememberMe, setRememberMe] = useState(false);
@@ -75,7 +76,9 @@ function AdminLoginForm() {
       {
         onSuccess: async (response) => {
           const userRole = response.data?.user?.role;
-          if (userRole !== "ADMIN" && userRole !== "STAFF") {
+          // Any role in the ADMIN scope may use the admin portal, including roles
+          // an admin created themselves — not just the built-in ADMIN/STAFF names.
+          if (resolveRoleScope(response.data?.user?.scope, userRole) !== "ADMIN") {
             suppressPendingSuccessToast();
             setPhase("idle");
             try {

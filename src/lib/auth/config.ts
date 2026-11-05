@@ -5,6 +5,7 @@ import crypto from "crypto";
 import { verifyCredentialsWithProtection } from "@/features/auth/services/login-protection.service";
 import { db } from "@/lib/db/prisma";
 import { loginSchema } from "@/lib/validations/auth";
+import { resolveRoleScope } from "@/lib/auth/role-routes";
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
   trustHost: true,
@@ -68,6 +69,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           email: user.email ?? "",
           image: user.avatar ?? null,
           role: user.roleName,
+          scope: resolveRoleScope(user.roleScope, user.roleName),
           phone: user.phone ?? null,
           status: user.status,
         };
@@ -140,6 +142,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
 
           user.id = existingUser.uuid || existingUser.id.toString();
           user.role = existingUser.role?.name || "CUSTOMER";
+          user.scope = resolveRoleScope(existingUser.role?.scope, user.role);
           user.phone = existingUser.phone ?? null;
           user.status = existingUser.status;
           return true;
@@ -201,6 +204,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
 
           user.id = newUser.uuid || newUser.id.toString();
           user.role = newUser.role?.name || "CUSTOMER";
+          user.scope = resolveRoleScope(newUser.role?.scope, user.role);
           user.phone = null;
           user.status = newUser.status;
           return true;
@@ -213,6 +217,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           if (fallbackUser) {
             user.id = fallbackUser.uuid || fallbackUser.id.toString();
             user.role = fallbackUser.role?.name || "CUSTOMER";
+            user.scope = resolveRoleScope(fallbackUser.role?.scope, user.role);
             user.phone = fallbackUser.phone ?? null;
             user.status = fallbackUser.status;
             return true;
@@ -228,6 +233,10 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       if (user) {
         token.id = user.id;
         token.role = (user as { role?: string }).role || "CUSTOMER";
+        token.scope = resolveRoleScope(
+          (user as { scope?: string }).scope,
+          token.role as string
+        );
         token.phone = (user as { phone?: string | null }).phone ?? null;
         token.status = (user as { status?: string }).status || "active";
       }
@@ -241,6 +250,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         if (dbUser) {
           token.id = dbUser.uuid || dbUser.id.toString();
           token.role = dbUser.role?.name || "CUSTOMER";
+          token.scope = resolveRoleScope(dbUser.role?.scope, token.role as string);
           token.phone = dbUser.phone ?? null;
           token.status = dbUser.status;
         }
@@ -253,6 +263,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         const sessionUser = session.user as any;
         sessionUser.id = token.id as string;
         sessionUser.role = token.role as string;
+        sessionUser.scope = resolveRoleScope(token.scope as string | undefined, token.role as string);
         sessionUser.phone = (token.phone as string | null) ?? null;
         sessionUser.status = token.status as string;
       }

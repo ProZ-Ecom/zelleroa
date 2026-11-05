@@ -23,6 +23,7 @@ import { AdminTableSkeleton } from "@/components/admin/AdminTableSkeleton";
 import { ErrorState } from "@/components/ui/error-state";
 import { useStaffList, useStaffCount, StaffFormModal } from "@/features/staff";
 import type { StaffResponse } from "@/features/staff/types";
+import { CanAct } from "@/features/access";
 
 export default function AdminStaffPage() {
   const [search, setSearch] = React.useState("");
@@ -293,14 +294,16 @@ export default function AdminStaffPage() {
             disabled={!staffList.length}
           />
 
-          <Button
-            type="button"
-            onClick={handleOpenCreateModal}
-            className="h-10 rounded-xl bg-theme-primary hover:bg-theme-primary-hover px-4 text-sm font-semibold text-white transition-colors cursor-pointer shrink-0"
-          >
-            <Plus className="mr-2 h-4 w-4" />
-            Create Staff
-          </Button>
+          <CanAct action="CREATE">
+            <Button
+              type="button"
+              onClick={handleOpenCreateModal}
+              className="h-10 rounded-xl bg-theme-primary hover:bg-theme-primary-hover px-4 text-sm font-semibold text-white transition-colors cursor-pointer shrink-0"
+            >
+              <Plus className="mr-2 h-4 w-4" />
+              Create Staff
+            </Button>
+          </CanAct>
         </div>
       </div>
 

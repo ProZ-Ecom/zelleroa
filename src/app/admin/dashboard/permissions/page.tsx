@@ -29,6 +29,7 @@ import {
 } from "@/features/roles/validations/role.schema";
 import type { ColumnDef } from "@tanstack/react-table";
 import type { PermissionListItem } from "@/features/roles/types";
+import { CanAct } from "@/features/access";
 
 export default function AdminPermissionsPage() {
   const [search, setSearch] = useState("");
@@ -246,10 +247,12 @@ export default function AdminPermissionsPage() {
                 }
                 disabled={filteredPermissions.length === 0}
               />
-              <Button variant="gradient" onClick={() => handleOpenModal()}>
-  <Plus className="mr-2 h-4 w-4" />
-  Add Permission
-</Button>
+              <CanAct action="CREATE">
+                <Button variant="gradient" onClick={() => handleOpenModal()}>
+    <Plus className="mr-2 h-4 w-4" />
+    Add Permission
+  </Button>
+              </CanAct>
             </div>
           </div>
 
