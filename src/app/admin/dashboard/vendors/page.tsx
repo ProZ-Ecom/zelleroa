@@ -18,6 +18,7 @@ import { SearchInput } from "@/components/ui/search-input";
 import { useVendors, useVendorMutations } from "@/features/purchases/hooks";
 import { VendorForm } from "@/features/purchases/components/VendorForm";
 import type { VendorResponse } from "@/features/purchases/types";
+import { CanAct } from "@/features/access";
 
 export default function VendorsPage() {
   const [search, setSearch] = useState("");
@@ -105,9 +106,11 @@ export default function VendorsPage() {
               className={`h-4 w-4 ${row.original.isActive ? "text-[var(--color-neutral-500)]" : "text-green-600"}`}
             />
           </Button>
-          <Button variant="ghost" size="icon" title="Edit vendor" onClick={() => setEditing(row.original)}>
-            <Pencil className="h-4 w-4 text-[var(--color-neutral-500)]" />
-          </Button>
+          <CanAct action="UPDATE">
+            <Button variant="ghost" size="icon" title="Edit vendor" onClick={() => setEditing(row.original)}>
+              <Pencil className="h-4 w-4 text-[var(--color-neutral-500)]" />
+            </Button>
+          </CanAct>
           <Button variant="ghost" size="icon" onClick={() => setDeleteId(row.original.id)}>
             <Trash2 className="h-4 w-4 text-[var(--color-error-600)]" />
           </Button>
@@ -123,8 +126,8 @@ export default function VendorsPage() {
     <div className="flex flex-1 min-h-0 flex-col">
       <AdminPageHeader title="Vendors" description="Suppliers you buy stock from." />
 
-      <AdminContent className="flex-1 min-h-0 overflow-hidden">
-        <div className="flex h-full flex-col overflow-hidden bg-[var(--color-background)] py-1 rounded-2xl">
+      <AdminContent className="flex-1 min-h-0">
+        <div className="flex h-full flex-col bg-[var(--color-background)] py-1 rounded-2xl">
           <div className="flex-shrink-0 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <SearchInput
               placeholder="Search vendors..."
@@ -156,17 +159,19 @@ export default function VendorsPage() {
                 disabled={!vendors.length}
               />
 
-              <Button
-                onClick={() => setIsCreateOpen(true)}
-                className="h-11 rounded-xl bg-theme-primary hover:bg-theme-primary-hover px-5 text-sm font-semibold text-white transition-colors"
-              >
-                <Plus className="mr-2 h-4 w-4" />
-                Add Vendor
-              </Button>
+              <CanAct action="CREATE">
+                <Button
+                  onClick={() => setIsCreateOpen(true)}
+                  className="h-11 rounded-xl bg-theme-primary hover:bg-theme-primary-hover px-5 text-sm font-semibold text-white transition-colors"
+                >
+                  <Plus className="mr-2 h-4 w-4" />
+                  Add Vendor
+                </Button>
+              </CanAct>
             </div>
           </div>
 
-          <div className="mt-6 flex-1 min-h-0 overflow-hidden flex flex-col">
+          <div className="mt-6 flex-1 min-h-0 flex flex-col">
             <DataTable
               columns={columns}
               data={vendors}

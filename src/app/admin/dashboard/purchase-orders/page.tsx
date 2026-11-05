@@ -20,6 +20,7 @@ import {
   purchaseStatusOptions,
 } from "@/features/purchases/components/PurchaseStatusBadge";
 import type { PurchaseOrderResponse, PurchaseStatus } from "@/features/purchases/types";
+import { CanAct } from "@/features/access";
 
 export default function PurchaseOrdersPage() {
   const router = useRouter();
@@ -115,8 +116,8 @@ export default function PurchaseOrdersPage() {
         description="Raise, approve and receive stock from vendors."
       />
 
-      <AdminContent className="flex-1 min-h-0 overflow-hidden">
-        <div className="flex h-full flex-col overflow-hidden bg-[var(--color-background)] py-1 rounded-2xl">
+      <AdminContent className="flex-1 min-h-0">
+        <div className="flex h-full flex-col bg-[var(--color-background)] py-1 rounded-2xl">
           <div className="flex-shrink-0 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <div className="flex items-center gap-3">
               <div className="w-64 lg:w-72 shrink-0">
@@ -182,17 +183,19 @@ export default function PurchaseOrdersPage() {
               >
                 New Purchase Order (draft)
               </Button>
-              <Button
-                onClick={() => router.push("/admin/dashboard/purchase-orders/confirm")}
-                className="h-11 rounded-xl bg-theme-primary hover:bg-theme-primary-hover px-4 xl:px-5 text-sm font-semibold text-white transition-colors whitespace-nowrap shrink-0"
-              >
-                <Plus className="mr-1.5 h-4 w-4" />
-                Create Purchase
-              </Button>
+              <CanAct action="CREATE">
+                <Button
+                  onClick={() => router.push("/admin/dashboard/purchase-orders/confirm")}
+                  className="h-11 rounded-xl bg-theme-primary hover:bg-theme-primary-hover px-4 xl:px-5 text-sm font-semibold text-white transition-colors whitespace-nowrap shrink-0"
+                >
+                  <Plus className="mr-1.5 h-4 w-4" />
+                  Create Purchase
+                </Button>
+              </CanAct>
             </div>
           </div>
 
-          <div className="mt-6 flex-1 min-h-0 overflow-hidden flex flex-col">
+          <div className="mt-6 flex-1 min-h-0 flex flex-col">
             <DataTable
               columns={columns}
               data={orders}

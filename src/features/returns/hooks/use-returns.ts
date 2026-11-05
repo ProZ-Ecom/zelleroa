@@ -4,6 +4,7 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tansta
 import { CUSTOMER_ORDERS_QUERY_KEY } from "@/features/customers/hooks/use-customer-orders";
 import {
   returnsApi,
+  type CustomerReturnActionPayload,
   type RequestActionPayload,
   type RequestListParams,
   type SubmitReplacementPayload,
@@ -37,6 +38,22 @@ export function useSubmitReplacement(orderUuid: string) {
   });
 }
 
+/**
+ * The customer's own two steps on a return: handing over the courier and
+ * tracking number, or cancelling before the parcel ships.
+ */
+export function useCustomerReturnAction() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (v: {
+      uuid: string;
+      action: "shipped" | "cancel";
+      payload?: CustomerReturnActionPayload;
+    }) => returnsApi.customerAction(v.uuid, v.action, v.payload),
+    onSuccess: () => qc.invalidateQueries({ queryKey: CUSTOMER_ORDERS_QUERY_KEY }),
+  });
+}
+
 export const ADMIN_REQUESTS_KEY = ["admin", "order-requests"] as const;
 
 export const useAdminRequests = (kind: RequestKind, params: RequestListParams) =>
@@ -60,4 +77,24 @@ export function useAdminRequestAction(kind: RequestKind) {
       returnsApi.adminAction(kind, v.uuid, v.action, v.payload),
     onSuccess: () => qc.invalidateQueries({ queryKey: ADMIN_REQUESTS_KEY }),
   });
+}
+
+export const ADMIN_STORAGE_KEY = ["admin", "video-storage"] as const;
+
+export function useAdminStorageUsage() {
+ return useQuery({
+ queryKey: ADMIN_STORAGE_KEY,
+ queryFn: () => returnsApi.getStorageUsage(),
+ refetchInterval: 60000,
+ });
+}
+
+export function useClearStorage() {
+ const qc = useQueryClient();
+ return useMutation({
+ mutationFn: () => returnsApi.clearStorage(),
+ onSuccess: () => {
+ qc.invalidateQueries({ queryKey: ADMIN_STORAGE_KEY });
+ },
+ });
 }

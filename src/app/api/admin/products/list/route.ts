@@ -1,43 +1,14 @@
 import { createApiHandler } from "@/lib/api/api-handler";
-import { apiSuccess, apiError } from "@/lib/api/api-response";
+import { apiSuccess} from "@/lib/api/api-response";
 import { productService } from "@/features/products/services/product.service";
 import {
   adminProductListSchema,
   type AdminProductListInput,
 } from "@/features/products/validations/admin-product.schema";
-import { db } from "@/lib/db/prisma";
 
 export const POST = createApiHandler(
   {
     POST: async (_request, context) => {
-      const rawRole = (context.session?.user as { role?: string })?.role;
-      const userRole = rawRole?.toUpperCase();
-      if (userRole !== "ADMIN" && userRole !== "SUPER_ADMIN") {
-        const hasPermission = await db.rolePermission.findFirst({
-          where: {
-            role: {
-              OR: [
-                ...(userRole ? [{ name: userRole }] : []),
-                ...(rawRole ? [{ name: rawRole }, { slug: rawRole.toLowerCase() }] : []),
-              ],
-            },
-            permission: {
-              OR: [
-                { name: "PRODUCT_VIEW" },
-                { slug: "product-view" },
-                { name: "MODELS_VIEW" },
-                { slug: "models-view" },
-                { name: "COLORS_LIST" },
-                { slug: "colors-list" },
-              ],
-            },
-          },
-        });
-        if (!hasPermission) {
-          return apiError("You don't have permission", 403);
-        }
-      }
-
       const body = (context.body || {}) as AdminProductListInput;
       const result = await productService.getAdminProductsList(body);
 

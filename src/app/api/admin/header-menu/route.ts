@@ -1,5 +1,5 @@
 import { createApiHandler } from "@/lib/api/api-handler";
-import { apiSuccess, apiCreated } from "@/lib/api/api-response";
+import { apiSuccess, apiCreated} from "@/lib/api/api-response";
 import { headerMenuService } from "@/features/header-menu/services/header-menu.service";
 import {
   createAdminHeaderMenuItemSchema,
@@ -23,7 +23,7 @@ export const GET = createApiHandler(
   },
   {
     requireAuth: true,
-    requiredRole: ["ADMIN"],
+    requiredRole: ["ADMIN", "STAFF"],
     querySchema: adminHeaderMenuQuerySchema,
   }
 );
@@ -42,7 +42,7 @@ export const POST = createApiHandler(
   {
     method: "POST",
     requireAuth: true,
-    requiredRole: ["ADMIN"],
+    requiredRole: ["ADMIN", "STAFF"],
     bodySchema: createAdminHeaderMenuItemSchema,
   }
 );

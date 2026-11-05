@@ -11,7 +11,7 @@ import { Switch } from "@/components/ui/Switch";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/forms/label";
 import { User, Mail, Phone, Lock, Loader2 } from "lucide-react";
-import { useCreateStaff, useUpdateStaff } from "../hooks/use-staff";
+import { useCreateStaff, useUpdateStaff, useAssignableStaffRoles } from "../hooks/use-staff";
 import type { StaffResponse } from "../types";
 
 const staffSchema = z.object({
@@ -39,6 +39,10 @@ const staffSchema = z.object({
     .string()
     .max(100, "Password cannot exceed 100 characters")
     .optional(),
+  roleId: z
+    .number({ message: "Please select a role" })
+    .int()
+    .positive("Please select a role"),
   isActive: z.boolean(),
 });
 
@@ -59,6 +63,13 @@ export function StaffFormModal({
 
   const createMutation = useCreateStaff();
   const updateMutation = useUpdateStaff();
+  // Every admin-panel role the admin has created, so a staff member can be put straight
+  // into e.g. "Warehouse Manager" instead of the generic STAFF role.
+  const { data: roles = [], isLoading: rolesLoading } = useAssignableStaffRoles(open);
+  const defaultRoleId = React.useMemo(
+    () => roles.find((role) => role.slug === "staff")?.id ?? roles[0]?.id,
+    [roles]
+  );
 
   const isSubmitting =
     createMutation.isPending || updateMutation.isPending;
@@ -77,6 +88,7 @@ export function StaffFormModal({
       email: "",
       phone: "",
       password: "",
+      roleId: 0,
       isActive: true,
     },
   });
@@ -92,6 +104,7 @@ export function StaffFormModal({
           email: staff.email || "",
           phone: cleanPhone,
           password: "",
+          roleId: staff.roleId ?? defaultRoleId ?? 0,
           isActive: staff.isActive ?? true,
         });
       } else {
@@ -100,11 +113,12 @@ export function StaffFormModal({
           email: "",
           phone: "",
           password: "",
+          roleId: defaultRoleId ?? 0,
           isActive: true,
         });
       }
     }
-  }, [open, staff, reset]);
+  }, [open, staff, reset, defaultRoleId]);
 
   const formatPhoneNumber = (val?: string | null) => {
     if (!val) return null;
@@ -150,12 +164,14 @@ export function StaffFormModal({
           name: string;
           email: string;
           phone: string | null;
+          roleId: number;
           isActive: boolean;
           password?: string;
         } = {
           name: values.name.trim(),
           email: values.email.toLowerCase().trim(),
           phone: formattedPhone,
+          roleId: values.roleId,
           isActive: values.isActive,
         };
 
@@ -174,6 +190,7 @@ export function StaffFormModal({
           email: values.email.toLowerCase().trim(),
           phone: formattedPhone,
           password: values.password!.trim(),
+          roleId: values.roleId,
           isActive: values.isActive,
         });
         onClose();
@@ -183,7 +200,7 @@ export function StaffFormModal({
       if (responseData?.errors && Array.isArray(responseData.errors)) {
         for (const item of responseData.errors) {
           const field = item.field || item.path?.[0];
-          if (field && ["name", "email", "phone", "password"].includes(field)) {
+          if (field && ["name", "email", "phone", "password", "roleId"].includes(field)) {
             setError(field as keyof StaffFormValues, {
               type: "server",
               message: item.message,
@@ -291,6 +308,33 @@ export function StaffFormModal({
               Only enter a new password if you want to change it.
             </p>
           )}
+        </div>
+
+        {/* Role */}
+        <div>
+          <Label htmlFor="staff-role" className="block mb-1.5 font-medium text-neutral-800">
+            Role <span className="text-red-500">*</span>
+          </Label>
+          <select
+            id="staff-role"
+            {...register("roleId", { valueAsNumber: true })}
+            disabled={isSubmitting || rolesLoading}
+            className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary disabled:bg-neutral-50"
+          >
+            <option value="">{rolesLoading ? "Loading roles..." : "Select a role"}</option>
+            {roles.map((role) => (
+              <option key={role.id} value={role.id}>
+                {role.name}
+              </option>
+            ))}
+          </select>
+          {errors.roleId && (
+            <p className="mt-1 text-xs text-red-500 font-medium">{errors.roleId.message}</p>
+          )}
+          <p className="mt-1 text-xs text-neutral-500">
+            Roles are managed under Team &amp; Access → Roles; the permissions on the role
+            decide what this person can open.
+          </p>
         </div>
 
         {/* Status Toggle */}

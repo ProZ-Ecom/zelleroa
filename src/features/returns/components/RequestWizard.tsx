@@ -84,12 +84,22 @@ export function RequestWizard({ open, orderUuid, initialMode, onClose }: Request
   // For product returns, customer bank details view is displayed right after video upload
   const isReturn = mode === "return";
 
+  /**
+   * Bank / UPI details are only collected for COD returns. A prepaid order is
+   * refunded at the gateway back to its original source (wallet, card, UPI,
+   * net banking), so asking for an account there is both pointless and
+   * misleading - see settleRefundAtGateway in return.service.ts. Defaults to
+   * false until eligibility loads so the step never flashes in.
+   */
+  const isCod = eligibility?.isCod ?? false;
+  const needsRefundDetails = isReturn && isCod;
+
   const stepOrder = useMemo<Step[]>(() => {
-    if (isReturn) {
+    if (isReturn && isCod) {
       return ["items", "reason", "video", "refund", "details", "review"];
     }
     return ["items", "reason", "video", "details", "review"];
-  }, [isReturn]);
+  }, [isReturn, isCod]);
 
   const reasons = mode === "return" ? RETURN_REASONS : REPLACEMENT_REASONS;
   const items = useMemo(() => eligibility?.items ?? [], [eligibility]);
@@ -138,7 +148,7 @@ export function RequestWizard({ open, orderUuid, initialMode, onClose }: Request
       if (descriptionMissing) return "Please describe the issue when selecting 'Other'.";
     }
     if (s === "video" && !videoUrl) return "Unboxing video is mandatory.";
-    if (s === "refund" && isReturn) {
+    if (s === "refund" && needsRefundDetails) {
       if (refundMethod === "upi") {
         if (!upiId.trim()) return "Please enter your UPI ID.";
         if (!/^[\w.-]+@[\w.-]+$/.test(upiId.trim())) {
@@ -211,7 +221,7 @@ export function RequestWizard({ open, orderUuid, initialMode, onClose }: Request
         await submitReturn.mutateAsync({
           ...base,
           items: chosen.map((i) => ({ orderItemId: i.orderItemId, quantity: selected[i.orderItemId].quantity })),
-          codRefundDetails: isReturn
+          codRefundDetails: needsRefundDetails
             ? {
                 method: refundMethod,
                 upiId: refundMethod === "upi" ? upiId.trim() : undefined,
@@ -655,7 +665,7 @@ export function RequestWizard({ open, orderUuid, initialMode, onClose }: Request
                   {videoUrl && <video src={videoUrl} controls preload="metadata" className="max-h-44 rounded-lg bg-black" />}
                 </li>
               </SummaryBlock>
-              {isReturn && (
+              {needsRefundDetails && (
                 <SummaryBlock title="Refund Destination (Bank Details)">
                   <li>
                     <strong>Method:</strong> {refundMethod === "upi" ? "Instant UPI Transfer" : "Bank Account (NEFT/IMPS)"}
@@ -678,6 +688,19 @@ export function RequestWizard({ open, orderUuid, initialMode, onClose }: Request
                   )}
                   <li>
                     <strong>Estimated Refund:</strong> {formatPrice(refundTotal)}
+                  </li>
+                </SummaryBlock>
+              )}
+              {isReturn && !isCod && (
+                <SummaryBlock title="Refund Destination">
+                  <li>
+                    <strong>Refunded to:</strong> {eligibility?.paymentMethod || "your original payment method"}
+                  </li>
+                  <li>
+                    <strong>Estimated Refund:</strong> {formatPrice(refundTotal)}
+                  </li>
+                  <li className="text-theme-text-muted">
+                    The amount goes back to the source you paid from. No bank details needed.
                   </li>
                 </SummaryBlock>
               )}

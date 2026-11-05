@@ -31,11 +31,15 @@ export default async function StoreLayout({
     name = row?.name;
   }
   const initialUser = sessionUser
-    ? { role: sessionUser.role, email: sessionUser.email, name }
+    ? { role: sessionUser.role, scope: sessionUser.scope, email: sessionUser.email, name }
     : null;
 
   return (
-    <ServerUserProvider signedIn={!!sessionUser} role={sessionUser?.role ?? null}>
+    <ServerUserProvider
+      signedIn={!!sessionUser}
+      role={sessionUser?.role ?? null}
+      scope={sessionUser?.scope ?? null}
+    >
       <div className="flex min-h-screen flex-col">
         <Suspense fallback={null}>
           <Header initialUser={initialUser} />

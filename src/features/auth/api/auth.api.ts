@@ -14,7 +14,15 @@ import { RegisterInput } from "@/features/users/validations/user.schema";
 
 export async function loginApi(data: LoginInput) {
   const response = await apiClient.post<{
-    user: { id: string; name: string; email: string; phone: string | null; role: string };
+    user: {
+      id: string;
+      name: string;
+      email: string;
+      phone: string | null;
+      role: string;
+      /** Area the role belongs to (roles.scope): "ADMIN" | "AGENT" | "CUSTOMER". */
+      scope?: string;
+    };
   }>("/api/auth/login", {
     email: data.email.trim(),
     password: data.password,

@@ -5,6 +5,8 @@ declare module "next-auth" {
     user: {
       id: string;
       role: string;
+      /** Area the role belongs to (roles.scope): "ADMIN" | "AGENT" | "CUSTOMER". */
+      scope?: string;
       phone?: string | null;
       status?: string;
     } & DefaultSession["user"];
@@ -12,6 +14,7 @@ declare module "next-auth" {
 
   interface User {
     role: string;
+    scope?: string;
     phone?: string | null;
     status?: string;
   }
@@ -21,6 +24,7 @@ declare module "next-auth/jwt" {
   interface JWT {
     id: string;
     role: string;
+    scope?: string;
     phone?: string | null;
     status?: string;
   }

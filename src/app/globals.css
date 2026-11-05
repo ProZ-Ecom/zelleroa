@@ -554,6 +554,32 @@ textarea:focus-visible {
   background-color: var(--color-neutral-400);
 }
 
+/* Custom Styled Accessible Scrollbar for Tables */
+.scrollbar-table {
+  scrollbar-width: thin;
+  scrollbar-color: #64748b #e2e8f0;
+}
+
+.scrollbar-table::-webkit-scrollbar {
+  height: 10px;
+  width: 10px;
+}
+
+.scrollbar-table::-webkit-scrollbar-track {
+  background: #e2e8f0;
+  border-radius: 9999px;
+}
+
+.scrollbar-table::-webkit-scrollbar-thumb {
+  background-color: #64748b;
+  border-radius: 9999px;
+  border: 2px solid #e2e8f0;
+}
+
+.scrollbar-table::-webkit-scrollbar-thumb:hover {
+  background-color: #334155;
+}
+
 /* Hide scrollbar but keep scrolling */
 .scrollbar-hide {
   -ms-overflow-style: none;

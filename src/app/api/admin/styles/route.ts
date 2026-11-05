@@ -1,10 +1,9 @@
 import { createApiHandler } from "@/lib/api/api-handler";
-import { apiSuccess, apiError } from "@/lib/api/api-response";
+import { apiSuccess} from "@/lib/api/api-response";
 import { categoryRepository } from "@/features/categories/repositories/category.repository";
 import { styleRepository } from "@/features/styles/repositories/style.repository";
 import { adminStyleListQuerySchema, type AdminStyleListQueryInput } from "@/features/styles/validations/admin-style.schema";
 import type { AdminStyleResponse } from "@/features/styles/types";
-import { db } from "@/lib/db/prisma";
 
 type StyleListRow = Awaited<ReturnType<typeof styleRepository.findAdminList>>["data"][number];
 
@@ -91,30 +90,6 @@ export const GET = createApiHandler(
     GET: async (_request, context) => {
       // STAFF users need the MODELS_VIEW permission to access the Model Management list.
       // ADMIN users always have full access.
-      const rawRole = (context.session?.user as { role?: string })?.role;
-      const userRole = rawRole?.toUpperCase();
-      if (userRole !== "ADMIN" && userRole !== "SUPER_ADMIN") {
-        const hasPermission = await db.rolePermission.findFirst({
-          where: {
-            role: {
-              OR: [
-                ...(userRole ? [{ name: userRole }] : []),
-                ...(rawRole ? [{ name: rawRole }, { slug: rawRole.toLowerCase() }] : []),
-              ],
-            },
-            permission: {
-              OR: [
-                { name: "MODELS_VIEW" },
-                { slug: "models-view" },
-              ],
-            },
-          },
-        });
-        if (!hasPermission) {
-          return apiError("You don't have permission", 403);
-        }
-      }
-
       const query = context.query as AdminStyleListQueryInput & {
         productId?: string;
         categoryId?: string;

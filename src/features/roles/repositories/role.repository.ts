@@ -84,13 +84,20 @@ export const roleRepository = {
     return db.role.findFirst({ where: { name } });
   },
 
-  async create(data: { name: string; slug?: string; description?: string; permissionIds?: number[] }) {
+  async create(data: {
+    name: string;
+    slug?: string;
+    description?: string;
+    scope?: string;
+    permissionIds?: number[];
+  }) {
     const slug = data.slug || data.name.toLowerCase().replace(/[^a-z0-9]+/g, "-");
     return db.role.create({
       data: {
         name: data.name,
         slug,
         description: data.description,
+        scope: data.scope ?? "ADMIN",
         rolePermissions: data.permissionIds?.length
           ? {
               create: data.permissionIds.map((permissionId) => ({
@@ -105,7 +112,7 @@ export const roleRepository = {
 
   async update(
     id: number,
-    data: { name?: string; description?: string; permissionIds?: number[] }
+    data: { name?: string; description?: string; scope?: string; permissionIds?: number[] }
   ) {
     if (data.permissionIds !== undefined) {
       await db.rolePermission.deleteMany({ where: { roleId: id } });
@@ -116,6 +123,7 @@ export const roleRepository = {
       data: {
         name: data.name,
         description: data.description,
+        scope: data.scope,
         ...(data.permissionIds !== undefined
           ? {
               rolePermissions: {

@@ -179,6 +179,17 @@ export function OrdersTab({
         theme: {
           color: "#7A211B",
         },
+        config: {
+          display: {
+            hide: [
+              { method: "emi" },
+              { method: "paylater" },
+            ],
+            preferences: {
+              show_default_blocks: true,
+            },
+          },
+        },
         modal: {
           ondismiss: () => {
             setPayingOrderId(null);
@@ -509,16 +520,26 @@ export function OrdersTab({
 
                 {/* Card Action Buttons */}
                 <div className="px-5 pb-4 pt-1 flex items-center gap-2.5 flex-wrap border-t border-theme-border-subtle">
-                  {/* Pay Now button — shown when order exists but payment is still pending (for COD, only allowed after delivery) */}
+                  {/* Pay Now button — ONLY for online payment orders (Card/UPI/Razorpay) when payment is pending */}
                   {(() => {
+                    const method = String((order as any).paymentMethod || "").toUpperCase();
+                    const paymentDetailsMethod = String((order as any).paymentDetails?.method || "").toUpperCase();
+                    const notes = String((order as any).notes || "").toUpperCase();
+
                     const isCod =
-                      (order as any).paymentMethod === "COD" ||
-                      (order as any).paymentDetails?.method?.toUpperCase()?.includes("COD") ||
+                      method === "COD" ||
+                      method.includes("CASH") ||
+                      paymentDetailsMethod.includes("COD") ||
+                      paymentDetailsMethod.includes("CASH") ||
+                      notes.includes("COD") ||
+                      notes.includes("CASH ON DELIVERY") ||
+
+
                       Boolean((order as any).bankDetails?.accountHolder);
                     const canPay =
                       order.paymentStatus === "pending" &&
                       order.status !== "cancelled" &&
-                      (isCod ? order.status === "delivered" : true);
+                      !isCod;
                     return canPay;
                   })() && (
                     <button
@@ -606,10 +627,15 @@ export function OrdersTab({
                         onClick={() =>
                           setReturnTarget({ orderId: order.id, mode: "return" })
                         }
-                        className="border border-secondary-600 bg-secondary-50 hover:bg-secondary-100 text-secondary-800 text-xs font-semibold uppercase tracking-wider py-2.5 px-4 rounded-lg transition-colors cursor-pointer min-h-[40px] inline-flex items-center gap-1.5"
+                        className="border-2 border-amber-500 bg-amber-50 hover:bg-amber-100 text-amber-900 dark:bg-amber-950/50 dark:border-amber-400 dark:text-amber-200 text-xs font-bold uppercase tracking-wider py-2.5 px-4 rounded-lg transition-all duration-200 cursor-pointer min-h-[40px] inline-flex items-center gap-1.5 shadow-xs hover:shadow active:scale-[0.98]"
                       >
-                        <Undo2 className="h-3.5 w-3.5" />
-                        Return / Replace{order.returnWindow?.daysLeft ? ` (${order.returnWindow.daysLeft}d left)` : ""}
+                        <Undo2 className="h-3.5 w-3.5 text-amber-600 stroke-[2.5]" />
+                        <span>Return / Replace</span>
+                        {order.returnWindow?.daysLeft ? (
+                          <span className="ml-1 rounded bg-amber-200 text-amber-950 px-1.5 py-0.5 text-[10px] font-extrabold tracking-normal">
+                            {order.returnWindow.daysLeft}d left
+                          </span>
+                        ) : null}
                       </button>
                     )
                   )}

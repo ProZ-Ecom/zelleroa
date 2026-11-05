@@ -19,7 +19,14 @@ export async function resolveCustomerId(sessionUserId: string): Promise<bigint> 
  */
 export async function loadOwnedOrder(customerId: bigint, orderUuid: string) {
   const order = await db.order.findFirst({
-    where: { uuid: orderUuid, is_active: true },
+    where: {
+      OR: [
+        { uuid: orderUuid },
+        { orderNumber: orderUuid },
+        ...(/^\d+$/.test(orderUuid) ? [{ id: BigInt(orderUuid) }] : []),
+      ],
+      is_active: true,
+    },
     include: {
       items: {
         where: { is_active: true },

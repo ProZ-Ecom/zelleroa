@@ -21,6 +21,8 @@ const userSelect = {
   role: {
     select: {
       name: true,
+      slug: true,
+      scope: true,
     },
   },
 } satisfies Prisma.UserSelect;
@@ -36,6 +38,8 @@ function formatUser<T extends Record<string, any>>(user: T) {
     roleId: typeof user.roleId === "bigint" ? Number(user.roleId) : user.roleId,
     custId: user.cust_id ?? null,
     roleName: user.role?.name,
+    roleSlug: user.role?.slug ?? null,
+    roleScope: user.role?.scope ?? null,
     isActive: Boolean(user.is_active),
     isBlocked: user.is_blocked !== null && Number(user.is_blocked) > 0,
   };
@@ -134,6 +138,8 @@ export const userRepository = {
         role: {
           select: {
             name: true,
+            slug: true,
+            scope: true,
           },
         },
       },
@@ -155,6 +161,8 @@ export const userRepository = {
         role: {
           select: {
             name: true,
+            slug: true,
+            scope: true,
           },
         },
       },

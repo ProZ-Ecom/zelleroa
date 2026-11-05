@@ -9,7 +9,7 @@ import { LogIn, Search, Heart, ShoppingCart, Menu, User, LogOut } from "lucide-r
 import { LOGOS, mobileBottomIcons } from "@/constants/storefront";
 import { NavButton } from "@/components/storefront/buttons/NavButton";
 import { IconButton } from "@/components/storefront/buttons/IconButton";
-import { getRoleHome } from "@/lib/auth/role-routes";
+import { getRoleHome, resolveRoleScope } from "@/lib/auth/role-routes";
 import { useClickOutside } from "@/hooks/useClickOutside";
 import { useRecentSearches } from "@/hooks/use-recent-searches";
 import { SearchDropdown } from "@/components/storefront/search/SearchDropdown";
@@ -76,7 +76,7 @@ function buildNavNode(item: HeaderNavItem): NavNode {
 export function Header({
   initialUser = null,
 }: {
-  initialUser?: { role?: string; email?: string; name?: string } | null;
+  initialUser?: { role?: string; scope?: string; email?: string; name?: string } | null;
 }) {
   const [isOpen, setIsOpen] = React.useState(false);
   const [isSearchOpen, setIsSearchOpen] = React.useState(false);
@@ -126,8 +126,12 @@ export function Header({
   // wishlist or purchase UI, so those entry points are role-aware.
   const userRole =
     (session?.user as { role?: string } | undefined)?.role ?? initialUser?.role;
-  const isStaffUser = userRole === "ADMIN" || userRole === "STAFF";
-  const accountHref = isAuthenticated ? getRoleHome(userRole) : "/login";
+  const userScope = resolveRoleScope(
+    (session?.user as { scope?: string } | undefined)?.scope ?? initialUser?.scope,
+    userRole
+  );
+  const isStaffUser = !!userRole && userScope === "ADMIN";
+  const accountHref = isAuthenticated ? getRoleHome(userRole, userScope) : "/login";
   // `status` is "loading" until /api/auth/session resolves on every page load.
   // Treating that as logged-out would flash the Login button at signed-in users,
   // so the account cell renders a placeholder until the session is known.
@@ -295,7 +299,7 @@ export function Header({
           <span className="hidden sm:inline text-white/40">|</span>
           <span className="hidden sm:inline truncate">Delivered in 3–7 Days</span>
           <span className="hidden md:inline text-white/40">|</span>
-          <span className="hidden md:inline truncate">Easy 3-Day Hassle-Free Returns</span>
+          <span className="hidden md:inline truncate">3-Day Easy Returns</span>
         </div>
       </div>
 

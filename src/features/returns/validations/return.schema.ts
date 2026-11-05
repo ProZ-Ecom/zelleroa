@@ -2,6 +2,7 @@ import { z } from "zod";
 import {
   RETURN_REASONS,
   RETURN_STATUSES,
+  SHIPPING_SLIP_URL_PREFIX,
   UNBOXING_VIDEO_URL_PREFIX,
 } from "../lib/policy";
 
@@ -146,15 +147,47 @@ export const requestActionSchema = z
   .object({
     comment: z.string().trim().max(500).optional(),
     rejectionReason: z.string().trim().max(500).optional(),
+    qcFailureReason: z.string().trim().max(500).optional(),
+    cancellationReason: z.string().trim().max(500).optional(),
     pickupDate: z.string().trim().max(40).optional(),
+    shippedDate: z.string().trim().max(40).optional(),
     transactionRef: z.string().trim().max(100).optional(),
     note: z.string().trim().max(500).optional(),
     courierName: z.string().trim().max(100).optional(),
     trackingNumber: z.string().trim().max(100).optional(),
+    shippingSlipUrl: z.string().trim().max(500).optional(),
     pickupImageUrl: z.string().trim().max(500).optional(),
   })
   .strict();
 export type RequestActionInput = z.infer<typeof requestActionSchema>;
+
+/**
+ * What the customer may send with their own two actions - the courier details
+ * they post the parcel with, or why they are pulling the request.
+ */
+export const customerReturnActionSchema = z
+  .object({
+    courierName: z.string().trim().min(2, "Courier name is required").max(100).optional(),
+    trackingNumber: z
+      .string()
+      .trim()
+      .min(3, "Tracking number is required")
+      .max(100)
+      .optional(),
+    shippedDate: z.string().trim().max(40).optional(),
+    shippingSlipUrl: z
+      .string()
+      .trim()
+      .max(500)
+      .refine(
+        (v) => v.startsWith(SHIPPING_SLIP_URL_PREFIX),
+        "Invalid delivery slip photo"
+      )
+      .optional(),
+    cancellationReason: z.string().trim().max(500).optional(),
+  })
+  .strict();
+export type CustomerReturnActionInput = z.infer<typeof customerReturnActionSchema>;
 
 export const rejectReturnSchema = requestActionSchema;
 export type RejectReturnInput = RequestActionInput;

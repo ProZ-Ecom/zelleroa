@@ -219,10 +219,16 @@ export function AddressForm({
             Select Post Office / Locality ({postOffices.length} found)
           </label>
           <Select
-            options={postOffices.map((po) => ({
-              value: po.value,
-              label: `${po.label}${po.description ? ` (${po.description})` : ""}`,
-            }))}
+            options={postOffices.map((po) => {
+              const cleanDesc = po.description
+                ?.replace(/•?\s*(non-delivery|delivery)/gi, "")
+                ?.replace(/^\s*•\s*/, "")
+                ?.trim();
+              return {
+                value: po.value,
+                label: cleanDesc ? `${po.label} (${cleanDesc})` : po.label,
+              };
+            })}
             value={selectedPostOffice}
             onValueChange={(val) => {
               setSelectedPostOffice(val);

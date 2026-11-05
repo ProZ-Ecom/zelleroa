@@ -23,7 +23,9 @@ export function validateVideoFile(file: File): string | null {
   }
   if (file.size === 0) return "The selected file is empty.";
   if (file.size > UNBOXING_VIDEO_MAX_BYTES) {
-    return `Video is too large. Maximum size is ${UNBOXING_VIDEO_MAX_BYTES / (1024 * 1024)} MB.`;
+    const sizeMb = (file.size / (1024 * 1024)).toFixed(1);
+    const maxMb = UNBOXING_VIDEO_MAX_BYTES / (1024 * 1024);
+    return `Video is too large (${sizeMb} MB). Maximum size is ${maxMb} MB.`;
   }
   return null;
 }

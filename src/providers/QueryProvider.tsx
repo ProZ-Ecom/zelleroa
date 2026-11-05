@@ -61,7 +61,11 @@ function makeQueryClient() {
 
         // Only fire global error toast if explicitly requested via meta
         if (meta?.errorMessage) {
-          toast.error("Error", error?.message || meta.errorMessage);
+          const detail =
+            (Array.isArray(error?.errors) && error.errors[0]) ||
+            error?.message ||
+            meta.errorMessage;
+          toast.error("Error", detail);
         }
       },
     }),
@@ -72,7 +76,11 @@ function makeQueryClient() {
 
         // Suppress toasts for standard query refetches unless meta.errorMessage or meta explicitly requires it
         if (meta?.errorMessage) {
-          toast.error("Error", error?.message || meta.errorMessage);
+          const detail =
+            (Array.isArray(error?.errors) && error.errors[0]) ||
+            error?.message ||
+            meta.errorMessage;
+          toast.error("Error", detail);
         }
       },
     }),

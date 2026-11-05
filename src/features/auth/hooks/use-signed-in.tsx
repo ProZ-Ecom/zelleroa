@@ -2,6 +2,7 @@
 
 import { createContext, useContext } from "react";
 import { useSession } from "next-auth/react";
+import { resolveRoleScope } from "@/lib/auth/role-routes";
 
 /**
  * The user the server resolved for this request (NextAuth session or the
@@ -11,21 +12,25 @@ import { useSession } from "next-auth/react";
 interface ServerUser {
   signedIn: boolean;
   role: string | null;
+  /** Area the role belongs to (roles.scope): "ADMIN" | "AGENT" | "CUSTOMER". */
+  scope: string | null;
 }
 
-const ServerUserContext = createContext<ServerUser>({ signedIn: false, role: null });
+const ServerUserContext = createContext<ServerUser>({ signedIn: false, role: null, scope: null });
 
 export function ServerUserProvider({
   signedIn,
   role = null,
+  scope = null,
   children,
 }: {
   signedIn: boolean;
   role?: string | null;
+  scope?: string | null;
   children: React.ReactNode;
 }) {
   return (
-    <ServerUserContext.Provider value={{ signedIn, role }}>
+    <ServerUserContext.Provider value={{ signedIn, role, scope }}>
       {children}
     </ServerUserContext.Provider>
   );
@@ -40,5 +45,6 @@ export function useSignedIn(): boolean {
 
 /** True when the server resolved the signed-in user as a Sales Partner (agent). */
 export function useIsAgent(): boolean {
-  return useContext(ServerUserContext).role?.toLowerCase() === "agent";
+  const { role, scope } = useContext(ServerUserContext);
+  return resolveRoleScope(scope, role) === "AGENT" && !!role;
 }

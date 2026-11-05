@@ -21,6 +21,7 @@ import { Plus, Pencil, Trash2, FolderTree, Link2, Tag } from "lucide-react";
 import { toast } from "@/components/ui/Toast";
 import type { ColumnDef } from "@tanstack/react-table";
 import { type AdminHeaderMenuItemResponse, MAX_HEADER_MENU_ITEMS } from "@/features/header-menu/types";
+import { CanAct } from "@/features/access";
 
 export default function AdminHeaderMenuPage() {
   const [page, setPage] = useState(1);
@@ -148,10 +149,58 @@ export default function AdminHeaderMenuPage() {
     },
   ];
 
+  // Check permission / auth errors FIRST — before isLoading — so that even when
+  // keepPreviousData is active and stale data exists, a permission error takes
+  // priority over rendering the table with stale data.
+  if (error) {
+    const errMsg = (error as { message?: string })?.message ?? "";
+    const isPermissionError =
+      errMsg.toLowerCase().includes("permission") ||
+      errMsg.toLowerCase().includes("unauthorized") ||
+      (error as { status?: number })?.status === 403;
+
+    if (isPermissionError) {
+      return (
+        <div className="flex flex-1 min-h-0 flex-col">
+          <AdminPageHeader
+            title="Header Menu"
+            description="Curate the storefront's top navigation — pick categories or add custom links, in any order."
+          />
+          <AdminContent>
+            <div className="flex flex-col items-center justify-center py-24 gap-4 text-center">
+              <div className="rounded-full bg-red-50 p-5">
+                <svg
+                  className="h-10 w-10 text-red-400"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={1.5}
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z"
+                  />
+                </svg>
+              </div>
+              <h2 className="text-lg font-semibold text-neutral-800">
+                Access Denied
+              </h2>
+              <p className="text-sm text-neutral-500 max-w-sm">
+                You don&apos;t have permission to view Header Menu. Please contact your administrator.
+              </p>
+            </div>
+          </AdminContent>
+        </div>
+      );
+    }
+
+    return <ErrorState message="Failed to load header menu" onRetry={() => refetch()} />;
+  }
+
   if (isLoading && !data) {
     return <AdminTableSkeleton />;
   }
-  if (error) return <ErrorState message="Failed to load header menu" onRetry={() => refetch()} />;
 
   return (
     <div className="flex flex-1 min-h-0 flex-col">
@@ -159,8 +208,8 @@ export default function AdminHeaderMenuPage() {
         title="Header Menu"
         description="Curate the storefront's top navigation - pick categories or add custom links, in any order."
       />
-      <AdminContent className="flex-1 min-h-0 overflow-hidden">
-        <div className="flex h-full flex-col overflow-hidden bg-[var(--color-background)] py-1 rounded-2xl">
+      <AdminContent className="flex-1 min-h-0">
+        <div className="flex h-full flex-col bg-[var(--color-background)] py-1 rounded-2xl">
           <div className="flex-shrink-0 mt-6 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             {/* Header Menu Limit Indicator */}
             <div className="flex items-center gap-2">
@@ -217,29 +266,31 @@ export default function AdminHeaderMenuPage() {
                 disabled={!items.length}
               />
 
-              <Button
-                type="button"
-                disabled={isLimitReached}
-                onClick={() => {
-                  if (isLimitReached) {
-                    toast.error(`A maximum of ${MAX_HEADER_MENU_ITEMS} header menu items can exist. Please delete or modify an existing item.`);
-                    return;
-                  }
-                  setIsCreateOpen(true);
-                }}
-                className={`h-11 rounded-xl transition-all px-5 text-sm font-semibold shadow-xs ${
-                  isLimitReached
-                    ? "bg-slate-200 text-slate-500 cursor-not-allowed opacity-75 shadow-none"
-                    : "bg-theme-primary hover:bg-theme-primary-hover text-white transition-colors"
-                }`}
-              >
-                <Plus className="mr-2 h-4 w-4" />
-                Add Menu Item
-              </Button>
+              <CanAct action="CREATE">
+                <Button
+                  type="button"
+                  disabled={isLimitReached}
+                  onClick={() => {
+                    if (isLimitReached) {
+                      toast.error(`A maximum of ${MAX_HEADER_MENU_ITEMS} header menu items can exist. Please delete or modify an existing item.`);
+                      return;
+                    }
+                    setIsCreateOpen(true);
+                  }}
+                  className={`h-11 rounded-xl transition-all px-5 text-sm font-semibold shadow-xs ${
+                    isLimitReached
+                      ? "bg-slate-200 text-slate-500 cursor-not-allowed opacity-75 shadow-none"
+                      : "bg-theme-primary hover:bg-theme-primary-hover text-white transition-colors"
+                  }`}
+                >
+                  <Plus className="mr-2 h-4 w-4" />
+                  Add Menu Item
+                </Button>
+              </CanAct>
             </div>
           </div>
 
-          <div className="mt-6 flex-1 min-h-0 overflow-hidden flex flex-col">
+          <div className="mt-6 flex-1 min-h-0 flex flex-col">
             <DataTable
               columns={columns}
               data={items}

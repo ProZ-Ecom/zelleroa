@@ -11,12 +11,14 @@ import { exportDataToCsv } from "@/lib/export-csv";
 import { formatDateTime } from "@/lib/utils";
 import {
   REPLACEMENT_STATUSES,
-  RETURN_STATUSES,
+  RETURN_SELECTABLE_STATUSES,
+  returnStatusLabel,
   statusLabel,
 } from "../lib/policy";
 import { useAdminRequests, type RequestKind } from "../hooks/use-returns";
 import { RequestStatusBadge } from "./RequestStatusBadge";
 import { AdminRequestDetailModal } from "./AdminRequestDetailModal";
+import { AdminVideoStorageButton } from "./AdminVideoStorageAlert";
 
 const PAGE_SIZE = 10;
 
@@ -27,7 +29,7 @@ export function AdminRequestsTable({ kind }: { kind: RequestKind }) {
   const [query, setQuery] = useState("");
   const [openId, setOpenId] = useState<string | null>(null);
 
-  const statuses = kind === "returns" ? RETURN_STATUSES : REPLACEMENT_STATUSES;
+  const statuses = kind === "returns" ? RETURN_SELECTABLE_STATUSES : REPLACEMENT_STATUSES;
   const { data, isLoading, isFetching, error, refetch } = useAdminRequests(kind, {
     page,
     limit: PAGE_SIZE,
@@ -40,7 +42,7 @@ export function AdminRequestsTable({ kind }: { kind: RequestKind }) {
   const isReturn = kind === "returns";
 
   return (
-    <div className="flex h-full min-h-0 flex-col gap-3">
+    <div className="flex h-full min-h-0 flex-col gap-3">
       <form
         className="flex flex-wrap items-center gap-3"
         onSubmit={(e) => {
@@ -67,13 +69,17 @@ export function AdminRequestsTable({ kind }: { kind: RequestKind }) {
             }}
             options={[
               { value: "all", label: "All statuses" },
-              ...statuses.map((s) => ({ value: s, label: statusLabel(s) })),
+              ...statuses.map((s) => ({
+                value: s,
+                label: isReturn ? returnStatusLabel(s) : statusLabel(s),
+              })),
             ]}
           />
         </div>
         <Button type="submit" variant="outline" size="sm" className="h-10 px-4 shrink-0">
           Search
         </Button>
+        {isReturn && <AdminVideoStorageButton />}
         <ExportButton
           onClick={() =>
             exportDataToCsv(
@@ -85,7 +91,7 @@ export function AdminRequestsTable({ kind }: { kind: RequestKind }) {
                 Products: r.items.map((i) => i.productName).join(", "),
                 Reason: r.reason,
                 RequestedAt: formatDateTime(r.requestedAt),
-                Status: statusLabel(r.status),
+                Status: isReturn ? returnStatusLabel(r.status) : statusLabel(r.status),
               })),
               `${kind}-requests`
             )
@@ -196,7 +202,7 @@ export function AdminRequestsTable({ kind }: { kind: RequestKind }) {
                   </td>
                 )}
                 <td className="px-3 py-2.5">
-                  <RequestStatusBadge status={r.status} />
+                  <RequestStatusBadge status={r.status} kind={isReturn ? "return" : "replacement"} />
                 </td>
                 <td className="sticky right-0 z-10 bg-white px-3 py-2.5 text-center shadow-[-4px_0_6px_-2px_rgba(0,0,0,0.06)] group-hover:bg-neutral-50">
                   <Button size="icon" variant="outline" title="View" aria-label="View" onClick={() => setOpenId(r.id)}>

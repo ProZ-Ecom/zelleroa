@@ -174,7 +174,7 @@ export default function CheckoutPage() {
     addressLine2: "",
     landmark: "",
     city: "",
-    state: "Tamil Nadu",
+    state: "",
     pincode: "",
     country: "India",
     addressType: "shipping" as const,
@@ -191,6 +191,10 @@ export default function CheckoutPage() {
 
   const validateField = (field: string, value: string): string | null => {
     const val = (value || "").trim();
+    if (field === "area") {
+      if (postOffices.length > 0 && !val) return "Please select your area / post office";
+      return null;
+    }
     if (field === "guestEmail") {
       if (!val) return "Email address is required";
       const res = emailField.safeParse(val);
@@ -251,6 +255,10 @@ export default function CheckoutPage() {
     const pinErr = validateField("pincode", newAddressForm.pincode);
     if (pinErr) errors.pincode = pinErr;
 
+    if (postOffices.length > 0 && !area.trim()) {
+      errors.area = "Please select your area / post office";
+    }
+
     const addrErr = validateField("addressLine1", newAddressForm.addressLine1);
     if (addrErr) errors.addressLine1 = addrErr;
 
@@ -295,6 +303,11 @@ export default function CheckoutPage() {
   const handlePincodeChange = (value: string) => {
     const pincode = value.replace(/\D/g, "").slice(0, 6);
     setArea("");
+    setFieldErrors((prev) => {
+      const next = { ...prev };
+      delete next.area;
+      return next;
+    });
     setNewAddressForm((prev) => ({
       ...prev,
       pincode,
@@ -343,12 +356,13 @@ export default function CheckoutPage() {
   // Pricing calculations
   const items = cart?.items || [];
   const subtotal = Number(cart?.subtotal || 0);
-  // Delivery is priced by chosen delivery method (Standard = ₹49, Express = ₹99)
-  const deliveryState = isGuest
+  // Standard delivery is free within Tamil Nadu and ₹80 elsewhere; Express is flat ₹99.
+  const isUsingNewAddress = isGuest || isAddingAddress;
+  const deliveryState = isUsingNewAddress
     ? newAddressForm.state
     : addresses.find((a) => a.id === effectiveAddressId)?.state;
   const hasDeliveryState = !!deliveryState?.trim();
-  const isFreeDelivery = false;
+  const isFreeDelivery = hasDeliveryState && isFreeDeliveryState(deliveryState);
   const shippingCharge = getShippingCharge(deliveryState, deliveryMethod);
   const grandTotal = subtotal + shippingCharge;
 
@@ -431,7 +445,7 @@ export default function CheckoutPage() {
         fullName: newAddressForm.fullName.trim(),
         phone: cleanPhone,
         addressLine1: newAddressForm.addressLine1.trim(),
-        addressLine2: newAddressForm.addressLine2.trim() || undefined,
+        addressLine2: newAddressForm.addressLine2.trim() || area.trim() || undefined,
         landmark: newAddressForm.landmark.trim() || undefined,
         city: newAddressForm.city.trim(),
         state: newAddressForm.state.trim(),
@@ -451,7 +465,7 @@ export default function CheckoutPage() {
         addressLine2: "",
         landmark: "",
         city: "",
-        state: "Tamil Nadu",
+        state: "",
         pincode: "",
         country: "India",
         addressType: "shipping",
@@ -511,6 +525,17 @@ export default function CheckoutPage() {
         },
         theme: {
           color: "#2563EB", // Zellora Royal Cobalt brand color
+        },
+        config: {
+          display: {
+            hide: [
+              { method: "emi" },
+              { method: "paylater" },
+            ],
+            preferences: {
+              show_default_blocks: true,
+            },
+          },
         },
         modal: {
           ondismiss: () => {
@@ -615,7 +640,7 @@ export default function CheckoutPage() {
         fullName: newAddressForm.fullName.trim(),
         phone: cleanPhone,
         addressLine1: newAddressForm.addressLine1.trim(),
-        addressLine2: newAddressForm.addressLine2.trim() || undefined,
+        addressLine2: newAddressForm.addressLine2.trim() || area.trim() || undefined,
         landmark: newAddressForm.landmark.trim() || undefined,
         city: newAddressForm.city.trim(),
         state: newAddressForm.state.trim(),
@@ -1053,13 +1078,20 @@ export default function CheckoutPage() {
                   {postOffices.length > 0 && (
                     <div className="sm:col-span-2">
                       <label className="block text-xs font-semibold text-theme-text-secondary mb-1">
-                        Select your area / post office ({postOffices.length} found)
+                        Select your area
+                        <span className="text-red-600">*</span>
                       </label>
                       <Select
-                        options={postOffices.map((po) => ({
-                          value: po.value,
-                          label: `${po.label}${po.description ? ` (${po.description})` : ""}`,
-                        }))}
+                        options={postOffices.map((po) => {
+                          const cleanDesc = po.description
+                            ?.replace(/•?\s*(non-delivery|delivery)/gi, "")
+                            ?.replace(/^\s*•\s*/, "")
+                            ?.trim();
+                          return {
+                            value: po.value,
+                            label: cleanDesc ? `${po.label} (${cleanDesc})` : po.label,
+                          };
+                        })}
                         value={area}
                         onValueChange={(val) => {
                           setArea(val);
@@ -1068,15 +1100,27 @@ export default function CheckoutPage() {
                               ? { ...prev, addressLine2: val }
                               : prev
                           );
+                          if (fieldErrors.area) {
+                            setFieldErrors((prev) => {
+                              const next = { ...prev };
+                              delete next.area;
+                              return next;
+                            });
+                          }
                         }}
                         placeholder="Select area / locality…"
                       />
+                      {fieldErrors.area && (
+                        <p className="mt-1 text-xs text-red-500 font-medium animate-in fade-in duration-150">
+                          {fieldErrors.area}
+                        </p>
+                      )}
                     </div>
                   )}
 
                   <div className="sm:col-span-2">
                     <label className="block text-xs font-semibold text-theme-text-secondary mb-1">
-                      FFlat / House No., Building, Street <span className="text-red-600">*</span>
+                      Flat / House No., Building, Street <span className="text-red-600">*</span>
                     </label>
                     <input
                       type="text"
@@ -1198,40 +1242,23 @@ export default function CheckoutPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
               {/* Standard Delivery Option */}
               <div
-                role="button"
-                tabIndex={0}
-                onClick={() => setDeliveryMethod("standard")}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" || e.key === " ") {
-                    e.preventDefault();
-                    setDeliveryMethod("standard");
-                  }
-                }}
-                className={`relative rounded-xl border p-4 text-left cursor-pointer transition-all duration-200 focus:outline-none select-none ${
-                  deliveryMethod === "standard"
-                    ? "border-theme-primary bg-theme-surface-alt/70 shadow-xs ring-2 ring-theme-primary/30"
-                    : "border-theme-border bg-theme-surface hover:border-theme-border-strong hover:bg-theme-surface-alt/40"
-                }`}
+                className="relative rounded-xl border border-theme-primary bg-theme-surface-alt/70 p-4 text-left shadow-xs ring-2 ring-theme-primary/30 select-none"
               >
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-2">
-                    <div
-                      className={`h-4 w-4 rounded-full border flex items-center justify-center transition-colors ${
-                        deliveryMethod === "standard"
-                          ? "border-theme-primary bg-theme-primary"
-                          : "border-theme-border-strong bg-white"
-                      }`}
-                    >
-                      {deliveryMethod === "standard" && (
-                        <div className="h-1.5 w-1.5 rounded-full bg-white" />
-                      )}
+                    <div className="h-4 w-4 rounded-full border border-theme-primary bg-theme-primary flex items-center justify-center">
+                      <div className="h-1.5 w-1.5 rounded-full bg-white" />
                     </div>
                     <span className="text-xs font-bold text-theme-text-primary">
                       Standard Delivery
                     </span>
                   </div>
                   <span className="text-xs font-extrabold text-theme-primary">
-                    {formatPrice(STANDARD_DELIVERY_CHARGE)}
+                    {isFreeDelivery
+                      ? "FREE"
+                      : formatPrice(
+                          hasDeliveryState ? shippingCharge : STANDARD_DELIVERY_CHARGE
+                        )}
                   </span>
                 </div>
                 <p className="text-[11px] text-theme-text-subtle flex items-center gap-1 mb-1">
@@ -1239,59 +1266,9 @@ export default function CheckoutPage() {
                   <span>Estimated: {STANDARD_DELIVERY_ESTIMATE}</span>
                 </p>
                 <p className="text-[11px] text-theme-text-muted">
-                  Standard doorstep delivery across India.
-                </p>
-              </div>
-
-              {/* Express Delivery Option */}
-              <div
-                role="button"
-                tabIndex={0}
-                onClick={() => setDeliveryMethod("express")}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" || e.key === " ") {
-                    e.preventDefault();
-                    setDeliveryMethod("express");
-                  }
-                }}
-                className={`relative rounded-xl border p-4 text-left cursor-pointer transition-all duration-200 focus:outline-none select-none ${
-                  deliveryMethod === "express"
-                    ? "border-theme-primary bg-theme-surface-alt/70 shadow-xs ring-2 ring-theme-primary/30"
-                    : "border-theme-border bg-theme-surface hover:border-theme-border-strong hover:bg-theme-surface-alt/40"
-                }`}
-              >
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-2">
-                    <div
-                      className={`h-4 w-4 rounded-full border flex items-center justify-center transition-colors ${
-                        deliveryMethod === "express"
-                          ? "border-theme-primary bg-theme-primary"
-                          : "border-theme-border-strong bg-white"
-                      }`}
-                    >
-                      {deliveryMethod === "express" && (
-                        <div className="h-1.5 w-1.5 rounded-full bg-white" />
-                      )}
-                    </div>
-                    <span className="text-xs font-bold text-theme-text-primary">
-                      Express Delivery
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-[9px] font-extrabold uppercase px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 border border-amber-200">
-                      Fastest
-                    </span>
-                    <span className="text-xs font-extrabold text-theme-primary">
-                      {formatPrice(EXPRESS_DELIVERY_CHARGE)}
-                    </span>
-                  </div>
-                </div>
-                <p className="text-[11px] text-theme-text-subtle flex items-center gap-1 mb-1">
-                  <Clock className="h-3 w-3 text-amber-600 shrink-0" />
-                  <span>Estimated: {EXPRESS_DELIVERY_ESTIMATE}</span>
-                </p>
-                <p className="text-[11px] text-theme-text-muted">
-                  Priority express delivery directly to your doorstep.
+                  {isFreeDelivery
+                    ? `Free delivery within ${FREE_DELIVERY_STATE}.`
+                    : `Standard doorstep delivery across India. Free within ${FREE_DELIVERY_STATE}.`}
                 </p>
               </div>
             </div>
@@ -1521,7 +1498,7 @@ export default function CheckoutPage() {
                     </span>
                   </div>
                   <span className="font-semibold text-theme-text-primary">
-                    {formatPrice(shippingCharge)}
+                    {isFreeDelivery ? "FREE" : formatPrice(shippingCharge)}
                   </span>
                 </div>
 

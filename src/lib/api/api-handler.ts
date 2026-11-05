@@ -6,6 +6,9 @@ import { ApiError } from "./api-error";
 import { handlePrismaError } from "./api-error";
 import { auth } from "@/lib/auth/config";
 import { verifyAccessToken, verifyRefreshToken, generateAccessToken } from "@/lib/auth/jwt";
+import { isRoleAllowed, resolveRoleScope } from "@/lib/auth/role-routes";
+import { resolveRequiredPermission, OWNER_ONLY } from "@/lib/permissions/api-map";
+import { getRoleAccess } from "@/lib/permissions/server";
 import { userRepository } from "@/features/users/repositories/user.repository";
 import { checkRateLimit, getClientIp } from "@/lib/security/rate-limiter";
 import type { Session } from "next-auth";
@@ -23,6 +26,12 @@ interface ApiHandlerOptions {
   /** Resolve a session/JWT if one is present, but don't reject the request when there isn't one (guest access). */
   optionalAuth?: boolean;
   requiredRole?: string[];
+  /**
+   * Permission this route needs. Normally left out: admin routes (those whose
+   * `requiredRole` covers ADMIN/STAFF) are matched against `src/lib/permissions/api-map.ts`
+   * by path and method. Set it to override that, or `false` to opt out of it.
+   */
+  requiredPermission?: string | false;
   bodySchema?: ZodSchema;
   querySchema?: ZodSchema;
   /** Per-IP, per-route request cap. Defaults to 60 requests/minute; pass `false` to disable. */
@@ -65,6 +74,36 @@ function parseSearchParams(
       (issue) => `${issue.path.join(".")}: ${issue.message}`
     ),
   };
+}
+
+/**
+ * Permission gate for admin routes. The route's own `requiredPermission` wins; otherwise the
+ * path + method are looked up in `src/lib/permissions/api-map.ts`. Unmapped paths (uploads,
+ * for example) pass on the role check alone, and the built-in owner roles always pass.
+ * Returns an error response to send, or null when the request may proceed.
+ */
+async function checkRoutePermission(
+  request: NextRequest,
+  options: ApiHandlerOptions,
+  roleName?: string
+): Promise<Response | null> {
+  if (options.requiredPermission === false) return null;
+
+  const required =
+    options.requiredPermission ??
+    resolveRequiredPermission(new URL(request.url).pathname, request.method);
+  if (!required) return null;
+
+  const access = await getRoleAccess(roleName);
+  if (access.isOwner) return null;
+
+  if (required === OWNER_ONLY) {
+    return apiError("This action is restricted to the main admin account", 403);
+  }
+  if (!access.permissions.includes(required)) {
+    return apiError("You don't have permission", 403);
+  }
+  return null;
 }
 
 export function createApiHandler(
@@ -146,6 +185,7 @@ export function createApiHandler(
                 id: payload.userId, // UUID string
                 email: payload.email,
                 role: payload.role || "CUSTOMER",
+                scope: resolveRoleScope(payload.scope, payload.role),
                 status: "active",
               },
               expires: new Date(Date.now() + 15 * 60 * 1000).toISOString(),
@@ -163,10 +203,12 @@ export function createApiHandler(
             if (user && user.status === "active") {
               const userUuid = user.uuid || String(user.id);
               const userRole = user.roleName || user.role?.name || "CUSTOMER";
+              const userScope = resolveRoleScope(user.roleScope, userRole);
               const newAccessToken = generateAccessToken({
                 userId: userUuid,
                 email: user.email ?? "",
                 role: userRole,
+                scope: userScope,
               });
 
               try {
@@ -186,6 +228,7 @@ export function createApiHandler(
                   id: userUuid,
                   email: user.email ?? "",
                   role: userRole,
+                  scope: userScope,
                   status: "active",
                 },
                 expires: new Date(Date.now() + 15 * 60 * 1000).toISOString(),
@@ -202,10 +245,13 @@ export function createApiHandler(
           return apiError("You must be logged in", 401);
         }
       } else if (options.requiredRole && options.requiredRole.length > 0) {
-        const userRole = (session.user as { role?: string }).role;
-        if (!userRole || !options.requiredRole.includes(userRole)) {
+        const sessionUser = session.user as { role?: string; scope?: string };
+        if (!isRoleAllowed(options.requiredRole, sessionUser.role, sessionUser.scope)) {
           return apiError("You don't have permission", 403);
         }
+
+        const denial = await checkRoutePermission(request, options, sessionUser.role);
+        if (denial) return denial;
       }
     }
 
@@ -284,6 +330,7 @@ export function withApiRoles<A extends unknown[]>(
 ) {
   return async (request: NextRequest, ...args: A): Promise<Response> => {
     let role: string | undefined;
+    let scope: string | undefined;
     let authed = false;
 
     try {
@@ -291,6 +338,7 @@ export function withApiRoles<A extends unknown[]>(
       if (session?.user) {
         authed = true;
         role = (session.user as { role?: string }).role;
+        scope = (session.user as { scope?: string }).scope;
       }
     } catch {
       // fall through to the token check
@@ -306,7 +354,9 @@ export function withApiRoles<A extends unknown[]>(
       token = token || request.headers.get("authorization")?.replace("Bearer ", "");
       if (token) {
         try {
-          role = verifyAccessToken(token).role;
+          const payload = verifyAccessToken(token);
+          role = payload.role;
+          scope = payload.scope;
           authed = true;
         } catch {
           return apiError("Session expired. Please log in again.", 401);
@@ -315,7 +365,12 @@ export function withApiRoles<A extends unknown[]>(
     }
 
     if (!authed) return apiError("You must be logged in", 401);
-    if (!role || !roles.includes(role)) return apiError("You don't have permission", 403);
+    if (!isRoleAllowed(roles, role, scope)) return apiError("You don't have permission", 403);
+
+    // Same permission gate as createApiHandler, so a route written by hand (and an
+    // owner-only one such as the database reset) is no weaker than the wrapped ones.
+    const denial = await checkRoutePermission(request, {}, role);
+    if (denial) return denial;
 
     return handler(request, ...args);
   };

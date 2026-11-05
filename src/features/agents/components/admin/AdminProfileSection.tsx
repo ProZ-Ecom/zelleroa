@@ -78,17 +78,21 @@ function ReviewBar({
         <StatusBadge status={status} />
         {remarks && <span className="text-xs text-neutral-500">Remarks: {remarks}</span>}
         <div className="ml-auto flex gap-2">
-          {/* <button
+          {/* Nothing to verify until the Sales Partner has filled the whole section;
+              the API rejects that case anyway ("Cannot verify yet - still missing: ..."). */}
+          <button
             type="button"
-            disabled={busy !== null || status === "verified"}
+            disabled={busy !== null || status === "verified" || status === "not_submitted"}
+            title={status === "not_submitted" ? "The Sales Partner has not completed this section yet" : undefined}
             onClick={() => run("verify")}
             className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-emerald-600 px-3 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-50"
           >
-            {busy === "verify" ? <Loader2 className="h-4 w-4 animate-spin" /> : <BadgeCheck className="h-4 w-4" />} Verify
-          </button> */}
+            {busy === "verify" ? <Loader2 className="h-4 w-4 animate-spin" /> : <BadgeCheck className="h-4 w-4" />}
+            {status === "verified" ? "Verified" : "Verify"}
+          </button>
           <button
             type="button"
-            disabled={busy !== null}
+            disabled={busy !== null || status === "not_submitted"}
             onClick={() => setRejecting((r) => !r)}
             className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-red-200 px-3 text-sm font-semibold text-red-700 hover:bg-red-50 disabled:opacity-50"
           >

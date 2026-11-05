@@ -74,10 +74,16 @@ export function AgentAddressFields({
         <div className="sm:col-span-2">
           <Select
             portal={true}
-            options={postOffices.map((po) => ({
-              value: po.value,
-              label: `${po.label}${po.description ? ` (${po.description})` : ""}`,
-            }))}
+            options={postOffices.map((po) => {
+              const cleanDesc = po.description
+                ?.replace(/•?\s*(non-delivery|delivery)/gi, "")
+                ?.replace(/^\s*•\s*/, "")
+                ?.trim();
+              return {
+                value: po.value,
+                label: cleanDesc ? `${po.label} (${cleanDesc})` : po.label,
+              };
+            })}
             value={area}
             onValueChange={onAreaChange}
             placeholder={`Select your area / post office (${postOffices.length} found)…`}

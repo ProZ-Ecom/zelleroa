@@ -102,8 +102,9 @@ export const confirmPurchaseSchema = purchaseOrderSchema
 
 export type ConfirmPurchaseInput = z.infer<typeof confirmPurchaseSchema>;
 
+/** Slugs in this catalog are mixed case and use underscores (BEAUTY_PERSONAL_CARE_). */
 const slug = (label: string) =>
-  z.string().trim().min(1).max(220).regex(/^[a-z0-9-]+$/i, `Invalid ${label}`);
+  z.string().trim().min(1).max(220).regex(/^[a-z0-9_-]+$/i, `Invalid ${label}`);
 
 export const stockSheetQuerySchema = z
   .object({

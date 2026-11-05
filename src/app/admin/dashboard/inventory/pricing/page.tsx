@@ -303,8 +303,8 @@ function PricingContent() {
         description="Cost, selling price and margin per SKU. This is where prices are set — the catalog only describes what a product is."
       />
 
-      <AdminContent className="flex-1 min-h-0 overflow-hidden">
-        <div className="flex h-full flex-col overflow-hidden py-1">
+      <AdminContent className="flex-1 min-h-0">
+        <div className="flex h-full flex-col py-1">
           <div className="flex-shrink-0 flex flex-col gap-3">
             <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
               <div className="flex flex-1 flex-wrap items-center gap-3">
@@ -478,7 +478,7 @@ function PricingContent() {
             )}
           </div>
 
-          <div className="mt-5 flex-1 min-h-0 overflow-hidden flex flex-col">
+          <div className="mt-5 flex-1 min-h-0 flex flex-col">
             {isLoading && !data ? (
               <AdminTableSkeleton />
             ) : (

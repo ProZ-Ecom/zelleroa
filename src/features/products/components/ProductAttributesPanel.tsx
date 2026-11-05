@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Loader2, Save, AlertCircle, HelpCircle } from "lucide-react";
+import { Loader2, Save, AlertCircle, HelpCircle, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useAttributesForProduct, useSetAttributesForProduct } from "@/features/attributes/hooks";
@@ -25,6 +25,12 @@ interface SelectedAttribute {
   attributeId: string;
   variationLevel: VariationLevel;
 }
+
+const LEVEL_LABEL: Record<VariationLevel, string> = {
+  VARIANT: "Variant",
+  SKU: "SKU",
+  INFO: "Info",
+};
 
 const LEVELS: { value: VariationLevel; label: string; hint: string }[] = [
   { value: "VARIANT", label: "Variant", hint: "Own images — usually Colour" },
@@ -178,22 +184,22 @@ function ProductAttributesPanel({ productUuid }: ProductAttributesPanelProps) {
                   type="button"
                   onClick={() => toggle(attribute.id, attribute.type)}
                   disabled={setAttributesMutation.isPending}
+                  title={isChecked ? `Remove ${attribute.name}` : `Use ${attribute.name}`}
                   className={`inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs font-semibold transition-all cursor-pointer select-none disabled:opacity-50 ${
                     isChecked
-                      ? "border-secondary-600 bg-secondary-600 text-white shadow-xs"
-                      : "border-transparent bg-white text-neutral-700 hover:bg-neutral-50"
+                      ? "border-transparent bg-transparent text-neutral-900 hover:text-error-600"
+                      : "border-neutral-200 bg-white text-neutral-700 hover:bg-neutral-50"
                   }`}
                 >
+                  {isChecked && <Check className="h-3 w-3 shrink-0 text-secondary-600" />}
                   {attribute.name}
                   {attribute.type === "color" && (
-                    <span
-                      className={`h-2 w-2 rounded-full ${isChecked ? "bg-white/80" : "bg-secondary-400"}`}
-                    />
+                    <span className="h-2 w-2 rounded-full bg-secondary-400" />
                   )}
                 </button>
 
                 {isChecked && (
-                  <div className="inline-flex rounded-md border border-neutral-200 bg-white p-0.5">
+                  <div className="inline-flex rounded-md border border-neutral-200 bg-white p-0.5 shadow-xs">
                     {LEVELS.map((option) => (
                       <button
                         key={option.value}
@@ -254,12 +260,17 @@ function ProductAttributesPanel({ productUuid }: ProductAttributesPanelProps) {
                   ]
                     .filter(Boolean)
                     .join(", ");
-                  return u.change === "demoted"
-                    ? `"${u.attributeName}" no longer splits stock, but ${used} still identify themselves by it.`
-                    : `"${u.attributeName}" is being removed and is used by ${used}.`;
+                  if (u.change === "removed") {
+                    return `"${u.attributeName}" is being removed and is used by ${used}.`;
+                  }
+                  if (u.change === "demoted") {
+                    return `"${u.attributeName}" no longer splits stock, but ${used} still identify themselves by it.`;
+                  }
+                  const move = u.fromLevel && u.toLevel ? ` from ${LEVEL_LABEL[u.fromLevel]} to ${LEVEL_LABEL[u.toLevel]}` : "";
+                  return `"${u.attributeName}" is moving${move}, and ${used} were built at the old level.`;
                 })
                 .join(" ") +
-              " Those rows stay as they are and will no longer match this product's configuration."
+              " Those rows stay as they are and will no longer match this product's configuration — generating again will add a fresh set beside them rather than reuse them."
             : ""
         }
         confirmText="Save anyway"

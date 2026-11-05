@@ -16,6 +16,7 @@ import { exportDataToCsv } from "@/lib/export-csv";
 import { Plus, Pencil, Trash2, Package } from "lucide-react";
 import { toast } from "@/components/ui/Toast";
 import type { ColumnDef } from "@tanstack/react-table";
+import { CanAct } from "@/features/access";
 
 function errorMessage(err: unknown, fallback: string) {
   return err instanceof Error && err.message ? err.message : fallback;
@@ -109,8 +110,8 @@ export default function AdminTagsPage() {
         title="Tags"
         description="Group products under tags like Summer Sale or New Arrivals, then pick a tag when adding a header menu item."
       />
-      <AdminContent className="flex-1 min-h-0 overflow-hidden">
-        <div className="flex h-full flex-col overflow-hidden bg-[var(--color-background)] py-1 rounded-2xl">
+      <AdminContent className="flex-1 min-h-0">
+        <div className="flex h-full flex-col bg-[var(--color-background)] py-1 rounded-2xl">
           <div className="flex-shrink-0 mt-6 flex items-center justify-end gap-2">
             <ExportButton
               onClick={() =>
@@ -136,17 +137,19 @@ export default function AdminTagsPage() {
               disabled={!items.length}
             />
 
-            <Button
-              type="button"
-              onClick={() => setIsCreateOpen(true)}
-              className="h-11 rounded-xl px-5 text-sm font-semibold shadow-xs bg-theme-primary hover:bg-theme-primary-hover text-white transition-colors"
-            >
-              <Plus className="mr-2 h-4 w-4" />
-              Add Tag
-            </Button>
+            <CanAct action="CREATE">
+              <Button
+                type="button"
+                onClick={() => setIsCreateOpen(true)}
+                className="h-11 rounded-xl px-5 text-sm font-semibold shadow-xs bg-theme-primary hover:bg-theme-primary-hover text-white transition-colors"
+              >
+                <Plus className="mr-2 h-4 w-4" />
+                Add Tag
+              </Button>
+            </CanAct>
           </div>
 
-          <div className="mt-6 flex-1 min-h-0 overflow-hidden flex flex-col">
+          <div className="mt-6 flex-1 min-h-0 flex flex-col">
             <DataTable
               columns={columns}
               data={items}

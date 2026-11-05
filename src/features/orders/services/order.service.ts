@@ -8,6 +8,7 @@ import { couponValidationService } from "@/features/coupons/services/coupon-vali
 import { customerAddressService } from "@/features/customers/services/customer-address.service";
 import { cartRepository } from "@/features/cart/repositories/cart.repository";
 import { generateAccessToken, generateRefreshToken } from "@/lib/auth/jwt";
+import { resolveRoleScope } from "@/lib/auth/role-routes";
 import { referralService, type ReferralAgent } from "@/features/agents/services/referral.service";
 import { customerAssignmentService } from "@/features/agents/services/customer-assignment.service";
 import { orderRepository } from "../repositories/order.repository";
@@ -340,7 +341,7 @@ export const orderService = {
 
 
 
-    // Delivery charge based on delivery method (standard = 49, express = 99)
+    // Standard delivery is free within Tamil Nadu and ₹80 elsewhere; express is flat ₹99.
     const payableBeforeShipping = subtotal - totalDiscount;
     const deliveryMethod = input.deliveryMethod || "standard";
     const shippingCharge = getShippingCharge(shippingAddress.state, deliveryMethod);
@@ -505,6 +506,7 @@ export const orderService = {
       userId: shadowUser.uuid,
       email: shadowUser.email ?? "",
       role: userRole,
+      scope: resolveRoleScope(shadowUser.roleScope, userRole),
     });
     const refreshToken = generateRefreshToken({ userId: shadowUser.uuid });
 
@@ -572,6 +574,12 @@ export const orderService = {
       orderRepository.findOrderPayments(uuid),
     ]);
     return { ...order, referral, payments };
+  },
+
+  async updateOrderInvoiceNumber(uuid: string, invoiceNumber: string): Promise<OrderDetailResponse> {
+    const trimmed = invoiceNumber.trim();
+    await orderRepository.updateOrderInvoiceNumber(uuid, trimmed || null);
+    return orderService.getAdminOrderByUuid(uuid);
   },
 
   async cancelCustomerOrder(

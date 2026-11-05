@@ -7,8 +7,12 @@ import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/Toast";
 import { formatDateTime } from "@/lib/utils";
 import type { OrderDetailResponse } from "@/features/orders/types";
+import { consumedOrderItemIds } from "../lib/summary";
 import type { RequestSummary } from "../lib/summary";
 import { RequestStatusBadge } from "./RequestStatusBadge";
+import { ReturnCustomerActions } from "./ReturnCustomerActions";
+import { ReturnProgressSteps } from "./ReturnProgressSteps";
+import { ReturnRefundCard, ReturnStatusHeadline } from "./ReturnStatusSummary";
 
 interface Props {
   order: OrderDetailResponse;
@@ -17,7 +21,15 @@ interface Props {
   readOnly?: boolean;
 }
 
-function RequestCard({ req, order }: { req: RequestSummary; order: OrderDetailResponse }) {
+function RequestCard({
+  req,
+  order,
+  readOnly,
+}: {
+  req: RequestSummary;
+  order: OrderDetailResponse;
+  readOnly?: boolean;
+}) {
   const [open, setOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const [copiedTrack, setCopiedTrack] = useState(false);
@@ -31,7 +43,19 @@ function RequestCard({ req, order }: { req: RequestSummary; order: OrderDetailRe
         onClick={() => setOpen((v) => !v)}
         className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left cursor-pointer"
       >
-        <div className="min-w-0">
+        {req.items[0]?.image && (
+          <div className="relative h-11 w-11 shrink-0 overflow-hidden rounded-lg border border-theme-border-subtle bg-theme-surface-alt">
+            <Image
+              src={req.items[0].image}
+              alt=""
+              fill
+              sizes="44px"
+              className="object-cover"
+              unoptimized
+            />
+          </div>
+        )}
+        <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2 flex-wrap">
             <p className="text-sm font-bold text-theme-text-primary">
               {label} request · {req.items.map((i) => `${i.productName} ×${i.quantity}`).join(", ")}
@@ -44,18 +68,30 @@ function RequestCard({ req, order }: { req: RequestSummary; order: OrderDetailRe
           </div>
           <p className="text-xs text-theme-text-subtle">Requested {formatDateTime(req.requestedAt)}</p>
         </div>
-        <div className="flex items-center gap-2">
-          <RequestStatusBadge status={req.status} />
+        <div className="flex shrink-0 items-center gap-2">
+          <RequestStatusBadge status={req.status} kind={req.kind} />
+          <span className="hidden text-[11px] font-semibold text-theme-text-subtle sm:inline">
+            {open ? "Hide" : "Details"}
+          </span>
           <ChevronDown className={`h-4 w-4 transition-transform ${open ? "rotate-180" : ""}`} />
         </div>
       </button>
 
-      {req.status === "rejected" && req.rejectionReason && (
-        <div className="mx-4 mb-3 flex gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-800">
-          <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-          <span>
-            <strong>Rejected:</strong> {req.rejectionReason}
-          </span>
+      {/* Kept outside the collapsible body so the customer never has to open
+          anything to see where the request stands or what is waiting on them. */}
+      {(req.kind === "return" || req.status === "rejected") && (
+        <div className="space-y-2.5 px-4 pb-3.5">
+          {req.kind === "return" && <ReturnStatusHeadline req={req} />}
+          {req.kind !== "return" && req.status === "rejected" && req.rejectionReason && (
+            <div className="flex gap-2 rounded-xl border border-red-200 bg-red-50 px-3 py-2.5 text-xs text-red-800">
+              <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+              <span>
+                <strong>Rejected:</strong> {req.rejectionReason}
+              </span>
+            </div>
+          )}
+          {req.kind === "return" && <ReturnRefundCard req={req} />}
+          {req.kind === "return" && !readOnly && <ReturnCustomerActions req={req} />}
         </div>
       )}
 
@@ -69,7 +105,9 @@ function RequestCard({ req, order }: { req: RequestSummary; order: OrderDetailRe
                   <div>
                     <p className="font-bold text-sm text-emerald-950">{label} Approved</p>
                     <p className="text-[11px] text-emerald-800">
-                      Official Return ID generated. Please keep this ID ready during courier pickup.
+                      {req.kind === "return"
+                        ? "Official Return ID generated. Write this ID on the parcel when you courier the item back."
+                        : "Official Request ID generated. Please keep this ID ready during courier pickup."}
                     </p>
                   </div>
                 </div>
@@ -94,7 +132,9 @@ function RequestCard({ req, order }: { req: RequestSummary; order: OrderDetailRe
                 </div>
               </div>
 
-              {order.shippingAddress && (
+              {/* Replacements are still collected by our courier; returns are
+                  couriered back by the customer, so no pickup address applies. */}
+              {req.kind === "replacement" && order.shippingAddress && (
                 <div className="mt-1 rounded-lg bg-white/90 p-2.5 border border-emerald-200/90 text-xs text-neutral-800 flex items-start gap-2 shadow-2xs">
                   <MapPin className="h-4 w-4 text-emerald-600 shrink-0 mt-0.5" />
                   <div className="min-w-0">
@@ -114,16 +154,16 @@ function RequestCard({ req, order }: { req: RequestSummary; order: OrderDetailRe
             </div>
           )}
 
-          {(req.courierName || req.trackingNumber || req.pickupImageUrl) && (
+          {(req.courierName || req.trackingNumber || req.shippingSlipUrl || req.pickupImageUrl) && (
             <div className="rounded-xl border border-sky-200 bg-sky-50/70 p-3.5 text-xs text-sky-950">
               <div className="flex items-center justify-between gap-2 mb-2.5">
                 <div className="flex items-center gap-2">
                   <Truck className="h-4 w-4 text-sky-700 shrink-0" />
                   <p className="font-bold text-xs text-sky-950 uppercase tracking-wide">
-                    Courier &amp; Pickup Tracking
+                    {req.kind === "return" ? "Return Shipment Tracking" : "Courier & Pickup Tracking"}
                   </p>
                 </div>
-                {order.courierShipment?.trackingNumber && req.trackingNumber && req.trackingNumber.toUpperCase() === order.courierShipment.trackingNumber.toUpperCase() && (
+                {req.kind === "replacement" && order.courierShipment?.trackingNumber && req.trackingNumber && req.trackingNumber.toUpperCase() === order.courierShipment.trackingNumber.toUpperCase() && (
                   <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-800 bg-emerald-100/90 px-2 py-0.5 rounded-full border border-emerald-200">
                     <Check className="h-3 w-3 text-emerald-600" /> Verified Delivery Match
                   </span>
@@ -162,6 +202,26 @@ function RequestCard({ req, order }: { req: RequestSummary; order: OrderDetailRe
                         {copiedTrack ? <Check className="h-3.5 w-3.5 text-emerald-600" /> : <Copy className="h-3.5 w-3.5" />}
                       </button>
                     </div>
+                  </div>
+                )}
+                {req.shippingSlipUrl && (
+                  <div>
+                    <span className="text-[10px] font-bold text-sky-800 uppercase tracking-wider block">
+                      Delivery Slip Photo
+                    </span>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setPreviewImage(req.shippingSlipUrl!);
+                      }}
+                      className="group relative mt-1 flex items-center gap-2 rounded-lg border border-sky-200 bg-white p-1 text-sky-800 hover:bg-sky-100 transition-colors cursor-pointer"
+                    >
+                      <div className="relative h-9 w-9 overflow-hidden rounded bg-neutral-100 border border-neutral-200 shrink-0">
+                        <Image src={req.shippingSlipUrl} alt="Delivery slip" fill sizes="36px" className="object-cover" unoptimized />
+                      </div>
+                      <span className="text-[11px] font-semibold pr-1">View photo</span>
+                    </button>
                   </div>
                 )}
                 {req.pickupImageUrl && (
@@ -216,18 +276,27 @@ function RequestCard({ req, order }: { req: RequestSummary; order: OrderDetailRe
               className="max-h-56 rounded-lg bg-black"
             />
           )}
-          <div>
-            <p className="mb-1 text-xs font-bold uppercase tracking-wider text-theme-text-muted">History</p>
-            <ul className="space-y-1 text-xs">
-              {req.history.map((h) => (
-                <li key={h.id} className="flex flex-wrap gap-x-2">
-                  <span className="font-semibold">{h.toStatus.replace(/_/g, " ")}</span>
-                  <span className="text-theme-text-subtle">{formatDateTime(h.createdAt)}</span>
-                  {h.note && <span className="text-theme-text-muted">— {h.note}</span>}
-                </li>
-              ))}
-            </ul>
-          </div>
+          {req.kind === "return" && req.steps?.length ? (
+            <div>
+              <p className="mb-2 text-xs font-bold uppercase tracking-wider text-theme-text-muted">
+                Return Progress
+              </p>
+              <ReturnProgressSteps steps={req.steps} />
+            </div>
+          ) : (
+            <div>
+              <p className="mb-1 text-xs font-bold uppercase tracking-wider text-theme-text-muted">History</p>
+              <ul className="space-y-1 text-xs">
+                {req.history.map((h) => (
+                  <li key={h.id} className="flex flex-wrap gap-x-2">
+                    <span className="font-semibold">{h.toStatus.replace(/_/g, " ")}</span>
+                    <span className="text-theme-text-subtle">{formatDateTime(h.createdAt)}</span>
+                    {h.note && <span className="text-theme-text-muted">— {h.note}</span>}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
         </div>
       )}
       {previewImage && (
@@ -271,8 +340,18 @@ export function OrderRequestsPanel({ order, onRequest, readOnly }: Props) {
     (a, b) => new Date(b.requestedAt).getTime() - new Date(a.requestedAt).getTime()
   );
   const win = order.returnWindow;
-  const showActions = !readOnly && order.status === "delivered" && win;
-  const hasContent = showActions || requests.length > 0;
+
+  // An order item is spoken for while a request still holds it, so once every
+  // item is covered there is nothing left to raise a request against. Same rule
+  // the server applies on submit, so the buttons never lead to a rejection.
+  const consumed = consumedOrderItemIds(requests);
+  const orderItems = order.items ?? [];
+  const allItemsRequested =
+    orderItems.length > 0 && orderItems.every((i) => consumed.has(i.id));
+
+  const inWindow = !readOnly && order.status === "delivered" && Boolean(win);
+  const showActions = inWindow && win!.eligible && !allItemsRequested;
+  const hasContent = inWindow || requests.length > 0;
   if (!hasContent) return null;
 
   return (
@@ -284,35 +363,51 @@ export function OrderRequestsPanel({ order, onRequest, readOnly }: Props) {
         </h2>
       </div>
       <div className="space-y-4 p-5">
-        {showActions &&
-          (win!.eligible ? (
-            <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3">
-              <p className="text-xs font-medium text-emerald-800">
-                {win!.message} An unboxing video is mandatory.
-              </p>
-              <div className="flex gap-2">
-                <Button size="sm" onClick={() => onRequest?.("return")}>
-                  <Undo2 className="mr-1.5 h-3.5 w-3.5" /> Request Return
-                </Button>
-                <Button size="sm" variant="outline" onClick={() => onRequest?.("replacement")}>
-                  <Repeat2 className="mr-1.5 h-3.5 w-3.5" /> Request Replacement
-                </Button>
-              </div>
-            </div>
-          ) : (
-            <p className="rounded-xl border border-neutral-200 bg-neutral-50 px-4 py-3 text-xs font-semibold text-neutral-600">
-              Return period expired
+        {showActions && (
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3">
+            <p className="text-xs font-medium text-emerald-800">
+              {win!.message} An unboxing video is mandatory.
             </p>
-          ))}
+            <div className="flex gap-2">
+              <Button size="sm" onClick={() => onRequest?.("return")}>
+                <Undo2 className="mr-1.5 h-3.5 w-3.5" /> Request Return
+              </Button>
+              <Button size="sm" variant="outline" onClick={() => onRequest?.("replacement")}>
+                <Repeat2 className="mr-1.5 h-3.5 w-3.5" /> Request Replacement
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {inWindow && win!.eligible && allItemsRequested && (
+          <p className="rounded-xl border border-neutral-200 bg-neutral-50 px-4 py-3 text-xs font-semibold text-neutral-600">
+            {orderItems.length === 1
+              ? "You have already raised a request for this item."
+              : "You have already raised a request for every item in this order."}{" "}
+            <span className="font-normal text-neutral-500">
+              Track its progress below.
+            </span>
+          </p>
+        )}
+
+        {inWindow && !win!.eligible && (
+          <p className="rounded-xl border border-neutral-200 bg-neutral-50 px-4 py-3 text-xs font-semibold text-neutral-600">
+            Return period expired
+          </p>
+        )}
 
         {requests.length > 0 ? (
           <ul className="space-y-2">
             {requests.map((r) => (
-              <RequestCard key={`${r.kind}-${r.id}`} req={r} order={order} />
+              <RequestCard key={`${r.kind}-${r.id}`} req={r} order={order} readOnly={readOnly} />
             ))}
           </ul>
         ) : (
-          !showActions && <p className="text-xs text-theme-text-subtle">No return or replacement requests.</p>
+          // `inWindow` already renders its own line (buttons or why not), so
+          // this is only for the read-only / not-delivered case.
+          !inWindow && (
+            <p className="text-xs text-theme-text-subtle">No return or replacement requests.</p>
+          )
         )}
       </div>
     </div>

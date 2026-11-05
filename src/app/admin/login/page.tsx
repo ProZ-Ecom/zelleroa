@@ -3,7 +3,7 @@
 import { useState, useEffect, Suspense } from "react";
 import Link from "next/link";
 import { signIn } from "next-auth/react";
-import { FormProvider, useForm } from "react-hook-form";
+import { FormProvider, useForm, type FieldErrors } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Mail, LockKeyhole, AlertCircle } from "lucide-react";
 
@@ -24,6 +24,7 @@ import {
   ACCOUNT_BLOCKED_TITLE,
 } from "@/features/auth";
 import { toast, suppressPendingSuccessToast } from "@/components/ui/Toast";
+import { resolveRoleScope } from "@/lib/auth/role-routes";
 
 function AdminLoginForm() {
   const [rememberMe, setRememberMe] = useState(false);
@@ -49,8 +50,22 @@ function AdminLoginForm() {
     },
   });
 
+  const onInvalid = (errors: FieldErrors<LoginInput>) => {
+    if (errors.email?.message) {
+      toast.error("Invalid Email", String(errors.email.message));
+    } else if (errors.password?.message) {
+      toast.error("Password Required", String(errors.password.message));
+    } else {
+      toast.error("Validation Error", "Please fill in all required fields correctly.");
+    }
+  };
+
   const onSubmit = (data: LoginInput) => {
-    if (busy || cooldown.coolingDown) return;
+    if (busy) return;
+    if (cooldown.coolingDown) {
+      toast.warning("Please wait", `Please wait ${cooldown.label} before trying again.`);
+      return;
+    }
     methods.clearErrors();
     setPhase("signing-in");
     loginMutation.mutate(
@@ -61,7 +76,9 @@ function AdminLoginForm() {
       {
         onSuccess: async (response) => {
           const userRole = response.data?.user?.role;
-          if (userRole !== "ADMIN" && userRole !== "STAFF") {
+          // Any role in the ADMIN scope may use the admin portal, including roles
+          // an admin created themselves — not just the built-in ADMIN/STAFF names.
+          if (resolveRoleScope(response.data?.user?.scope, userRole) !== "ADMIN") {
             suppressPendingSuccessToast();
             setPhase("idle");
             try {
@@ -111,21 +128,25 @@ function AdminLoginForm() {
               type: "server",
               message: ACCOUNT_BLOCKED_MESSAGE,
             });
+            toast.error("Account Blocked", ACCOUNT_BLOCKED_MESSAGE);
           } else if (field === "email" || msg.toLowerCase().includes("email")) {
             methods.setError("email", {
               type: "server",
               message: "Invalid email address",
             });
+            toast.error("Invalid Email", "The email address you entered was not found.");
           } else if (field === "password" || msg.toLowerCase().includes("password")) {
             methods.setError("password", {
               type: "server",
               message: "Incorrect password",
             });
+            toast.error("Incorrect Password", "The password you entered is incorrect. Please try again.");
           } else {
             methods.setError("root", {
               type: "server",
               message: msg || "Invalid email or password. Please check your credentials.",
             });
+            toast.error("Login Failed", msg || "Invalid email or password. Please check your credentials.");
           }
         },
       }
@@ -141,7 +162,7 @@ function AdminLoginForm() {
     >
       <FormProvider {...methods}>
         <form
-          onSubmit={methods.handleSubmit(onSubmit)}
+          onSubmit={methods.handleSubmit(onSubmit, onInvalid)}
           className="space-y-5 md:space-y-6"
         >
           {/* Server Error */}

@@ -410,7 +410,19 @@ export function formatOrderDetail(
     customer,
     status: order.order_status,
     paymentStatus: order.payment_status,
-    paymentMethod: order.bank_account_holder ? "COD" : "CARD",
+    paymentMethod:
+      Boolean(order.bank_account_holder) ||
+      (order.notes || "").toUpperCase().includes("COD") ||
+      (order.notes || "").toUpperCase().includes("CASH ON DELIVERY") ||
+      (order.order_status_history || []).some((h) => {
+        const n = (h.note || "").toUpperCase();
+        return n.includes("COD") || n.includes("CASH ON DELIVERY");
+      }) ||
+      (order.order_status === "confirmed" &&
+        order.payment_status === "pending" &&
+        (!order.payments || order.payments.length === 0))
+        ? "COD"
+        : "CARD",
     subtotal: Number(order.subtotal),
     discountAmount: Number(order.discountAmount),
     taxAmount: Number(order.taxAmount),
@@ -420,6 +432,7 @@ export function formatOrderDetail(
     delivery: formatOrderDelivery((order as any).shipments),
     courierShipment: formatCourierShipment((order as any).shipments),
     notes: order.notes ?? null,
+    invoiceNumber: (order as any).invoice_number ?? null,
     bankDetails: order.bank_account_holder
       ? {
           accountHolder: order.bank_account_holder,
@@ -538,6 +551,7 @@ export function formatOrderListItem(
     delivery: formatOrderDelivery((order as any).shipments),
     courierShipment: formatCourierShipment((order as any).shipments),
     notes: order.notes ?? null,
+    invoiceNumber: (order as any).invoice_number ?? null,
     placedAt: order.placed_at ?? null,
     deliveredAt: order.delivered_at ?? null,
     cancellation: formatCancellation(order),
@@ -763,7 +777,7 @@ export const orderRepository = {
           taxAmount: 0,
           shipping_charge: params.shippingCharge ?? 0,
           totalAmount: params.totalAmount,
-          notes: params.notes ?? null,
+          notes: params.notes ?? (params.paymentMethod === "COD" ? "Cash on Delivery (COD)" : null),
           bank_account_holder: params.bankDetails?.accountHolder?.trim() || null,
           bank_name: params.bankDetails?.bankName?.trim() || null,
           bank_account_number_enc: params.bankDetails?.accountNumber?.trim()
@@ -942,7 +956,9 @@ export const orderRepository = {
                 ? "Order placed by Sales Partner for themselves"
                 : params.paymentStatus === "paid"
               ? `Order confirmed with payment via ${params.paymentMethod ?? "CARD"}`
-              : "Order placed by customer"),
+              : params.paymentMethod === "COD"
+                ? "Order placed via Cash on Delivery (COD)"
+                : "Order placed by customer"),
           changed_by: actorId,
           is_active: true,
           created_by: actorId,
@@ -1211,8 +1227,14 @@ export const orderRepository = {
           id: true,
         },
       }),
+      // Only the ones waiting on us, so the tab badge means "needs action".
       db.return_requests.count({
-        where: { is_active: true },
+        where: {
+          is_active: true,
+          status: {
+            in: ["return_requested", "under_review", "shipped_by_customer", "received", "refund_pending"],
+          },
+        },
       }),
       db.replacement_requests.count({
         where: { is_active: true },
@@ -1595,5 +1617,52 @@ export const orderRepository = {
 
       return formatOrderDetail(updated);
     });
+  },
+
+  async updateOrderInvoiceNumber(uuid: string, invoiceNumber: string | null) {
+    const existing = await db.order.findFirst({
+      where: { uuid },
+      select: { id: true },
+    });
+    if (!existing) {
+      throw ApiError.notFound("Order not found");
+    }
+
+    if (invoiceNumber) {
+      const duplicate = await db.order.findFirst({
+        where: {
+          invoice_number: invoiceNumber,
+          id: { not: existing.id },
+        },
+        select: { orderNumber: true },
+      });
+      if (duplicate) {
+        throw ApiError.conflict(
+          `Invoice number "${invoiceNumber}" is already used by order ${duplicate.orderNumber}`
+        );
+      }
+    }
+
+    try {
+      return await db.order.update({
+        where: { id: existing.id },
+        data: { invoice_number: invoiceNumber },
+      });
+    } catch (error) {
+      if (error instanceof ApiError) {
+        throw error;
+      }
+      if ((error as { code?: string })?.code === "P2002") {
+        throw ApiError.conflict(
+          `Invoice number "${invoiceNumber}" is already used by another order`
+        );
+      }
+      await db.$executeRawUnsafe(
+        "UPDATE orders SET invoice_number = ? WHERE id = ?",
+        invoiceNumber,
+        existing.id
+      );
+      return existing as any;
+    }
   },
 };

@@ -1,6 +1,7 @@
 import { signIn, signOut } from "next-auth/react";
 import { ApiError } from "@/lib/api/api-error";
 import { generateAccessToken, generateRefreshToken, verifyRefreshToken } from "@/lib/auth/jwt";
+import { resolveRoleScope } from "@/lib/auth/role-routes";
 import { userRepository } from "@/features/users/repositories/user.repository";
 import { apiClient } from "@/lib/api/api-client";
 import type { LoginInput, RegisterInput } from "@/lib/validations/auth";
@@ -12,6 +13,7 @@ export const authService = {
 
     const userUuid = user.uuid || user.id.toString();
     const userRole = user.roleName || user.role?.name || "CUSTOMER";
+    const userScope = resolveRoleScope(user.roleScope, userRole);
 
     await userRepository.update(user.id, { last_login_at: new Date() } as never);
 
@@ -19,6 +21,7 @@ export const authService = {
       userId: userUuid, // Pass UUID string into JWT
       email: user.email ?? "",
       role: userRole,
+      scope: userScope,
     });
 
     const refreshToken = generateRefreshToken({
@@ -32,6 +35,7 @@ export const authService = {
         email: user.email ?? "",
         phone: user.phone ?? null,
         role: userRole,
+        scope: userScope,
       },
       accessToken,
       refreshToken,
@@ -58,6 +62,7 @@ export const authService = {
       userId: userUuid,
       email: user.email ?? "",
       role: userRole,
+      scope: resolveRoleScope(user.roleScope, userRole),
     });
 
     return { accessToken };

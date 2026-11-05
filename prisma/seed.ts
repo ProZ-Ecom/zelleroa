@@ -3,6 +3,7 @@ import crypto from "crypto";
 import { PrismaClient } from "../src/generated/prisma/client.js";
 import { PrismaMariaDb } from "@prisma/adapter-mariadb";
 import bcrypt from "bcryptjs";
+import { ALL_PERMISSIONS } from "../src/lib/permissions/catalog.ts";
 
 function createClient() {
   const databaseUrl = process.env.DATABASE_URL;
@@ -31,37 +32,44 @@ async function main() {
   const customerPassword = await bcrypt.hash("customer123", 12);
 
   // Helper to upsert role by slug
-  const getOrCreateRole = async (name: string, slug: string, description: string) => {
-    let role = await prisma.role.findFirst({ where: { slug } });
+  // `scope` decides which area a role signs in to (/admin, /agent, /account); it is what
+  // middleware and the server guards check, so a role created later gets access from this
+  // field alone and never from its name.
+  const getOrCreateRole = async (
+    name: string,
+    slug: string,
+    description: string,
+    scope: "ADMIN" | "AGENT" | "CUSTOMER"
+  ) => {
+    const role = await prisma.role.findFirst({ where: { slug } });
     if (!role) {
-      role = await prisma.role.create({
-        data: { name, slug, description },
-      });
+      return prisma.role.create({ data: { name, slug, description, scope } });
+    }
+    if (role.scope !== scope) {
+      return prisma.role.update({ where: { id: role.id }, data: { scope } });
     }
     return role;
   };
 
-  const adminRole = await getOrCreateRole("ADMIN", "admin", "Administrator with full access");
-  const staffRole = await getOrCreateRole("STAFF", "staff", "Staff member with limited access");
-  const customerRole = await getOrCreateRole("CUSTOMER", "customer", "Regular customer");
-  const agentRole = await getOrCreateRole("AGENT", "agent", "Referral agent credited for attributed signups and orders");
+  const adminRole = await getOrCreateRole("ADMIN", "admin", "Administrator with full access", "ADMIN");
+  const staffRole = await getOrCreateRole("STAFF", "staff", "Staff member with limited access", "ADMIN");
+  const customerRole = await getOrCreateRole("CUSTOMER", "customer", "Regular customer", "CUSTOMER");
+  const agentRole = await getOrCreateRole(
+    "AGENT",
+    "agent",
+    "Referral agent credited for attributed signups and orders",
+    "AGENT"
+  );
 
   console.log("Roles created");
 
-  const permissions = [
-    { name: "PRODUCT_VIEW", slug: "product-view", module: "PRODUCT" },
-    { name: "PRODUCT_CREATE", slug: "product-create", module: "PRODUCT" },
-    { name: "PRODUCT_UPDATE", slug: "product-update", module: "PRODUCT" },
-    { name: "PRODUCT_DELETE", slug: "product-delete", module: "PRODUCT" },
-    { name: "CATEGORY_VIEW", slug: "category-view", module: "CATEGORY" },
-    { name: "CATEGORY_CREATE", slug: "category-create", module: "CATEGORY" },
-    { name: "CATEGORY_UPDATE", slug: "category-update", module: "CATEGORY" },
-    { name: "CATEGORY_DELETE", slug: "category-delete", module: "CATEGORY" },
-    { name: "ORDER_VIEW", slug: "order-view", module: "ORDER" },
-    { name: "ORDER_UPDATE", slug: "order-update", module: "ORDER" },
-    { name: "USER_VIEW", slug: "user-view", module: "USER" },
-    { name: "USER_UPDATE", slug: "user-update", module: "USER" },
-  ];
+  // The catalog in src/lib/permissions/catalog.ts is the source of truth; every entry gets
+  // a permissions row, and the owner ADMIN role is granted all of them.
+  const permissions = ALL_PERMISSIONS.map((permission) => ({
+    name: permission.name,
+    slug: permission.slug,
+    module: permission.module,
+  }));
 
   for (const perm of permissions) {
     let created = await prisma.permission.findFirst({ where: { slug: perm.slug } });
@@ -76,6 +84,20 @@ async function main() {
         data: { roleId: adminRole.id, permissionId: created.id },
       });
     }
+  }
+
+  // The built-in STAFF role predates permissions: before this, anyone with it could reach
+  // every admin screen because routes only checked the role name. So on a database that has
+  // never had permissions assigned to it, give it everything once — nothing a staff member
+  // could do yesterday stops working — and let the admin trim it on the Roles screen.
+  const staffPermissionCount = await prisma.rolePermission.count({ where: { roleId: staffRole.id } });
+  if (staffPermissionCount === 0) {
+    const all = await prisma.permission.findMany({ select: { id: true } });
+    await prisma.rolePermission.createMany({
+      data: all.map((permission) => ({ roleId: staffRole.id, permissionId: permission.id })),
+      skipDuplicates: true,
+    });
+    console.log(`STAFF role had no permissions; granted all ${all.length} (trim under Roles)`);
   }
 
   console.log("Permissions created and assigned to admin role");

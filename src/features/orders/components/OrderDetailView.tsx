@@ -295,11 +295,16 @@ export function OrderDetailView({
               <Button
                 variant="outline"
                 size="sm"
-                className="border-secondary-600 bg-secondary-50 hover:bg-secondary-100 text-secondary-800 rounded-xl text-xs font-semibold min-h-[36px]"
+                className="border-2 border-amber-500 bg-amber-50 hover:bg-amber-100 text-amber-900 dark:bg-amber-950/50 dark:border-amber-400 dark:text-amber-200 rounded-xl text-xs font-bold min-h-[36px] shadow-xs inline-flex items-center gap-1.5"
                 onClick={() => onRequest?.("return")}
               >
-                <Undo2 className="mr-1.5 h-3.5 w-3.5" />
-                Return / Replace {(order as any).returnWindow?.daysLeft ? `(${(order as any).returnWindow.daysLeft}d left)` : ""}
+                <Undo2 className="mr-1.5 h-3.5 w-3.5 text-amber-600 stroke-[2.5]" />
+                <span>Return / Replace</span>
+                {(order as any).returnWindow?.daysLeft ? (
+                  <span className="ml-1 rounded bg-amber-200 text-amber-950 px-1.5 py-0.5 text-[10px] font-extrabold tracking-normal">
+                    {(order as any).returnWindow.daysLeft}d left
+                  </span>
+                ) : null}
               </Button>
             )
           )}

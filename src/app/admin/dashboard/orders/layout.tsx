@@ -11,6 +11,7 @@ import {
 import { OrderStatsCards } from "@/features/orders/components/OrderStatsCards";
 import { OrderStatusTabs } from "@/features/orders/components/OrderStatusTabs";
 import { AdminTableSkeleton } from "@/components/admin/AdminTableSkeleton";
+import { AdminVideoStorageAlert } from "@/features/returns/components/AdminVideoStorageAlert";
 
 export default function OrdersLayout({
   children,
@@ -32,13 +33,14 @@ export default function OrdersLayout({
   }
 
   return (
-    <div className="flex flex-1 min-h-0 flex-col">
+    <div className="flex flex-1 flex-col">
       <AdminPageHeader
         title="Orders"
         description="View, manage and fulfill customer orders"
       />
 
       <div className="mt-4 flex flex-col gap-3">
+        <AdminVideoStorageAlert />
         {/* Order Statistics - Shared across all status pages */}
         <OrderStatsCards />
 
@@ -48,7 +50,7 @@ export default function OrdersLayout({
         </div>
       </div>
 
-      <AdminContent className="mt-3 flex-1 min-h-0 overflow-hidden">
+      <AdminContent className="mt-3 flex-1 min-h-0">
         {children}
       </AdminContent>
     </div>
