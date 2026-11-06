@@ -35,6 +35,8 @@ const STATUS_LOOK: Record<string, { icon: LucideIcon; tone: "info" | "warn" | "g
   closed: { icon: CheckCircle2, tone: "good" },
   rejected: { icon: XCircle, tone: "bad" },
   qc_failed: { icon: AlertTriangle, tone: "bad" },
+  returning_to_customer: { icon: Truck, tone: "warn" },
+  returned_to_customer: { icon: PackageCheck, tone: "good" },
   expired: { icon: CalendarClock, tone: "bad" },
   cancelled: { icon: XCircle, tone: "bad" },
 };

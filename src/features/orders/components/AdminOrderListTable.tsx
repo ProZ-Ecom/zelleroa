@@ -17,6 +17,7 @@ import {
   FileText,
   RefreshCw,
   AlertTriangle,
+  BadgeIndianRupee,
 } from "lucide-react";
 import { DataTable } from "@/components/admin/data-table/DataTable";
 import { LoadingState } from "@/components/ui/loading-state";
@@ -40,6 +41,7 @@ import {
   usePackAdminOrder,
   useCancelOrderAdmin,
   useUpdateOrderInvoiceNumber,
+  useMarkOrderPaid,
 } from "@/features/orders/hooks";
 import { useShipViaCourier, useUpdateCourierStatus } from "@/features/delivery/hooks";
 import { isManualDeliveryStatusEnabled } from "@/features/delivery/lib/delivery-config";
@@ -86,6 +88,13 @@ export function AdminOrderListTable({
     orderNumber: string;
   } | null>(null);
   const [deliveryNote, setDeliveryNote] = useState("");
+  const [cashOrder, setCashOrder] = useState<{
+    id: string;
+    orderNumber: string;
+    amount: number;
+  } | null>(null);
+  const [cashReference, setCashReference] = useState("");
+  const [cashNote, setCashNote] = useState("");
 
   const { data, isLoading, isFetching, error, refetch } = useAdminOrders({
     page,
@@ -105,6 +114,7 @@ export function AdminOrderListTable({
   const shipViaCourier = useShipViaCourier();
   const updateCourierStatus = useUpdateCourierStatus();
   const updateOrderInvoiceNumber = useUpdateOrderInvoiceNumber();
+  const markOrderPaid = useMarkOrderPaid();
   const canManuallyUpdateDelivery = isManualDeliveryStatusEnabled();
   const [courierCode, setCourierCode] = useState(DEFAULT_COURIER_CODE);
   const [consignmentNumber, setConsignmentNumber] = useState("");
@@ -128,6 +138,25 @@ export function AdminOrderListTable({
     if (typeof window !== "undefined") {
       window.open(`/invoice/${orderUuid}`, "_blank", "noopener");
     }
+  };
+
+  /**
+   * COD cash can only be booked once, and only while the order is live and
+   * still unpaid - a cancelled or refunded order has nothing to collect.
+   */
+  const canRecordCashPayment = (order: {
+    paymentMethod?: string;
+    paymentStatus?: string;
+    status?: string;
+  }) =>
+    (order.paymentMethod || "").toUpperCase() === "COD" &&
+    ["pending", "failed"].includes((order.paymentStatus || "").toLowerCase()) &&
+    (order.status || "").toLowerCase() !== "cancelled";
+
+  const closeCashModal = () => {
+    setCashOrder(null);
+    setCashReference("");
+    setCashNote("");
   };
 
   const isTransitionPending =
@@ -206,6 +235,11 @@ export function AdminOrderListTable({
       cell: ({ row }) => (
         <div className="space-y-1">
           <PaymentStatusBadge status={row.original.paymentStatus} />
+          {(row.original.paymentMethod || "").toUpperCase() === "COD" && (
+            <div className="text-[10.5px] font-semibold text-neutral-500">
+              Cash on Delivery
+            </div>
+          )}
         </div>
       ),
     },
@@ -245,32 +279,111 @@ export function AdminOrderListTable({
         const isAssigned = delivery?.isAssigned && !!staff;
         const orderStatus = (row.original.status || "").toLowerCase();
 
-        if (!isAssigned || !staff) {
+        if (isAssigned && staff) {
+          const initial = staff.name.charAt(0).toUpperCase();
+
+          return (
+            <div className="flex items-center gap-2 max-w-[180px]">
+              <div className="grid h-7 w-7 place-items-center rounded-full bg-secondary-600 text-white text-xs font-bold shrink-0">
+                {initial}
+              </div>
+              <div className="min-w-0 leading-tight">
+                <div className="font-semibold text-xs text-neutral-900 truncate">
+                  {staff.name}
+                </div>
+                <div className="text-[10.5px] text-neutral-500 font-mono truncate">
+                  {staff.phone || staff.email || "Staff"}
+                </div>
+              </div>
+            </div>
+          );
+        }
+
+        const courier = row.original.courierShipment;
+        if (courier && (courier.carrier || courier.trackingNumber)) {
+          return (
+            <div className="flex flex-col gap-0.5 max-w-[180px]">
+              <div className="flex items-center gap-1 text-xs font-semibold text-neutral-800 truncate">
+                <Truck className="h-3.5 w-3.5 text-secondary-600 shrink-0" />
+                <span className="truncate">{courier.carrier || "Courier"}</span>
+              </div>
+              {courier.trackingNumber && (
+                <div className="text-[10.5px] text-neutral-500 font-mono truncate">
+                  {courier.trackingNumber}
+                </div>
+              )}
+            </div>
+          );
+        }
+
+        if (orderStatus === "delivered") {
+          return (
+            <div className="flex flex-col gap-0.5">
+              <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200 w-fit">
+                <CheckCircle2 className="h-3 w-3 text-emerald-600" />
+                Delivered
+              </span>
+              {row.original.deliveredAt && (
+                <span className="text-[10px] text-neutral-400 font-mono">
+                  {new Date(row.original.deliveredAt).toLocaleDateString("en-IN", {
+                    month: "short",
+                    day: "numeric",
+                  })}
+                </span>
+              )}
+            </div>
+          );
+        }
+
+        if (orderStatus === "shipped") {
           return (
             <div className="flex items-center gap-1.5">
-              <span className="inline-flex items-center gap-1 text-[11px] font-medium text-neutral-500 bg-cream-100 px-2 py-0.5 rounded-full border border-cream-border">
-                <Package className="h-3 w-3 text-neutral-400" />
-                Not shipped
+              <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-blue-700 bg-blue-50 px-2 py-0.5 rounded-full border border-blue-200">
+                <Truck className="h-3 w-3 text-blue-600" />
+                Shipped
               </span>
             </div>
           );
         }
 
-        const initial = staff.name.charAt(0).toUpperCase();
+        if (orderStatus === "out_for_delivery") {
+          return (
+            <div className="flex items-center gap-1.5">
+              <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
+                <Truck className="h-3 w-3 text-amber-600" />
+                Out for delivery
+              </span>
+            </div>
+          );
+        }
+
+        if (orderStatus === "returned") {
+          return (
+            <div className="flex items-center gap-1.5">
+              <span className="inline-flex items-center gap-1 text-[11px] font-medium text-slate-700 bg-slate-50 px-2 py-0.5 rounded-full border border-slate-200">
+                Returned
+              </span>
+            </div>
+          );
+        }
+
+        if (orderStatus === "cancelled") {
+          return (
+            <div className="flex items-center gap-1.5">
+              <span className="inline-flex items-center gap-1 text-[11px] font-medium text-neutral-400 bg-neutral-50 px-2 py-0.5 rounded-full border border-neutral-200">
+                <XCircle className="h-3 w-3 text-neutral-400" />
+                Cancelled
+              </span>
+            </div>
+          );
+        }
 
         return (
-          <div className="flex items-center gap-2 max-w-[180px]">
-            <div className="grid h-7 w-7 place-items-center rounded-full bg-secondary-600 text-white text-xs font-bold shrink-0">
-              {initial}
-            </div>
-            <div className="min-w-0 leading-tight">
-              <div className="font-semibold text-xs text-neutral-900 truncate">
-                {staff.name}
-              </div>
-              <div className="text-[10.5px] text-neutral-500 font-mono truncate">
-                {staff.phone || staff.email || "Staff"}
-              </div>
-            </div>
+          <div className="flex items-center gap-1.5">
+            <span className="inline-flex items-center gap-1 text-[11px] font-medium text-neutral-500 bg-cream-100 px-2 py-0.5 rounded-full border border-cream-border">
+              <Package className="h-3 w-3 text-neutral-400" />
+              Not shipped
+            </span>
           </div>
         );
       },
@@ -503,6 +616,24 @@ export function AdminOrderListTable({
               </button>
             )}
 
+            {canRecordCashPayment(row.original) && (
+              <button
+                type="button"
+                onClick={() =>
+                  setCashOrder({
+                    id: row.original.id,
+                    orderNumber: row.original.orderNumber,
+                    amount: row.original.totalAmount,
+                  })
+                }
+                title="Cash received - mark as paid"
+                className="grid h-8 w-8 place-items-center rounded-lg border border-emerald-300 bg-emerald-50 text-xs font-semibold text-emerald-700 hover:bg-emerald-100 transition-all cursor-pointer shadow-xs"
+                disabled={isTransitionPending || markOrderPaid.isPending}
+              >
+                <BadgeIndianRupee className="h-3.5 w-3.5" />
+              </button>
+            )}
+
             <button
               type="button"
               onClick={() => setViewOrderId(row.original.id)}
@@ -632,8 +763,8 @@ export function AdminOrderListTable({
               setPageSize(newSize);
               setPage(1);
             }}
-            className="bg-white border border-cream-border"
-            tableClassName="min-w-[1700px]"
+            className="bg-white border border-cream-border [&_th]:!bg-[#dbeafe] [&_th]:!text-[#1e3a8a] [&_th_*]:!text-[#1e3a8a] [&_th]:!font-bold [&_th]:!border-b-2 [&_th]:!border-[#93c5fd] [&_th]:shadow-[0_1px_3px_rgba(37,99,235,0.08)] [&_th_svg]:!text-[#2563eb]"
+            tableClassName="min-w-[1700px] [&_th]:!bg-[#dbeafe] [&_th]:!text-[#1e3a8a] [&_th_*]:!text-[#1e3a8a] [&_th]:!font-bold [&_th]:!border-b-2 [&_th]:!border-[#93c5fd] [&_th_svg]:!text-[#2563eb]"
             emptyMessage={emptyMessage}
           />
         )}
@@ -829,6 +960,24 @@ export function AdminOrderListTable({
                   >
                     <CheckCircle2 className="mr-1.5 h-4 w-4" />
                     Mark as Delivered
+                  </Button>
+                )}
+
+                {canRecordCashPayment(orderDetail) && (
+                  <Button
+                    size="sm"
+                    className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                    onClick={() =>
+                      setCashOrder({
+                        id: orderDetail.id,
+                        orderNumber: orderDetail.orderNumber,
+                        amount: orderDetail.totalAmount,
+                      })
+                    }
+                    disabled={markOrderPaid.isPending}
+                  >
+                    <BadgeIndianRupee className="mr-1.5 h-4 w-4" />
+                    Cash Received - Mark Paid
                   </Button>
                 )}
 
@@ -1159,6 +1308,99 @@ export function AdminOrderListTable({
           </div>
         </FormModal>
       )}
+
+      {/* Record COD Cash Payment Modal */}
+      <FormModal
+        open={!!cashOrder}
+        onClose={closeCashModal}
+        title={`Cash Received${cashOrder ? ` - ${cashOrder.orderNumber}` : ""}`}
+        description="Confirm the Cash-on-Delivery amount collected for this order. This marks the payment as paid and counts it towards revenue."
+        size="sm"
+        footer={
+          <>
+            <Button variant="outline" onClick={closeCashModal}>
+              Cancel
+            </Button>
+            <Button
+              className="bg-emerald-600 hover:bg-emerald-700 text-white"
+              disabled={markOrderPaid.isPending}
+              onClick={() => {
+                if (!cashOrder) return;
+                markOrderPaid.mutate(
+                  {
+                    id: cashOrder.id,
+                    amount: cashOrder.amount,
+                    reference: cashReference.trim() || undefined,
+                    note: cashNote.trim() || undefined,
+                  },
+                  {
+                    onSuccess: () => {
+                      toast.success(
+                        "Payment Recorded",
+                        `Order ${cashOrder.orderNumber} is now marked as paid (${formatPrice(cashOrder.amount)} cash).`
+                      );
+                      closeCashModal();
+                      refetch();
+                    },
+                    onError: (err: any) => {
+                      toast.error(
+                        "Payment not recorded",
+                        err?.message || "Please try again."
+                      );
+                    },
+                  }
+                );
+              }}
+            >
+              {markOrderPaid.isPending && (
+                <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+              )}
+              Confirm Cash Received
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-4">
+          <div className="flex items-center justify-between rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2.5">
+            <span className="text-xs font-semibold text-emerald-800">
+              Amount collected
+            </span>
+            <span className="text-base font-bold tabular-nums text-emerald-900">
+              {cashOrder ? formatPrice(cashOrder.amount) : "-"}
+            </span>
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="block text-xs font-semibold text-neutral-700">
+              Receipt / Remittance Reference (optional)
+            </label>
+            <Input
+              placeholder="e.g. Cash memo 4421 or courier remittance ID"
+              value={cashReference}
+              onChange={(e) => setCashReference(e.target.value)}
+              maxLength={100}
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="block text-xs font-semibold text-neutral-700">
+              Note (optional)
+            </label>
+            <Input
+              placeholder="e.g. Collected by delivery staff Ravi"
+              value={cashNote}
+              onChange={(e) => setCashNote(e.target.value)}
+              maxLength={200}
+            />
+          </div>
+
+          <p className="text-[11px] text-neutral-500">
+            Only the full order total can be recorded - partial collection is
+            not supported. The entry is saved against your admin account and
+            shows in the order&apos;s payment history.
+          </p>
+        </div>
+      </FormModal>
 
       {/* Cancel Order Dialog */}
       <ConfirmDialog

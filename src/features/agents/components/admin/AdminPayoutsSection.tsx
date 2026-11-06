@@ -6,7 +6,6 @@ import { BadgeCheck, Ban, CheckCircle2, History, Landmark, Loader2 } from "lucid
 import { apiClient } from "@/lib/api/api-client";
 import { Modal } from "@/components/ui/modal";
 import { toast } from "@/components/ui/Toast";
-import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import type { PayoutRow } from "../../types";
 import { errorMessage, useAdminList } from "../../hooks/use-admin-agents";
 import { ButtonPager, PAYOUT_STATUS_OPTIONS, Panel, SimpleTable, StatusBadge, TableSkeleton, Tooltip, dateOnly, fieldCls, money } from "../shared";
@@ -15,7 +14,8 @@ import { AuditModal } from "./AuditModal";
 
 type Dialog =
   | { kind: "reject"; payout: PayoutRow }
-  | { kind: "paid"; payout: PayoutRow }
+  /** `approve-and-pay` for a requested payout, `mark-paid` for one already approved. */
+  | { kind: "paid"; payout: PayoutRow; alsoApprove: boolean }
   | { kind: "details"; payout: PayoutRow }
   | null;
 
@@ -37,26 +37,11 @@ export function AdminPayoutsSection({ fixedAgent }: { fixedAgent?: string }) {
   const [page, setPage] = useState(1);
   const [dialog, setDialog] = useState<Dialog>(null);
   const [auditId, setAuditId] = useState<string | null>(null);
-  const [busyId, setBusyId] = useState<string | null>(null);
 
   const params = { ...filters, ...(fixedAgent ? { agent: fixedAgent } : {}), page, limit: 20 };
   const { data, isLoading, error } = useAdminList<PayoutRow>("payouts", "/api/admin/agent-payouts", params);
 
   const refresh = () => qc.invalidateQueries({ queryKey: ["agents-admin"] });
-  const [confirmApprove, setConfirmApprove] = useState<PayoutRow | null>(null);
-
-  const approve = async (p: PayoutRow) => {
-    setBusyId(p.id);
-    try {
-      await apiClient.post(`/api/admin/agent-payouts/${p.id}/approve`);
-      toast.success("Payout approved", "Now transfer the money and mark it as paid.");
-      await refresh();
-    } catch (err) {
-      toast.error("Could not approve", errorMessage(err));
-    } finally {
-      setBusyId(null);
-    }
-  };
 
   const fields: FilterField[] = [
     ...(fixedAgent ? [] : [{ name: "agent", label: "Sales Partner", type: "agent" as const }]),
@@ -111,15 +96,14 @@ export function AdminPayoutsSection({ fixedAgent }: { fixedAgent?: string }) {
                 cell: (r) => (
                   <div className="flex flex-wrap items-center gap-1.5">
                     {r.status === "requested" && (
-                      <Tooltip content="Approve payout request" side="top">
+                      <Tooltip content="Approve & mark as paid" side="top">
                         <button
                           type="button"
-                          disabled={busyId === r.id}
-                          onClick={() => setConfirmApprove(r)}
-                          aria-label="Approve payout request"
+                          onClick={() => setDialog({ kind: "paid", payout: r, alsoApprove: true })}
+                          aria-label="Approve payout and mark it as paid"
                           className={`${btn} bg-emerald-600 text-white hover:bg-emerald-700`}
                         >
-                          {busyId === r.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+                          <CheckCircle2 className="h-4 w-4" />
                         </button>
                       </Tooltip>
                     )}
@@ -127,7 +111,7 @@ export function AdminPayoutsSection({ fixedAgent }: { fixedAgent?: string }) {
                       <Tooltip content="Mark payout as paid" side="top">
                         <button
                           type="button"
-                          onClick={() => setDialog({ kind: "paid", payout: r })}
+                          onClick={() => setDialog({ kind: "paid", payout: r, alsoApprove: false })}
                           aria-label="Mark payout as paid"
                           className={`${btn} bg-theme-primary hover:bg-theme-primary-hover text-white transition-colors`}
                         >
@@ -178,19 +162,6 @@ export function AdminPayoutsSection({ fixedAgent }: { fixedAgent?: string }) {
         </>
       )}
 
-      <ConfirmDialog
-        open={confirmApprove !== null}
-        onClose={() => setConfirmApprove(null)}
-        onConfirm={() => {
-          const p = confirmApprove;
-          setConfirmApprove(null);
-          if (p) void approve(p);
-        }}
-        variant="default"
-        title="Approve this payout?"
-        description={`Approve the payout request${confirmApprove ? ` of ${money(confirmApprove.amount)}` : ""}. You still need to transfer the money and mark it as paid.`}
-        confirmText="Approve payout"
-      />
       <RejectDialog dialog={dialog} onClose={() => setDialog(null)} onDone={refresh} />
       <PaidDialog dialog={dialog} onClose={() => setDialog(null)} onDone={refresh} />
       <DetailsDialog dialog={dialog} onClose={() => setDialog(null)} />
@@ -249,16 +220,17 @@ function PaidDialog({ dialog, onClose, onDone }: { dialog: Dialog; onClose: () =
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   if (dialog?.kind !== "paid") return null;
+  const { alsoApprove } = dialog;
 
   const submit = async () => {
     setBusy(true);
     setErr(null);
     try {
-      await apiClient.post(`/api/admin/agent-payouts/${dialog.payout.id}/mark-paid`, {
-        transactionReference: reference,
-        note: note || undefined,
-      });
-      toast.success("Marked as paid");
+      await apiClient.post(
+        `/api/admin/agent-payouts/${dialog.payout.id}/${alsoApprove ? "approve-and-pay" : "mark-paid"}`,
+        { transactionReference: reference, note: note || undefined }
+      );
+      toast.success(alsoApprove ? "Payout approved and marked as paid" : "Marked as paid");
       setReference("");
       setNote("");
       await onDone();
@@ -271,9 +243,20 @@ function PaidDialog({ dialog, onClose, onDone }: { dialog: Dialog; onClose: () =
   };
 
   return (
-    <Modal open onClose={onClose} title={`Mark ${dialog.payout.code} as paid`} description={`${money(dialog.payout.amount)} to ${dialog.payout.agentName}`}>
+    <Modal
+      open
+      onClose={onClose}
+      title={alsoApprove ? `Approve & pay ${dialog.payout.code}` : `Mark ${dialog.payout.code} as paid`}
+      description={`${money(dialog.payout.amount)} to ${dialog.payout.agentName}`}
+    >
       <div className="flex flex-col gap-3">
         {err && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{err}</p>}
+        {alsoApprove && (
+          <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">
+            Transfer the money first — use the pay-to details — then enter the reference here. This approves the
+            request and marks it paid in one step.
+          </p>
+        )}
         <label className="flex flex-col gap-1 text-xs font-medium text-neutral-600">
           Transaction / reference ID
           <input className={fieldCls} value={reference} onChange={(e) => setReference(e.target.value)} maxLength={100} />
@@ -288,7 +271,7 @@ function PaidDialog({ dialog, onClose, onDone }: { dialog: Dialog; onClose: () =
           </button>
           <button type="button" disabled={busy || reference.trim().length < 3} onClick={submit} className="inline-flex h-10 items-center gap-2 rounded-xl bg-theme-primary hover:bg-theme-primary-hover px-4 text-sm font-semibold text-white transition-colors disabled:opacity-50">
             {busy && <Loader2 className="h-4 w-4 animate-spin" />}
-            Confirm payment
+            {alsoApprove ? "Approve & confirm payment" : "Confirm payment"}
           </button>
         </div>
       </div>

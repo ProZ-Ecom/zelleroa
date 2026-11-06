@@ -12,6 +12,7 @@ import { ErrorState } from "@/components/ui/error-state";
 import { Button } from "@/components/ui/button";
 import { ExportButton } from "@/components/common/export-button";
 import { exportDataToCsv } from "@/lib/export-csv";
+import { formatDate } from "@/lib/utils";
 import { SearchInput } from "@/components/ui/search-input";
 import { Select } from "@/components/ui/select";
 import { usePurchaseReturns } from "@/features/purchases/hooks";
@@ -86,7 +87,7 @@ export default function PurchaseReturnsPage() {
     {
       accessorKey: "returnDate",
       header: "Return date",
-      cell: ({ row }) => <span className="text-sm">{row.original.returnDate ?? "—"}</span>,
+      cell: ({ row }) => <span className="text-sm">{formatDate(row.original.returnDate)}</span>,
     },
     {
       accessorKey: "status",
@@ -122,8 +123,8 @@ export default function PurchaseReturnsPage() {
 
       <AdminContent className="flex-1 min-h-0">
         <div className="flex h-full flex-col bg-[var(--color-background)] py-1 rounded-2xl">
-          <div className="flex-shrink-0 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-            <div className="flex items-center gap-3">
+          <div className="flex-shrink-0 flex flex-wrap items-center justify-between gap-4">
+            <div className="flex flex-wrap items-center gap-3">
               <div className="w-64 lg:w-72 shrink-0">
                 <SearchInput
                   placeholder="Search return, debit note, PO or vendor..."
@@ -145,7 +146,7 @@ export default function PurchaseReturnsPage() {
                 />
               </div>
             </div>
-            <div className="flex items-center gap-2 xl:gap-3 shrink-0">
+            <div className="flex flex-wrap items-center gap-2 xl:gap-3">
               <ExportButton
                 onClick={() =>
                   exportDataToCsv(returns, "purchase-returns", [
@@ -155,7 +156,7 @@ export default function PurchaseReturnsPage() {
                     { header: "Items", accessor: (r) => r.itemCount },
                     { header: "Value", accessor: (r) => `₹${r.totalAmount.toFixed(2)}` },
                     { header: "Debit Note", accessor: (r) => r.debitNoteNumber || "—" },
-                    { header: "Return Date", accessor: (r) => r.returnDate || "—" },
+                    { header: "Return Date", accessor: (r) => formatDate(r.returnDate) },
                     { header: "Status", accessor: (r) => r.status },
                   ])
                 }

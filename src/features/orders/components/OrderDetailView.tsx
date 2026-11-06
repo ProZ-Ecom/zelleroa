@@ -535,7 +535,9 @@ export function OrderDetailView({
                         )}
                         {p.gatewayPaymentId && (
                           <>
-                            <dt className="text-theme-text-muted">Payment ID</dt>
+                            <dt className="text-theme-text-muted">
+                              {p.gateway ? "Payment ID" : "Reference"}
+                            </dt>
                             <dd className="font-mono text-[11px] text-theme-text-primary text-right break-all">{p.gatewayPaymentId}</dd>
                           </>
                         )}

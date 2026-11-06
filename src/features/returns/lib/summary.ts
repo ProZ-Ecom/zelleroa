@@ -4,6 +4,7 @@ import {
   REPLACEMENT_FLOW,
   RETURN_ACTIVE_STATUSES,
   RETURN_FLOW,
+  RETURN_SENDBACK_FLOW,
   returnPendingHint,
   returnStatusLabel,
   returnStatusMessage,
@@ -67,6 +68,12 @@ export interface RequestSummary {
   receivedAt?: Date | null;
   qcFailedAt?: Date | null;
   qcFailureReason?: string | null;
+  /** Returns only: the leg back to the customer after a failed check. */
+  sendbackCourierName?: string | null;
+  sendbackTrackingNumber?: string | null;
+  sendbackShippedAt?: Date | null;
+  sendbackProofUrl?: string | null;
+  sendbackDeliveredAt?: Date | null;
   expiredAt?: Date | null;
   cancelledAt?: Date | null;
   cancellationReason?: string | null;
@@ -248,6 +255,8 @@ export function buildReturnSteps(req: RequestSummary): RequestStep[] {
     ["refunded", req.completedAt],
     ["rejected", req.rejectedAt],
     ["qc_failed", req.qcFailedAt],
+    ["returning_to_customer", req.sendbackShippedAt],
+    ["returned_to_customer", req.sendbackDeliveredAt],
     ["expired", req.expiredAt],
     ["cancelled", req.cancelledAt],
   ];
@@ -275,6 +284,8 @@ export function buildReturnSteps(req: RequestSummary): RequestStep[] {
       deadline: req.shipDeadlineAt,
       courier: req.courierName,
       trackingNo: req.trackingNumber,
+      sendbackCourier: req.sendbackCourierName,
+      sendbackTrackingNo: req.sendbackTrackingNumber,
       amount: req.refundAmount,
       refundMode: refundModeLabel(req),
       refNo: req.refundTransactionRef,
@@ -331,15 +342,27 @@ export function buildReturnSteps(req: RequestSummary): RequestStep[] {
   });
 
   if (ended) {
-    steps.push({
-      status: req.status,
-      label: returnStatusLabel(req.status),
-      state: "done",
-      description: describe(req.status),
-      hint: null,
-      at: reachedAt.get(req.status) ?? null,
-      tone: "danger",
-    });
+    // A failed check leaves the item with us but still owned by the customer,
+    // so show the whole way back to them - not just the step it is sitting on.
+    const inSendback = (RETURN_SENDBACK_FLOW as readonly string[]).includes(req.status);
+    const tail = inSendback
+      ? (RETURN_SENDBACK_FLOW as readonly string[]).filter(
+          (s) => reached.has(s) || s === req.status
+        )
+      : [req.status];
+    for (const status of tail) {
+      steps.push({
+        status,
+        label: returnStatusLabel(status),
+        state: "done",
+        description: describe(status),
+        hint: null,
+        at: reachedAt.get(status) ?? null,
+        // Getting the item back to the customer is the good ending of a bad
+        // branch, so it is not painted as another failure.
+        tone: status === "returned_to_customer" ? "default" : "danger",
+      });
+    }
   }
 
   return steps;
@@ -383,6 +406,11 @@ export function summarizeReturnRequest(req: any): RequestSummary {
     receivedAt: req.received_at ?? null,
     qcFailedAt: req.qc_failed_at ?? null,
     qcFailureReason: req.qc_failure_reason ?? null,
+    sendbackCourierName: req.sendback_courier_name ?? null,
+    sendbackTrackingNumber: req.sendback_tracking_number ?? null,
+    sendbackShippedAt: req.sendback_shipped_at ?? null,
+    sendbackProofUrl: req.sendback_proof_url ?? null,
+    sendbackDeliveredAt: req.sendback_delivered_at ?? null,
     expiredAt: req.expired_at ?? null,
     cancelledAt: req.cancelled_at ?? null,
     cancellationReason: req.cancellation_reason ?? null,

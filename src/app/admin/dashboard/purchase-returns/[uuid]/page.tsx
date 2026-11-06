@@ -16,12 +16,13 @@ import {
   PurchaseReturnStatusBadge,
   returnReasonLabels,
 } from "@/features/purchases/components/PurchaseReturnBadges";
+import { formatDate } from "@/lib/utils";
 
 const primaryBtn =
   "h-10 rounded-xl bg-theme-primary hover:bg-theme-primary-hover px-4 text-sm font-semibold text-white transition-colors";
 
 const money = (n: number) => `₹${n.toFixed(2)}`;
-const fmt = (d: string) => new Date(d).toLocaleString();
+const fmt = (d: string) => formatDate(d);
 
 export default function PurchaseReturnDetailPage() {
   const { uuid } = useParams<{ uuid: string }>();
@@ -162,7 +163,7 @@ export default function PurchaseReturnDetailPage() {
               </div>
               <div className="flex justify-between">
                 <dt className="text-neutral-500">Return date</dt>
-                <dd>{ret.returnDate ?? "—"}</dd>
+                <dd>{formatDate(ret.returnDate)}</dd>
               </div>
               <div className="flex justify-between">
                 <dt className="text-neutral-500">Debit note no.</dt>
@@ -174,7 +175,7 @@ export default function PurchaseReturnDetailPage() {
               </div>
               <div className="flex justify-between">
                 <dt className="text-neutral-500">Created</dt>
-                <dd>{fmt(ret.createdAt)}</dd>
+                <dd>{formatDate(ret.createdAt)}</dd>
               </div>
               {ret.completedAt && (
                 <div className="flex justify-between">

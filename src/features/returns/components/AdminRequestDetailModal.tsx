@@ -1,6 +1,6 @@
 "use client";
  
-import { useState, useRef } from "react";
+import { useEffect, useState, useRef } from "react";
 import Image from "next/image";
 import { Loader2, Copy, Check, Building2, Smartphone, MapPin, Upload, X, Truck, AlertCircle, CheckCircle2 } from "lucide-react";
 import { Modal } from "@/components/ui/modal";
@@ -13,9 +13,13 @@ import {
   availableActions,
   formatStoreDate,
   REPLACEMENT_TRANSITIONS,
+  RETURN_DISPOSITION_HINTS,
+  RETURN_DISPOSITION_LABELS,
+  RETURN_DISPOSITIONS,
   RETURN_SHIP_WINDOW_DAYS,
   RETURN_TRANSITIONS,
   returnStatusLabel,
+  type ReturnDisposition,
 } from "../lib/policy";
 import {
   useAdminRequest,
@@ -23,6 +27,24 @@ import {
   type RequestKind,
 } from "../hooks/use-returns";
 import { RequestStatusBadge } from "./RequestStatusBadge";
+import { usePurchaseProducts } from "@/features/purchases/hooks";
+
+/** Local debounce, matching the one the stock adjustment screen uses. */
+function useDebounced(value: string, ms = 300) {
+  const [debounced, setDebounced] = useState(value);
+  useEffect(() => {
+    const t = setTimeout(() => setDebounced(value), ms);
+    return () => clearTimeout(t);
+  }, [value, ms]);
+  return debounced;
+}
+
+/** The SKU picked at QC as the one that actually turned up in the parcel. */
+interface ArrivedItem {
+  variantUnitPriceId: number;
+  label: string;
+  sku: string;
+}
 
 interface Props {
   kind: RequestKind;
@@ -54,13 +76,34 @@ export function AdminRequestDetailModal({ kind, uuid, onClose }: Props) {
   const [trackingNumber, setTrackingNumber] = useState("");
   const [pickupImageUrl, setPickupImageUrl] = useState<string | null>(null);
   const [slipUrl, setSlipUrl] = useState<string | null>(null);
+  /** `refund` only: resellable item vs damaged write-off. */
+  const [disposition, setDisposition] = useState<ReturnDisposition>("restock");
+  /** `send-back` only: how the item is couriered back after a failed check. */
+  const [sendbackCourier, setSendbackCourier] = useState("");
+  const [sendbackTracking, setSendbackTracking] = useState("");
+  const [sendbackProofUrl, setSendbackProofUrl] = useState<string | null>(null);
+  /** `refund` only: order item uuid -> the SKU that actually arrived. */
+  const [arrivedItems, setArrivedItems] = useState<Record<string, ArrivedItem>>({});
+  const [arrivedSearchFor, setArrivedSearchFor] = useState<string | null>(null);
+  const [arrivedSearch, setArrivedSearch] = useState("");
+  const debouncedArrivedSearch = useDebounced(arrivedSearch);
+  const { data: arrivedOptions = [], isFetching: isSearchingArrived } = usePurchaseProducts(
+    debouncedArrivedSearch
+  );
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [fieldError, setFieldError] = useState<string | null>(null);
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   /** Which field the shared hidden file input is currently filling. */
-  const uploadTargetRef = useRef<"pickup" | "slip">("pickup");
+  const uploadTargetRef = useRef<"pickup" | "slip" | "sendback">("pickup");
+
+  // Where the admin can tell us what physically came back: at the returns
+  // quality check, and when a replacement parcel is opened or processed.
+  const showArrivedPicker =
+    (kind === "returns" && pending?.action === "refund") ||
+    (kind === "replacements" &&
+      (pending?.action === "picked-up" || pending?.action === "process"));
 
   const originalTracking = req?.originalCourier?.trackingNumber?.trim();
   const isPickupAction = pending?.action === "pickup" || pending?.action === "picked-up";
@@ -96,6 +139,7 @@ export function AdminRequestDetailModal({ kind, uuid, onClose }: Props) {
       const uploadedUrl = data?.data?.url || data?.data?.path;
       if (res.ok && uploadedUrl) {
         if (uploadTargetRef.current === "slip") setSlipUrl(uploadedUrl);
+        else if (uploadTargetRef.current === "sendback") setSendbackProofUrl(uploadedUrl);
         else setPickupImageUrl(uploadedUrl);
         setFieldError(null);
         toast.success("Image uploaded successfully");
@@ -135,6 +179,16 @@ export function AdminRequestDetailModal({ kind, uuid, onClose }: Props) {
       }
       if (!slipUrl) {
         setFieldError("A photo of the courier / delivery slip is mandatory.");
+        return;
+      }
+    }
+    if (pending.action === "send-back") {
+      if (sendbackCourier.trim().length < 2) {
+        setFieldError("Enter the courier the item is being sent back with.");
+        return;
+      }
+      if (sendbackTracking.trim().length < 3) {
+        setFieldError("Enter the tracking / AWB number for the item sent back.");
         return;
       }
     }
@@ -179,6 +233,23 @@ export function AdminRequestDetailModal({ kind, uuid, onClose }: Props) {
                   : {}),
               }
             : {}),
+          ...(pending.action === "refund" && kind === "returns" ? { disposition } : {}),
+          ...(showArrivedPicker && Object.keys(arrivedItems).length > 0
+            ? {
+                receivedVariants: Object.entries(arrivedItems).map(([orderItemId, picked]) => ({
+                  orderItemId,
+                  variantUnitPriceId: picked.variantUnitPriceId,
+                })),
+              }
+            : {}),
+          ...(pending.action === "send-back"
+            ? {
+                sendbackCourierName: sendbackCourier.trim(),
+                sendbackTrackingNumber: sendbackTracking.trim(),
+                ...(pickupDate ? { sendbackShippedDate: new Date(pickupDate).toISOString() } : {}),
+                ...(sendbackProofUrl ? { sendbackProofUrl } : {}),
+              }
+            : {}),
           ...(pending.action === "complete" && transactionRef.trim() ? { transactionRef: transactionRef.trim() } : {}),
         },
       },
@@ -204,6 +275,13 @@ export function AdminRequestDetailModal({ kind, uuid, onClose }: Props) {
           setTrackingNumber("");
           setPickupImageUrl(null);
           setSlipUrl(null);
+          setDisposition("restock");
+          setSendbackCourier("");
+          setSendbackTracking("");
+          setSendbackProofUrl(null);
+          setArrivedItems({});
+          setArrivedSearchFor(null);
+          setArrivedSearch("");
         },
         onError: (err) => setFieldError(err instanceof Error ? err.message : "Action failed"),
       }
@@ -424,6 +502,52 @@ export function AdminRequestDetailModal({ kind, uuid, onClose }: Props) {
                         </button>
                       )}
                     </div>
+                  </div>
+                )}
+                {(req.sendbackCourierName || req.sendbackTrackingNumber) && (
+                  <div className="rounded-lg border border-amber-200 bg-amber-50/60 p-2.5">
+                    <span className="block text-[10px] font-bold uppercase tracking-wider text-amber-900">
+                      Sent Back to Customer
+                    </span>
+                    <p className="mt-0.5 font-semibold text-neutral-900">
+                      {req.sendbackCourierName || "Courier"}
+                    </p>
+                    <div className="mt-0.5 flex items-center gap-1.5">
+                      <span className="rounded border border-amber-200 bg-white px-2 py-0.5 font-mono font-bold text-amber-950">
+                        {req.sendbackTrackingNumber || "—"}
+                      </span>
+                      {req.sendbackTrackingNumber && (
+                        <button
+                          type="button"
+                          onClick={() => copyToClipboard(req.sendbackTrackingNumber!, "sendback-trk")}
+                          className="cursor-pointer p-0.5 text-neutral-500 hover:text-neutral-800"
+                          title="Copy Tracker ID"
+                        >
+                          {copiedKey === "sendback-trk" ? (
+                            <Check className="h-3.5 w-3.5 text-emerald-600" />
+                          ) : (
+                            <Copy className="h-3.5 w-3.5" />
+                          )}
+                        </button>
+                      )}
+                    </div>
+                    {req.sendbackDeliveredAt && (
+                      <p className="mt-1 text-[11px] text-amber-900">
+                        Delivered back on {formatDateTime(req.sendbackDeliveredAt)}
+                      </p>
+                    )}
+                  </div>
+                )}
+                {req.sendbackProofUrl && (
+                  <div>
+                    <span className="text-[11px] font-bold text-neutral-500 uppercase tracking-wider block">Send-back Proof</span>
+                    <button
+                      type="button"
+                      onClick={() => setPreviewImage(req.sendbackProofUrl!)}
+                      className="group relative mt-1 block h-14 w-14 overflow-hidden rounded-lg border border-neutral-300 bg-neutral-100 transition-opacity hover:opacity-90 cursor-pointer"
+                    >
+                      <Image src={req.sendbackProofUrl} alt="Send-back proof" fill sizes="56px" className="object-cover" unoptimized />
+                    </button>
                   </div>
                 )}
                 {req.shippingSlipUrl && (
@@ -665,7 +789,102 @@ export function AdminRequestDetailModal({ kind, uuid, onClose }: Props) {
               {pending.action === "qc-fail" && (
                 <p className="text-xs text-red-700">
                   The item will not be refunded or restocked, and the reason below is shown to the
-                  customer. Use this only when the returned item fails inspection.
+                  customer. Use this only when the returned item fails inspection. The item is
+                  still theirs, so the next step is to courier it back to them.
+                </p>
+              )}
+
+              {pending.action === "send-back" && (
+                <div className="space-y-2.5 rounded-lg border border-amber-200 bg-white p-3 text-xs">
+                  <p className="text-amber-900">
+                    The quality check failed, so this item is still the customer&apos;s. Enter the
+                    courier it is going back with - the customer sees these details on their
+                    request.
+                  </p>
+                  <div className="grid gap-2.5 sm:grid-cols-3">
+                    <div>
+                      <label className="mb-1 block font-semibold text-neutral-700">
+                        Courier / Partner *
+                      </label>
+                      <Input
+                        value={sendbackCourier}
+                        onChange={(e) => setSendbackCourier(e.target.value)}
+                        placeholder="e.g. Delhivery, India Post"
+                      />
+                    </div>
+                    <div>
+                      <label className="mb-1 block font-semibold text-neutral-700">
+                        Tracking / AWB No *
+                      </label>
+                      <Input
+                        value={sendbackTracking}
+                        onChange={(e) => setSendbackTracking(e.target.value)}
+                        placeholder="Tracking number"
+                      />
+                    </div>
+                    <div>
+                      <label className="mb-1 block font-semibold text-neutral-700">
+                        Dispatched on
+                      </label>
+                      <Input
+                        type="date"
+                        value={pickupDate}
+                        onChange={(e) => setPickupDate(e.target.value)}
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="mb-1 block font-semibold text-neutral-700">
+                      Packing / receipt photo (optional)
+                    </label>
+                    {sendbackProofUrl ? (
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setPreviewImage(sendbackProofUrl)}
+                          className="relative h-14 w-14 overflow-hidden rounded-lg border border-neutral-200"
+                        >
+                          <Image
+                            src={sendbackProofUrl}
+                            alt="Send-back proof"
+                            fill
+                            sizes="56px"
+                            className="object-cover"
+                            unoptimized
+                          />
+                        </button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setSendbackProofUrl(null)}
+                        >
+                          <X className="mr-1 h-3.5 w-3.5" />
+                          Remove
+                        </Button>
+                      </div>
+                    ) : (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        disabled={isUploadingImage}
+                        onClick={() => {
+                          uploadTargetRef.current = "sendback";
+                          fileInputRef.current?.click();
+                        }}
+                      >
+                        <Upload className="mr-1 h-3.5 w-3.5" />
+                        {isUploadingImage ? "Uploading…" : "Upload photo"}
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {pending.action === "delivered-back" && (
+                <p className="text-xs text-neutral-600">
+                  Confirms the customer has the item back. The request can be closed after this.
                 </p>
               )}
 
@@ -684,10 +903,170 @@ export function AdminRequestDetailModal({ kind, uuid, onClose }: Props) {
               )}
 
               {pending.action === "refund" && kind === "returns" && (
-                <p className="text-xs text-emerald-800">
-                  This marks the quality check as passed: the item is restocked and the refund is
-                  initiated.
-                </p>
+                <div className="space-y-2.5 rounded-lg border border-emerald-200 bg-white p-3 text-xs">
+                  <p className="text-emerald-800">
+                    This marks the quality check as passed and initiates the refund. Say what
+                    happens to the item itself - the customer is refunded either way.
+                  </p>
+                  <div className="space-y-2">
+                    {RETURN_DISPOSITIONS.map((value) => (
+                      <label
+                        key={value}
+                        className={`flex cursor-pointer gap-2.5 rounded-lg border p-2.5 ${
+                          disposition === value
+                            ? value === "damaged"
+                              ? "border-red-300 bg-red-50"
+                              : "border-emerald-300 bg-emerald-50"
+                            : "border-neutral-200 hover:bg-neutral-50"
+                        }`}
+                      >
+                        <input
+                          type="radio"
+                          name="return-disposition"
+                          value={value}
+                          checked={disposition === value}
+                          onChange={() => setDisposition(value)}
+                          className="mt-0.5 h-3.5 w-3.5 shrink-0 accent-emerald-600"
+                        />
+                        <span>
+                          <span className="block font-semibold text-neutral-800">
+                            {RETURN_DISPOSITION_LABELS[value]}
+                          </span>
+                          <span className="block text-neutral-600">
+                            {RETURN_DISPOSITION_HINTS[value]}
+                          </span>
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                  {disposition === "damaged" && (
+                    <p className="text-red-700">
+                      Note the damage in the box below - it is kept on the write-off entry in the
+                      stock ledger.
+                    </p>
+                  )}
+
+                </div>
+              )}
+
+              {showArrivedPicker && (
+                <div className="space-y-2.5 rounded-lg border border-sky-200 bg-white p-3 text-xs">
+                  <div className="space-y-2">
+                    <p className="font-semibold text-neutral-800">
+                      Which item actually arrived?
+                    </p>
+                    <p className="text-neutral-600">
+                      Leave this alone when the parcel holds what the customer ordered. When a
+                      different item came back, pick the SKU that really turned up - stock is
+                      credited to that one instead of the one on the order line.
+                    </p>
+                    {req.items.map((line) => {
+                      const picked = arrivedItems[line.orderItemId];
+                      const isSearching = arrivedSearchFor === line.orderItemId;
+                      return (
+                        <div
+                          key={line.orderItemId}
+                          className="rounded-lg border border-neutral-200 p-2.5"
+                        >
+                          <p className="font-medium text-neutral-800">
+                            Ordered: {line.productName}
+                            {line.variantName ? ` · ${line.variantName}` : ""} × {line.quantity}
+                          </p>
+                          {picked ? (
+                            <div className="mt-1.5 flex items-center justify-between gap-2">
+                              <span className="text-amber-900">
+                                Arrived: <span className="font-semibold">{picked.label}</span>{" "}
+                                <span className="text-neutral-500">{picked.sku}</span>
+                              </span>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                onClick={() =>
+                                  setArrivedItems((prev) => {
+                                    const next = { ...prev };
+                                    delete next[line.orderItemId];
+                                    return next;
+                                  })
+                                }
+                              >
+                                Clear
+                              </Button>
+                            </div>
+                          ) : isSearching ? (
+                            <div className="mt-1.5 space-y-1.5">
+                              <Input
+                                autoFocus
+                                value={arrivedSearch}
+                                onChange={(e) => setArrivedSearch(e.target.value)}
+                                placeholder="Search by product name or SKU..."
+                              />
+                              <div className="max-h-44 overflow-auto rounded-lg border border-neutral-200">
+                                {arrivedOptions.length === 0 ? (
+                                  <p className="px-3 py-2 text-neutral-500">
+                                    {isSearchingArrived ? "Searching..." : "No products found"}
+                                  </p>
+                                ) : (
+                                  arrivedOptions.map((o) => (
+                                    <button
+                                      type="button"
+                                      key={o.variantUnitPriceId}
+                                      onClick={() => {
+                                        setArrivedItems((prev) => ({
+                                          ...prev,
+                                          [line.orderItemId]: {
+                                            variantUnitPriceId: o.variantUnitPriceId,
+                                            label: o.label,
+                                            sku: o.sku,
+                                          },
+                                        }));
+                                        setArrivedSearchFor(null);
+                                        setArrivedSearch("");
+                                      }}
+                                      className="flex w-full items-center justify-between gap-3 px-3 py-2 text-left hover:bg-neutral-50"
+                                    >
+                                      <span>
+                                        <span className="font-medium text-neutral-900">
+                                          {o.label}
+                                        </span>
+                                        <span className="ml-2 text-neutral-500">{o.sku}</span>
+                                      </span>
+                                      <span className="text-neutral-500">Stock {o.stock}</span>
+                                    </button>
+                                  ))
+                                )}
+                              </div>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => {
+                                  setArrivedSearchFor(null);
+                                  setArrivedSearch("");
+                                }}
+                              >
+                                Cancel
+                              </Button>
+                            </div>
+                          ) : (
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              className="mt-1.5"
+                              onClick={() => {
+                                setArrivedSearchFor(line.orderItemId);
+                                setArrivedSearch("");
+                              }}
+                            >
+                              A different item arrived
+                            </Button>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
               )}
 
               {pending.action === "shipped" && (

@@ -1,5 +1,6 @@
 import { z } from "zod";
 import {
+  RETURN_DISPOSITIONS,
   RETURN_REASONS,
   RETURN_STATUSES,
   SHIPPING_SLIP_URL_PREFIX,
@@ -157,6 +158,29 @@ export const requestActionSchema = z
     trackingNumber: z.string().trim().max(100).optional(),
     shippingSlipUrl: z.string().trim().max(500).optional(),
     pickupImageUrl: z.string().trim().max(500).optional(),
+    /** `refund` only: whether the inspected item is resellable or written off. */
+    disposition: z.enum(RETURN_DISPOSITIONS).optional(),
+    /** `send-back` only: how the item is being couriered back to the customer. */
+    sendbackCourierName: z.string().trim().max(100).optional(),
+    sendbackTrackingNumber: z.string().trim().max(100).optional(),
+    sendbackShippedDate: z.string().trim().max(40).optional(),
+    sendbackProofUrl: z.string().trim().max(500).optional(),
+    /**
+     * `refund` only: the SKU that actually arrived, per returned line, when it
+     * is not the one the customer ordered ("wrong product received"). Lines
+     * left out restock the ordered SKU, as before.
+     */
+    receivedVariants: z
+      .array(
+        z
+          .object({
+            orderItemId: z.string().uuid("Invalid order item UUID"),
+            variantUnitPriceId: z.coerce.number().int().positive(),
+          })
+          .strict()
+      )
+      .max(50)
+      .optional(),
   })
   .strict();
 export type RequestActionInput = z.infer<typeof requestActionSchema>;

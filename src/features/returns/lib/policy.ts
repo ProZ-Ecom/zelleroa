@@ -202,6 +202,8 @@ export const RETURN_STATUSES = [
   "shipped_by_customer",
   "received",
   "qc_failed",
+  "returning_to_customer",
+  "returned_to_customer",
   "refund_pending",
   "refunded",
   "expired",
@@ -225,6 +227,8 @@ export const RETURN_ACTIVE_STATUSES: ReturnStatus[] = [
   "shipped_by_customer",
   "received",
   "qc_failed",
+  "returning_to_customer",
+  "returned_to_customer",
   "refund_pending",
   "refunded",
 ];
@@ -247,6 +251,8 @@ export const RETURN_EXCEPTION_STATUSES: ReturnStatus[] = [
   "rejected",
   "expired",
   "qc_failed",
+  "returning_to_customer",
+  "returned_to_customer",
   "cancelled",
 ];
 
@@ -261,6 +267,8 @@ export type ReturnAction =
   | "shipped"
   | "received"
   | "qc-fail"
+  | "send-back"
+  | "delivered-back"
   | "refund"
   | "complete"
   | "expire"
@@ -285,6 +293,18 @@ export const RETURN_TRANSITIONS: Record<
     label: "Mark as Received",
   },
   "qc-fail": { from: ["received"], to: "qc_failed", label: "Fail Quality Check" },
+  // A failed check leaves us holding goods that are still the customer's, so
+  // the request is not finished until the item is back with them.
+  "send-back": {
+    from: ["qc_failed"],
+    to: "returning_to_customer",
+    label: "Send Item Back to Customer",
+  },
+  "delivered-back": {
+    from: ["returning_to_customer"],
+    to: "returned_to_customer",
+    label: "Mark Delivered to Customer",
+  },
   refund: { from: ["received"], to: "refund_pending", label: "Pass QC & Initiate Refund" },
   complete: { from: ["refund_pending"], to: "refunded", label: "Mark Refunded" },
   expire: { from: ["approved"], to: "expired", label: "Close as Expired" },
@@ -294,14 +314,51 @@ export const RETURN_TRANSITIONS: Record<
     label: "Cancel Request",
   },
   close: {
-    from: ["refunded", "rejected", "qc_failed", "expired", "cancelled"],
+    from: [
+      "refunded",
+      "rejected",
+      "qc_failed",
+      "returned_to_customer",
+      "expired",
+      "cancelled",
+    ],
     to: "closed",
     label: "Close Request",
   },
 };
 
+/**
+ * What happens to the physical item once it passes inspection. A resellable
+ * item goes back on the shelf; a damaged one is taken in (so the customer is
+ * still refunded) but written off, never offered for sale again.
+ */
+export const RETURN_DISPOSITIONS = ["restock", "damaged"] as const;
+export type ReturnDisposition = (typeof RETURN_DISPOSITIONS)[number];
+
+export const RETURN_DISPOSITION_LABELS: Record<ReturnDisposition, string> = {
+  restock: "Resellable - put back into sellable stock",
+  damaged: "Damaged - take in but write off, do not resell",
+};
+
+export const RETURN_DISPOSITION_HINTS: Record<ReturnDisposition, string> = {
+  restock: "A RETURN movement adds the quantity back to sellable stock.",
+  damaged:
+    "A RETURN movement records the item arriving, then a DAMAGE movement writes it straight off, so sellable stock is unchanged and the loss is reportable.",
+};
+
 /** Actions the customer may take on their own request. */
 export const RETURN_CUSTOMER_ACTIONS: ReturnAction[] = ["shipped", "cancel"];
+
+/**
+ * The tail a failed quality check runs through. A QC failure is not the end of
+ * the story - the goods are still the customer's, so the timeline carries on
+ * until they have them back.
+ */
+export const RETURN_SENDBACK_FLOW: ReturnStatus[] = [
+  "qc_failed",
+  "returning_to_customer",
+  "returned_to_customer",
+];
 
 /** Ordered happy-path used to render "upcoming" steps in request timelines. */
 export const RETURN_FLOW: ReturnStatus[] = [
@@ -330,6 +387,8 @@ export const RETURN_STATUS_LABELS: Record<string, string> = {
   rejected: "Return Rejected",
   expired: "Return Expired",
   qc_failed: "QC Failed",
+  returning_to_customer: "Sending Item Back",
+  returned_to_customer: "Item Returned to Customer",
   cancelled: "Return Cancelled",
   closed: "Closed",
 };
@@ -341,6 +400,9 @@ export function returnStatusLabel(status: string): string {
 /** Everything the status sentences interpolate. Missing values degrade quietly. */
 export interface ReturnStatusContext {
   reason?: string | null;
+  /** Courier / tracking for the leg back to the customer after a failed QC. */
+  sendbackCourier?: string | null;
+  sendbackTrackingNo?: string | null;
   deadline?: Date | string | null;
   courier?: string | null;
   trackingNo?: string | null;
@@ -406,8 +468,18 @@ export function returnStatusMessage(
       return `Return closed as the item was not shipped before ${deadlineText(ctx.deadline)}.`;
     case "qc_failed":
       return ctx.reason
-        ? `Returned item did not pass quality check. Reason: ${ctx.reason}`
-        : "Returned item did not pass quality check.";
+        ? `Returned item did not pass quality check. Reason: ${ctx.reason}. The item will be sent back to you.`
+        : "Returned item did not pass quality check. The item will be sent back to you.";
+    case "returning_to_customer": {
+      const head = ctx.sendbackCourier
+        ? `Item on its way back to you via ${ctx.sendbackCourier}.`
+        : "Item on its way back to you.";
+      return ctx.sendbackTrackingNo
+        ? `${head} Tracking no: ${ctx.sendbackTrackingNo}`
+        : head;
+    }
+    case "returned_to_customer":
+      return "Item delivered back to you.";
     case "cancelled":
       return "Return request cancelled by customer.";
     case "closed":

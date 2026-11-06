@@ -13,7 +13,7 @@ import { Input } from "@/components/ui/input";
 import { ClearFiltersButton } from "@/components/common/clear-filters-button";
 import { ExportButton } from "@/components/common/export-button";
 import { exportDataToCsv } from "@/lib/export-csv";
-import { MovementTypeBadge, SignedQuantity, VariantLabel } from "@/features/inventory/components/StockBadges";
+import { MOVEMENT_LABELS, MovementTypeBadge, SignedQuantity, VariantLabel } from "@/features/inventory/components/StockBadges";
 import { useStockMovements } from "@/features/inventory/hooks/use-stock";
 import { formatDateTime } from "@/lib/utils";
 import type { MovementRow, MovementType } from "@/features/inventory/types/stock";
@@ -25,6 +25,8 @@ const TYPES: { value: MovementType | ""; label: string }[] = [
   { value: "RETURN", label: "Return" },
   { value: "REPLACEMENT", label: "Replacement" },
   { value: "ADJUSTMENT", label: "Adjustment" },
+  { value: "PURCHASE_RETURN", label: "Purchase return" },
+  { value: "DAMAGE", label: "Damage" },
 ];
 
 const columns: ColumnDef<MovementRow>[] = [
@@ -57,7 +59,7 @@ const columns: ColumnDef<MovementRow>[] = [
   {
     id: "type",
     header: "Type",
-    accessorFn: (row) => (row.movementType ? row.movementType.charAt(0) + row.movementType.slice(1).toLowerCase() : "Legacy"),
+    accessorFn: (row) => (row.movementType ? MOVEMENT_LABELS[row.movementType] : "Legacy"),
     cell: ({ row }) => <MovementTypeBadge type={row.original.movementType} />,
   },
   {

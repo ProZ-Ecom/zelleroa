@@ -1,9 +1,10 @@
 "use client";
 
 import { useRef, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
-import { ArrowRight, Download, FileUp, Info, TriangleAlert } from "lucide-react";
+import { ArrowLeft, ArrowRight, Download, FileUp, Info, TriangleAlert } from "lucide-react";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -71,7 +72,11 @@ export default function ImportPurchasesPage() {
   const { data: categoryData } = useCategories({ page: 1, pageSize: 200 });
   const categories = categoryData?.data ?? [];
   // 100 is the most /api/brands will return in one page.
-  const { data: brandData } = useBrands({ page: 1, limit: 100 });
+  const { data: brandData, isLoading: isLoadingBrands } = useBrands({
+    page: 1,
+    limit: 100,
+    categorySlug: categorySlug || undefined,
+  });
   const brands = brandData?.data ?? [];
 
   const invalidate = () => setPreview(null);
@@ -155,6 +160,25 @@ export default function ImportPurchasesPage() {
       <AdminPageHeader
         title="Import Purchase"
         description="Download the stock sheet, fill in what arrived, and upload it back. You review everything before any stock is added."
+        breadcrumbs={
+          <Link
+            href="/admin/dashboard/purchase-orders"
+            className="inline-flex items-center gap-1.5 text-sm font-medium text-neutral-500 hover:text-neutral-800 transition-colors"
+          >
+            <ArrowLeft className="h-4 w-4" /> Back to Purchase Orders
+          </Link>
+        }
+        actions={
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => router.push("/admin/dashboard/purchase-orders")}
+            className="inline-flex items-center gap-2 rounded-xl border border-neutral-300 bg-white px-4 py-2 text-sm font-medium text-neutral-700 shadow-xs hover:bg-neutral-50 hover:text-neutral-900 transition-all cursor-pointer"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Cancel / Back to Orders
+          </Button>
+        }
       />
 
       <div className="mt-6 max-w-6xl space-y-6">
@@ -233,7 +257,10 @@ export default function ImportPurchasesPage() {
               <label className={labelCls}>Category</label>
               <Select
                 value={categorySlug}
-                onValueChange={setCategorySlug}
+                onValueChange={(val) => {
+                  setCategorySlug(val);
+                  setBrandSlug("");
+                }}
                 options={[
                   { value: "", label: "All categories" },
                   ...categories.map((c) => ({ value: c.slug, label: c.name })),
@@ -249,11 +276,27 @@ export default function ImportPurchasesPage() {
                 value={brandSlug}
                 onValueChange={setBrandSlug}
                 options={[
-                  { value: "", label: "All brands" },
+                  {
+                    value: "",
+                    label: categorySlug
+                      ? brands.length > 0
+                        ? "All brands in this category"
+                        : "No brands in this category"
+                      : "All brands",
+                  },
                   ...brands.map((b) => ({ value: b.slug, label: b.name })),
                 ]}
-                placeholder="All brands"
+                placeholder={
+                  isLoadingBrands
+                    ? "Loading brands..."
+                    : categorySlug
+                      ? brands.length > 0
+                        ? "All brands in this category"
+                        : "No brands in this category"
+                      : "All brands"
+                }
                 searchable={brands.length > 5}
+                disabled={isLoadingBrands}
                 className="w-full"
               />
             </div>
@@ -308,6 +351,15 @@ export default function ImportPurchasesPage() {
             <Button onClick={check} disabled={checking || importing} className="h-11 rounded-xl px-5">
               {checking ? "Checking..." : "Check file"}
             </Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => router.push("/admin/dashboard/purchase-orders")}
+              disabled={checking || importing}
+              className="h-11 rounded-xl px-5 text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900 cursor-pointer"
+            >
+              Cancel
+            </Button>
           </div>
           <p className="text-sm text-[var(--color-neutral-500)]">
             Rows with an empty <b>Qty</b> are skipped. <b>Selling Price</b> left empty keeps the current price.{" "}
@@ -326,9 +378,20 @@ export default function ImportPurchasesPage() {
                   {preview.purchaseDate} · {preview.fileName}
                 </p>
               </div>
-              <Button onClick={runImport} disabled={!canImport || importing} className="h-11 rounded-xl px-5">
-                {importing ? "Importing..." : "Confirm and add stock"}
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => router.push("/admin/dashboard/purchase-orders")}
+                  disabled={importing}
+                  className="h-11 rounded-xl px-5 text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900 cursor-pointer"
+                >
+                  Cancel
+                </Button>
+                <Button onClick={runImport} disabled={!canImport || importing} className="h-11 rounded-xl px-5">
+                  {importing ? "Importing..." : "Confirm and add stock"}
+                </Button>
+              </div>
             </div>
 
             <div className="grid grid-cols-2 gap-3 md:grid-cols-5">

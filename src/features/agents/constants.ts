@@ -1,6 +1,14 @@
 export const RETURN_PERIOD_SETTING_KEY = "agent_commission_return_period_days";
 export const DEFAULT_RETURN_PERIOD_DAYS = 3;
 
+/**
+ * When on, a commission that clears its return period goes straight to
+ * `approved` instead of waiting in `pending_approval` for an admin. The admin
+ * then reviews the money once, on the payout request, rather than twice.
+ */
+export const AUTO_APPROVE_SETTING_KEY = "agent_commission_auto_approve";
+export const DEFAULT_AUTO_APPROVE = false;
+
 /** Commission statuses that can still be paid out or are already inside a payout. */
 export const OPEN_COMMISSION_STATUSES = [
   "pending",

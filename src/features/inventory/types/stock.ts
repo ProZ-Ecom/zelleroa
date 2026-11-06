@@ -1,4 +1,11 @@
-export type MovementType = "PURCHASE" | "SALE" | "RETURN" | "REPLACEMENT" | "ADJUSTMENT";
+export type MovementType =
+  | "PURCHASE"
+  | "SALE"
+  | "RETURN"
+  | "REPLACEMENT"
+  | "ADJUSTMENT"
+  | "PURCHASE_RETURN"
+  | "DAMAGE";
 export type StockStatus = "in_stock" | "low_stock" | "out_of_stock";
 
 export interface StockItemLabel {

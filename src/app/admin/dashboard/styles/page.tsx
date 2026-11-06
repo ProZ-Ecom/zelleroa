@@ -16,6 +16,7 @@ import { SearchInput } from "@/components/ui/search-input";
 import { ClearFiltersButton } from "@/components/common/clear-filters-button";
 import { ExportButton } from "@/components/common/export-button";
 import { exportDataToCsv } from "@/lib/export-csv";
+import { formatDate } from "@/lib/utils";
 import { useCategories } from "@/features/categories/hooks";
 import { useAdminProducts } from "@/features/products/hooks";
 import {
@@ -177,7 +178,7 @@ export default function AdminStylesPage() {
       header: "Created Date",
       cell: ({ row }) => (
         <span className="text-[var(--color-neutral-700)]">
-          {new Date(row.original.createdAt).toLocaleDateString("en-IN")}
+          {formatDate(row.original.createdAt)}
         </span>
       ),
     },
@@ -341,7 +342,7 @@ export default function AdminStylesPage() {
                       {
                         header: "Created Date",
                         accessor: (row) =>
-                          row.createdAt ? new Date(row.createdAt).toLocaleDateString("en-IN") : "—",
+                          formatDate(row.createdAt),
                       },
                     ]
                   )

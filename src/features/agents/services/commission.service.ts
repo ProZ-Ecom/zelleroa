@@ -2,6 +2,8 @@ import type { Prisma } from "@/generated/prisma";
 import { db } from "@/lib/db/prisma";
 import { ApiError } from "@/lib/api/api-error";
 import {
+  AUTO_APPROVE_SETTING_KEY,
+  DEFAULT_AUTO_APPROVE,
   DEFAULT_RETURN_PERIOD_DAYS,
   RETURN_PERIOD_SETTING_KEY,
   SYSTEM_ACTOR,
@@ -20,6 +22,13 @@ export async function getReturnPeriodDays(client: Client = db): Promise<number> 
   const setting = await client.settings.findUnique({ where: { key_name: RETURN_PERIOD_SETTING_KEY } });
   const days = Number(setting?.value);
   return Number.isFinite(days) && days >= 0 ? days : DEFAULT_RETURN_PERIOD_DAYS;
+}
+
+/** Whether a commission that clears its return period is approved without an admin. */
+export async function getAutoApprove(client: Client = db): Promise<boolean> {
+  const setting = await client.settings.findUnique({ where: { key_name: AUTO_APPROVE_SETTING_KEY } });
+  if (!setting?.value) return DEFAULT_AUTO_APPROVE;
+  return ["1", "true", "yes", "on"].includes(setting.value.trim().toLowerCase());
 }
 
 /**
@@ -269,12 +278,17 @@ export async function syncCommissionsWithOrderStatus(
 
 export const commissionService = {
   /**
-   * Moves commissions whose return period has ended from `pending` to `pending_approval`.
-   * They are NOT payable yet - an admin must approve them (see `approve`). There is no scheduler
-   * in this app, so this runs lazily whenever commissions are read/requested.
+   * Moves commissions whose return period has ended out of `pending`. There is no
+   * scheduler in this app, so this runs lazily whenever commissions are read/requested.
+   *
+   * Where it lands depends on the `agent_commission_auto_approve` setting:
+   *  - off (default) -> `pending_approval`; an admin must approve (see `approve`)
+   *  - on            -> `approved` straight away, so the agent can request a payout
+   *                     and the admin reviews the money once, on the payout
    */
   async markReadyForApproval(opts: { agentId?: bigint; actor?: AuditActor } = {}): Promise<number> {
     const actor = opts.actor ?? SYSTEM_ACTOR;
+    const autoApprove = await getAutoApprove();
     const due = await db.commissions.findMany({
       where: {
         status: "pending",
@@ -295,20 +309,23 @@ export const commissionService = {
         select: { id: true, agent_id: true },
       });
       if (still.length === 0) return 0;
+      const toStatus = autoApprove ? "approved" : "pending_approval";
       await tx.commissions.updateMany({
         where: { id: { in: still.map((r) => r.id) }, status: "pending" },
-        data: { status: "pending_approval" },
+        data: { status: toStatus, ...(autoApprove ? { approved_at: new Date() } : {}) },
       });
       for (const row of still) {
         await writeAudit(tx, {
           entityType: "commission",
           entityId: row.id,
           agentId: row.agent_id,
-          action: "commission_ready_for_approval",
+          action: autoApprove ? "commission_auto_approved" : "commission_ready_for_approval",
           fromStatus: "pending",
-          toStatus: "pending_approval",
+          toStatus,
           actor,
-          note: "Return period completed",
+          note: autoApprove
+            ? "Return period completed - auto-approved (admin approval not required)"
+            : "Return period completed",
         });
       }
       return still.length;

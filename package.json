@@ -20,6 +20,7 @@
     "db:clear-data": "node --experimental-strip-types scripts/clear-store-data.ts",
     "db:backfill-referral-codes": "node --experimental-strip-types --import ./tests/register.mjs scripts/backfill-referral-codes.ts",
     "test": "node --experimental-strip-types --import ./tests/register.mjs --test tests/referral/*.test.ts tests/returns/*.test.ts",
+    "db:seed:commission-test": "node --experimental-strip-types --import ./tests/register.mjs scripts/seed-agent-commission-test.ts",
     "db:retire-deleted": "node --experimental-strip-types scripts/retire-deleted-unique-values.ts"
   },
   "dependencies": {

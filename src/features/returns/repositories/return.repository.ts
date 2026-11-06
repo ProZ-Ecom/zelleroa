@@ -6,7 +6,7 @@ import { recordStockMovement } from "@/features/inventory/services/stock-ledger.
 import { Prisma } from "@/generated/prisma";
 import { adminReturnInclude } from "../lib/includes";
 import { findItemConflicts, lockOrder } from "../lib/guards";
-import type { ReturnAction, ReturnStatus } from "../lib/policy";
+import type { ReturnAction, ReturnDisposition, ReturnStatus } from "../lib/policy";
 import type {
   AdminReturnListInput,
   CustomerReturnListInput,
@@ -121,6 +121,21 @@ export interface TransitionParams {
   shippingSlipUrl?: string;
   pickupImageUrl?: string;
   note?: string;
+  /**
+   * `refund` only: what happens to the inspected item. "restock" puts it back
+   * into sellable stock; "damaged" takes it in and writes it straight off.
+   */
+  disposition?: ReturnDisposition;
+  /** `send-back` only: the leg back to the customer after a failed check. */
+  sendbackCourierName?: string;
+  sendbackTrackingNumber?: string;
+  sendbackShippedAt?: Date;
+  sendbackProofUrl?: string;
+  /**
+   * `refund` only: the SKU that actually arrived per returned line, keyed by
+   * the order item's uuid. Only set where it differs from what was ordered.
+   */
+  receivedVariants?: { orderItemId: string; variantUnitPriceId: number }[];
 }
 
 export const returnRepository = {
@@ -320,6 +335,15 @@ export const returnRepository = {
           qc_failure_reason: p.qcFailureReason ?? null,
           admin_comment: p.comment ?? null,
         });
+      } else if (p.action === "send-back") {
+        Object.assign(data, {
+          sendback_courier_name: p.sendbackCourierName?.trim() || null,
+          sendback_tracking_number: p.sendbackTrackingNumber?.trim() || null,
+          sendback_shipped_at: p.sendbackShippedAt ?? now,
+          sendback_proof_url: p.sendbackProofUrl?.trim() || null,
+        });
+      } else if (p.action === "delivered-back") {
+        Object.assign(data, { sendback_delivered_at: now });
       } else if (p.action === "expire") {
         Object.assign(data, { expired_at: now });
       } else if (p.action === "cancel") {
@@ -364,7 +388,13 @@ export const returnRepository = {
         where: { return_request_id: p.request.id, is_active: true },
         include: {
           order_items: {
-            select: { id: true, quantity: true, total_price: true, variantUnitPriceId: true },
+            select: {
+              id: true,
+              uuid: true,
+              quantity: true,
+              total_price: true,
+              variantUnitPriceId: true,
+            },
           },
         },
       });
@@ -389,6 +419,19 @@ export const returnRepository = {
         historyNote = p.qcFailureReason
           ? `Quality check failed: ${p.qcFailureReason}`
           : "Quality check failed";
+      } else if (p.action === "send-back" && !p.note && !p.comment) {
+        const courier = p.sendbackCourierName?.trim();
+        const tracking = p.sendbackTrackingNumber?.trim();
+        historyNote = `Item sent back to the customer${courier ? ` via ${courier}` : ""}${
+          tracking ? ` (Tracking no: ${tracking})` : ""
+        }`;
+      } else if (p.action === "delivered-back" && !p.note && !p.comment) {
+        historyNote = "Item delivered back to the customer.";
+      } else if (p.action === "refund" && !p.note && !p.comment) {
+        historyNote =
+          p.disposition === "damaged"
+            ? "Quality check passed. The item arrived damaged and has been written off, so it is not resold. Refund initiated."
+            : "Quality check passed. Item returned to sellable stock and refund initiated.";
       } else if (p.action === "expire" && !p.note && !p.comment) {
         historyNote = "Closed as the item was not shipped before the deadline";
       } else if (p.action === "cancel") {
@@ -398,9 +441,38 @@ export const returnRepository = {
       }
 
       if (p.action === "refund") {
-        // The quality check passed, so the goods can go back on the shelf. This
+        // The quality check passed, so the goods are taken into our books. This
         // deliberately happens here and not on `received`: a QC failure must
         // never restock an item that is about to be sent back to the customer.
+        //
+        // A damaged item still gets booked in with a RETURN movement - that is
+        // the record of the parcel physically arriving - and is then written
+        // off with a DAMAGE movement in the same transaction. Net sellable
+        // stock is unchanged, while the loss stays visible in the ledger
+        // instead of silently never being recorded.
+        const isDamaged = p.disposition === "damaged";
+        // "Wrong product received": the parcel holds a different SKU from the
+        // one on the order line. Crediting the ordered SKU would overstate it
+        // and leave the SKU actually in our hands uncounted, so the arrival is
+        // booked against what turned up.
+        const arrivedByOrderItem = new Map(
+          (p.receivedVariants ?? []).map((r) => [r.orderItemId, BigInt(r.variantUnitPriceId)])
+        );
+        if (arrivedByOrderItem.size > 0) {
+          for (const item of items) {
+            const key = item.order_items.uuid ?? String(item.order_items.id);
+            const arrived = arrivedByOrderItem.get(key);
+            if (arrived && arrived !== item.order_items.variantUnitPriceId) {
+              await tx.return_items.updateMany({
+                where: { id: item.id },
+                data: {
+                  received_variant_unit_price_id: arrived,
+                  updated_by: p.actor.id,
+                },
+              });
+            }
+          }
+        }
         const alreadyRestocked = await tx.inventoryTransaction.count({
           where: {
             referenceType: "return_request",
@@ -414,18 +486,43 @@ export const returnRepository = {
             select: { orderNumber: true },
           });
           for (const item of items) {
-            if (!item.order_items.variantUnitPriceId) continue;
+            const orderedVupId = item.order_items.variantUnitPriceId;
+            const arrivedVupId =
+              arrivedByOrderItem.get(item.order_items.uuid ?? String(item.order_items.id)) ??
+              item.received_variant_unit_price_id ??
+              orderedVupId;
+            if (!arrivedVupId) continue;
+            const isWrongProduct = Boolean(orderedVupId) && arrivedVupId !== orderedVupId;
             await recordStockMovement(tx, {
-              variantUnitPriceId: item.order_items.variantUnitPriceId,
+              variantUnitPriceId: arrivedVupId,
               movementType: "RETURN",
               direction: "in",
               quantity: item.quantity,
               referenceType: "return_request",
               referenceId: p.request.id,
               referenceNumber: orderRow?.orderNumber,
-              reason: "Returned item passed quality check",
+              reason: isDamaged
+                ? "Damaged item received back on a return"
+                : isWrongProduct
+                  ? "Wrong product received back on a return"
+                  : "Returned item passed quality check",
               actorId: p.actor.id,
             });
+            if (isDamaged) {
+              await recordStockMovement(tx, {
+                variantUnitPriceId: arrivedVupId,
+                movementType: "DAMAGE",
+                direction: "out",
+                quantity: item.quantity,
+                referenceType: "return_request",
+                referenceId: p.request.id,
+                referenceNumber: orderRow?.orderNumber,
+                reason: p.comment?.trim()
+                  ? `Written off - damaged on return: ${p.comment.trim()}`.slice(0, 255)
+                  : "Written off - damaged on return, not resellable",
+                actorId: p.actor.id,
+              });
+            }
           }
         }
 

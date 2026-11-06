@@ -80,6 +80,89 @@ async function auditCommissionMoves(
   });
 }
 
+type PayoutRecord = Prisma.commission_payoutsGetPayload<Record<string, never>>;
+
+/**
+ * `requested` -> `approved`, moving the payout's commissions along with it.
+ * Takes the caller's transaction so it can be chained with `markPaidTx`.
+ */
+async function approveTx(
+  tx: Prisma.TransactionClient,
+  payout: PayoutRecord,
+  actor: AuditActor,
+  note?: string
+) {
+  const res = await tx.commission_payouts.updateMany({
+    where: { id: payout.id, status: "requested" },
+    data: { status: "approved", reviewed_at: new Date(), reviewed_by: actor.id, admin_note: note ?? null },
+  });
+  if (res.count === 0) throw ApiError.badRequest(`Payout is '${payout.status}' and cannot be approved`);
+
+  const rows = await tx.commissions.findMany({
+    where: { payout_id: payout.id, status: "payout_requested" },
+    select: { id: true, agent_id: true },
+  });
+  await tx.commissions.updateMany({
+    where: { id: { in: rows.map((r) => r.id) }, status: "payout_requested" },
+    data: { status: "payout_approved" },
+  });
+  await writeAudit(tx, {
+    entityType: "payout",
+    entityId: payout.id,
+    agentId: payout.agent_id,
+    action: "payout_approved",
+    fromStatus: "requested",
+    toStatus: "approved",
+    actor,
+    note,
+  });
+  await auditCommissionMoves(tx, rows, "payout_approved", "payout_requested", "payout_approved", actor, payout.id);
+}
+
+/** `approved` -> `paid`, stamping the transfer reference onto the payout. */
+async function markPaidTx(
+  tx: Prisma.TransactionClient,
+  payout: PayoutRecord,
+  input: { transactionReference: string; note?: string },
+  actor: AuditActor
+) {
+  const now = new Date();
+  const res = await tx.commission_payouts.updateMany({
+    where: { id: payout.id, status: "approved" },
+    data: {
+      status: "paid",
+      paid_at: now,
+      paid_by: actor.id,
+      transaction_reference: input.transactionReference,
+      admin_note: input.note ?? payout.admin_note,
+    },
+  });
+  if (res.count === 0) {
+    throw ApiError.badRequest(`Payout is '${payout.status}'. Only approved payouts can be marked as paid.`);
+  }
+
+  const rows = await tx.commissions.findMany({
+    where: { payout_id: payout.id, status: "payout_approved" },
+    select: { id: true, agent_id: true },
+  });
+  await tx.commissions.updateMany({
+    where: { id: { in: rows.map((r) => r.id) }, status: "payout_approved" },
+    data: { status: "paid", paid_at: now },
+  });
+  await writeAudit(tx, {
+    entityType: "payout",
+    entityId: payout.id,
+    agentId: payout.agent_id,
+    action: "payout_paid",
+    fromStatus: "approved",
+    toStatus: "paid",
+    actor,
+    note: input.note,
+    metadata: { transactionReference: input.transactionReference, amount: Number(payout.amount) },
+  });
+  await auditCommissionMoves(tx, rows, "commission_paid", "payout_approved", "paid", actor, payout.id);
+}
+
 export const payoutService = {
   /** Commissions the agent could request a payout for right now. */
   async availableBalance(agentId: bigint, opts: { skipSweep?: boolean } = {}) {
@@ -176,32 +259,31 @@ export const payoutService = {
 
   async approve(payoutRef: string, actor: AuditActor, note?: string) {
     const payout = await findPayoutByRef(payoutRef);
-    await db.$transaction(async (tx) => {
-      const res = await tx.commission_payouts.updateMany({
-        where: { id: payout.id, status: "requested" },
-        data: { status: "approved", reviewed_at: new Date(), reviewed_by: actor.id, admin_note: note ?? null },
-      });
-      if (res.count === 0) throw ApiError.badRequest(`Payout is '${payout.status}' and cannot be approved`);
+    await db.$transaction((tx) => approveTx(tx, payout, actor, note));
+    return this.getPayout(String(payout.id));
+  },
 
-      const rows = await tx.commissions.findMany({
-        where: { payout_id: payout.id, status: "payout_requested" },
-        select: { id: true, agent_id: true },
-      });
-      await tx.commissions.updateMany({
-        where: { id: { in: rows.map((r) => r.id) }, status: "payout_requested" },
-        data: { status: "payout_approved" },
-      });
-      await writeAudit(tx, {
-        entityType: "payout",
-        entityId: payout.id,
-        agentId: payout.agent_id,
-        action: "payout_approved",
-        fromStatus: "requested",
-        toStatus: "approved",
-        actor,
-        note,
-      });
-      await auditCommissionMoves(tx, rows, "payout_approved", "payout_requested", "payout_approved", actor, payout.id);
+  /**
+   * One admin action for the common case: approve the request and record the
+   * transfer in the same breath. Both transitions still happen - and both are
+   * audited - so a payout can never be `paid` without its reference, and the
+   * two-step `approve` + `markPaid` pair stays available for payouts that are
+   * approved first and transferred later.
+   */
+  async approveAndPay(
+    payoutRef: string,
+    input: { transactionReference: string; note?: string },
+    actor: AuditActor
+  ) {
+    const payout = await findPayoutByRef(payoutRef);
+    if (payout.status !== "requested") {
+      throw ApiError.badRequest(
+        `Payout is '${payout.status}'. Only a requested payout can be approved and paid together.`
+      );
+    }
+    await db.$transaction(async (tx) => {
+      await approveTx(tx, payout, actor, input.note);
+      await markPaidTx(tx, payout, input, actor);
     });
     return this.getPayout(String(payout.id));
   },
@@ -241,43 +323,7 @@ export const payoutService = {
 
   async markPaid(payoutRef: string, input: { transactionReference: string; note?: string }, actor: AuditActor) {
     const payout = await findPayoutByRef(payoutRef);
-    await db.$transaction(async (tx) => {
-      const now = new Date();
-      const res = await tx.commission_payouts.updateMany({
-        where: { id: payout.id, status: "approved" },
-        data: {
-          status: "paid",
-          paid_at: now,
-          paid_by: actor.id,
-          transaction_reference: input.transactionReference,
-          admin_note: input.note ?? payout.admin_note,
-        },
-      });
-      if (res.count === 0) {
-        throw ApiError.badRequest(`Payout is '${payout.status}'. Only approved payouts can be marked as paid.`);
-      }
-
-      const rows = await tx.commissions.findMany({
-        where: { payout_id: payout.id, status: "payout_approved" },
-        select: { id: true, agent_id: true },
-      });
-      await tx.commissions.updateMany({
-        where: { id: { in: rows.map((r) => r.id) }, status: "payout_approved" },
-        data: { status: "paid", paid_at: now },
-      });
-      await writeAudit(tx, {
-        entityType: "payout",
-        entityId: payout.id,
-        agentId: payout.agent_id,
-        action: "payout_paid",
-        fromStatus: "approved",
-        toStatus: "paid",
-        actor,
-        note: input.note,
-        metadata: { transactionReference: input.transactionReference, amount: Number(payout.amount) },
-      });
-      await auditCommissionMoves(tx, rows, "commission_paid", "payout_approved", "paid", actor, payout.id);
-    });
+    await db.$transaction((tx) => markPaidTx(tx, payout, input, actor));
     return this.getPayout(String(payout.id));
   },
 

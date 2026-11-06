@@ -392,6 +392,7 @@ function ShopAllContent() {
     setSelectedCategoryIds(categoryIds);
     setPage(1);
     scrollToCatalogTop();
+    setIsMobileFilterOpen(false);
   };
 
   // Product Selection under Category (Multi-select)
@@ -399,6 +400,7 @@ function ShopAllContent() {
     setSelectedProductIds(productIds);
     setPage(1);
     scrollToCatalogTop();
+    setIsMobileFilterOpen(false);
   };
 
   const hasActiveFilters =
@@ -620,6 +622,7 @@ function ShopAllContent() {
                 setGenderFilter(val);
                 setPage(1);
                 scrollToCatalogTop();
+                setIsMobileFilterOpen(false);
               }}
               minPriceLimit={0}
               maxPriceLimit={1000}

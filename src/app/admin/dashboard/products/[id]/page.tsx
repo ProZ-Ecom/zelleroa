@@ -932,7 +932,7 @@ export default function AdminProductDetailsPage() {
                     <th className="px-3.5 py-2.5 min-w-[220px] border-b border-cream-border">Attributes</th>
                     <th className="px-3.5 py-2.5 min-w-[110px] text-right border-b border-cream-border">Price</th>
                     <th className="px-3.5 py-2.5 min-w-[95px] text-center border-b border-cream-border">Status</th>
-                    <th className="px-3.5 py-2.5 min-w-[90px] text-center border-b border-cream-border">Actions</th>
+                    <th className="sticky right-0 z-20 bg-white px-3.5 py-2.5 min-w-[90px] text-center border-b border-cream-border shadow-[-4px_0_6px_-2px_rgba(0,0,0,0.05)]">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-cream-border-subtle">
@@ -942,7 +942,7 @@ export default function AdminProductDetailsPage() {
                       <tr
                         key={item.id}
                         onClick={() => setSelectedItemUuid(item.id)}
-                        className={`cursor-pointer transition-colors ${isSelected ? "bg-secondary-50" : "hover:bg-cream-50"
+                        className={`group cursor-pointer transition-colors ${isSelected ? "bg-secondary-50" : "hover:bg-cream-50"
                           }`}
                       >
                         <td className="px-3.5 py-2.5 min-w-[200px]">
@@ -1016,7 +1016,10 @@ export default function AdminProductDetailsPage() {
                             {item.isActive ? "Active" : "Inactive"}
                           </span>
                         </td>
-                        <td className="px-3.5 py-2.5 min-w-[90px]">
+                        <td
+                          className={`sticky right-0 z-10 px-3.5 py-2.5 min-w-[90px] shadow-[-4px_0_6px_-2px_rgba(0,0,0,0.05)] transition-colors ${isSelected ? "bg-secondary-50" : "bg-white group-hover:bg-cream-50"
+                            }`}
+                        >
                           <div className="flex items-center justify-center gap-1">
                             <Button
                               type="button"

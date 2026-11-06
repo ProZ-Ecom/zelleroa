@@ -17,6 +17,7 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { FormModal } from "@/components/common/FormModal";
 import { ExportButton } from "@/components/common/export-button";
 import { exportDataToCsv } from "@/lib/export-csv";
+import { formatDate } from "@/lib/utils";
 import { SearchInput } from "@/components/ui/search-input";
 import { Plus, Pencil, Trash2 } from "lucide-react";
 import { createCouponSchema, type CreateCouponSchemaInput } from "@/features/coupons/validations/coupon.schema";
@@ -200,7 +201,7 @@ const numberField = (name: NumericField) => {
       header: "Expiry",
       cell: ({ row }) =>
         row.original.expiresAt
-          ? new Date(row.original.expiresAt).toLocaleDateString("en-IN")
+          ? formatDate(row.original.expiresAt)
           : "No expiry",
     },
     {
@@ -258,7 +259,7 @@ const numberField = (name: NumericField) => {
                       UsedCount: c.usedCount,
                       UsageLimit: c.usageLimit || "Unlimited",
                       Status: c.isActive ? "Active" : "Inactive",
-                      ExpiresAt: c.expiresAt ? new Date(c.expiresAt).toLocaleDateString("en-IN") : "No expiry",
+                      ExpiresAt: c.expiresAt ? formatDate(c.expiresAt) : "No expiry",
                     })),
                     "coupons"
                   )

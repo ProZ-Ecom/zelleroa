@@ -140,6 +140,16 @@ export const returnPeriodSchema = z.object({
   days: z.coerce.number().int().min(0).max(90),
 });
 
+/** Both commission settings; each field is optional so either can be saved alone. */
+export const commissionSettingsSchema = z
+  .object({
+    days: z.coerce.number().int().min(0).max(90).optional(),
+    autoApprove: z.coerce.boolean().optional(),
+  })
+  .refine((v) => v.days !== undefined || v.autoApprove !== undefined, {
+    message: "Nothing to update",
+  });
+
 export const transferCustomerSchema = z.object({
   toAgentId: z.string().trim().min(1, "Select a Sales Partner"),
   /** The agent the admin saw; the transfer is rejected if the customer has since moved. */

@@ -126,6 +126,13 @@ export interface RequestActionPayload {
   trackingNumber?: string;
   shippingSlipUrl?: string;
   pickupImageUrl?: string;
+  /** `refund` only: whether the inspected item is resellable or written off. */
+  disposition?: "restock" | "damaged";
+  /** `send-back` only: the courier taking the item back to the customer. */
+  sendbackCourierName?: string;
+  sendbackTrackingNumber?: string;
+  sendbackShippedDate?: string;
+  sendbackProofUrl?: string;
 }
 
 /** What the customer may send with their own `shipped` / `cancel` actions. */

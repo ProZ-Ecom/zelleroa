@@ -148,13 +148,12 @@ export function FilterSidebar({
     return selectedProductId ? [selectedProductId] : [];
   }, [selectedProductIds, selectedProductId]);
 
-  // Nested Tree: Expanded category IDs & cached products per category
-  const [expandedCategoryIds, setExpandedCategoryIds] = React.useState<Set<string>>(() => {
-    const initial = new Set<string>();
-    if (selectedCategoryId) initial.add(selectedCategoryId);
-    if (selectedCategoryIds) selectedCategoryIds.forEach((id) => initial.add(id));
-    if (isSingleCategoryMode && categories[0]?.id) initial.add(categories[0].id);
-    return initial;
+  // Nested Tree: Single expanded category ID (accordion) & cached products per category
+  const [expandedCategoryId, setExpandedCategoryId] = React.useState<string | null>(() => {
+    if (selectedCategoryId) return selectedCategoryId;
+    if (selectedCategoryIds && selectedCategoryIds.length > 0) return selectedCategoryIds[0];
+    if (isSingleCategoryMode && categories[0]?.id) return categories[0].id;
+    return null;
   });
 
   const [categoryProducts, setCategoryProducts] = React.useState<
@@ -211,69 +210,54 @@ export function FilterSidebar({
     }
   }, [isVeganDisabled, vegType, onVegTypeChange]);
 
-  // Auto-expand and load products for selected categories
+  // Auto-load products when a category is expanded
   React.useEffect(() => {
-    const targetCatIds = isSingleCategoryMode
-      ? [categories[0]?.id].filter(Boolean) as string[]
-      : activeCategoryIds;
+    const targetCatId = isSingleCategoryMode
+      ? categories[0]?.id
+      : expandedCategoryId;
 
-    for (const targetCatId of targetCatIds) {
-      setExpandedCategoryIds((prev) => {
-        if (prev.has(targetCatId)) return prev;
-        const next = new Set(prev);
-        next.add(targetCatId);
-        return next;
-      });
+    if (!targetCatId) return;
 
-      if (
-        !categoryProducts[targetCatId] &&
-        !fetchingRef.current.has(targetCatId)
-      ) {
-        fetchingRef.current.add(targetCatId);
-        setLoadingCategoryIds((prev) => new Set(prev).add(targetCatId));
+    if (
+      !categoryProducts[targetCatId] &&
+      !fetchingRef.current.has(targetCatId)
+    ) {
+      fetchingRef.current.add(targetCatId);
+      setLoadingCategoryIds((prev) => new Set(prev).add(targetCatId));
 
-        customerCatalogApi
-          .getProducts({
-            categoryIds: [targetCatId],
-            pageSize: 50,
-          })
-          .then((res) => {
-            if (!isMountedRef.current) return;
-            const prods = (res.data || []).map((p) => ({ id: p.id, name: p.name }));
-            setCategoryProducts((prev) => ({ ...prev, [targetCatId]: prods }));
-          })
-          .catch((err) => {
-            console.error("Failed to load products for category", targetCatId, err);
-          })
-          .finally(() => {
-            fetchingRef.current.delete(targetCatId);
-            if (isMountedRef.current) {
-              setLoadingCategoryIds((prev) => {
-                const next = new Set(prev);
-                next.delete(targetCatId);
-                return next;
-              });
-            }
-          });
-      }
+      customerCatalogApi
+        .getProducts({
+          categoryIds: [targetCatId],
+          pageSize: 50,
+        })
+        .then((res) => {
+          if (!isMountedRef.current) return;
+          const prods = (res.data || []).map((p) => ({ id: p.id, name: p.name }));
+          setCategoryProducts((prev) => ({ ...prev, [targetCatId]: prods }));
+        })
+        .catch((err) => {
+          console.error("Failed to load products for category", targetCatId, err);
+        })
+        .finally(() => {
+          fetchingRef.current.delete(targetCatId);
+          if (isMountedRef.current) {
+            setLoadingCategoryIds((prev) => {
+              const next = new Set(prev);
+              next.delete(targetCatId);
+              return next;
+            });
+          }
+        });
     }
-  }, [activeCategoryIds, isSingleCategoryMode, categories, categoryProducts]);
+  }, [expandedCategoryId, isSingleCategoryMode, categories, categoryProducts]);
 
-  // Fetch products for a category when user clicks expand chevron
+  // Fetch products for a category when user clicks expand chevron (accordion: only one open at a time)
   const toggleCategoryExpand = React.useCallback(
     async (categoryId: string, e?: React.MouseEvent) => {
       e?.stopPropagation();
 
-      const willBeExpanded = !expandedCategoryIds.has(categoryId);
-      setExpandedCategoryIds((prev) => {
-        const next = new Set(prev);
-        if (willBeExpanded) {
-          next.add(categoryId);
-        } else {
-          next.delete(categoryId);
-        }
-        return next;
-      });
+      const willBeExpanded = expandedCategoryId !== categoryId;
+      setExpandedCategoryId(willBeExpanded ? categoryId : null);
 
       // If expanding and products not yet loaded or fetching, fetch them once
       if (
@@ -305,8 +289,27 @@ export function FilterSidebar({
         }
       }
     },
-    [expandedCategoryIds, categoryProducts]
+    [expandedCategoryId, categoryProducts]
   );
+
+  const closeIfMobile = React.useCallback(() => {
+    if ((isMobileOpen || (typeof window !== "undefined" && window.innerWidth < 1024)) && onCloseMobile) {
+      onCloseMobile();
+    }
+  }, [isMobileOpen, onCloseMobile]);
+
+  // Lock page scroll behind the mobile drawer; Escape closes it.
+  React.useEffect(() => {
+    if (!isMobileOpen) return;
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onCloseMobile?.();
+    window.addEventListener("keydown", onKey);
+    return () => {
+      document.body.style.overflow = previous;
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [isMobileOpen, onCloseMobile]);
 
   // Multi-select handlers
   const handleCategoryToggle = (catId: string) => {
@@ -343,6 +346,7 @@ export function FilterSidebar({
   };
 
   const handleAllSnacksClick = () => {
+    setExpandedCategoryId(null);
     if (onSelectCategories) onSelectCategories([]);
     if (onSelectCategory) onSelectCategory(null);
     if (onSelectProducts) onSelectProducts([]);
@@ -579,9 +583,10 @@ export function FilterSidebar({
               <button
                 key={option}
                 type="button"
-                onClick={() =>
-                  onGenderFilterChange(genderFilter === option ? "all" : option)
-                }
+                onClick={() => {
+                  onGenderFilterChange(genderFilter === option ? "all" : option);
+                  closeIfMobile();
+                }}
                 className={`px-3.5 py-1.5 rounded-full text-xs font-bold capitalize transition-all select-none cursor-pointer ${
                   genderFilter === option
                     ? "bg-theme-primary text-white border border-theme-primary shadow-xs"
@@ -642,7 +647,10 @@ export function FilterSidebar({
               {!isSingleCategoryMode && !categorySearch && (
                 <button
                   type="button"
-                  onClick={handleAllSnacksClick}
+                  onClick={() => {
+                  handleAllSnacksClick();
+                  closeIfMobile();
+                }}
                   className={`flex items-center gap-2.5 py-1 text-left cursor-pointer group transition-colors select-none ${
                     activeCategoryIds.length === 0 && activeProductIds.length === 0
                       ? "text-theme-primary font-bold"
@@ -693,7 +701,7 @@ export function FilterSidebar({
               ) : filteredCategories.length > 0 ? (
                 filteredCategories.map((cat) => {
                   const isSelected = isSingleCategoryMode ? true : activeCategoryIds.includes(cat.id);
-                  const isExpanded = isSingleCategoryMode ? true : expandedCategoryIds.has(cat.id);
+                  const isExpanded = isSingleCategoryMode ? true : expandedCategoryId === cat.id;
                   const products = categoryProducts[cat.id] || [];
                   const isLoadingProducts = loadingCategoryIds.has(cat.id);
 
@@ -708,8 +716,11 @@ export function FilterSidebar({
                               handleAllInCategoryClick(cat.id);
                             } else {
                               handleCategoryToggle(cat.id);
-                              if (!isExpanded) toggleCategoryExpand(cat.id);
+                              if (expandedCategoryId !== cat.id) {
+                                toggleCategoryExpand(cat.id);
+                              }
                             }
+                            closeIfMobile();
                           }}
                           className={`flex items-center gap-2.5 text-left cursor-pointer flex-1 min-w-0 select-none ${
                             isSelected
@@ -765,7 +776,10 @@ export function FilterSidebar({
                           {isSingleCategoryMode && (
                             <button
                               type="button"
-                              onClick={() => handleAllInCategoryClick(cat.id)}
+                              onClick={() => {
+                              handleAllInCategoryClick(cat.id);
+                              closeIfMobile();
+                            }}
                               className={`flex items-center gap-2 py-0.5 text-left cursor-pointer group transition-colors select-none ${
                                 activeProductIds.length === 0
                                   ? "text-theme-primary font-bold"
@@ -807,7 +821,10 @@ export function FilterSidebar({
                                 <button
                                   key={prod.id}
                                   type="button"
-                                  onClick={() => handleProductToggle(prod.id, cat.id)}
+                                  onClick={() => {
+                                  handleProductToggle(prod.id, cat.id);
+                                  closeIfMobile();
+                                }}
                                   className={`flex items-center gap-2 py-0.5 text-left cursor-pointer group transition-colors select-none ${
                                     isProductActive
                                       ? "text-theme-primary font-bold"

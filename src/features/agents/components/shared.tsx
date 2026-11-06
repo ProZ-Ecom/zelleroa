@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Inbox } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, formatDate } from "@/lib/utils";
 import { Select } from "@/components/ui/select";
 import { COMMISSION_STATUS_LABELS, PAYOUT_STATUS_LABELS } from "../constants";
 
@@ -56,8 +56,7 @@ export function StatusBadge({ status, className, title }: { status: string | nul
 const inr = new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", minimumFractionDigits: 2 });
 export const money = (n: number | null | undefined) => (n == null ? "—" : inr.format(n));
 export const pct = (n: number | null | undefined) => (n == null ? "—" : `${n}%`);
-export const dateOnly = (v: string | Date | null | undefined) =>
-  v ? new Date(v).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "—";
+export const dateOnly = (v: string | Date | null | undefined) => formatDate(v);
 export const dateTime = (v: string | Date | null | undefined) => {
   if (!v) return "—";
   const d = new Date(v);
