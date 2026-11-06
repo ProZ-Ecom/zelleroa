@@ -144,6 +144,14 @@ export function Header({
     return () => clearTimeout(timer);
   }, [status]);
   const isAuthLoading = status === "loading" && !authGraceExpired;
+
+  // Hydration safety: ensure initial client render matches server HTML if session was not in SSR
+  const [mounted, setMounted] = React.useState(false);
+  React.useEffect(() => {
+    setMounted(true);
+  }, []);
+  const effectiveAuthenticated = mounted ? isAuthenticated : !!initialUser;
+  const effectiveAuthLoading = mounted ? isAuthLoading : (!initialUser && status === "loading");
   const { data: profile } = useCustomerProfile({ enabled: isAuthenticated && !isStaffUser });
 
   // Get user name and initials for authenticated header state
@@ -284,7 +292,7 @@ export function Header({
     if (isSearchOpen) searchInputRef.current?.focus();
   }, [isSearchOpen]);
 
-  const wishlistHref = isAuthenticated ? "/wishlist" : "/login?callbackUrl=/wishlist";
+  const wishlistHref = effectiveAuthenticated ? "/wishlist" : "/login?callbackUrl=/wishlist";
 
   const openNavItem = headerMenu.find(
     (item) => item.id === openNavId && item.categories.length > 0
@@ -492,17 +500,17 @@ export function Header({
             <div
               ref={accountDropdownRef}
               className={`relative flex justify-end shrink-0 ${
-                isAuthLoading || isAuthenticated ? "" : "min-w-[66px] xl:min-w-[92px]"
+                effectiveAuthLoading || effectiveAuthenticated ? "" : "min-w-[66px] xl:min-w-[92px]"
               }`}
               onMouseEnter={handleAvatarMouseEnter}
               onMouseLeave={handleAvatarMouseLeave}
             >
-              {isAuthLoading ? (
+              {effectiveAuthLoading ? (
                 <div
                   className="w-[26px] h-[26px] rounded-full bg-theme-surface-alt animate-pulse"
                   aria-hidden="true"
                 />
-              ) : !isAuthenticated ? (
+              ) : !effectiveAuthenticated ? (
                 <Link
                   href="/login"
                   className="flex items-center gap-1 xl:gap-1.5 px-2 xl:px-3.5 py-1 xl:py-1.5 rounded-sm bg-theme-primary hover:bg-theme-primary-hover text-theme-primary-fg border border-theme-primary text-[11px] xl:text-sm font-semibold transition-all duration-150 shadow-xs hover:shadow-sm active:scale-95 cursor-pointer shrink-0"
@@ -733,7 +741,7 @@ export function Header({
             // as the desktop row: pin the cell width, let it repaint inside.
             return (
               <div key={item.id} className="flex w-16 justify-center">
-                {isAuthLoading ? (
+                {effectiveAuthLoading ? (
                   <div
                     className="flex flex-col-reverse items-center gap-1"
                     aria-hidden="true"
@@ -741,7 +749,7 @@ export function Header({
                     <span className="h-4 w-10 rounded bg-theme-surface-alt animate-pulse" />
                     <span className="h-5 w-5 rounded-full bg-theme-surface-alt animate-pulse" />
                   </div>
-                ) : !isAuthenticated ? (
+                ) : !effectiveAuthenticated ? (
                   <NavButton
                     variant="bottom"
                     customIcon={

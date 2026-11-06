@@ -213,7 +213,7 @@ export default function ValuationPage() {
         );
 
   return (
-    <div className="flex flex-1 min-h-0 flex-col">
+    <div className="flex flex-1 flex-col">
       <AdminPageHeader
         title="Valuation & Margin"
         description="What the stock on hand is worth, and what the sales actually made."
@@ -394,14 +394,16 @@ export default function ValuationPage() {
                 columns={stockColumns}
                 data={stock.data?.rows ?? []}
                 emptyMessage="Nothing to value yet"
-                className="bg-white"
+                className="bg-white border border-cream-border [&_th]:!bg-[#dbeafe] [&_th]:!text-[#1e3a8a] [&_th_*]:!text-[#1e3a8a] [&_th]:!font-bold [&_th]:!border-b-2 [&_th]:!border-[#93c5fd] [&_th]:shadow-[0_1px_3px_rgba(37,99,235,0.08)] [&_th_svg]:!text-[#2563eb]"
+                tableClassName="min-w-[1700px] [&_th]:!bg-[#dbeafe] [&_th]:!text-[#1e3a8a] [&_th_*]:!text-[#1e3a8a] [&_th]:!font-bold [&_th]:!border-b-2 [&_th]:!border-[#93c5fd] [&_th_svg]:!text-[#2563eb]"
               />
             ) : (
               <DataTable
                 columns={salesColumns}
                 data={sales.data?.rows ?? []}
                 emptyMessage="No sales in this period"
-                className="bg-white"
+                className="bg-white border border-cream-border [&_th]:!bg-[#dbeafe] [&_th]:!text-[#1e3a8a] [&_th_*]:!text-[#1e3a8a] [&_th]:!font-bold [&_th]:!border-b-2 [&_th]:!border-[#93c5fd] [&_th]:shadow-[0_1px_3px_rgba(37,99,235,0.08)] [&_th_svg]:!text-[#2563eb]"
+                tableClassName="min-w-[1700px] [&_th]:!bg-[#dbeafe] [&_th]:!text-[#1e3a8a] [&_th_*]:!text-[#1e3a8a] [&_th]:!font-bold [&_th]:!border-b-2 [&_th]:!border-[#93c5fd] [&_th_svg]:!text-[#2563eb]"
               />
             )}
           </div>

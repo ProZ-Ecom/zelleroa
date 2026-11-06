@@ -18,6 +18,7 @@ export interface GetBrandsParams {
   limit?: number;
   search?: string;
   isActive?: boolean;
+  categorySlug?: string;
 }
 
 export interface GetBrandsResult {

@@ -161,7 +161,7 @@ function DataTable<TData, TValue>({
 
     
   return (
-    <div className={cn("w-full flex-1 flex flex-col justify-between rounded-2xl overflow-hidden min-h-[380px] border border-neutral-200/70 bg-white shadow-[0_1px_2px_rgba(16,24,40,0.04),0_8px_24px_-8px_rgba(16,24,40,0.08)]", className)}>
+    <div className={cn("w-full flex-1 min-h-0 flex flex-col justify-between rounded-2xl overflow-hidden border border-neutral-200/70 bg-white shadow-[0_1px_2px_rgba(16,24,40,0.04),0_8px_24px_-8px_rgba(16,24,40,0.08)]", className)}>
       {(searchKey || exportable) && (
         <div className="flex items-center justify-between gap-2 p-3 pb-4 flex-shrink-0">
           {searchKey ? (
@@ -189,7 +189,7 @@ function DataTable<TData, TValue>({
         </div>
       )}
 
-      <div className="min-h-[240px] flex-1 flex flex-col">
+      <div className="min-h-0 flex-1 overflow-hidden flex flex-col">
         {/* `relative` keeps absolutely positioned cell content (sr-only labels,
             badges) inside this scroller; without it they resolve against the
             page and stretch the document with empty space below the layout. */}
@@ -197,9 +197,9 @@ function DataTable<TData, TValue>({
           tabIndex={0}
           role="region"
           aria-label="Scrollable table content"
-          className="relative flex-1 overflow-x-auto overflow-y-auto overscroll-x-contain scrollbar-table focus:outline-hidden focus-visible:ring-1 focus-visible:ring-secondary-300"
+          className="relative flex-1 min-h-0 overflow-auto overscroll-x-contain scrollbar-table focus:outline-hidden focus-visible:ring-1 focus-visible:ring-secondary-300"
         >
-          <table className={cn("w-full min-w-[720px] table-auto caption-bottom text-sm border-separate border-spacing-0", tableClassName)}>
+          <table className={cn("w-full min-w-[1100px] table-auto caption-bottom text-sm border-separate border-spacing-0", tableClassName)}>
             <thead>
               {table.getHeaderGroups().map((headerGroup) => (
                 <tr key={headerGroup.id} className="transition-colors">

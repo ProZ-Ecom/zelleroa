@@ -12,6 +12,7 @@ export const GET = createApiHandler(
         limit: query.limit,
         search: query.search,
         isActive: query.isActive,
+        categorySlug: query.categorySlug,
       });
       return apiSuccess(result.data, "Brands fetched successfully", 200, result.meta);
     },
