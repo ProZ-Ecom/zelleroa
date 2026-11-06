@@ -3,6 +3,8 @@ import { returnStatusLabel, statusLabel } from "../lib/policy";
 const TONES: Record<string, string> = {
   rejected: "bg-red-50 text-red-700 border-red-200",
   qc_failed: "bg-red-50 text-red-700 border-red-200",
+  returning_to_customer: "bg-amber-50 text-amber-700 border-amber-200",
+  returned_to_customer: "bg-slate-50 text-slate-700 border-slate-200",
   expired: "bg-neutral-100 text-neutral-700 border-neutral-300",
   cancelled: "bg-neutral-100 text-neutral-700 border-neutral-300",
   refunded: "bg-emerald-50 text-emerald-700 border-emerald-200",

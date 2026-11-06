@@ -8,13 +8,26 @@ const movementStyles: Record<MovementType, string> = {
   RETURN: "bg-orange-100 text-orange-800",
   REPLACEMENT: "bg-indigo-100 text-indigo-800",
   ADJUSTMENT: "bg-purple-100 text-purple-800",
+  PURCHASE_RETURN: "bg-amber-100 text-amber-900",
+  DAMAGE: "bg-red-100 text-red-800",
+};
+
+/** "PURCHASE_RETURN" reads as "Purchase return", not "Purchase_return". */
+export const MOVEMENT_LABELS: Record<MovementType, string> = {
+  PURCHASE: "Purchase",
+  SALE: "Sale",
+  RETURN: "Return",
+  REPLACEMENT: "Replacement",
+  ADJUSTMENT: "Adjustment",
+  PURCHASE_RETURN: "Purchase return",
+  DAMAGE: "Damage",
 };
 
 export function MovementTypeBadge({ type }: { type: MovementType | null }) {
   if (!type) return <Badge variant="outline">Legacy</Badge>;
   return (
     <Badge className={cn("border-transparent", movementStyles[type])}>
-      {type.charAt(0) + type.slice(1).toLowerCase()}
+      {MOVEMENT_LABELS[type]}
     </Badge>
   );
 }

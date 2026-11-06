@@ -693,7 +693,9 @@ model VariantUnitPrice {
   users_variant_unit_prices_updated_byTousers User?                       @relation("variant_unit_prices_updated_byTousers", fields: [updated_by], references: [id], onUpdate: NoAction, map: "fk_vup_updated_by")
   cartItems                                   CartItem[]
   orderItems                                  OrderItem[]
-  replacement_request_items                   replacement_request_items[]
+  replacement_request_items                   replacement_request_items[] @relation("replacement_items_requested_vup")
+  replacement_items_received                  replacement_request_items[] @relation("replacement_items_received_vup")
+  return_items_received                       return_items[]              @relation("return_items_received_vup")
   wishlist_items                              WishlistItem[]
   reviews                                     Review[]
   combo_product_items                         combo_product_items[]
@@ -2605,6 +2607,9 @@ model return_items {
   id                                   BigInt          @id @default(autoincrement()) @db.UnsignedBigInt
   return_request_id                    BigInt          @db.UnsignedBigInt
   order_item_id                        BigInt          @db.UnsignedBigInt
+  /// The SKU that physically arrived, set at quality check. NULL means it is
+  /// the one the customer ordered; it differs on a "wrong product" return.
+  received_variant_unit_price_id       BigInt?         @db.UnsignedBigInt
   quantity                             Int
   reason                               String?         @db.VarChar(255)
   refund_amount                        Decimal?        @db.Decimal(10, 2)
@@ -2616,11 +2621,13 @@ model return_items {
   users_return_items_created_byTousers User?           @relation("return_items_created_byTousers", fields: [created_by], references: [id], onUpdate: NoAction, map: "fk_return_items_created_by")
   users_return_items_updated_byTousers User?           @relation("return_items_updated_byTousers", fields: [updated_by], references: [id], onUpdate: NoAction, map: "fk_return_items_updated_by")
   order_items                          OrderItem       @relation(fields: [order_item_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_returnitem_orderitem")
+  received_variant_unit_price          VariantUnitPrice? @relation("return_items_received_vup", fields: [received_variant_unit_price_id], references: [id], onDelete: SetNull, onUpdate: NoAction, map: "fk_returnitem_received_vup")
   return_requests                      return_requests @relation(fields: [return_request_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_returnitem_request")
 
   @@index([created_by], map: "fk_return_items_created_by")
   @@index([updated_by], map: "fk_return_items_updated_by")
   @@index([order_item_id], map: "fk_returnitem_orderitem")
+  @@index([received_variant_unit_price_id], map: "fk_returnitem_received_vup")
   @@index([return_request_id], map: "fk_returnitem_request")
 }
 
@@ -2661,6 +2668,15 @@ model return_requests {
   received_at                             DateTime?                @db.Timestamp(0)
   qc_failed_at                            DateTime?                @db.Timestamp(0)
   qc_failure_reason                       String?                  @db.VarChar(500)
+  /// The leg back to the customer after a failed quality check. Kept apart
+  /// from `courier_name` / `tracking_number`, which are the customer's own
+  /// courier on the way in.
+  sendback_courier_name                   String?                  @db.VarChar(100)
+  sendback_tracking_number                String?                  @db.VarChar(100)
+  sendback_shipped_at                     DateTime?                @db.Timestamp(0)
+  /// Packing / courier receipt photo proving the item was posted back.
+  sendback_proof_url                      String?                  @db.VarChar(500)
+  sendback_delivered_at                   DateTime?                @db.Timestamp(0)
   expired_at                              DateTime?                @db.Timestamp(0)
   cancelled_at                            DateTime?                @db.Timestamp(0)
   cancelled_by                            BigInt?                  @db.UnsignedBigInt
@@ -2748,6 +2764,9 @@ model replacement_request_items {
   id                              BigInt               @id @default(autoincrement()) @db.UnsignedBigInt
   replacement_request_id          BigInt               @db.UnsignedBigInt
   order_item_id                   BigInt               @db.UnsignedBigInt
+  /// The SKU that physically came back from the customer, recorded at pickup
+  /// or processing. NULL means it is the one on the order line.
+  received_variant_unit_price_id  BigInt?              @db.UnsignedBigInt
   quantity                        Int
   requested_variant_id            BigInt?              @db.UnsignedBigInt
   requested_variant_unit_price_id BigInt?              @db.UnsignedBigInt
@@ -2757,10 +2776,12 @@ model replacement_request_items {
   replacement_request             replacement_requests @relation(fields: [replacement_request_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_replitem_request")
   order_items                     OrderItem            @relation(fields: [order_item_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_replitem_orderitem")
   requested_variant               ProductVariant?      @relation(fields: [requested_variant_id], references: [id], onDelete: SetNull, onUpdate: NoAction, map: "fk_replitem_variant")
-  requested_variant_unit_price    VariantUnitPrice?    @relation(fields: [requested_variant_unit_price_id], references: [id], onDelete: SetNull, onUpdate: NoAction, map: "fk_replitem_vup")
+  requested_variant_unit_price    VariantUnitPrice?    @relation("replacement_items_requested_vup", fields: [requested_variant_unit_price_id], references: [id], onDelete: SetNull, onUpdate: NoAction, map: "fk_replitem_vup")
+  received_variant_unit_price     VariantUnitPrice?    @relation("replacement_items_received_vup", fields: [received_variant_unit_price_id], references: [id], onDelete: SetNull, onUpdate: NoAction, map: "fk_replitem_received_vup")
 
   @@index([replacement_request_id], map: "fk_replitem_request")
   @@index([order_item_id], map: "fk_replitem_orderitem")
+  @@index([received_variant_unit_price_id], map: "fk_replitem_received_vup")
   @@index([requested_variant_id], map: "fk_replitem_variant")
   @@index([requested_variant_unit_price_id], map: "fk_replitem_vup")
 }
@@ -3196,6 +3217,10 @@ enum return_requests_status {
   shipped_by_customer
   received
   qc_failed
+  /// QC failed, so the item is on its way back to the customer.
+  returning_to_customer
+  /// The customer has the item back.
+  returned_to_customer
   refund_pending
   refunded
   expired

@@ -74,6 +74,12 @@ export interface ReplacementTransitionParams {
   trackingNumber?: string;
   pickupImageUrl?: string;
   note?: string;
+  /**
+   * `picked-up` / `process`: the SKU that actually came back from the
+   * customer, keyed by the order item's uuid. Only set where it differs from
+   * what was ordered.
+   */
+  receivedVariants?: { orderItemId: string; variantUnitPriceId: number }[];
 }
 
 export const replacementRepository = {
@@ -205,6 +211,30 @@ export const replacementRepository = {
           : `Item picked up from customer${courierStr}${trackingStr}`;
       }
 
+      // What came back is recorded the moment the parcel is opened, so the
+      // movement written at `process` credits the SKU actually in our hands
+      // rather than the one on the order line.
+      if (p.receivedVariants?.length) {
+        const pending = await tx.replacement_request_items.findMany({
+          where: { replacement_request_id: p.request.id, is_active: true },
+          include: { order_items: { select: { id: true, uuid: true, variantUnitPriceId: true } } },
+        });
+        const arrivedByOrderItem = new Map(
+          p.receivedVariants.map((r) => [r.orderItemId, BigInt(r.variantUnitPriceId)])
+        );
+        for (const item of pending) {
+          const arrived = arrivedByOrderItem.get(
+            item.order_items.uuid ?? String(item.order_items.id)
+          );
+          if (arrived && arrived !== item.order_items.variantUnitPriceId) {
+            await tx.replacement_request_items.updateMany({
+              where: { id: item.id },
+              data: { received_variant_unit_price_id: arrived },
+            });
+          }
+        }
+      }
+
       // The replacement unit leaves the warehouse when processing starts.
       if (p.action === "process") {
         const orderNumber =
@@ -215,8 +245,12 @@ export const replacementRepository = {
           include: { order_items: { select: { variantUnitPriceId: true } } },
         });
         for (const item of items) {
-          const returnedVupId = item.order_items.variantUnitPriceId;
-          const vupId = item.requested_variant_unit_price_id ?? returnedVupId;
+          // The unit coming back is whatever was actually in the parcel; it is
+          // only the ordered SKU when nobody recorded otherwise.
+          const orderedVupId = item.order_items.variantUnitPriceId;
+          const returnedVupId = item.received_variant_unit_price_id ?? orderedVupId;
+          const isWrongProduct = Boolean(orderedVupId) && returnedVupId !== orderedVupId;
+          const vupId = item.requested_variant_unit_price_id ?? orderedVupId;
           const ref = {
             referenceType: "replacement_request",
             referenceId: p.request.id,
@@ -232,7 +266,9 @@ export const replacementRepository = {
               movementType: "REPLACEMENT",
               direction: "in",
               quantity: item.quantity,
-              reason: "Replacement: original item received back",
+              reason: isWrongProduct
+                ? "Replacement: wrong product received back from customer"
+                : "Replacement: original item received back",
             });
           }
           // 2) The replacement unit leaves stock. Never oversells: throws if short.

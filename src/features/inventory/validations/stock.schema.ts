@@ -1,6 +1,14 @@
 import { z } from "zod";
 
-export const movementTypeEnum = z.enum(["PURCHASE", "SALE", "RETURN", "REPLACEMENT", "ADJUSTMENT"]);
+export const movementTypeEnum = z.enum([
+  "PURCHASE",
+  "SALE",
+  "RETURN",
+  "REPLACEMENT",
+  "ADJUSTMENT",
+  "PURCHASE_RETURN",
+  "DAMAGE",
+]);
 
 /** Slugs in this catalog are mixed case and use underscores (DRESS_TSHIRT_01). */
 const slug = (label: string) =>

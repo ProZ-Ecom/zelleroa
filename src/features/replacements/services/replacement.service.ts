@@ -231,6 +231,10 @@ export const replacementService = {
       trackingNumber: input.trackingNumber,
       pickupImageUrl: input.pickupImageUrl,
       note: input.note,
+      // Recorded when the parcel is opened (pickup) and read again when the
+      // replacement is processed, which is where the stock movement happens.
+      receivedVariants:
+        action === "picked-up" || action === "process" ? input.receivedVariants : undefined,
     });
     return formatRequest(updated);
   },

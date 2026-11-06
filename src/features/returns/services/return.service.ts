@@ -367,6 +367,26 @@ async function applyAction(
       }
     }
 
+    // The item is the customer's once the check fails, so posting it back is
+    // not optional and neither is the paper trail for it.
+    let sendbackShippedAt: Date | undefined;
+    if (action === "send-back") {
+      const courier = (input.sendbackCourierName ?? "").trim();
+      const tracking = (input.sendbackTrackingNumber ?? "").trim();
+      if (courier.length < 2) {
+        throw ApiError.badRequest("Enter the courier the item is being sent back with");
+      }
+      if (tracking.length < 3) {
+        throw ApiError.badRequest("Enter the tracking / AWB number for the item sent back");
+      }
+      if (input.sendbackShippedDate) {
+        sendbackShippedAt = new Date(input.sendbackShippedDate);
+        if (Number.isNaN(sendbackShippedAt.getTime())) {
+          throw ApiError.badRequest("Invalid send-back date");
+        }
+      }
+    }
+
     if (action === "expire") {
       // Prefer the deadline stored at approval; fall back to recomputing it for
       // requests approved before that column existed.
@@ -395,6 +415,14 @@ async function applyAction(
       shippingSlipUrl,
       pickupImageUrl: input.pickupImageUrl,
       note: input.note,
+      // Defaults to restocking, so an older client that sends no disposition
+      // behaves exactly as before.
+      disposition: action === "refund" ? (input.disposition ?? "restock") : undefined,
+      sendbackCourierName: input.sendbackCourierName,
+      sendbackTrackingNumber: input.sendbackTrackingNumber,
+      sendbackShippedAt,
+      sendbackProofUrl: input.sendbackProofUrl,
+      receivedVariants: action === "refund" ? input.receivedVariants : undefined,
     });
 
     if (action === "refund") {
