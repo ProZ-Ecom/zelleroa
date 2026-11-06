@@ -280,3 +280,28 @@ export const checkoutSummarySchema = z
   .passthrough();
 
 export type CheckoutSummarySchemaInput = z.infer<typeof checkoutSummarySchema>;
+
+/**
+ * Admin records the cash collected on a Cash-on-Delivery order.
+ * Amount is optional: left out, the whole order total is treated as collected.
+ */
+export const markOrderPaidSchema = z
+  .object({
+    amount: z.coerce
+      .number()
+      .positive("Collected amount must be greater than zero")
+      .optional(),
+    reference: z
+      .string()
+      .trim()
+      .max(100, "Reference cannot exceed 100 characters")
+      .optional(),
+    note: z
+      .string()
+      .trim()
+      .max(255, "Note cannot exceed 255 characters")
+      .optional(),
+  })
+  .strict();
+
+export type MarkOrderPaidInput = z.infer<typeof markOrderPaidSchema>;

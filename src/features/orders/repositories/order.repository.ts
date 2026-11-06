@@ -18,6 +18,13 @@ import {
   returnRequestInclude,
 } from "@/features/returns/lib/includes";
 import { getCourierTrackingUrl } from "@/lib/shipping/couriers";
+import { formatPrice } from "@/lib/utils";
+
+/**
+ * `payment_methods.code` of the row every recorded cash collection points at.
+ * Created on first use, exactly like the RAZORPAY row.
+ */
+export const COD_PAYMENT_METHOD_CODE = "COD";
 import type {
   OrderDetailResponse,
   OrderReferralDto,
@@ -410,19 +417,7 @@ export function formatOrderDetail(
     customer,
     status: order.order_status,
     paymentStatus: order.payment_status,
-    paymentMethod:
-      Boolean(order.bank_account_holder) ||
-      (order.notes || "").toUpperCase().includes("COD") ||
-      (order.notes || "").toUpperCase().includes("CASH ON DELIVERY") ||
-      (order.order_status_history || []).some((h) => {
-        const n = (h.note || "").toUpperCase();
-        return n.includes("COD") || n.includes("CASH ON DELIVERY");
-      }) ||
-      (order.order_status === "confirmed" &&
-        order.payment_status === "pending" &&
-        (!order.payments || order.payments.length === 0))
-        ? "COD"
-        : "CARD",
+    paymentMethod: inferOrderPaymentMethod(order),
     subtotal: Number(order.subtotal),
     discountAmount: Number(order.discountAmount),
     taxAmount: Number(order.taxAmount),
@@ -509,6 +504,40 @@ function formatCancellation(order: {
   };
 }
 
+/**
+ * Which way an order was paid. The Order row has no payment-method column, so
+ * this reads it back off the traces the checkout left: the COD bank details,
+ * the COD wording in the notes or status history, and the absence of any
+ * gateway payment on an order that was confirmed while still unpaid.
+ *
+ * Both list and detail rows go through here so the admin never sees one view
+ * call an order COD and the other call it CARD. Lists pass no history, which
+ * only loses a clue - it never turns a COD order into a CARD one.
+ */
+export function inferOrderPaymentMethod(order: {
+  bank_account_holder?: string | null;
+  notes?: string | null;
+  order_status?: string | null;
+  payment_status?: string | null;
+  order_status_history?: Array<{ note?: string | null }> | null;
+  payments?: Array<unknown> | null;
+}): "COD" | "CARD" {
+  const mentionsCod = (text?: string | null) => {
+    const upper = (text || "").toUpperCase();
+    return upper.includes("COD") || upper.includes("CASH ON DELIVERY");
+  };
+
+  const isCod =
+    Boolean(order.bank_account_holder) ||
+    mentionsCod(order.notes) ||
+    (order.order_status_history || []).some((h) => mentionsCod(h.note)) ||
+    (order.order_status === "confirmed" &&
+      order.payment_status === "pending" &&
+      (!order.payments || order.payments.length === 0));
+
+  return isCod ? "COD" : "CARD";
+}
+
 export function formatOrderListItem(
   order: Prisma.OrderGetPayload<{
     include: {
@@ -542,6 +571,7 @@ export function formatOrderListItem(
     customer,
     status: order.order_status,
     paymentStatus: order.payment_status,
+    paymentMethod: inferOrderPaymentMethod(order),
     subtotal: Number(order.subtotal),
     discountAmount: Number(order.discountAmount),
     taxAmount: Number(order.taxAmount),
@@ -1321,6 +1351,10 @@ export const orderRepository = {
             where: { is_active: true },
             select: { quantity: true },
           },
+          payments: {
+            where: { is_active: true },
+            select: { id: true, status: true },
+          },
           shipments: {
             where: { is_active: true },
             orderBy: { id: "desc" },
@@ -1664,5 +1698,118 @@ export const orderRepository = {
       );
       return existing as any;
     }
+  },
+
+  /**
+   * Record the cash collected on a Cash-on-Delivery order: one successful
+   * `Payment` row with its charge transaction, the order flipped to `paid`, and
+   * a history line naming the admin who took the money.
+   *
+   * The conditional `updateMany` is the lock: two admins clicking at the same
+   * moment both read a pending order, but only one flips it, so one cash
+   * payment can never be written twice.
+   */
+  async recordCashPaymentReceived(params: {
+    orderId: bigint;
+    amount: number;
+    actorId: bigint;
+    reference?: string | null;
+    note?: string | null;
+  }): Promise<{ orderNumber: string; amount: number }> {
+    const reference = params.reference?.trim() || null;
+    const note = params.note?.trim() || null;
+
+    return db.$transaction(async (tx) => {
+      const now = new Date();
+
+      const claim: Prisma.OrderUncheckedUpdateManyInput = {
+        payment_status: "paid",
+        updatedAt: now,
+        updated_by: params.actorId,
+      };
+      const claimed = await tx.order.updateMany({
+        where: {
+          id: params.orderId,
+          payment_status: { in: ["pending", "failed"] },
+        },
+        data: claim,
+      });
+      if (claimed.count !== 1) {
+        throw ApiError.conflict(
+          "This order's payment has already been recorded."
+        );
+      }
+
+      // Upsert, not find-then-create: `code` is unique, so two first-ever cash
+      // entries racing each other would otherwise collide on P2002.
+      const method = await tx.payment_methods.upsert({
+        where: { code: COD_PAYMENT_METHOD_CODE },
+        update: {},
+        create: {
+          name: "Cash on Delivery",
+          code: COD_PAYMENT_METHOD_CODE,
+          is_active: true,
+          created_by: params.actorId,
+          updated_by: params.actorId,
+        },
+      });
+
+      const payment = await tx.payment.create({
+        data: {
+          orderId: params.orderId,
+          payment_method_id: method.id,
+          amount: params.amount,
+          currency: "INR",
+          status: "success",
+          // No gateway took this money; the reference is the admin's own
+          // receipt/remittance number when they have one.
+          gateway: null,
+          gateway_payment_id: reference,
+          is_active: true,
+          created_by: params.actorId,
+          updated_by: params.actorId,
+        },
+      });
+
+      await tx.paymentTransaction.create({
+        data: {
+          paymentId: payment.id,
+          transaction_type: "charge",
+          amount: params.amount,
+          status: "captured",
+          gatewayResponse: {
+            source: "COD_CASH_COLLECTED",
+            collectedBy: params.actorId.toString(),
+            reference,
+            note,
+            recordedAt: now.toISOString(),
+          } as Prisma.InputJsonValue,
+          created_by: params.actorId,
+          updated_by: params.actorId,
+        },
+      });
+
+      const order = await tx.order.findUniqueOrThrow({
+        where: { id: params.orderId },
+        select: { orderNumber: true, order_status: true },
+      });
+
+      await tx.order_status_history.create({
+        data: {
+          order_id: params.orderId,
+          status: order.order_status,
+          note:
+            `COD cash received: ${formatPrice(params.amount)}` +
+            (reference ? ` · Ref: ${reference}` : "") +
+            (note ? ` · ${note}` : ""),
+          changed_by: params.actorId,
+          is_active: true,
+          created_by: params.actorId,
+          updated_by: params.actorId,
+        },
+      });
+
+      return { orderNumber: order.orderNumber, amount: params.amount };
+    });
   },
 };

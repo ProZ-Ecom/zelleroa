@@ -370,7 +370,9 @@ export function RequestWizard({ open, orderUuid, initialMode, onClose }: Request
                         {!selectable && (
                           <p className="mt-1 text-xs font-medium text-amber-700">
                             {item.blockedReason ||
-                              (mode === "replacement" ? "No replacement size is currently in stock." : "Not eligible.")}
+                              (mode === "replacement"
+                                ? "No in-stock replacement is available for this item."
+                                : "Not eligible.")}
                           </p>
                         )}
                       </div>
@@ -393,7 +395,9 @@ export function RequestWizard({ open, orderUuid, initialMode, onClose }: Request
                         {mode === "replacement" && item.replacementSizes.length > 0 && (
                           <div className="text-xs font-semibold">
                             <p className="mb-1 text-theme-text-muted">
-                              Current size: {item.size ?? "—"} · Replacement size
+                              {item.size
+                                ? `Current size: ${item.size} · Replacement size`
+                                : "Replacement item"}
                             </p>
                             <div className="flex flex-wrap gap-1.5">
                               {item.replacementSizes.map((s) => (

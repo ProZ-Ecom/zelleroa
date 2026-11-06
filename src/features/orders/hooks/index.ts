@@ -18,6 +18,7 @@ import {
   assignOrderDelivery,
   getCheckoutSummary,
   updateOrderInvoiceNumber,
+  markOrderPaid,
   type AssignDeliveryInput,
 } from "../api/get-orders";
 import type {
@@ -258,6 +259,41 @@ export function useUpdateOrderInvoiceNumber() {
         queryKey: adminOrderKeys.detail(variables.id),
       });
       queryClient.invalidateQueries({ queryKey: orderKeys.all });
+    },
+  });
+}
+
+/**
+ * Admin records the cash collected on a COD order. Invalidates the dashboard
+ * stats too: revenue counts only paid orders, so the number moves on success.
+ */
+export function useMarkOrderPaid() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      id,
+      amount,
+      reference,
+      note,
+    }: {
+      id: string | number;
+      amount?: number;
+      reference?: string;
+      note?: string;
+    }) => markOrderPaid(id, { amount, reference, note }),
+    meta: {
+      successMessage: "Payment recorded successfully",
+      errorMessage: "Failed to record payment",
+    },
+    onSuccess: (_result, variables) => {
+      queryClient.invalidateQueries({ queryKey: adminOrderKeys.all });
+      queryClient.invalidateQueries({ queryKey: ["admin-orders", "count"] });
+      queryClient.invalidateQueries({
+        queryKey: adminOrderKeys.detail(variables.id),
+      });
+      queryClient.invalidateQueries({ queryKey: orderKeys.all });
+      queryClient.invalidateQueries({ queryKey: ["dashboard", "stats"] });
     },
   });
 }

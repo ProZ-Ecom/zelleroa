@@ -29,7 +29,10 @@ export default function CommissionRatesPage() {
   const qc = useQueryClient();
   const rates = useAdminObject<RateRow[]>("rates", "/api/admin/commission-rates");
   const targets = useAdminObject<Targets>("rate-targets", "/api/admin/commission-rates/targets");
-  const settings = useAdminObject<{ returnPeriodDays: number }>("commission-settings", "/api/admin/commission-settings");
+  const settings = useAdminObject<{ returnPeriodDays: number; autoApprove: boolean }>(
+    "commission-settings",
+    "/api/admin/commission-settings"
+  );
 
   const [scope, setScope] = useState<"global" | "category" | "product">("category");
   const [targetId, setTargetId] = useState("");
@@ -38,6 +41,7 @@ export default function CommissionRatesPage() {
   const [formError, setFormError] = useState<string | null>(null);
   const [days, setDays] = useState<string>("");
   const [savingDays, setSavingDays] = useState(false);
+  const [savingAuto, setSavingAuto] = useState(false);
 
   const refresh = () => qc.invalidateQueries({ queryKey: ["agents-admin"] });
 
@@ -95,7 +99,21 @@ export default function CommissionRatesPage() {
     }
   };
 
+  const saveAutoApprove = async (next: boolean) => {
+    setSavingAuto(true);
+    try {
+      const res = await apiClient.put("/api/admin/commission-settings", { autoApprove: next });
+      toast.success(res.message ?? "Saved");
+      await refresh();
+    } catch (err) {
+      toast.error("Could not save", errorMessage(err));
+    } finally {
+      setSavingAuto(false);
+    }
+  };
+
   const currentDays = days === "" ? String(settings.data?.returnPeriodDays ?? "") : days;
+  const autoApprove = settings.data?.autoApprove ?? false;
 
   return (
     <PageContainer
@@ -173,6 +191,27 @@ export default function CommissionRatesPage() {
                   {savingDays && <Loader2 className="h-4 w-4 animate-spin" />}
                   Save
                 </button>
+              </div>
+
+              <div className="mt-2 flex items-start gap-3 border-t border-neutral-200 pt-4">
+                <input
+                  id="auto-approve"
+                  type="checkbox"
+                  className="mt-0.5 h-4 w-4 shrink-0 accent-[var(--theme-primary,#111)]"
+                  checked={autoApprove}
+                  disabled={savingAuto || settings.isLoading}
+                  onChange={(e) => void saveAutoApprove(e.target.checked)}
+                />
+                <label htmlFor="auto-approve" className="flex flex-col gap-1 text-sm">
+                  <span className="inline-flex items-center gap-2 font-medium text-neutral-800">
+                    Approve commissions automatically
+                    {savingAuto && <Loader2 className="h-3.5 w-3.5 animate-spin text-neutral-500" />}
+                  </span>
+                  <span className="text-xs text-neutral-600">
+                    Once the return period above ends, the commission becomes payable without an admin step, so
+                    the agent can request a payout right away. You still approve the payout itself.
+                  </span>
+                </label>
               </div>
             </div>
           </Panel>

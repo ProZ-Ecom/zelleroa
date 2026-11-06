@@ -254,7 +254,7 @@ export function PurchaseOrderForm({ initial, isLoading, submitLabel, mode = "dra
               <th className="px-4 py-2.5 w-28">Qty</th>
               <th className="px-4 py-2.5 w-36">Purchase price (₹)</th>
               <th className="px-4 py-2.5 w-32 text-right">Line total</th>
-              <th className="w-12" />
+              <th className="sticky right-0 z-20 w-12 bg-neutral-50 shadow-[-4px_0_6px_-2px_rgba(0,0,0,0.05)]" />
             </tr>
           </thead>
           <tbody>
@@ -305,7 +305,7 @@ export function PurchaseOrderForm({ initial, isLoading, submitLabel, mode = "dra
                 <td className="px-4 py-2.5 text-right font-medium">
                   ₹{(l.quantity * l.unitCost).toFixed(2)}
                 </td>
-                <td className="px-2">
+                <td className="sticky right-0 z-10 bg-white px-2 shadow-[-4px_0_6px_-2px_rgba(0,0,0,0.05)]">
                   <Button
                     type="button"
                     variant="ghost"
@@ -325,7 +325,7 @@ export function PurchaseOrderForm({ initial, isLoading, submitLabel, mode = "dra
                   Subtotal
                 </td>
                 <td className="px-4 py-2.5 text-right font-medium">₹{subtotal.toFixed(2)}</td>
-                <td />
+                <td className="sticky right-0 z-10 bg-neutral-50 shadow-[-4px_0_6px_-2px_rgba(0,0,0,0.05)]" />
               </tr>
               <tr className="bg-neutral-50">
                 <td colSpan={5} className="px-4 py-2.5 text-right font-medium">
@@ -345,14 +345,14 @@ export function PurchaseOrderForm({ initial, isLoading, submitLabel, mode = "dra
                     }}
                   />
                 </td>
-                <td />
+                <td className="sticky right-0 z-10 bg-neutral-50 shadow-[-4px_0_6px_-2px_rgba(0,0,0,0.05)]" />
               </tr>
               <tr className="border-t border-neutral-200 bg-neutral-50">
                 <td colSpan={5} className="px-4 py-2.5 text-right font-semibold">
                   Total
                 </td>
                 <td className="px-4 py-2.5 text-right font-semibold">₹{total.toFixed(2)}</td>
-                <td />
+                <td className="sticky right-0 z-10 bg-neutral-50 shadow-[-4px_0_6px_-2px_rgba(0,0,0,0.05)]" />
               </tr>
             </tfoot>
           )}
