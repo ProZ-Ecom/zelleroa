@@ -1170,3 +1170,72 @@ textarea:focus-visible {
     animation: none;
   }
 }
+
+
+/* ================================================================== */
+/* Admin Global Palette: Dark Stone & Gold Primary Action Buttons     */
+/* ================================================================== */
+.admin-body,
+body.admin-body {
+  --theme-primary: #1C1917;
+  --theme-primary-hover: #292524;
+  --theme-primary-fg: #D4AF37;
+  --theme-primary-light: rgba(212, 175, 55, 0.1);
+  --color-theme-primary: #1C1917;
+  --color-theme-primary-hover: #292524;
+  --color-theme-primary-fg: #D4AF37;
+  --color-theme-primary-light: rgba(212, 175, 55, 0.1);
+}
+
+.admin-body button.bg-theme-primary,
+.admin-body a.bg-theme-primary,
+.admin-body button[class*="bg-theme-primary"],
+.admin-body a[class*="bg-theme-primary"],
+.admin-body button[class*="bg-[var(--color-primary-"],
+.admin-body a[class*="bg-[var(--color-primary-"],
+body.admin-body button.bg-theme-primary,
+body.admin-body a.bg-theme-primary,
+body.admin-body button[class*="bg-theme-primary"],
+body.admin-body a[class*="bg-theme-primary"],
+body.admin-body button[class*="bg-[var(--color-primary-"],
+body.admin-body a[class*="bg-[var(--color-primary-"],
+body.admin-body button.bg-blue-600,
+body.admin-body a.bg-blue-600,
+body.admin-body button.bg-blue-500,
+body.admin-body a.bg-blue-500 {
+  background-color: #1C1917 !important;
+  color: #D4AF37 !important;
+  border: 1px solid rgba(212, 175, 55, 0.3) !important;
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05) !important;
+}
+
+.admin-body button.bg-theme-primary:hover,
+.admin-body a.bg-theme-primary:hover,
+.admin-body button[class*="bg-theme-primary"]:hover,
+.admin-body a[class*="bg-theme-primary"]:hover,
+.admin-body button[class*="bg-[var(--color-primary-"]:hover,
+.admin-body a[class*="bg-[var(--color-primary-"]:hover,
+body.admin-body button.bg-theme-primary:hover,
+body.admin-body a.bg-theme-primary:hover,
+body.admin-body button[class*="bg-theme-primary"]:hover,
+body.admin-body a[class*="bg-theme-primary"]:hover,
+body.admin-body button[class*="bg-[var(--color-primary-"]:hover,
+body.admin-body a[class*="bg-[var(--color-primary-"]:hover,
+body.admin-body button.bg-blue-600:hover,
+body.admin-body a.bg-blue-600:hover,
+body.admin-body button.bg-blue-500:hover,
+body.admin-body a.bg-blue-500:hover {
+  background-color: #292524 !important;
+  color: #D4AF37 !important;
+}
+
+.admin-body button.bg-theme-primary svg,
+.admin-body a.bg-theme-primary svg,
+.admin-body [class*="bg-theme-primary"] svg,
+body.admin-body button.bg-theme-primary svg,
+body.admin-body a.bg-theme-primary svg,
+body.admin-body [class*="bg-theme-primary"] svg,
+body.admin-body button[class*="bg-[var(--color-primary-"] svg,
+body.admin-body a[class*="bg-[var(--color-primary-"] svg {
+  color: #D4AF37 !important;
+}

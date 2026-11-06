@@ -62,7 +62,7 @@ function ConfirmDialog({
             variant={variant}
             className={cn(
               "flex-1 rounded-xl font-semibold transition-colors cursor-pointer",
-              !isDestructive && "bg-secondary-600 hover:bg-secondary-700 text-cream-white"
+              !isDestructive && "bg-stone-900 hover:bg-stone-800 text-[#D4AF37] border border-[#D4AF37]/30 shadow-xs"
             )}
             onClick={() => {
               onConfirm();

@@ -49,7 +49,7 @@ function Badge({
       className={cn(
         "inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full text-[10px] font-bold leading-none tabular-nums",
         active
-          ? "bg-white/20 text-white"
+          ? "bg-[#D4AF37]/20 text-[#D4AF37]"
           : warn
           ? "bg-amber-100 text-amber-800"
           : "bg-neutral-100 text-neutral-600"
@@ -106,7 +106,7 @@ export function OrderStatusTabs() {
               className={cn(
                 "inline-flex items-center gap-1.5 whitespace-nowrap rounded-xl px-3 py-1.5 text-xs font-semibold transition-colors",
                 active
-                  ? "bg-secondary-600 text-cream-white shadow-xs"
+                  ? "bg-stone-900 text-[#D4AF37] border border-[#D4AF37]/30 shadow-xs"
                   : "text-neutral-600 hover:bg-cream-200 hover:text-secondary-800"
               )}
             >
@@ -128,7 +128,7 @@ export function OrderStatusTabs() {
           className={cn(
             "inline-flex cursor-pointer items-center gap-1.5 whitespace-nowrap rounded-2xl border px-3.5 py-2 text-xs font-semibold shadow-xs transition-colors",
             activeMore
-              ? "border-secondary-600 bg-secondary-600 text-cream-white"
+              ? "border-[#D4AF37]/30 bg-stone-900 text-[#D4AF37]"
               : "border-cream-border-subtle bg-white text-neutral-600 hover:bg-cream-200 hover:text-secondary-800"
           )}
         >

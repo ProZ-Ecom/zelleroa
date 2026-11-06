@@ -500,22 +500,6 @@ function AdminVariantDetailsContent() {
                 {variant.isActive ? "Active" : "Inactive"}
               </span>
             </label>
-
-            <div className="w-px h-4 bg-cream-border" />
-
-            <label
-              className="flex items-center gap-2 cursor-pointer"
-              title={variant.outOfStock ? "Mark as in stock" : "Mark as out of stock"}
-            >
-              <Switch
-                checked={!variant.outOfStock}
-                onCheckedChange={handleToggleStock}
-                disabled={updateVariantMutation.isPending}
-              />
-              <span className="text-xs font-bold text-neutral-700 whitespace-nowrap">
-                {!variant.outOfStock ? "In Stock" : "Out of Stock"}
-              </span>
-            </label>
           </div>
 
           {/* Action Buttons Row */}

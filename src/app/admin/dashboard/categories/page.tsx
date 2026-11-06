@@ -229,9 +229,9 @@ export default function AdminCategoriesPage() {
               <Button
                 type="button"
                 onClick={() => setIsCreateOpen(true)}
-                className="h-11 rounded-xl bg-theme-primary hover:bg-theme-primary-hover px-5 text-sm font-semibold text-white transition-colors"
+                className="h-11 rounded-xl bg-stone-900 hover:bg-stone-800 text-[#D4AF37] border border-[#D4AF37]/30 shadow-xs px-5 text-sm font-semibold transition-colors"
               >
-                <Plus className="mr-2 h-4 w-4" />
+                <Plus className="mr-2 h-4 w-4 text-[#D4AF37]" />
                 Add Category
               </Button>
             </CanAct>
@@ -265,7 +265,8 @@ export default function AdminCategoriesPage() {
                 setPage(1);
               }}
               emptyMessage="No categories found."
-              className="bg-white"
+              className="bg-white border border-cream-border [&_th]:!bg-stone-900 [&_th]:!text-[#D4AF37] [&_th_*]:!text-[#D4AF37] [&_th]:!font-bold [&_th]:!border-b [&_th]:!border-stone-800 [&_th]:shadow-[0_1px_3px_rgba(28,25,23,0.2)] [&_th_svg]:!text-[#D4AF37]"
+              tableClassName="[&_th]:!bg-stone-900 [&_th]:!text-[#D4AF37] [&_th_*]:!text-[#D4AF37] [&_th]:!font-bold [&_th]:!border-b [&_th]:!border-stone-800 [&_th_svg]:!text-[#D4AF37]"
             />
           </div>
         </div>

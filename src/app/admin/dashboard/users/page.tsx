@@ -379,8 +379,11 @@ const { data, isLoading, error, refetch } = useUsers({ page, limit: pageSize });
               disabled={!users.length}
             />
             <CanAct action="CREATE">
-              <Button variant="gradient" onClick={() => setModalMode("create")}>
-                <Plus className="mr-2 h-4 w-4" />
+              <Button
+                onClick={() => setModalMode("create")}
+                className="h-11 rounded-xl bg-stone-900 hover:bg-stone-800 text-[#D4AF37] border border-[#D4AF37]/30 shadow-xs px-5 text-sm font-semibold transition-colors"
+              >
+                <Plus className="mr-2 h-4 w-4 text-[#D4AF37]" />
                 Add User
               </Button>
             </CanAct>

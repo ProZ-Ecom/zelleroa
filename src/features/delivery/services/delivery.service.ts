@@ -582,20 +582,22 @@ export const deliveryService = {
       throw ApiError.conflict("Order already has an active shipment");
     }
 
-    const invoiceNumber = input.invoiceNumber?.trim() || null;
-    if (invoiceNumber) {
-      const duplicateInvoice = await db.order.findFirst({
-        where: {
-          invoice_number: invoiceNumber,
-          id: { not: order.id },
-        },
-        select: { orderNumber: true },
-      });
-      if (duplicateInvoice) {
-        throw ApiError.conflict(
-          `Invoice number "${invoiceNumber}" is already used by order ${duplicateInvoice.orderNumber}`
-        );
-      }
+    const invoiceNumber = input.invoiceNumber?.trim();
+    if (!invoiceNumber) {
+      throw ApiError.badRequest("Invoice number is required to ship the order");
+    }
+
+    const duplicateInvoice = await db.order.findFirst({
+      where: {
+        invoice_number: invoiceNumber,
+        id: { not: order.id },
+      },
+      select: { orderNumber: true },
+    });
+    if (duplicateInvoice) {
+      throw ApiError.conflict(
+        `Invoice number "${invoiceNumber}" is already used by order ${duplicateInvoice.orderNumber}`
+      );
     }
 
     const shippingAddress =

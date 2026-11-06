@@ -295,9 +295,9 @@ export default function AdminStaffPage() {
             <Button
               type="button"
               onClick={handleOpenCreateModal}
-              className="h-10 rounded-xl bg-theme-primary hover:bg-theme-primary-hover px-4 text-sm font-semibold text-white transition-colors cursor-pointer shrink-0"
+              className="h-10 rounded-xl bg-stone-900 hover:bg-stone-800 text-[#D4AF37] border border-[#D4AF37]/30 shadow-xs px-4 text-sm font-semibold transition-colors cursor-pointer shrink-0"
             >
-              <Plus className="mr-2 h-4 w-4" />
+              <Plus className="mr-2 h-4 w-4 text-[#D4AF37]" />
               Create Staff
             </Button>
           </CanAct>
