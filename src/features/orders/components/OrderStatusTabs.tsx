@@ -64,21 +64,34 @@ export function OrderStatusTabs() {
   const pathname = usePathname();
   const { data: counts, isLoading } = useAdminOrdersCount();
   const [open, setOpen] = useState(false);
+  const [align, setAlign] = useState<"left" | "right">("left");
   const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => setOpen(false), [pathname]);
 
+  const updateAlignment = () => {
+    if (!menuRef.current) return;
+    const rect = menuRef.current.getBoundingClientRect();
+    const availableRight = window.innerWidth - rect.left;
+    // Align right only if there isn't enough space on the right (min 260px) and there's enough on the left
+    setAlign(availableRight < 260 && rect.right >= 260 ? "right" : "left");
+  };
+
   useEffect(() => {
     if (!open) return;
+    updateAlignment();
     const onDown = (e: MouseEvent) => {
       if (!menuRef.current?.contains(e.target as Node)) setOpen(false);
     };
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
+    const onResize = () => updateAlignment();
     document.addEventListener("mousedown", onDown);
     document.addEventListener("keydown", onKey);
+    window.addEventListener("resize", onResize);
     return () => {
       document.removeEventListener("mousedown", onDown);
       document.removeEventListener("keydown", onKey);
+      window.removeEventListener("resize", onResize);
     };
   }, [open]);
 
@@ -124,7 +137,10 @@ export function OrderStatusTabs() {
           type="button"
           aria-haspopup="menu"
           aria-expanded={open}
-          onClick={() => setOpen((o) => !o)}
+          onClick={() => {
+            if (!open) updateAlignment();
+            setOpen((o) => !o);
+          }}
           className={cn(
             "inline-flex cursor-pointer items-center gap-1.5 whitespace-nowrap rounded-2xl border px-3.5 py-2 text-xs font-semibold shadow-xs transition-colors",
             activeMore
@@ -140,7 +156,10 @@ export function OrderStatusTabs() {
         {open && (
           <div
             role="menu"
-            className="absolute right-0 top-full z-50 mt-2 min-w-[240px] w-max overflow-hidden rounded-xl border border-cream-border bg-white p-1.5 shadow-xl"
+            className={cn(
+              "absolute top-full z-50 mt-2 min-w-[240px] max-w-[calc(100vw-32px)] w-max overflow-hidden rounded-xl border border-cream-border bg-white p-1.5 shadow-xl",
+              align === "right" ? "right-0" : "left-0"
+            )}
           >
             {MORE_TABS.map((tab, i) => {
               const active = isActive(tab);

@@ -178,7 +178,7 @@ function formatAdminVariantResponse(
       style?: {
         productId?: bigint;
         product?: {
-          uuid: string;
+          uuid: string | null;
           name: string;
           slug?: string | null;
         } | null;
@@ -851,9 +851,8 @@ export const variantService = {
           const variantName = colorCombo.length
             ? colorCombo.map((v) => v.value).join(" / ")
             : item.name;
-          const slugBase = `${itemSlug}-${
-            colorCombo.length ? colorCombo.map((v) => slugify(v.value)).join("-") : "default"
-          }`.slice(0, 230);
+          const slugBase = `${itemSlug}-${colorCombo.length ? colorCombo.map((v) => slugify(v.value)).join("-") : "default"
+            }`.slice(0, 230);
           let variantSlug = slugBase;
           let slugSuffix = 1;
           // eslint-disable-next-line no-await-in-loop
@@ -1108,8 +1107,8 @@ export const variantService = {
     const existingColorKeys = new Set(
       colorCombinations.length > 0 || touchesColorAxis
         ? existingVariants.map((v) =>
-            v.variant_attribute_values.map((x) => x.attribute_value_id.toString()).sort().join(",")
-          )
+          v.variant_attribute_values.map((x) => x.attribute_value_id.toString()).sort().join(",")
+        )
         : []
     );
 
