@@ -184,7 +184,7 @@ function Form({ onClose, agent, onSaved }: Omit<Props, "open">) {
           <button type="button" onClick={onClose} className="h-10 rounded-xl border border-neutral-200 px-4 text-sm font-medium hover:bg-neutral-50">
             Cancel
           </button>
-          <button type="submit" disabled={busy} className="inline-flex h-10 items-center gap-2 rounded-xl bg-theme-primary hover:bg-theme-primary-hover px-4 text-sm font-semibold text-white transition-colors disabled:opacity-60">
+          <button type="submit" disabled={busy} className="inline-flex h-10 items-center gap-2 rounded-xl bg-stone-900 hover:bg-stone-800 text-[#D4AF37] border border-[#D4AF37]/30 shadow-xs px-4 text-sm font-semibold transition-colors disabled:opacity-60">
             {busy && <Loader2 className="h-4 w-4 animate-spin" />}
             {editing ? "Save changes" : "Create Sales Partner"}
           </button>

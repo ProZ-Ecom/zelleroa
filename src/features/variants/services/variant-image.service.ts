@@ -42,13 +42,21 @@ async function getAdminInternalId(email?: string): Promise<bigint | null> {
 }
 
 async function validateProductAndVariant(productUuid: string, variantUuid: string) {
-  const product = await productRepository.findByUuid(productUuid);
+  const variant = await variantRepository.findByUuid(variantUuid);
+  if (!variant) {
+    throw ApiError.notFound("Variant not found");
+  }
+
+  let product = await productRepository.findByUuid(productUuid);
+  if (!product && variant.item?.style?.productId) {
+    product = await productRepository.findById(variant.item.style.productId);
+  }
+
   if (!product || product.deleted_at !== null) {
     throw ApiError.notFound("Product not found");
   }
 
-  const variant = await variantRepository.findByUuid(variantUuid);
-  if (!variant || variant.item.style.productId !== product.id) {
+  if (variant.item.style.productId !== product.id) {
     throw ApiError.notFound("Variant not found for this product");
   }
 

@@ -276,7 +276,7 @@ function CurrentStockContent() {
               </Button>
             </Link>
             <Link href="/admin/dashboard/inventory/adjustment">
-              <Button className="h-11 rounded-xl bg-theme-primary px-5 text-sm font-semibold text-white transition-colors hover:bg-theme-primary-hover">
+              <Button className="h-11 rounded-xl bg-stone-900 hover:bg-stone-800 text-[#D4AF37] border border-[#D4AF37]/30 shadow-xs px-5 text-sm font-semibold transition-colors">
                 Adjust stock
               </Button>
             </Link>

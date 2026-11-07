@@ -268,8 +268,11 @@ export default function AdminRolesPage() {
               disabled={!roles.length}
             />
             <CanAct action="CREATE">
-              <Button variant="gradient" onClick={() => handleOpenModal()}>
-                <Plus className="mr-2 h-4 w-4" />
+              <Button
+                onClick={() => handleOpenModal()}
+                className="h-11 rounded-xl bg-stone-900 hover:bg-stone-800 text-[#D4AF37] border border-[#D4AF37]/30 shadow-xs px-5 text-sm font-semibold transition-colors"
+              >
+                <Plus className="mr-2 h-4 w-4 text-[#D4AF37]" />
                 Add Role
               </Button>
             </CanAct>

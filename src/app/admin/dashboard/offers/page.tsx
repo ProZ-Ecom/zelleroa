@@ -449,9 +449,9 @@ export default function AdminOffersPage() {
                   setFormError(null);
                   setIsCreateOpen(true);
                 }}
-                className="h-11 rounded-xl bg-theme-primary hover:bg-theme-primary-hover px-5 text-sm font-semibold text-white transition-colors"
+                className="h-11 rounded-xl bg-stone-900 hover:bg-stone-800 text-[#D4AF37] border border-[#D4AF37]/30 shadow-xs px-5 text-sm font-semibold transition-colors"
               >
-                <Plus className="mr-2 h-4 w-4" />
+                <Plus className="mr-2 h-4 w-4 text-[#D4AF37]" />
                 Create Offer
               </Button>
             </CanAct>

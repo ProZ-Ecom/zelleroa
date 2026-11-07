@@ -211,11 +211,11 @@ function DataTable<TData, TValue>({
                       <th
                         key={header.id}
                         className={cn(
-                          "group/th h-12 px-4 text-left align-middle text-[11px] font-semibold tracking-[0.08em] whitespace-nowrap text-[var(--color-neutral-500)] uppercase sm:px-5 bg-neutral-50/95 backdrop-blur border-b border-neutral-200/80 sticky top-0 z-10",
+                          "group/th h-12 px-4 text-left align-middle text-[11px] font-semibold tracking-[0.08em] whitespace-nowrap uppercase sm:px-5 bg-stone-900 text-[#D4AF37] border-b border-stone-800 shadow-[0_1px_3px_rgba(28,25,23,0.2)] sticky top-0 z-10",
                           isActions &&
-                            "text-center sticky top-0 right-0 z-30 shadow-[-8px_0_12px_-6px_rgba(16,24,40,0.06)] bg-neutral-50",
+                            "text-center sticky top-0 right-0 z-30 shadow-[-8px_0_12px_-6px_rgba(28,25,23,0.3)] bg-stone-900 text-[#D4AF37]",
                           header.column.getCanSort() &&
-                            "cursor-pointer select-none hover:text-[var(--color-neutral-800)]"
+                            "cursor-pointer select-none hover:text-[#D4AF37]/80"
                         )}
                         onClick={header.column.getToggleSortingHandler()}
                       >
@@ -229,7 +229,7 @@ function DataTable<TData, TValue>({
                             ? null
                             : flexRender(header.column.columnDef.header, header.getContext())}
                           {header.column.getCanSort() && (
-                            <span className="text-neutral-300 transition-colors group-hover/th:text-neutral-500">
+                            <span className="text-[#D4AF37]/60 transition-colors group-hover/th:text-[#D4AF37]">
                               {header.column.getIsSorted() === "asc" ? (
                                 <ChevronUp className="h-4 w-4" />
                               ) : header.column.getIsSorted() === "desc" ? (

@@ -1,5 +1,6 @@
 import crypto from "crypto";
 import { ApiError } from "@/lib/api/api-error";
+import { db } from "@/lib/db/prisma";
 import { styleRepository } from "../repositories/style.repository";
 import { productRepository } from "@/features/products/repositories/product.repository";
 import { brandRepository } from "@/features/brands/repositories/brand.repository";
@@ -181,14 +182,14 @@ export const styleService = {
     // Auto-create default Item (Model) under this Style so it can accept variants immediately
     try {
       let defaultItemSlug = `${styleSlug}-item`.substring(0, 220);
-      const existingItemSlug = await itemRepository.findBySlug(defaultItemSlug);
+      const existingItemSlug = await db.item.findFirst({ where: { slug: defaultItemSlug } });
       if (existingItemSlug) {
         defaultItemSlug = `${styleSlug}-${Date.now().toString(36)}`.substring(0, 220);
       }
 
       let defaultItemSku = created.sku ? `${created.sku}-DEF` : null;
       if (defaultItemSku) {
-        const existingSku = await itemRepository.findBySku(defaultItemSku);
+        const existingSku = await db.item.findFirst({ where: { sku: defaultItemSku } });
         if (existingSku) {
           defaultItemSku = null;
         }
