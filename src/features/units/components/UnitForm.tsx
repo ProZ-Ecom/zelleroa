@@ -50,7 +50,7 @@ export function UnitForm({
       name: initialData?.name || "",
       code: initialData?.code || "",
       type: initialData?.type || "weight",
-      baseUnitId: initialData?.baseUnitId ?? null,
+      baseUnitId: initialData?.baseUnitId || "",
       conversionFactor: initialData?.conversionFactor ?? 1,
       sortOrder: initialData?.sortOrder ?? 0,
     },
@@ -103,7 +103,10 @@ const filteredBaseUnits = baseUnits.filter(
     <FormProvider {...methods}>
       <form
         onSubmit={methods.handleSubmit(async (data) => {
-          await onSubmit(data);
+          await onSubmit({
+            ...data,
+            baseUnitId: data.baseUnitId ? data.baseUnitId : null,
+          });
         })}
         className="space-y-6"
       >

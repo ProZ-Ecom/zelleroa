@@ -5,7 +5,7 @@ import { RotateCcw, Clock, Video } from "lucide-react";
 export const metadata: Metadata = {
   title: "Return & Refund Policy | Zellora",
   description:
-    "Zellora India return, replacement, and refund policy: requests within 3 days of delivery with a mandatory unboxing video, for wrong, damaged, size, or quality issues.",
+    "Zellora India return, replacement, and refund policy: requests within 3 days of delivery with a mandatory unboxing video, only for wrong or damaged products.",
 };
 
 const sectionClass =
@@ -17,7 +17,7 @@ export default function ReturnRefundPolicyPage() {
   return (
     <PolicyLayout
       title="Return & Refund Policy"
-      lastUpdated="September 22, 2026"
+      lastUpdated="October 28, 2026"
       icon={RotateCcw}
     >
       {/* Intro */}
@@ -91,12 +91,6 @@ export default function ReturnRefundPolicyPage() {
           <li>
             <strong className="text-neutral-900 font-semibold">Damaged Product:</strong> The product was damaged when received.
           </li>
-          <li>
-            <strong className="text-neutral-900 font-semibold">Size Issue:</strong> The received size has an issue, subject to our applicable size/return conditions.
-          </li>
-          <li>
-            <strong className="text-neutral-900 font-semibold">Quality Issue:</strong> The product has a genuine manufacturing or quality defect.
-          </li>
         </ul>
       </section>
 
@@ -115,11 +109,43 @@ export default function ReturnRefundPolicyPage() {
         </p>
       </section>
 
-      {/* 5. Non-Returnable Products */}
+      {/* 5. Return Shipping */}
       <section className={sectionClass}>
-        <h2 className={headingClass}>5. Non-Returnable Products</h2>
+        <h2 className={headingClass}>5. Return Shipping</h2>
+        <ul className="list-disc pl-6 space-y-2 text-neutral-700">
+          <li>
+            We do not offer reverse pickup. Once your return request is approved, the product must be couriered back to the return address shared with you by our team.
+          </li>
+          <li>
+            <strong className="text-neutral-900 font-semibold">Return courier charges must be paid by the customer</strong> and are not reimbursed by ZELLORA INDIA.
+          </li>
+          <li>
+            The product must be dispatched within{" "}
+            <strong className="text-neutral-900 font-semibold">3 days of return approval</strong>. Requests may be closed if the product is not dispatched within this period.
+          </li>
+          <li>
+            The product must be returned unused and in its original condition, with all tags, labels, packaging, and the invoice intact.
+          </li>
+          <li>
+            Please share the courier receipt and tracking number with us after dispatch, so that we can track the shipment.
+          </li>
+          <li>
+            Products lost or damaged in return transit remain the responsibility of the customer and the courier service used. We recommend using a trackable courier service.
+          </li>
+          <li>
+            Replacement or refund will be processed only after the returned product is received and verified at our facility.
+          </li>
+        </ul>
+      </section>
+
+      {/* 6. Non-Returnable Products */}
+      <section className={sectionClass}>
+        <h2 className={headingClass}>6. Non-Returnable Products</h2>
         <ul className="list-disc pl-6 space-y-2 text-neutral-700">
           <li>Products without an eligible issue are not returnable.</li>
+          <li>
+            Size or fit issues and colour or shade differences are not eligible for return.
+          </li>
           <li>
             If the customer simply changes their mind or no longer wants the product, the product cannot be returned.
           </li>
@@ -127,9 +153,9 @@ export default function ReturnRefundPolicyPage() {
         </ul>
       </section>
 
-      {/* 6. Return Verification */}
+      {/* 7. Return Verification */}
       <section className={sectionClass}>
-        <h2 className={headingClass}>6. Return Verification</h2>
+        <h2 className={headingClass}>7. Return Verification</h2>
         <p className="text-neutral-700 leading-relaxed">
           All return requests are subject to verification. ZELLORA INDIA reserves the right to reject requests that do not meet the above conditions or where the required unboxing video is not provided.
         </p>

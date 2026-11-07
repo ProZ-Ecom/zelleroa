@@ -17,12 +17,14 @@ import { StatsCard } from "@/components/admin/StatsCard";
 import { Button } from "@/components/ui/button";
 import { ExportButton } from "@/components/common/export-button";
 import { exportDataToCsv } from "@/lib/export-csv";
+import { formatDate } from "@/lib/utils";
 import { SearchInput } from "@/components/ui/search-input";
 import { Select } from "@/components/ui/select";
 import { AdminTableSkeleton } from "@/components/admin/AdminTableSkeleton";
 import { ErrorState } from "@/components/ui/error-state";
 import { useStaffList, useStaffCount, StaffFormModal } from "@/features/staff";
 import type { StaffResponse } from "@/features/staff/types";
+import { CanAct } from "@/features/access";
 
 export default function AdminStaffPage() {
   const [search, setSearch] = React.useState("");
@@ -164,11 +166,7 @@ export default function AdminStaffPage() {
         cell: ({ row }) => {
           const dateVal = row.original.createdAt;
           if (!dateVal) return <span className="text-neutral-400">—</span>;
-          const formatted = new Date(dateVal).toLocaleDateString("en-US", {
-            year: "numeric",
-            month: "short",
-            day: "numeric",
-          });
+          const formatted = formatDate(dateVal);
           return <span className="text-sm text-neutral-600">{formatted}</span>;
         },
       },
@@ -287,26 +285,27 @@ export default function AdminStaffPage() {
                   { header: "Phone", accessor: (s) => s.phone || "-" },
                   { header: "Role", accessor: (s) => s.role || "-" },
                   { header: "Status", accessor: (s) => (s.isActive ? "Active" : "Inactive") },
-                  { header: "Created At", accessor: (s) => s.createdAt || "-" },
                 ]
               )
             }
             disabled={!staffList.length}
           />
 
-          <Button
-            type="button"
-            onClick={handleOpenCreateModal}
-            className="h-10 rounded-xl bg-theme-primary hover:bg-theme-primary-hover px-4 text-sm font-semibold text-white transition-colors cursor-pointer shrink-0"
-          >
-            <Plus className="mr-2 h-4 w-4" />
-            Create Staff
-          </Button>
+          <CanAct action="CREATE">
+            <Button
+              type="button"
+              onClick={handleOpenCreateModal}
+              className="h-10 rounded-xl bg-stone-900 hover:bg-stone-800 text-[#D4AF37] border border-[#D4AF37]/30 shadow-xs px-4 text-sm font-semibold transition-colors cursor-pointer shrink-0"
+            >
+              <Plus className="mr-2 h-4 w-4 text-[#D4AF37]" />
+              Create Staff
+            </Button>
+          </CanAct>
         </div>
       </div>
 
       {/* Main Content: Fixed viewport height with scrolling table records */}
-      <AdminContent className="flex-1 min-h-0 overflow-hidden mt-4">
+      <AdminContent className="flex-1 min-h-0 mt-4">
         <div className="flex-1 min-h-0 overflow-hidden flex flex-col rounded-2xl border border-neutral-200 bg-white shadow-xs">
           {isLoading && !data ? (
             <div className="flex-1 flex items-center justify-center p-12">

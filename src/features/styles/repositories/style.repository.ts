@@ -32,6 +32,33 @@ export const styleInclude = Prisma.validator<Prisma.StyleInclude>()({
   _count: {
     select: { items: { where: { deleted_at: null } } },
   },
+  items: {
+    where: { deleted_at: null },
+    select: {
+      id: true,
+      name: true,
+      slug: true,
+      base_price: true,
+      variants: {
+        where: { deleted_at: null },
+        select: {
+          id: true,
+          color_name: true,
+          variant_unit_prices: {
+            where: { deleted_at: null },
+            select: {
+              id: true,
+              inventories: {
+                select: {
+                  quantity_available: true,
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+  },
 });
 
 export const styleRepository = {
@@ -107,7 +134,11 @@ export const styleRepository = {
       deleted_at: null,
       product: {
         deleted_at: null,
-        ...(params.productId ? { uuid: params.productId } : {}),
+        ...(params.productId
+          ? /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(params.productId)
+            ? { uuid: params.productId }
+            : { id: BigInt(params.productId) }
+          : {}),
         ...(params.categoryId ? { categoryId: BigInt(params.categoryId) } : {}),
       },
     };

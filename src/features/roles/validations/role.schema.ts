@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { ROLE_SCOPES } from "@/lib/auth/role-routes";
 
 export const getRolesQuerySchema = z.object({
   page: z.coerce.number().int().positive().default(1),
@@ -11,6 +12,8 @@ export type GetRolesQueryInput = z.infer<typeof getRolesQuerySchema>;
 export const createRoleSchema = z.object({
   name: z.string().min(1, "Role name is required").max(255),
   description: z.string().max(1000).optional(),
+  /** Which area the role belongs to; decides whether its users land in /admin, /agent or /account. */
+  scope: z.enum(ROLE_SCOPES).optional(),
   permissionIds: z.array(z.number().int().positive()).optional(),
 });
 
@@ -24,6 +27,7 @@ export const createPermissionSchema = z.object({
   name: z.string().min(1, "Permission name is required").max(255),
   description: z.string().max(1000).optional(),
   module: z.string().min(1, "Module is required").max(255),
+  roleIds: z.array(z.number().int().positive()).optional(),
 });
 
 export type CreatePermissionSchemaInput = z.infer<typeof createPermissionSchema>;

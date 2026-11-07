@@ -17,12 +17,14 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { FormModal } from "@/components/common/FormModal";
 import { ExportButton } from "@/components/common/export-button";
 import { exportDataToCsv } from "@/lib/export-csv";
+import { formatDate } from "@/lib/utils";
 import { toast } from "@/components/ui/Toast";
 import { Upload, Plus, Pencil, Trash2, Filter } from "lucide-react";
 import type { ColumnDef } from "@tanstack/react-table";
 import type { BrandListItem } from "@/features/brands/types";
 import { BrandForm } from "@/features/brands/components/BrandForm";
 import { SearchInput } from "@/components/ui/search-input";
+import { CanAct } from "@/features/access";
 
 export default function AdminBrandsPage() {
   const [search, setSearch] = useState("");
@@ -114,7 +116,7 @@ export default function AdminBrandsPage() {
     header: "Created Date",
     cell: ({ row }) => (
       <span className="text-[var(--color-neutral-700)]">
-        {new Date(row.original.createdAt).toLocaleDateString("en-IN")}
+        {formatDate(row.original.createdAt)}
       </span>
     ),
   },
@@ -146,10 +148,58 @@ export default function AdminBrandsPage() {
   },
 ];
 
+  // Check permission / auth errors FIRST — before isLoading — so that even when
+  // keepPreviousData is active and stale data exists, a permission error takes
+  // priority over rendering the table with stale data.
+  if (error) {
+    const errMsg = (error as { message?: string })?.message ?? "";
+    const isPermissionError =
+      errMsg.toLowerCase().includes("permission") ||
+      errMsg.toLowerCase().includes("unauthorized") ||
+      (error as { status?: number })?.status === 403;
+
+    if (isPermissionError) {
+      return (
+        <div className="flex flex-1 min-h-0 flex-col">
+          <AdminPageHeader
+            title="Brand Management"
+            description="Manage product brands and their associated catalogs."
+          />
+          <AdminContent>
+            <div className="flex flex-col items-center justify-center py-24 gap-4 text-center">
+              <div className="rounded-full bg-red-50 p-5">
+                <svg
+                  className="h-10 w-10 text-red-400"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={1.5}
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z"
+                  />
+                </svg>
+              </div>
+              <h2 className="text-lg font-semibold text-neutral-800">
+                Access Denied
+              </h2>
+              <p className="text-sm text-neutral-500 max-w-sm">
+                You don&apos;t have permission to view Brands. Please contact your administrator.
+              </p>
+            </div>
+          </AdminContent>
+        </div>
+      );
+    }
+
+    return <ErrorState message="Failed to load brands" onRetry={() => refetch()} />;
+  }
+
   if (isLoading && !data) {
     return <AdminTableSkeleton />;
   }
-  if (error) return <ErrorState message="Failed to load brands" onRetry={() => refetch()} />;
 
   return (
     <div className="flex flex-1 min-h-0 flex-col">
@@ -159,8 +209,8 @@ export default function AdminBrandsPage() {
         description="Manage product brands and their associated catalogs."
       />
       
-      <AdminContent className="flex-1 min-h-0 overflow-hidden">
-        <div className="flex h-full flex-col overflow-hidden bg-[var(--color-background)] py-1 rounded-2xl">
+      <AdminContent className="flex-1 min-h-0">
+        <div className="flex h-full flex-col bg-[var(--color-background)] py-1 rounded-2xl">
 
           {/* Search + Filter */}
           <div className="flex-shrink-0 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
@@ -174,6 +224,27 @@ export default function AdminBrandsPage() {
               className="w-full max-w-md"
             />
             <div className="flex items-center gap-2">
+              <ExportButton
+                onClick={() =>
+                  exportDataToCsv(
+                    brands,
+                    "brands",
+                    [
+                      { header: "Brand Name", accessor: (b) => b.name },
+                      { header: "Brand Code", accessor: (b) => b.slug || "—" },
+                      { header: "Description", accessor: (b) => b.description || "—" },
+                      { header: "Products", accessor: (b) => `${b._count?.products || 0} Items` },
+                      {
+                        header: "Created Date",
+                        accessor: (b) =>
+                          formatDate(b.createdAt),
+                      },
+                    ]
+                  )
+                }
+                disabled={!brands.length}
+              />
+
               <Button
                 variant="outline"
                 onClick={() => setIsImportOpen(true)}
@@ -183,18 +254,20 @@ export default function AdminBrandsPage() {
                 Import
               </Button>
 
-            <Button
-              onClick={() => setIsCreateOpen(true)}
-              className="h-11 rounded-xl bg-theme-primary hover:bg-theme-primary-hover px-5 text-sm font-semibold text-white transition-colors"
-            >
-              <Plus className="mr-2 h-4 w-4" />
-              Add Brand
-            </Button>
+              <CanAct action="CREATE">
+                <Button
+                  onClick={() => setIsCreateOpen(true)}
+                  className="h-11 rounded-xl bg-stone-900 hover:bg-stone-800 text-[#D4AF37] border border-[#D4AF37]/30 shadow-xs px-5 text-sm font-semibold transition-colors"
+                >
+                  <Plus className="mr-2 h-4 w-4 text-[#D4AF37]" />
+                  Add Brand
+                </Button>
+              </CanAct>
             </div>
           </div>
 
           {/* Table */}
-          <div className="mt-6 flex-1 min-h-0 overflow-hidden flex flex-col">
+          <div className="mt-6 flex-1 min-h-0 flex flex-col">
             <DataTable
               columns={columns}
               data={brands}

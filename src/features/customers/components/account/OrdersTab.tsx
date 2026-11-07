@@ -49,7 +49,7 @@ export function OrdersTab({
   const [reorderingId, setReorderingId] = useState<string | null>(null);
   const [reorderSuccessId, setReorderSuccessId] = useState<string | null>(null);
   const [payingOrderId, setPayingOrderId] = useState<string | null>(null);
-  const [paymentError, setPaymentError] = useState<string | null>(null);
+  const [paymentError, setPaymentError] = useState<{ orderId: string; message: string } | null>(null);
 
   const [cancelTarget, setCancelTarget] = useState<OrderDetailResponse | null>(null);
   const [cancelError, setCancelError] = useState<string | null>(null);
@@ -179,6 +179,17 @@ export function OrdersTab({
         theme: {
           color: "#7A211B",
         },
+        config: {
+          display: {
+            hide: [
+              { method: "emi" },
+              { method: "paylater" },
+            ],
+            preferences: {
+              show_default_blocks: true,
+            },
+          },
+        },
         modal: {
           ondismiss: () => {
             setPayingOrderId(null);
@@ -206,9 +217,10 @@ export function OrdersTab({
             }
           } catch (verifyErr: any) {
             setPayingOrderId(null);
-            setPaymentError(
-              verifyErr.message || "Payment verification failed. Please contact support."
-            );
+            setPaymentError({
+              orderId: order.id,
+              message: verifyErr.message || "Payment verification failed. Please contact support.",
+            });
           }
         },
       };
@@ -216,17 +228,19 @@ export function OrdersTab({
       const rzpInstance = new RazorpayConstructor(options);
       rzpInstance.on("payment.failed", (failRes: any) => {
         setPayingOrderId(null);
-        setPaymentError(
-          failRes.error?.description || "Payment failed. Please try again."
-        );
+        setPaymentError({
+          orderId: order.id,
+          message: failRes.error?.description || "Payment failed. Please try again.",
+        });
       });
 
       rzpInstance.open();
     } catch (err: any) {
       setPayingOrderId(null);
-      setPaymentError(
-        err.message || "Failed to launch payment checkout. Please try again."
-      );
+      setPaymentError({
+        orderId: order.id,
+        message: err.message || "Failed to launch payment checkout. Please try again.",
+      });
     }
   };
 
@@ -442,12 +456,19 @@ export function OrdersTab({
                     )}
                   </div>
 
-                  <span
-                    className={`inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider px-3 py-1.5 rounded-full border ${statusMeta.bg}`}
-                  >
-                    <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${statusMeta.dot}`} />
-                    {order.status.replace(/_/g, " ")}
-                  </span>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {order.returnRequests?.some((r) => r.returnNumber) && (
+                      <span className="inline-flex items-center gap-1 font-mono text-[11px] font-bold text-emerald-800 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200 shadow-2xs">
+                        Return ID: {order.returnRequests.find((r) => r.returnNumber)?.returnNumber}
+                      </span>
+                    )}
+                    <span
+                      className={`inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider px-3 py-1.5 rounded-full border ${statusMeta.bg}`}
+                    >
+                      <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${statusMeta.dot}`} />
+                      {order.status.replace(/_/g, " ")}
+                    </span>
+                  </div>
                 </div>
 
                 {/* Ordered Items List */}
@@ -499,8 +520,28 @@ export function OrdersTab({
 
                 {/* Card Action Buttons */}
                 <div className="px-5 pb-4 pt-1 flex items-center gap-2.5 flex-wrap border-t border-theme-border-subtle">
-                  {/* Pay Now button — shown when order exists but payment is still pending */}
-                  {order.paymentStatus === "pending" && order.status !== "cancelled" && (
+                  {/* Pay Now button — ONLY for online payment orders (Card/UPI/Razorpay) when payment is pending */}
+                  {(() => {
+                    const method = String((order as any).paymentMethod || "").toUpperCase();
+                    const paymentDetailsMethod = String((order as any).paymentDetails?.method || "").toUpperCase();
+                    const notes = String((order as any).notes || "").toUpperCase();
+
+                    const isCod =
+                      method === "COD" ||
+                      method.includes("CASH") ||
+                      paymentDetailsMethod.includes("COD") ||
+                      paymentDetailsMethod.includes("CASH") ||
+                      notes.includes("COD") ||
+                      notes.includes("CASH ON DELIVERY") ||
+
+
+                      Boolean((order as any).bankDetails?.accountHolder);
+                    const canPay =
+                      order.paymentStatus === "pending" &&
+                      order.status !== "cancelled" &&
+                      !isCod;
+                    return canPay;
+                  })() && (
                     <button
                       type="button"
                       disabled={payingOrderId === order.id}
@@ -572,16 +613,31 @@ export function OrdersTab({
                   </Link>
 
                   {order.status === "delivered" && (
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setReturnTarget({ orderId: order.id, mode: "return" })
-                      }
-                      className="border border-secondary-600 bg-secondary-50 hover:bg-secondary-100 text-secondary-800 text-xs font-semibold uppercase tracking-wider py-2.5 px-4 rounded-lg transition-colors cursor-pointer min-h-[40px] inline-flex items-center gap-1.5"
-                    >
-                      <Undo2 className="h-3.5 w-3.5" />
-                      Return / Replace
-                    </button>
+                    order.returnWindow && !order.returnWindow.eligible ? (
+                      <span
+                        className="border border-theme-border bg-theme-surface-alt text-theme-text-muted text-xs font-semibold uppercase tracking-wider py-2.5 px-4 rounded-lg inline-flex items-center gap-1.5 cursor-not-allowed select-none opacity-70"
+                        title="Return period expired (only allowed within 3 days of delivery)"
+                      >
+                        <Undo2 className="h-3.5 w-3.5 text-theme-text-muted" />
+                        Return Expired (3-Day Limit)
+                      </span>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setReturnTarget({ orderId: order.id, mode: "return" })
+                        }
+                        className="border-2 border-amber-500 bg-amber-50 hover:bg-amber-100 text-amber-900 dark:bg-amber-950/50 dark:border-amber-400 dark:text-amber-200 text-xs font-bold uppercase tracking-wider py-2.5 px-4 rounded-lg transition-all duration-200 cursor-pointer min-h-[40px] inline-flex items-center gap-1.5 shadow-xs hover:shadow active:scale-[0.98]"
+                      >
+                        <Undo2 className="h-3.5 w-3.5 text-amber-600 stroke-[2.5]" />
+                        <span>Return / Replace</span>
+                        {order.returnWindow?.daysLeft ? (
+                          <span className="ml-1 rounded bg-amber-200 text-amber-950 px-1.5 py-0.5 text-[10px] font-extrabold tracking-normal">
+                            {order.returnWindow.daysLeft}d left
+                          </span>
+                        ) : null}
+                      </button>
+                    )
                   )}
 
                   <Link href="/contact">
@@ -608,11 +664,11 @@ export function OrdersTab({
                   )}
                 </div>
 
-                {/* Payment error banner */}
-                {paymentError && payingOrderId === null && (
+                {/* Payment error banner - only shown on the specific order that failed */}
+                {paymentError && paymentError.orderId === order.id && payingOrderId === null && (
                   <div className="mx-5 mb-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 flex items-start gap-2 text-xs text-red-700">
                     <AlertCircle className="h-3.5 w-3.5 flex-shrink-0 mt-0.5 text-red-500" />
-                    <span>{paymentError}</span>
+                    <span>{paymentError.message}</span>
                     <button
                       type="button"
                       onClick={() => setPaymentError(null)}

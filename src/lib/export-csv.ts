@@ -34,7 +34,7 @@ export function downloadCsv(
   document.body.appendChild(a);
   a.click();
   a.remove();
-  URL.revokeObjectURL(url);
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 /** Exports the table's rows (selected rows if any, else all rows currently listed) as CSV. */
@@ -84,7 +84,7 @@ export function exportTableToCsv<TData>(table: Table<TData>, fileName: string): 
   document.body.appendChild(a);
   a.click();
   a.remove();
-  URL.revokeObjectURL(url);
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 export interface CsvColumn<TData> {
@@ -131,5 +131,5 @@ export function exportDataToCsv<TData extends Record<string, any>>(
   document.body.appendChild(a);
   a.click();
   a.remove();
-  URL.revokeObjectURL(url);
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }

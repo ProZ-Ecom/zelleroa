@@ -12,7 +12,8 @@ import { formatPrice } from "@/lib/utils";
 import {
   DELIVERY_ESTIMATE,
   FREE_DELIVERY_STATE,
-  OTHER_STATE_DELIVERY_CHARGE,
+  STANDARD_DELIVERY_CHARGE,
+  EXPRESS_DELIVERY_CHARGE,
 } from "@/features/orders/shipping";
 import type { CartSummaryType } from "../types";
 
@@ -42,10 +43,10 @@ function CartSummary({
         <div className="rounded-xl border border-theme-border-subtle bg-theme-surface-alt p-3.5 space-y-1">
           <p className="flex items-center gap-1.5 text-xs font-medium text-theme-primary">
             <Truck className="h-3.5 w-3.5 text-theme-secondary" />
-            FREE delivery within {FREE_DELIVERY_STATE}
+            Standard Delivery: {formatPrice(STANDARD_DELIVERY_CHARGE)} · Delivered in {DELIVERY_ESTIMATE}
           </p>
           <p className="text-[11px] text-theme-text-muted">
-            {formatPrice(OTHER_STATE_DELIVERY_CHARGE)} for other states · Delivered in {DELIVERY_ESTIMATE}
+            Standard doorstep delivery across India · Free within {FREE_DELIVERY_STATE}
           </p>
         </div>
 

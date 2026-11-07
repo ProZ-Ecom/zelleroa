@@ -17,12 +17,14 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { FormModal } from "@/components/common/FormModal";
 import { ExportButton } from "@/components/common/export-button";
 import { exportDataToCsv } from "@/lib/export-csv";
+import { formatDate } from "@/lib/utils";
 import { SearchInput } from "@/components/ui/search-input";
 import { Plus, Pencil, Trash2 } from "lucide-react";
 import { slugify } from "@/lib/utils";
 import { createBlogSchema, type CreateBlogSchemaInput } from "@/features/blogs/validations/blog.schema";
 import type { ColumnDef } from "@tanstack/react-table";
 import type { BlogListItem } from "@/features/blogs/types";
+import { CanAct } from "@/features/access";
 
 const statusBadgeVariant: Record<string, "secondary" | "success" | "warning"> = {
   DRAFT: "secondary",
@@ -145,7 +147,7 @@ export default function AdminBlogsPage() {
       header: "Published Date",
       cell: ({ row }) =>
         row.original.publishedAt
-          ? new Date(row.original.publishedAt).toLocaleDateString("en-IN")
+          ? formatDate(row.original.publishedAt)
           : "—",
     },
     {
@@ -181,15 +183,9 @@ export default function AdminBlogsPage() {
       <AdminPageHeader
         title="Blogs"
         description="Manage your blog posts"
-        actions={
-          <Button variant="gradient" onClick={() => handleOpenModal()}>
-            <Plus className="mr-2 h-4 w-4" />
-            Add Blog
-          </Button>
-        }
       />
-      <AdminContent className="flex-1 min-h-0 overflow-hidden">
-        <div className="flex h-full flex-col overflow-hidden bg-[var(--color-background)] py-1 rounded-2xl">
+      <AdminContent className="flex-1 min-h-0">
+        <div className="flex h-full flex-col bg-[var(--color-background)] py-1 rounded-2xl">
           <div className="flex-shrink-0 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <SearchInput
               placeholder="Search blogs..."
@@ -207,24 +203,26 @@ export default function AdminBlogsPage() {
                       Slug: b.slug,
                       Author: b.author?.name || "—",
                       Status: b.status,
-                      PublishedAt: b.publishedAt ? new Date(b.publishedAt).toLocaleDateString("en-IN") : "—",
+                      PublishedAt: formatDate(b.publishedAt),
                     })),
                     "blogs"
                   )
                 }
                 disabled={blogs.length === 0}
               />
-              <Button
-                onClick={() => handleOpenModal()}
-                className="h-11 rounded-xl bg-[var(--color-primary-500)] px-5 text-sm font-semibold text-white hover:bg-[var(--color-primary-600)]"
-              >
-                <Plus className="mr-2 h-4 w-4" />
-                Add Blog
-              </Button>
+              <CanAct action="CREATE">
+                <Button
+                  onClick={() => handleOpenModal()}
+                  className="h-11 rounded-xl bg-stone-900 hover:bg-stone-800 text-[#D4AF37] border border-[#D4AF37]/30 shadow-xs px-5 text-sm font-semibold transition-colors"
+                >
+                  <Plus className="mr-2 h-4 w-4 text-[#D4AF37]" />
+                  Add Blog
+                </Button>
+              </CanAct>
             </div>
           </div>
 
-          <div className="mt-6 flex-1 min-h-0 overflow-hidden flex flex-col">
+          <div className="mt-6 flex-1 min-h-0 flex flex-col">
             <DataTable
               columns={columns}
               data={blogs}

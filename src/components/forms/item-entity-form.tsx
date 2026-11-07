@@ -12,6 +12,7 @@ import { FormRichText } from "@/components/forms/form-rich-text";
 import { FormCheckbox } from "@/components/forms/form-checkbox";
 import { FormSubmitButton } from "@/components/forms/form-submit-button";
 import { QuickAddBrandModal } from "@/features/brands/components/QuickAddBrandModal";
+import { toast } from "@/components/ui/Toast";
 
 // The single Item create/edit form. Both levels the admin calls an "Item" -
 // the sellable Style under a Product ("V Neck T-Shirt") and the admin-only
@@ -40,11 +41,16 @@ export const itemEntityFormSchema = z.object({
     .max(500, "Short description cannot exceed 500 characters")
     .optional(),
   description: z.string().trim().optional(),
-  // FormInput hands back "" when a number field is cleared, so the message
-  // here doubles as the "required" message instead of zod's raw type error.
+  // When price is not shown, basePrice is optional and defaults to 0.
   basePrice: z
-    .number({ message: "Base price is required" })
-    .min(0, "Base price cannot be negative"),
+    .union([z.number(), z.string(), z.undefined()])
+    .optional()
+    .transform((val) => {
+      if (typeof val === "number") return val;
+      if (!val || val === "") return 0;
+      const num = Number(val);
+      return isNaN(num) ? 0 : num;
+    }),
   isFeatured: z.boolean(),
   // Storefront "New" badge. Set by hand so a bulk upload doesn't flag everything.
   isNewArrival: z.boolean().optional(),
@@ -52,6 +58,7 @@ export const itemEntityFormSchema = z.object({
   newArrivalUntil: z.string().optional(),
   isDefault: z.boolean().optional(),
   isActive: z.boolean(),
+  outOfStock: z.boolean().optional(),
 });
 
 export type ItemEntityFormValues = z.infer<typeof itemEntityFormSchema>;
@@ -59,8 +66,16 @@ export type ItemEntityFormValues = z.infer<typeof itemEntityFormSchema>;
 // When the price is shown it is the Item's one selling price, so it must be set.
 const pricedItemEntityFormSchema = itemEntityFormSchema.extend({
   basePrice: z
-    .number({ message: "Price is required" })
-    .gt(0, "Price must be more than 0"),
+    .union([z.number(), z.string()])
+    .refine(
+      (val) => {
+        if (val === "" || val === undefined || val === null) return false;
+        const num = typeof val === "number" ? val : Number(val);
+        return !isNaN(num) && num >= 0;
+      },
+      { message: "Price is required and cannot be negative" }
+    )
+    .transform((val) => (typeof val === "number" ? val : Number(val))),
 });
 
 const brandRequired = {
@@ -126,7 +141,10 @@ function toItemCode(raw: string, format: "slug" | "constant" = "slug"): string {
     .replace(/^-+|-+$/g, "");
 }
 
-function buildDefaults(initialData?: Partial<ItemEntityFormValues>): ItemEntityFormValues {
+function buildDefaults(
+  initialData?: Partial<ItemEntityFormValues>,
+  showPrice: boolean = true
+): ItemEntityFormValues {
   return {
     brandId: initialData?.brandId || "",
     name: initialData?.name || "",
@@ -134,12 +152,13 @@ function buildDefaults(initialData?: Partial<ItemEntityFormValues>): ItemEntityF
     sku: initialData?.sku || "",
     shortDescription: initialData?.shortDescription || "",
     description: initialData?.description || "",
-    basePrice: initialData?.basePrice ?? "" as unknown as number,
+    basePrice: initialData?.basePrice ?? (showPrice ? ("" as unknown as number) : 0),
     isFeatured: initialData?.isFeatured ?? false,
     isNewArrival: initialData?.isNewArrival ?? false,
     newArrivalUntil: initialData?.newArrivalUntil ?? "",
     isDefault: initialData?.isDefault ?? false,
     isActive: initialData?.isActive ?? false,
+    outOfStock: initialData?.outOfStock ?? false,
   };
 }
 
@@ -173,10 +192,10 @@ function ItemEntityForm({
   }, [brandOptions, createdBrands]);
 
   const methods = useForm<ItemEntityFormValues>({
-    resolver: zodResolver(pickSchema(showPrice, showBrand)),
+    resolver: zodResolver(pickSchema(showPrice, showBrand) as any) as any,
     mode: "onChange",
     reValidateMode: "onChange",
-    defaultValues: buildDefaults(initialData),
+    defaultValues: buildDefaults(initialData, showPrice),
   });
 
   const watchedName = methods.watch("name");
@@ -192,31 +211,47 @@ function ItemEntityForm({
 
   useEffect(() => {
     if (initialData) {
-      methods.reset(buildDefaults(initialData));
+      methods.reset(buildDefaults(initialData, showPrice));
       setCodeTouched(Boolean(initialData.slug));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [initialData]);
+  }, [initialData, showPrice]);
 
   const handleSlugChange = (raw: string) => {
     setCodeTouched(true);
     const cleaned =
       codeFormat === "constant"
         ? raw
-            .toUpperCase()
-            .replace(/[\s-]+/g, "_")
-            .replace(/[^A-Z0-9_]+/g, "")
+          .toUpperCase()
+          .replace(/[\s-]+/g, "_")
+          .replace(/[^A-Z0-9_]+/g, "")
         : raw
-            .toLowerCase()
-            .trim()
-            .replace(/\s+/g, "-")
-            .replace(/[^a-z0-9-]+/g, "");
+          .toLowerCase()
+          .trim()
+          .replace(/\s+/g, "-")
+          .replace(/[^a-z0-9-]+/g, "");
     methods.setValue("slug", cleaned, { shouldValidate: true, shouldDirty: true });
   };
 
   return (
     <FormProvider {...methods}>
-      <form onSubmit={methods.handleSubmit(onSubmit)} className="space-y-6">
+      <form
+        onSubmit={methods.handleSubmit(onSubmit, (errors) => {
+          console.error("Item form validation errors:", errors);
+          const firstErrorKey = Object.keys(errors)[0];
+          const firstError = errors[firstErrorKey as keyof ItemEntityFormValues];
+          if (firstError?.message) {
+            toast.error("Please fill in required fields", firstError.message);
+          }
+          const el =
+            document.querySelector(`[name="${firstErrorKey}"]`) ||
+            document.getElementById(firstErrorKey);
+          if (el) {
+            el.scrollIntoView({ behavior: "smooth", block: "center" });
+          }
+        })}
+        className="space-y-6"
+      >
         {showBrand && (
           <FormSelect
             name="brandId"
@@ -246,7 +281,7 @@ function ItemEntityForm({
               type="number"
               label="Price (₹)"
               placeholder="0"
-               onFocus={(e) => e.target.select()}
+              onFocus={(e) => e.target.select()}
               description={`What customers pay for every color and size of this ${entityLower}. Only sizes that cost more or less need their own price later.`}
               required
             />

@@ -1,4 +1,5 @@
 import crypto from "crypto";
+import { encryptField } from "@/lib/security/field-crypto";
 import { createCommissionsForOrder, syncCommissionsWithOrderStatus } from "@/features/agents/services/commission.service";
 import { db } from "@/lib/db/prisma";
 import { Prisma } from "@/generated/prisma";
@@ -17,6 +18,13 @@ import {
   returnRequestInclude,
 } from "@/features/returns/lib/includes";
 import { getCourierTrackingUrl } from "@/lib/shipping/couriers";
+import { formatPrice } from "@/lib/utils";
+
+/**
+ * `payment_methods.code` of the row every recorded cash collection points at.
+ * Created on first use, exactly like the RAZORPAY row.
+ */
+export const COD_PAYMENT_METHOD_CODE = "COD";
 import type {
   OrderDetailResponse,
   OrderReferralDto,
@@ -409,6 +417,7 @@ export function formatOrderDetail(
     customer,
     status: order.order_status,
     paymentStatus: order.payment_status,
+    paymentMethod: inferOrderPaymentMethod(order),
     subtotal: Number(order.subtotal),
     discountAmount: Number(order.discountAmount),
     taxAmount: Number(order.taxAmount),
@@ -418,6 +427,15 @@ export function formatOrderDetail(
     delivery: formatOrderDelivery((order as any).shipments),
     courierShipment: formatCourierShipment((order as any).shipments),
     notes: order.notes ?? null,
+    invoiceNumber: (order as any).invoice_number ?? null,
+    bankDetails: order.bank_account_holder
+      ? {
+          accountHolder: order.bank_account_holder,
+          bankName: order.bank_name,
+          accountNumberLast4: order.bank_account_last4,
+          ifsc: order.bank_ifsc,
+        }
+      : null,
     placedByAgent:
       order.order_source === "AGENT_PLACED_FOR_CUSTOMER" && order.ordered_by
         ? {
@@ -486,6 +504,40 @@ function formatCancellation(order: {
   };
 }
 
+/**
+ * Which way an order was paid. The Order row has no payment-method column, so
+ * this reads it back off the traces the checkout left: the COD bank details,
+ * the COD wording in the notes or status history, and the absence of any
+ * gateway payment on an order that was confirmed while still unpaid.
+ *
+ * Both list and detail rows go through here so the admin never sees one view
+ * call an order COD and the other call it CARD. Lists pass no history, which
+ * only loses a clue - it never turns a COD order into a CARD one.
+ */
+export function inferOrderPaymentMethod(order: {
+  bank_account_holder?: string | null;
+  notes?: string | null;
+  order_status?: string | null;
+  payment_status?: string | null;
+  order_status_history?: Array<{ note?: string | null }> | null;
+  payments?: Array<unknown> | null;
+}): "COD" | "CARD" {
+  const mentionsCod = (text?: string | null) => {
+    const upper = (text || "").toUpperCase();
+    return upper.includes("COD") || upper.includes("CASH ON DELIVERY");
+  };
+
+  const isCod =
+    Boolean(order.bank_account_holder) ||
+    mentionsCod(order.notes) ||
+    (order.order_status_history || []).some((h) => mentionsCod(h.note)) ||
+    (order.order_status === "confirmed" &&
+      order.payment_status === "pending" &&
+      (!order.payments || order.payments.length === 0));
+
+  return isCod ? "COD" : "CARD";
+}
+
 export function formatOrderListItem(
   order: Prisma.OrderGetPayload<{
     include: {
@@ -519,6 +571,7 @@ export function formatOrderListItem(
     customer,
     status: order.order_status,
     paymentStatus: order.payment_status,
+    paymentMethod: inferOrderPaymentMethod(order),
     subtotal: Number(order.subtotal),
     discountAmount: Number(order.discountAmount),
     taxAmount: Number(order.taxAmount),
@@ -528,6 +581,7 @@ export function formatOrderListItem(
     delivery: formatOrderDelivery((order as any).shipments),
     courierShipment: formatCourierShipment((order as any).shipments),
     notes: order.notes ?? null,
+    invoiceNumber: (order as any).invoice_number ?? null,
     placedAt: order.placed_at ?? null,
     deliveredAt: order.delivered_at ?? null,
     cancellation: formatCancellation(order),
@@ -650,6 +704,12 @@ export const orderRepository = {
     shippingCharge?: number;
     totalAmount: number;
     notes?: string;
+    bankDetails?: {
+      accountHolder: string;
+      bankName: string;
+      accountNumber: string;
+      ifsc: string;
+    };
     orderStatus?: "pending" | "confirmed";
     paymentStatus?: "pending" | "paid";
     paymentMethod?: string;
@@ -747,13 +807,53 @@ export const orderRepository = {
           taxAmount: 0,
           shipping_charge: params.shippingCharge ?? 0,
           totalAmount: params.totalAmount,
-          notes: params.notes ?? null,
+          notes: params.notes ?? (params.paymentMethod === "COD" ? "Cash on Delivery (COD)" : null),
+          bank_account_holder: params.bankDetails?.accountHolder?.trim() || null,
+          bank_name: params.bankDetails?.bankName?.trim() || null,
+          bank_account_number_enc: params.bankDetails?.accountNumber?.trim()
+            ? encryptField(params.bankDetails.accountNumber.trim())
+            : null,
+          bank_account_last4: params.bankDetails?.accountNumber?.trim()
+            ? params.bankDetails.accountNumber.trim().slice(-4)
+            : null,
+          bank_ifsc: params.bankDetails?.ifsc?.trim()?.toUpperCase() || null,
           placed_at: now,
           is_active: true,
           created_by: actorId,
           updated_by: actorId,
         },
       });
+
+      // Update customer profile with bank details for future orders and refunds
+      if (params.bankDetails?.accountNumber?.trim() && params.userId) {
+        try {
+          const rawAcc = params.bankDetails.accountNumber.trim();
+          await tx.customer_profiles.upsert({
+            where: { user_id: BigInt(params.userId) },
+            update: {
+              bank_account_holder: params.bankDetails.accountHolder.trim(),
+              bank_name: params.bankDetails.bankName.trim(),
+              bank_account_number_enc: encryptField(rawAcc),
+              bank_account_last4: rawAcc.slice(-4),
+              bank_ifsc: params.bankDetails.ifsc.trim().toUpperCase(),
+              updated_at: now,
+            },
+            create: {
+              uuid: crypto.randomUUID(),
+              user_id: BigInt(params.userId),
+              bank_account_holder: params.bankDetails.accountHolder.trim(),
+              bank_name: params.bankDetails.bankName.trim(),
+              bank_account_number_enc: encryptField(rawAcc),
+              bank_account_last4: rawAcc.slice(-4),
+              bank_ifsc: params.bankDetails.ifsc.trim().toUpperCase(),
+              is_active: true,
+              status: true,
+            },
+          });
+        } catch (profileErr) {
+          console.warn("[order] could not update customer profile with bank details:", profileErr);
+        }
+      }
 
       // Convert this cart's stock holds into confirmed holds against the
       // order, before the exact-quantity decrement below.
@@ -815,6 +915,16 @@ export const orderRepository = {
       });
 
       // 3. Create Order Items
+      // What each SKU costs right now, frozen onto the line: margin on a past
+      // sale has to use the cost of the day, not whatever we pay for it later.
+      const costRows = await tx.variantUnitPrice.findMany({
+        where: { id: { in: params.items.map((i) => i.variantUnitPriceId) } },
+        select: { id: true, avg_cost: true, cost_price: true },
+      });
+      const costBySku = new Map(
+        costRows.map((r) => [String(r.id), r.avg_cost ?? r.cost_price ?? null])
+      );
+
       await tx.orderItem.createMany({
         data: params.items.map((item) => ({
           uuid: crypto.randomUUID(),
@@ -831,6 +941,7 @@ export const orderRepository = {
           sku_snapshot: item.sku,
           quantity: item.quantity,
           unit_price: item.unitPrice,
+          unit_cost: costBySku.get(String(item.variantUnitPriceId)) ?? null,
           discount_amount: item.discountAmount,
           tax_amount: item.taxAmount,
           total_price: item.totalPrice,
@@ -875,7 +986,9 @@ export const orderRepository = {
                 ? "Order placed by Sales Partner for themselves"
                 : params.paymentStatus === "paid"
               ? `Order confirmed with payment via ${params.paymentMethod ?? "CARD"}`
-              : "Order placed by customer"),
+              : params.paymentMethod === "COD"
+                ? "Order placed via Cash on Delivery (COD)"
+                : "Order placed by customer"),
           changed_by: actorId,
           is_active: true,
           created_by: actorId,
@@ -1136,13 +1249,27 @@ export const orderRepository = {
       ? { ...baseWhere, order_status: params.status }
       : baseWhere;
 
-    const grouped = await db.order.groupBy({
-      by: ["order_status"],
-      where: whereToUse,
-      _count: {
-        id: true,
-      },
-    });
+    const [grouped, returnRequestsCount, replacementRequestsCount] = await Promise.all([
+      db.order.groupBy({
+        by: ["order_status"],
+        where: whereToUse,
+        _count: {
+          id: true,
+        },
+      }),
+      // Only the ones waiting on us, so the tab badge means "needs action".
+      db.return_requests.count({
+        where: {
+          is_active: true,
+          status: {
+            in: ["return_requested", "under_review", "shipped_by_customer", "received", "refund_pending"],
+          },
+        },
+      }),
+      db.replacement_requests.count({
+        where: { is_active: true },
+      }),
+    ]);
 
     const statusCounts: AdminOrdersCountResponse = {
       pending: 0,
@@ -1155,11 +1282,19 @@ export const orderRepository = {
       cancelled: 0,
       returned: 0,
       total: 0,
+      return_requests: returnRequestsCount,
+      replacement_requests: replacementRequestsCount,
     };
 
     for (const g of grouped) {
       const status = g.order_status as keyof AdminOrdersCountResponse;
-      if (status && status in statusCounts && status !== "total") {
+      if (
+        status &&
+        status in statusCounts &&
+        status !== "total" &&
+        status !== "return_requests" &&
+        status !== "replacement_requests"
+      ) {
         statusCounts[status] = g._count.id;
         statusCounts.total += g._count.id;
       }
@@ -1215,6 +1350,10 @@ export const orderRepository = {
           items: {
             where: { is_active: true },
             select: { quantity: true },
+          },
+          payments: {
+            where: { is_active: true },
+            select: { id: true, status: true },
           },
           shipments: {
             where: { is_active: true },
@@ -1511,6 +1650,166 @@ export const orderRepository = {
       });
 
       return formatOrderDetail(updated);
+    });
+  },
+
+  async updateOrderInvoiceNumber(uuid: string, invoiceNumber: string | null) {
+    const existing = await db.order.findFirst({
+      where: { uuid },
+      select: { id: true },
+    });
+    if (!existing) {
+      throw ApiError.notFound("Order not found");
+    }
+
+    if (invoiceNumber) {
+      const duplicate = await db.order.findFirst({
+        where: {
+          invoice_number: invoiceNumber,
+          id: { not: existing.id },
+        },
+        select: { orderNumber: true },
+      });
+      if (duplicate) {
+        throw ApiError.conflict(
+          `Invoice number "${invoiceNumber}" is already used by order ${duplicate.orderNumber}`
+        );
+      }
+    }
+
+    try {
+      return await db.order.update({
+        where: { id: existing.id },
+        data: { invoice_number: invoiceNumber },
+      });
+    } catch (error) {
+      if (error instanceof ApiError) {
+        throw error;
+      }
+      if ((error as { code?: string })?.code === "P2002") {
+        throw ApiError.conflict(
+          `Invoice number "${invoiceNumber}" is already used by another order`
+        );
+      }
+      await db.$executeRawUnsafe(
+        "UPDATE orders SET invoice_number = ? WHERE id = ?",
+        invoiceNumber,
+        existing.id
+      );
+      return existing as any;
+    }
+  },
+
+  /**
+   * Record the cash collected on a Cash-on-Delivery order: one successful
+   * `Payment` row with its charge transaction, the order flipped to `paid`, and
+   * a history line naming the admin who took the money.
+   *
+   * The conditional `updateMany` is the lock: two admins clicking at the same
+   * moment both read a pending order, but only one flips it, so one cash
+   * payment can never be written twice.
+   */
+  async recordCashPaymentReceived(params: {
+    orderId: bigint;
+    amount: number;
+    actorId: bigint;
+    reference?: string | null;
+    note?: string | null;
+  }): Promise<{ orderNumber: string; amount: number }> {
+    const reference = params.reference?.trim() || null;
+    const note = params.note?.trim() || null;
+
+    return db.$transaction(async (tx) => {
+      const now = new Date();
+
+      const claim: Prisma.OrderUncheckedUpdateManyInput = {
+        payment_status: "paid",
+        updatedAt: now,
+        updated_by: params.actorId,
+      };
+      const claimed = await tx.order.updateMany({
+        where: {
+          id: params.orderId,
+          payment_status: { in: ["pending", "failed"] },
+        },
+        data: claim,
+      });
+      if (claimed.count !== 1) {
+        throw ApiError.conflict(
+          "This order's payment has already been recorded."
+        );
+      }
+
+      // Upsert, not find-then-create: `code` is unique, so two first-ever cash
+      // entries racing each other would otherwise collide on P2002.
+      const method = await tx.payment_methods.upsert({
+        where: { code: COD_PAYMENT_METHOD_CODE },
+        update: {},
+        create: {
+          name: "Cash on Delivery",
+          code: COD_PAYMENT_METHOD_CODE,
+          is_active: true,
+          created_by: params.actorId,
+          updated_by: params.actorId,
+        },
+      });
+
+      const payment = await tx.payment.create({
+        data: {
+          orderId: params.orderId,
+          payment_method_id: method.id,
+          amount: params.amount,
+          currency: "INR",
+          status: "success",
+          // No gateway took this money; the reference is the admin's own
+          // receipt/remittance number when they have one.
+          gateway: null,
+          gateway_payment_id: reference,
+          is_active: true,
+          created_by: params.actorId,
+          updated_by: params.actorId,
+        },
+      });
+
+      await tx.paymentTransaction.create({
+        data: {
+          paymentId: payment.id,
+          transaction_type: "charge",
+          amount: params.amount,
+          status: "captured",
+          gatewayResponse: {
+            source: "COD_CASH_COLLECTED",
+            collectedBy: params.actorId.toString(),
+            reference,
+            note,
+            recordedAt: now.toISOString(),
+          } as Prisma.InputJsonValue,
+          created_by: params.actorId,
+          updated_by: params.actorId,
+        },
+      });
+
+      const order = await tx.order.findUniqueOrThrow({
+        where: { id: params.orderId },
+        select: { orderNumber: true, order_status: true },
+      });
+
+      await tx.order_status_history.create({
+        data: {
+          order_id: params.orderId,
+          status: order.order_status,
+          note:
+            `COD cash received: ${formatPrice(params.amount)}` +
+            (reference ? ` · Ref: ${reference}` : "") +
+            (note ? ` · ${note}` : ""),
+          changed_by: params.actorId,
+          is_active: true,
+          created_by: params.actorId,
+          updated_by: params.actorId,
+        },
+      });
+
+      return { orderNumber: order.orderNumber, amount: params.amount };
     });
   },
 };

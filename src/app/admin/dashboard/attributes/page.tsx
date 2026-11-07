@@ -19,6 +19,7 @@ import { SearchInput } from "@/components/ui/search-input";
 import { Plus, Pencil, Settings2, Trash2 } from "lucide-react";
 import type { ColumnDef } from "@tanstack/react-table";
 import type { AttributeListItem } from "@/features/attributes/types";
+import { CanAct } from "@/features/access";
 
 export default function AttributesPage() {
   const [search, setSearch] = useState("");
@@ -103,9 +104,11 @@ export default function AttributesPage() {
       header: "Actions",
       cell: ({ row }) => (
         <div className="flex items-center justify-center gap-1.5">
-          <Button variant="ghost" size="icon" onClick={() => setEditingAttribute(row.original)} title="Edit Attribute">
-            <Pencil className="h-4 w-4 text-[var(--color-neutral-500)]" />
-          </Button>
+          <CanAct action="UPDATE">
+            <Button variant="ghost" size="icon" onClick={() => setEditingAttribute(row.original)} title="Edit Attribute">
+              <Pencil className="h-4 w-4 text-[var(--color-neutral-500)]" />
+            </Button>
+          </CanAct>
           <Button variant="ghost" size="icon" onClick={() => setManageAttribute(row.original)}>
             <Settings2 className="h-4 w-4 text-[var(--color-neutral-500)]" />
           </Button>
@@ -130,8 +133,8 @@ export default function AttributesPage() {
         description="Define product attributes (e.g. Color, Size, Fabric) and their selectable values."
       />
 
-      <AdminContent className="flex-1 min-h-0 overflow-hidden">
-        <div className="flex h-full flex-col overflow-hidden bg-[var(--color-background)] py-1 rounded-2xl">
+      <AdminContent className="flex-1 min-h-0">
+        <div className="flex h-full flex-col bg-[var(--color-background)] py-1 rounded-2xl">
           <div className="flex-shrink-0 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <SearchInput
               placeholder="Search attributes..."
@@ -143,16 +146,43 @@ export default function AttributesPage() {
               className="w-full max-w-md"
             />
 
-            <Button
-              onClick={() => setIsCreateOpen(true)}
-              className="h-11 rounded-xl bg-theme-primary hover:bg-theme-primary-hover px-5 text-sm font-semibold text-white transition-colors"
-            >
-              <Plus className="mr-2 h-4 w-4" />
-              Add Attribute
-            </Button>
+            <div className="flex items-center gap-2">
+              <ExportButton
+                onClick={() =>
+                  exportDataToCsv(
+                    attributes,
+                    "attributes",
+                    [
+                      { header: "Attribute", accessor: (a) => a.name },
+                      { header: "Code", accessor: (a) => a.slug },
+                      { header: "Type", accessor: (a) => (a.type === "color" ? "Color" : "Text") },
+                      { header: "Selection", accessor: (a) => (a.multipleSelection ? "Multiple" : "Single") },
+                      {
+                        header: "Values",
+                        accessor: (a) =>
+                          a.values && a.values.length > 0
+                            ? a.values.map((v) => v.value).join(", ")
+                            : "—",
+                      },
+                    ]
+                  )
+                }
+                disabled={!attributes.length}
+              />
+
+              <CanAct action="CREATE">
+                <Button
+                  onClick={() => setIsCreateOpen(true)}
+                  className="h-11 rounded-xl bg-stone-900 hover:bg-stone-800 text-[#D4AF37] border border-[#D4AF37]/30 shadow-xs px-5 text-sm font-semibold transition-colors"
+                >
+                  <Plus className="mr-2 h-4 w-4 text-[#D4AF37]" />
+                  Add Attribute
+                </Button>
+              </CanAct>
+            </div>
           </div>
 
-          <div className="mt-6 flex-1 min-h-0 overflow-hidden flex flex-col">
+          <div className="mt-6 flex-1 min-h-0 flex flex-col">
             <DataTable
               columns={columns}
               data={attributes}

@@ -1,4 +1,5 @@
 import { ApiError } from "@/lib/api/api-error";
+import { db } from "@/lib/db/prisma";
 import { isManualDeliveryStatusEnabled } from "../lib/delivery-config";
 import { deliveryRepository } from "../repositories/delivery.repository";
 import { userRepository } from "@/features/users/repositories/user.repository";
@@ -581,6 +582,24 @@ export const deliveryService = {
       throw ApiError.conflict("Order already has an active shipment");
     }
 
+    const invoiceNumber = input.invoiceNumber?.trim();
+    if (!invoiceNumber) {
+      throw ApiError.badRequest("Invoice number is required to ship the order");
+    }
+
+    const duplicateInvoice = await db.order.findFirst({
+      where: {
+        invoice_number: invoiceNumber,
+        id: { not: order.id },
+      },
+      select: { orderNumber: true },
+    });
+    if (duplicateInvoice) {
+      throw ApiError.conflict(
+        `Invoice number "${invoiceNumber}" is already used by order ${duplicateInvoice.orderNumber}`
+      );
+    }
+
     const shippingAddress =
       order.address.find((a) => a.type === "shipping") ?? order.address[0] ?? null;
     if (!shippingAddress) {
@@ -595,6 +614,21 @@ export const deliveryService = {
       trackingNumber: input.trackingNumber,
       adminId,
     });
+
+    if (invoiceNumber) {
+      try {
+        await db.order.update({
+          where: { id: order.id },
+          data: { invoice_number: invoiceNumber },
+        });
+      } catch {
+        await db.$executeRawUnsafe(
+          "UPDATE orders SET invoice_number = ? WHERE id = ?",
+          invoiceNumber,
+          order.id
+        );
+      }
+    }
 
     return {
       id: shipment.uuid || String(shipment.id),

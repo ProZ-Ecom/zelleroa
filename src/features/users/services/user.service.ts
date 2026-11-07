@@ -43,15 +43,15 @@ export const userService = {
     }
 
     const hashedPassword = await bcrypt.hash(data.password, 12);
+    const assignedRoleId = data.roleId ? BigInt(data.roleId) : BigInt(3);
 
-    // Registration ALWAYS assigns role_id = 3 (CUSTOMER) and generates a UUID for FE identification
     return userRepository.create({
       uuid: crypto.randomUUID(),
       name: data.name,
       email: data.email,
       password_hash: hashedPassword,
       phone: data.phone ?? undefined,
-      role: { connect: { id: BigInt(3) } },
+      role: { connect: { id: assignedRoleId } },
       status: (data.status as "active" | "inactive" | "banned") ?? "active",
     });
   },
@@ -199,6 +199,9 @@ export const userService = {
     if (data.email !== undefined) updateData.email = data.email;
     if (data.phone !== undefined) updateData.phone = data.phone;
     if (data.status !== undefined) updateData.status = data.status;
+    if (data.roleId !== undefined && data.roleId !== null && !isNaN(Number(data.roleId))) {
+      updateData.role = { connect: { id: BigInt(data.roleId) } };
+    }
 
     return userRepository.update(id, updateData as never);
   },

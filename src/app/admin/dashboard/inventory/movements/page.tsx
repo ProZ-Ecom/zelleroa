@@ -13,7 +13,7 @@ import { Input } from "@/components/ui/input";
 import { ClearFiltersButton } from "@/components/common/clear-filters-button";
 import { ExportButton } from "@/components/common/export-button";
 import { exportDataToCsv } from "@/lib/export-csv";
-import { MovementTypeBadge, SignedQuantity, VariantLabel } from "@/features/inventory/components/StockBadges";
+import { MOVEMENT_LABELS, MovementTypeBadge, SignedQuantity, VariantLabel } from "@/features/inventory/components/StockBadges";
 import { useStockMovements } from "@/features/inventory/hooks/use-stock";
 import { formatDateTime } from "@/lib/utils";
 import type { MovementRow, MovementType } from "@/features/inventory/types/stock";
@@ -25,6 +25,8 @@ const TYPES: { value: MovementType | ""; label: string }[] = [
   { value: "RETURN", label: "Return" },
   { value: "REPLACEMENT", label: "Replacement" },
   { value: "ADJUSTMENT", label: "Adjustment" },
+  { value: "PURCHASE_RETURN", label: "Purchase return" },
+  { value: "DAMAGE", label: "Damage" },
 ];
 
 const columns: ColumnDef<MovementRow>[] = [
@@ -57,7 +59,7 @@ const columns: ColumnDef<MovementRow>[] = [
   {
     id: "type",
     header: "Type",
-    accessorFn: (row) => (row.movementType ? row.movementType.charAt(0) + row.movementType.slice(1).toLowerCase() : "Legacy"),
+    accessorFn: (row) => (row.movementType ? MOVEMENT_LABELS[row.movementType] : "Legacy"),
     cell: ({ row }) => <MovementTypeBadge type={row.original.movementType} />,
   },
   {
@@ -140,8 +142,8 @@ function MovementsContent() {
             : "Every change to your stock, with the level before and after."
         }
       />
-      <AdminContent className="flex-1 min-h-0 overflow-hidden">
-        <div className="flex h-full flex-col overflow-hidden py-1">
+      <AdminContent className="flex-1 min-h-0">
+        <div className="flex h-full flex-col py-1">
           <div className="flex-shrink-0 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <div className="flex flex-1 flex-col gap-3 lg:flex-row lg:items-center flex-wrap">
               <SearchInput
@@ -224,7 +226,7 @@ function MovementsContent() {
             />
           </div>
 
-          <div className="mt-6 flex-1 min-h-0 overflow-hidden flex flex-col">
+          <div className="mt-6 flex-1 min-h-0 flex flex-col">
             {isLoading && !data ? (
               <AdminTableSkeleton />
             ) : (

@@ -82,9 +82,7 @@ export function usePincodeLookup() {
         const options: PostOfficeDropdownOption[] = result.postOffices.map((po) => ({
           value: po.name,
           label: po.name,
-          description: po.branchType
-            ? `${po.branchType}${po.deliveryStatus ? ` • ${po.deliveryStatus}` : ""}`
-            : undefined,
+          description: po.branchType || undefined,
         }));
 
         setPostOffices(options);

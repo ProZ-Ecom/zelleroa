@@ -10,7 +10,7 @@ import {
   generateAdminVariants,
   generateAdminVariantsFromItem,
 } from "../api/get-variants";
-import type { BulkEditVariantsInput, GenerateVariantsInput } from "../types";
+import type { BulkEditVariantsInput, GenerateVariantsRequest } from "../types";
 
 export function useCreateVariant() {
   const queryClient = useQueryClient();
@@ -74,7 +74,7 @@ export function useGenerateVariants() {
       itemUuid,
     }: {
       productUuid: string;
-      data: GenerateVariantsInput;
+      data: GenerateVariantsRequest;
       itemUuid?: string;
     }) => generateAdminVariants(productUuid, data, itemUuid),
     onSuccess: () => {
@@ -94,7 +94,7 @@ export function useGenerateVariantsFromItem() {
     }: {
       productUuid: string;
       itemUuid: string;
-      data: { unitId: string; defaultPrice?: number; defaultStock?: number; activate?: boolean };
+      data: { unitId: string; defaultPrice?: number; activate?: boolean };
     }) => generateAdminVariantsFromItem(productUuid, itemUuid, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: variantKeys.all });

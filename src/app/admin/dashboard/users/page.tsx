@@ -24,6 +24,8 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { FormModal } from "@/components/common/FormModal";
 import { ExportButton } from "@/components/common/export-button";
 import { exportDataToCsv } from "@/lib/export-csv";
+import { formatDate } from "@/lib/utils";
+import { useRoles } from "@/features/roles/hooks";
 import { SearchInput } from "@/components/ui/search-input";
 import { Plus, Pencil, Trash2, KeyRound, RotateCcw } from "lucide-react";
 import { z } from "zod";
@@ -36,6 +38,7 @@ import {
 } from "@/features/users/validations/user.schema";
 import type { ColumnDef } from "@tanstack/react-table";
 import type { UserListItem } from "@/features/users/types";
+import { CanAct } from "@/features/access";
 
 type ModalMode = "create" | "edit" | "resetPassword" | null;
 
@@ -73,6 +76,25 @@ export default function AdminUsersPage() {
   const [page, setPage] = useState(1);
 const [pageSize, setPageSize] = useState(20);
 const { data, isLoading, error, refetch } = useUsers({ page, limit: pageSize });
+
+  // Every role the admin has created is assignable here, grouped by the area it belongs to,
+  // so a new back-office role can be given to a user without looking its id up in the database.
+  const { data: rolesResult, isLoading: rolesLoading } = useRoles({ page: 1, limit: 100 });
+  const roleOptions = useMemo(() => {
+    const all = rolesResult?.data ?? [];
+    return (
+      [
+        { label: "Admin panel", scope: "ADMIN" },
+        { label: "Sales partner", scope: "AGENT" },
+        { label: "Customer", scope: "CUSTOMER" },
+      ] as const
+    )
+      .map(({ label, scope }) => ({
+        label,
+        roles: all.filter((role) => (role.scope ?? "CUSTOMER") === scope),
+      }))
+      .filter((group) => group.roles.length > 0);
+  }, [rolesResult]);
   const createMutation = useCreateUser();
   const updateMutation = useUpdateUser();
   const deleteMutation = useDeleteUser();
@@ -161,7 +183,7 @@ const { data, isLoading, error, refetch } = useUsers({ page, limit: pageSize });
         email: selectedUser.email ?? "",
         password: "",
         phone: selectedUser.phone ?? "",
-        roleId: selectedUser.roleId,
+        roleId: selectedUser.roleId ? Number(selectedUser.roleId) : undefined,
         status: (selectedUser.status as "active" | "inactive" | "banned") || "active",
       });
     } else if (modalMode === "create") {
@@ -277,28 +299,26 @@ const { data, isLoading, error, refetch } = useUsers({ page, limit: pageSize });
       accessorKey: "createdAt",
       header: "Joined",
       cell: ({ row }) =>
-        new Date(row.original.createdAt).toLocaleDateString("en-IN", {
-          year: "numeric",
-          month: "short",
-          day: "numeric",
-        }),
+        formatDate(row.original.createdAt),
     },
     {
       id: "actions",
       header: "Actions",
       cell: ({ row }) => (
         <div className="flex items-center justify-center gap-1.5">
-          <Button
-            variant="ghost"
-            size="icon"
-            title="Edit"
-            onClick={() => {
-              setSelectedUser(row.original);
-              setModalMode("edit");
-            }}
-          >
-            <Pencil className="h-4 w-4" />
-          </Button>
+          <CanAct action="UPDATE">
+            <Button
+              variant="ghost"
+              size="icon"
+              title="Edit"
+              onClick={() => {
+                setSelectedUser(row.original);
+                setModalMode("edit");
+              }}
+            >
+              <Pencil className="h-4 w-4" />
+            </Button>
+          </CanAct>
           <Button
             variant="ghost"
             size="icon"
@@ -310,14 +330,16 @@ const { data, isLoading, error, refetch } = useUsers({ page, limit: pageSize });
           >
             <KeyRound className="h-4 w-4" />
           </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            title="Delete"
-            onClick={() => setDeleteId(row.original.id)}
-          >
-            <Trash2 className="h-4 w-4 text-error-600" />
-          </Button>
+          <CanAct action="DELETE">
+            <Button
+              variant="ghost"
+              size="icon"
+              title="Delete"
+              onClick={() => setDeleteId(row.original.id)}
+            >
+              <Trash2 className="h-4 w-4 text-error-600" />
+            </Button>
+          </CanAct>
         </div>
       ),
     },
@@ -336,14 +358,40 @@ const { data, isLoading, error, refetch } = useUsers({ page, limit: pageSize });
         title="Users"
         description="Manage user accounts and permissions"
         actions={
-          <Button variant="gradient" onClick={() => setModalMode("create")}>
-            <Plus className="mr-2 h-4 w-4" />
-            Add User
-          </Button>
+          <div className="flex items-center gap-2">
+            <ExportButton
+              onClick={() =>
+                exportDataToCsv(
+                  users,
+                  "users",
+                  [
+                    { header: "Name", accessor: (u) => u.name },
+                    { header: "Email", accessor: (u) => u.email || "-" },
+                    {
+                      header: "Phone",
+                      accessor: (u) => (u.phone ? u.phone.replace(/^\+91/, "") : "-"),
+                    },
+                    { header: "Role", accessor: (u) => u.roleName || "-" },
+                    { header: "Status", accessor: (u) => u.status || "-" },
+                  ]
+                )
+              }
+              disabled={!users.length}
+            />
+            <CanAct action="CREATE">
+              <Button
+                onClick={() => setModalMode("create")}
+                className="h-11 rounded-xl bg-stone-900 hover:bg-stone-800 text-[#D4AF37] border border-[#D4AF37]/30 shadow-xs px-5 text-sm font-semibold transition-colors"
+              >
+                <Plus className="mr-2 h-4 w-4 text-[#D4AF37]" />
+                Add User
+              </Button>
+            </CanAct>
+          </div>
         }
       />
 
-      <AdminContent className="flex-1 min-h-0 overflow-hidden mt-4">
+      <AdminContent className="flex-1 min-h-0 mt-4">
         <div className="flex-1 min-h-0 overflow-hidden flex flex-col rounded-2xl border border-neutral-200 bg-white shadow-xs">
           <DataTable
             columns={columns}
@@ -457,14 +505,24 @@ const { data, isLoading, error, refetch } = useUsers({ page, limit: pageSize });
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Role ID
+                Role
               </label>
-              <input
+              <select
                 {...register("roleId", { valueAsNumber: true })}
-                type="number"
                 className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
-                placeholder="1"
-              />
+                disabled={rolesLoading}
+              >
+                <option value="">{rolesLoading ? "Loading roles..." : "Select a role"}</option>
+                {roleOptions.map(({ label, roles: scopeRoles }) => (
+                  <optgroup key={label} label={label}>
+                    {scopeRoles.map((role) => (
+                      <option key={role.id} value={Number(role.id)}>
+                        {role.name}
+                      </option>
+                    ))}
+                  </optgroup>
+                ))}
+              </select>
               {errors.roleId && (
                 <p className="mt-1 text-xs text-red-500 font-medium">{errors.roleId.message}</p>
               )}

@@ -28,6 +28,7 @@ import { Upload, Plus, Pencil, Trash2 } from "lucide-react";
 import type { ColumnDef } from "@tanstack/react-table";
 import type { AdminGstRateResponse } from "@/features/gst-rates/types";
 import { GstRateForm } from "@/features/gst-rates/components/GstRateForm";
+import { CanAct } from "@/features/access";
 
 export default function AdminGstRatesPage() {
   const [search, setSearch] = useState("");
@@ -148,8 +149,8 @@ export default function AdminGstRatesPage() {
         description="Manage GST rates for products."
       />
 
-      <AdminContent className="flex-1 min-h-0 overflow-hidden">
-        <div className="flex h-full flex-col overflow-hidden bg-[var(--color-background)] py-1 rounded-2xl">
+      <AdminContent className="flex-1 min-h-0">
+        <div className="flex h-full flex-col bg-[var(--color-background)] py-1 rounded-2xl">
           <div className="flex-shrink-0 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <SearchInput
               placeholder="Search GST rates..."
@@ -161,6 +162,21 @@ export default function AdminGstRatesPage() {
               className="w-full max-w-md"
             />
             <div className="flex items-center gap-2">
+              <ExportButton
+                onClick={() =>
+                  exportDataToCsv(
+                    gstRates,
+                    "gst-rates",
+                    [
+                      { header: "GST Name", accessor: (g) => g.name },
+                      { header: "CGST %", accessor: (g) => `${g.cgstPercent}%` },
+                      { header: "SGST %", accessor: (g) => `${g.sgstPercent}%` },
+                      { header: "IGST %", accessor: (g) => `${g.igstPercent}%` },
+                    ]
+                  )
+                }
+                disabled={!gstRates.length}
+              />
               <Button
                 variant="outline"
                 onClick={() => setIsImportOpen(true)}
@@ -170,17 +186,19 @@ export default function AdminGstRatesPage() {
                 Import
               </Button>
 
-            <Button
-              onClick={() => setIsCreateOpen(true)}
-              className="h-11 rounded-xl bg-theme-primary hover:bg-theme-primary-hover px-5 text-sm font-semibold text-white transition-colors"
-            >
-              <Plus className="mr-2 h-4 w-4" />
-              Add GST Rate
-            </Button>
+              <CanAct action="CREATE">
+                <Button
+                  onClick={() => setIsCreateOpen(true)}
+                  className="h-11 rounded-xl bg-stone-900 hover:bg-stone-800 text-[#D4AF37] border border-[#D4AF37]/30 shadow-xs px-5 text-sm font-semibold transition-colors"
+                >
+                  <Plus className="mr-2 h-4 w-4 text-[#D4AF37]" />
+                  Add GST Rate
+                </Button>
+              </CanAct>
             </div>
           </div>
 
-          <div className="mt-6 flex-1 min-h-0 overflow-hidden flex flex-col">
+          <div className="mt-6 flex-1 min-h-0 flex flex-col">
             <DataTable
               columns={columns}
               data={gstRates}

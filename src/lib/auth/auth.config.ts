@@ -15,6 +15,7 @@ export const authConfig = {
       if (user) {
         token.id = user.id;
         token.role = (user as { role?: string }).role;
+        token.scope = (user as { scope?: string }).scope;
         token.phone = (user as { phone?: string | null }).phone ?? null;
         token.status = (user as { status?: string }).status;
       }
@@ -24,6 +25,7 @@ export const authConfig = {
       if (session.user) {
         session.user.id = token.id as string;
         session.user.role = token.role as string;
+        session.user.scope = token.scope as string | undefined;
         session.user.phone = (token.phone as string | null) ?? null;
         session.user.status = token.status as string;
       }

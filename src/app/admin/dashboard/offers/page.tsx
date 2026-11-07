@@ -46,6 +46,7 @@ import type {
   OfferStatusFilter,
   OfferType,
 } from "@/features/offers/types";
+import { CanAct } from "@/features/access";
 
 function formatDate(value: string | null): string {
   if (!value) return "—";
@@ -346,18 +347,20 @@ export default function AdminOffersPage() {
             >
               <Eye className="h-4 w-4" />
             </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => {
-                setFormError(null);
-                setEditingOffer(offer);
-              }}
-              className="h-8 w-8 text-neutral-500 hover:bg-neutral-100 hover:text-neutral-900"
-              title="Edit offer"
-            >
-              <Pencil className="h-4 w-4" />
-            </Button>
+            <CanAct action="UPDATE">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => {
+                  setFormError(null);
+                  setEditingOffer(offer);
+                }}
+                className="h-8 w-8 text-neutral-500 hover:bg-neutral-100 hover:text-neutral-900"
+                title="Edit offer"
+              >
+                <Pencil className="h-4 w-4" />
+              </Button>
+            </CanAct>
             <Button
               variant="ghost"
               size="icon"
@@ -371,15 +374,17 @@ export default function AdminOffersPage() {
             >
               <Power className="h-4 w-4" />
             </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setDeleteTarget(offer)}
-              className="h-8 w-8 text-[var(--color-error-500)] hover:bg-[var(--color-error-50)] hover:text-[var(--color-error-700)]"
-              title="Delete offer"
-            >
-              <Trash2 className="h-4 w-4" />
-            </Button>
+            <CanAct action="DELETE">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setDeleteTarget(offer)}
+                className="h-8 w-8 text-[var(--color-error-500)] hover:bg-[var(--color-error-50)] hover:text-[var(--color-error-700)]"
+                title="Delete offer"
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </CanAct>
           </div>
         );
       },
@@ -394,27 +399,68 @@ export default function AdminOffersPage() {
     return <ErrorState message="Failed to load offers" onRetry={() => refetch()} />;
   }
 
+  const handleExport = () => {
+    exportDataToCsv(
+      offers,
+      "offers",
+      [
+        { header: "Offer Name", accessor: (o) => o.name },
+        { header: "Offer Code", accessor: (o) => o.code || "—" },
+        { header: "Level", accessor: (o) => OFFER_LEVEL_LABELS[o.level] || o.level },
+        {
+          header: "Target (Product / Item)",
+          accessor: (o) =>
+            o.level === "product"
+              ? o.products.map((p) => p.name).join("; ") || "—"
+              : o.items.map((i) => i.label || i.sku).join("; ") || "—",
+        },
+        {
+          header: "Category",
+          accessor: (o) =>
+            o.level === "product"
+              ? Array.from(new Set(o.products.map((p) => p.categoryName).filter(Boolean))).join("; ") || "—"
+              : Array.from(new Set(o.items.map((i) => i.productName).filter(Boolean))).join("; ") || "—",
+        },
+        { header: "Type", accessor: (o) => OFFER_TYPE_LABELS[o.type] || o.type },
+        { header: "Discount", accessor: (o) => formatOfferDiscount(o) },
+        { header: "Starts At", accessor: (o) => formatDate(o.startsAt) },
+        { header: "Ends At", accessor: (o) => formatDate(o.endsAt) },
+        { header: "Priority", accessor: (o) => o.priority },
+        { header: "Status", accessor: (o) => OFFER_STATUS_LABELS[o.status] || o.status },
+        { header: "Created Date", accessor: (o) => formatDate(o.createdAt) },
+      ]
+    );
+  };
+
   return (
     <div className="flex flex-1 min-h-0 flex-col">
       <AdminPageHeader
         title="Offers"
         description="Create product-wise and item-wise offers, and control which one wins when several apply."
         actions={
-          <Button
-            onClick={() => {
-              setFormError(null);
-              setIsCreateOpen(true);
-            }}
-            className="h-11 rounded-xl bg-theme-primary hover:bg-theme-primary-hover px-5 text-sm font-semibold text-white transition-colors"
-          >
-            <Plus className="mr-2 h-4 w-4" />
-            Create Offer
-          </Button>
+          <div className="flex items-center gap-2">
+            <ExportButton
+              onClick={handleExport}
+              disabled={!offers.length}
+            />
+            <CanAct action="CREATE">
+              <Button
+                onClick={() => {
+                  setFormError(null);
+                  setIsCreateOpen(true);
+                }}
+                className="h-11 rounded-xl bg-stone-900 hover:bg-stone-800 text-[#D4AF37] border border-[#D4AF37]/30 shadow-xs px-5 text-sm font-semibold transition-colors"
+              >
+                <Plus className="mr-2 h-4 w-4 text-[#D4AF37]" />
+                Create Offer
+              </Button>
+            </CanAct>
+          </div>
         }
       />
 
-      <AdminContent className="flex-1 min-h-0 overflow-hidden">
-        <div className="flex h-full flex-col overflow-hidden rounded-2xl bg-[var(--color-background)] py-1">
+      <AdminContent className="flex-1 min-h-0">
+        <div className="flex h-full flex-col rounded-2xl bg-[var(--color-background)] py-1">
           {/* Filters */}
           <div className="flex-shrink-0 space-y-3">
             <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
@@ -509,7 +555,7 @@ export default function AdminOffersPage() {
           </div>
 
           {/* Table */}
-          <div className="mt-6 flex min-h-0 flex-1 flex-col overflow-hidden">
+          <div className="mt-6 flex min-h-0 flex-1 flex-col">
             <DataTable
               columns={columns}
               data={offers}

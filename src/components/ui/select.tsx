@@ -77,11 +77,11 @@ const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
     }, [isOpen]);
 
     const [internalValue, setInternalValue] = React.useState<string>(
-      (controlledValue !== undefined
-        ? controlledValue
-        : defaultValue !== undefined
-        ? defaultValue
-        : "") as string
+      controlledValue !== undefined && controlledValue !== null
+        ? String(controlledValue)
+        : defaultValue !== undefined && defaultValue !== null
+        ? String(defaultValue)
+        : ""
     );
     const [searchQuery, setSearchQuery] = React.useState("");
     const [menuStyle, setMenuStyle] = React.useState<React.CSSProperties>({});
@@ -100,7 +100,7 @@ const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
     // Sync controlled value if passed
     React.useEffect(() => {
       if (controlledValue !== undefined) {
-        setInternalValue(String(controlledValue));
+        setInternalValue(controlledValue === null ? "" : String(controlledValue));
       }
     }, [controlledValue]);
 
@@ -369,7 +369,7 @@ const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
           }}
           name={name}
           id={id}
-          value={internalValue}
+          value={internalValue ?? ""}
           onChange={onChange || (() => {})}
           disabled={disabled}
           tabIndex={-1}

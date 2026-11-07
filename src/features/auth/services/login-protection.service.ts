@@ -153,7 +153,7 @@ export async function verifyCredentialsWithProtection(rawEmail: string, password
 
     await bcrypt.compare(password, DUMMY_HASH);
     shadowSet(shadowKey, afterFailure(state, now));
-    throw ApiError.unauthorized(INVALID_CREDENTIALS_MESSAGE);
+    throw new ApiError("Invalid email address", 401, undefined, true, { field: "email" });
   }
 
   // Admin block/deactivation is permanent and reported as before.
@@ -225,7 +225,6 @@ export async function verifyCredentialsWithProtection(rawEmail: string, password
     });
   }
 
-  // The response to the failing attempt itself stays generic; the lock/throttle
-  // is reported on the next attempt.
-  throw ApiError.unauthorized(INVALID_CREDENTIALS_MESSAGE);
+  // Wrong password
+  throw new ApiError("Incorrect password", 401, undefined, true, { field: "password" });
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { Download, FileSpreadsheet, Upload } from "lucide-react";
+import { AlertTriangle, Download, FileSpreadsheet, Upload } from "lucide-react";
 import { readSheet } from "read-excel-file/browser";
 import writeExcelFile from "write-excel-file/browser";
 import type { ZodType } from "zod";
@@ -41,6 +41,12 @@ interface ExcelImportDialogProps {
   onImported: () => void;
   /** Extra guidance shown under the sample button, e.g. allowed values. */
   hint?: string;
+  /**
+   * Shown as a highlighted notice before the upload steps and again in the result summary.
+   * Use it where an image belongs on the record but cannot travel in a spreadsheet, so the
+   * user knows the import leaves something for them to finish.
+   */
+  imageNotice?: string;
 }
 
 type RowStatus = "valid" | "invalid" | "created" | "failed";
@@ -70,6 +76,7 @@ export function ExcelImportDialog({
   createRow,
   onImported,
   hint,
+  imageNotice,
 }: ExcelImportDialogProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [fileName, setFileName] = useState("");
@@ -216,6 +223,13 @@ export function ExcelImportDialog({
       }
     >
       <div className="space-y-4">
+        {imageNotice && (
+          <div className="flex gap-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+            <p>{imageNotice}</p>
+          </div>
+        )}
+
         <div className="flex flex-col gap-3 rounded-xl border border-dashed border-[var(--color-neutral-300)] p-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="text-sm text-[var(--color-neutral-600)]">
             <p className="font-medium text-[var(--color-neutral-900)]">1. Download the sample file</p>
@@ -275,6 +289,12 @@ export function ExcelImportDialog({
                 ? `${createdCount} added, ${failedCount} not added`
                 : `${validCount} ready to import, ${failedCount} with errors (skipped)`}
             </p>
+            {finished && imageNotice && createdCount > 0 && (
+              <div className="flex gap-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+                <p>{imageNotice}</p>
+              </div>
+            )}
             <div className="max-h-72 overflow-auto rounded-xl border border-[var(--color-neutral-200)]">
               <table className="w-full text-left text-sm">
                 <thead className="sticky top-0 bg-[var(--color-neutral-50)] text-xs text-[var(--color-neutral-600)]">

@@ -1,7 +1,7 @@
 import NextAuth from "next-auth";
 import { NextResponse } from "next/server";
 import { authConfig } from "@/lib/auth/auth.config";
-import { getRoleHome } from "@/lib/auth/role-routes";
+import { getRoleHome, resolveRoleScope } from "@/lib/auth/role-routes";
 import { referralLandingRedirect } from "@/lib/referral/cookie";
 
 const { auth } = NextAuth(authConfig);
@@ -9,7 +9,7 @@ const { auth } = NextAuth(authConfig);
 function parseJwtPayload(
   token?: string,
   checkExp: boolean = true
-): { role?: string; userId?: string; email?: string; exp?: number } | null {
+): { role?: string; scope?: string; userId?: string; email?: string; exp?: number } | null {
   if (!token) return null;
   try {
     const parts = token.split(".");
@@ -71,6 +71,17 @@ export default auth(async (req) => {
     rawAccessToken?.role ||
     (nextAuthUser as { role?: string })?.role;
 
+  // Admin access follows the role's scope, not its name, so roles an admin creates
+  // (e.g. "Warehouse Manager") can reach /admin. Tokens issued before `roles.scope`
+  // existed carry no scope, so fall back to the name for those.
+  const userScope = resolveRoleScope(
+    validAccessToken?.scope ||
+      rawAccessToken?.scope ||
+      (nextAuthUser as { scope?: string })?.scope,
+    userRole
+  );
+  const home = () => getRoleHome(userRole, userScope);
+
   // Authenticated areas and the auth pages must never be served from the
   // browser's back/forward cache after logout.
   const isAuthSensitivePath =
@@ -85,7 +96,7 @@ export default auth(async (req) => {
     return res;
   };
 
-  const isStaffRole = userRole === "ADMIN" || userRole === "STAFF";
+  const isStaffRole = userScope === "ADMIN";
 
   const redirectTo = (path: string, search = "") => {
     const url = req.nextUrl.clone();
@@ -104,20 +115,20 @@ export default auth(async (req) => {
     if (pathname === "/admin/login") {
       if (isAuthenticated && isStaffRole) return redirectTo("/admin/dashboard");
       // A signed-in customer/agent has no business on the admin login screen.
-      if (isAuthenticated && userRole) return redirectTo(getRoleHome(userRole));
+      if (isAuthenticated && userRole) return redirectTo(home());
       return applyCookies(NextResponse.next());
     }
 
     if (!isAuthenticated) return redirectTo("/admin/login");
     // Signed in, but not as admin/staff: send them to their own dashboard.
-    if (!isStaffRole) return redirectTo(getRoleHome(userRole));
+    if (!isStaffRole) return redirectTo(home());
 
     return applyCookies(NextResponse.next());
   }
 
   if (pathname.startsWith("/agent")) {
     if (!isAuthenticated) return toLogin();
-    if (userRole !== "AGENT") return redirectTo(getRoleHome(userRole));
+    if (userScope !== "AGENT") return redirectTo(home());
     return applyCookies(NextResponse.next());
   }
 
@@ -132,20 +143,20 @@ export default auth(async (req) => {
 
   if (isAccountArea || isPurchaseArea) {
     if (!isAuthenticated) return toLogin();
-    if (userRole === "CUSTOMER" || (isPurchaseArea && userRole === "AGENT")) {
+    if (userScope === "CUSTOMER" || (isPurchaseArea && userScope === "AGENT")) {
       // Legacy /profile URL lives on as /account/dashboard.
       if (pathname === "/profile") {
         return redirectTo("/account/dashboard", req.nextUrl.search);
       }
       return applyCookies(NextResponse.next());
     }
-    if (userRole) return redirectTo(getRoleHome(userRole));
+    if (userRole) return redirectTo(home());
     // Role unknown (e.g. expired access token, refresh pending): let the page decide.
     return applyCookies(NextResponse.next());
   }
 
-  if ((pathname === "/login" || pathname === "/register") && isAuthenticated) {
-    return redirectTo(getRoleHome(userRole));
+  if ((pathname === "/login" || pathname === "/register") && (validAccessToken || validRefreshToken)) {
+    return redirectTo(home());
   }
 
 

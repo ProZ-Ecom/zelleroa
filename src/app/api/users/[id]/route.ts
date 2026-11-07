@@ -14,7 +14,7 @@ export const GET = createApiHandler(
   },
   {
     requireAuth: true,
-    requiredRole: ["ADMIN"],
+    requiredRole: ["ADMIN", "STAFF"],
   }
 );
 
@@ -31,7 +31,7 @@ export const PUT = createApiHandler(
   {
     method: "PUT",
     requireAuth: true,
-    requiredRole: ["ADMIN"],
+    requiredRole: ["ADMIN", "STAFF"],
     bodySchema: updateUserSchema,
   }
 );
@@ -48,6 +48,6 @@ export const DELETE = createApiHandler(
   {
     method: "DELETE",
     requireAuth: true,
-    requiredRole: ["ADMIN"],
+    requiredRole: ["ADMIN", "STAFF"],
   }
 );

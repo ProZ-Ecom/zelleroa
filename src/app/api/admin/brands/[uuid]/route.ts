@@ -1,5 +1,5 @@
 import { createApiHandler } from "@/lib/api/api-handler";
-import { apiSuccess } from "@/lib/api/api-response";
+import { apiSuccess} from "@/lib/api/api-response";
 import { ApiError } from "@/lib/api/api-error";
 import { brandService } from "@/features/brands/services/brand.service";
 import {
@@ -21,7 +21,7 @@ export const GET = createApiHandler(
   },
   {
     requireAuth: true,
-    requiredRole: ["ADMIN"],
+    requiredRole: ["ADMIN", "STAFF"],
   }
 );
 
@@ -43,7 +43,7 @@ export const PUT = createApiHandler(
   {
     method: "PUT",
     requireAuth: true,
-    requiredRole: ["ADMIN"],
+    requiredRole: ["ADMIN", "STAFF"],
     bodySchema: updateAdminBrandSchema,
   }
 );
@@ -65,6 +65,6 @@ export const DELETE = createApiHandler(
   {
     method: "DELETE",
     requireAuth: true,
-    requiredRole: ["ADMIN"],
+    requiredRole: ["ADMIN", "STAFF"],
   }
 );

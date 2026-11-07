@@ -22,6 +22,8 @@ export const createStaffSchema = z
       .string({ message: "Password is required" })
       .min(6, "Password must be at least 6 characters")
       .max(100, "Password cannot exceed 100 characters"),
+    /** Any ADMIN-scope role except the owner roles; defaults to the built-in STAFF role. */
+    roleId: z.coerce.number().int().positive("Please select a valid role").optional(),
     isActive: z.boolean().optional().default(true),
   })
   .strict();
@@ -50,6 +52,7 @@ export const updateStaffSchema = z
       .min(6, "Password must be at least 6 characters")
       .max(100, "Password cannot exceed 100 characters")
       .optional(),
+    roleId: z.coerce.number().int().positive("Please select a valid role").optional(),
     isActive: z.boolean().optional(),
   })
   .strict();

@@ -14,7 +14,7 @@ import type {
   VariantUnitPriceResponse,
   CreateVariantUnitPriceInput,
   UpdateVariantUnitPriceInput,
-  GenerateVariantsInput,
+  GenerateVariantsRequest,
   GenerateVariantsResponse,
 } from "../types";
 
@@ -163,7 +163,7 @@ export async function updateAdminVariant(
 
 export async function generateAdminVariants(
   productUuid: string,
-  data: GenerateVariantsInput,
+  data: GenerateVariantsRequest,
   itemUuid?: string
 ) {
   const path = itemUuid
@@ -177,7 +177,7 @@ export async function generateAdminVariants(
 export async function generateAdminVariantsFromItem(
   productUuid: string,
   itemUuid: string,
-  data: { unitId: string; defaultPrice?: number; defaultStock?: number; activate?: boolean }
+  data: { unitId: string; defaultPrice?: number; activate?: boolean }
 ) {
   return apiClient.post<GenerateVariantsResponse>(
     `/api/admin/products/${productUuid}/items/${itemUuid}/variants/generate-from-attributes`,

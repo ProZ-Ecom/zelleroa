@@ -51,6 +51,7 @@ function FormSelect({
           )}
           <Select
             {...field}
+            value={field.value ?? ""}
             options={options}
             placeholder={placeholder}
             searchable={searchable}

@@ -7,6 +7,9 @@ import { getReturnWindow, type ReturnWindow } from "../lib/policy";
 import { requestOrderItemSelect } from "../lib/includes";
 import { summarizeOrderItem } from "../lib/summary";
 
+/** Shown for the bought SKU when it carries no size attribute of its own. */
+const SAME_ITEM_LABEL = "Same item";
+
 export async function resolveCustomerId(sessionUserId: string): Promise<bigint> {
   const user = await userRepository.findById(sessionUserId);
   if (!user || !user.internalId) throw ApiError.unauthorized("User not found");
@@ -19,7 +22,14 @@ export async function resolveCustomerId(sessionUserId: string): Promise<bigint> 
  */
 export async function loadOwnedOrder(customerId: bigint, orderUuid: string) {
   const order = await db.order.findFirst({
-    where: { uuid: orderUuid, is_active: true },
+    where: {
+      OR: [
+        { uuid: orderUuid },
+        { orderNumber: orderUuid },
+        ...(/^\d+$/.test(orderUuid) ? [{ id: BigInt(orderUuid) }] : []),
+      ],
+      is_active: true,
+    },
     include: {
       items: {
         where: { is_active: true },
@@ -46,7 +56,7 @@ export function assertOrderEligible(order: Parameters<typeof resolveDeliveredAt>
   if (!window.eligible) {
     throw ApiError.badRequest(
       window.code === "WINDOW_EXPIRED"
-        ? "The return period for this order has expired."
+        ? "The return period for this order has expired. Returns are only allowed within 3 days of delivery."
         : window.message
     );
   }
@@ -66,15 +76,24 @@ export const eligibilityService = {
       ? await findItemConflicts(db, order.items.map((i) => i.id))
       : [];
 
-    // Sizes of the same colour variant that are in stock, per item.
+    // Sizes of the same colour variant that are in stock, per item. The SKU the
+    // customer actually bought is always included - even when it carries no size
+    // attribute - so a damaged or wrong-product delivery can be swapped for the
+    // very same item.
     const variantIds = [...new Set(order.items.map((i) => i.variantId))];
+    const orderedUnitPriceIds = [
+      ...new Set(order.items.map((i) => i.variantUnitPriceId).filter((id): id is bigint => id != null)),
+    ];
     const sizeRows = orderEligible
       ? await db.variantUnitPrice.findMany({
           where: {
             variant_id: { in: variantIds },
             isActive: true,
             deleted_at: null,
-            attribute_value_id: { not: null },
+            OR: [
+              { attribute_value_id: { not: null } },
+              ...(orderedUnitPriceIds.length ? [{ id: { in: orderedUnitPriceIds } }] : []),
+            ],
           },
           select: {
             id: true,
@@ -95,12 +114,15 @@ export const eligibilityService = {
             0,
             (r.inventories?.quantity_available ?? 0) - (r.inventories?.quantity_reserved ?? 0)
           );
+          const isCurrent = r.id === oi.variantUnitPriceId;
           return {
             id: r.uuid,
-            label: r.attribute_value?.value ?? "",
+            // A sizeless SKU has no attribute value to show, so the bought item
+            // is offered as "Same item"; any other unlabelled row is dropped.
+            label: r.attribute_value?.value?.trim() || (isCurrent ? SAME_ITEM_LABEL : ""),
             available,
             inStock: available >= oi.quantity,
-            isCurrent: r.id === oi.variantUnitPriceId,
+            isCurrent,
           };
         })
         .filter((r) => r.label && r.inStock);

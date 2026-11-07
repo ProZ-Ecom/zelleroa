@@ -1,3 +1,8 @@
+export interface AdminTagProductRef {
+  id: string; // Product public UUID
+  name: string;
+}
+
 export interface AdminTagResponse {
   id: string;
   name: string;
@@ -5,13 +10,10 @@ export interface AdminTagResponse {
   isActive: boolean;
   /** Active, non-deleted products currently carrying this tag. */
   productCount: number;
+  products?: AdminTagProductRef[];
+  productNames?: string;
   createdAt: Date;
   updatedAt: Date;
-}
-
-export interface AdminTagProductRef {
-  id: string; // Product public UUID
-  name: string;
 }
 
 export interface AdminTagDetailResponse extends AdminTagResponse {

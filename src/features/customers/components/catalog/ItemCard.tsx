@@ -1,8 +1,7 @@
 "use client";
 
-import { useState } from "react";
 import Link from "next/link";
-import { Star, Plus } from "lucide-react";
+import { Star } from "lucide-react";
 import { ProductImage } from "@/components/common/ProductImage";
 import { formatPrice, toTitleCase } from "@/lib/utils";
 import { ItemQuickAdd } from "./ItemQuickAdd";
@@ -90,23 +89,11 @@ export function ItemCard(props: ItemCardProps | CompactItemCardProps) {
   }
 
   const { item, onClick } = props;
-  const [isZooming, setIsZooming] = useState(false);
-  const [mousePos, setMousePos] = useState({ x: 50, y: 50 });
 
   const isOut = item.stockStatus === "out_of_stock";
   const extraColours = item.colors.length - MAX_SWATCHES;
   const displayName = toTitleCase(item.styleName || item.name);
   const subtitle = item.brand?.name ?? item.category?.name ?? "Zellora";
-
-  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
-    const rect = e.currentTarget.getBoundingClientRect();
-    const x = ((e.clientX - rect.left) / rect.width) * 100;
-    const y = ((e.clientY - rect.top) / rect.height) * 100;
-    setMousePos({
-      x: Math.max(0, Math.min(100, x)),
-      y: Math.max(0, Math.min(100, y)),
-    });
-  };
 
   return (
     <div className="group relative flex flex-col overflow-hidden rounded-xl border border-theme-border bg-theme-surface shadow-2xs transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md">
@@ -116,44 +103,14 @@ export function ItemCard(props: ItemCardProps | CompactItemCardProps) {
         onClick={onClick}
         className="flex flex-1 flex-col focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-theme-primary"
       >
-        <div
-          className="relative aspect-[5/4] w-full overflow-hidden bg-theme-surface-alt cursor-zoom-in"
-          onMouseEnter={() => !isOut && setIsZooming(true)}
-          onMouseMove={handleMouseMove}
-          onMouseLeave={() => setIsZooming(false)}
-        >
-          {/* Scanning Magnified Image Layer */}
-          <div
-            className="relative h-full w-full pointer-events-none transition-transform will-change-transform"
-            style={{
-              transformOrigin: `${mousePos.x}% ${mousePos.y}%`,
-              transform: isZooming ? "scale(2.2)" : "scale(1)",
-              transitionDuration: isZooming ? "80ms" : "300ms",
-              transitionTimingFunction: "cubic-bezier(0.16, 1, 0.3, 1)",
-            }}
-          >
-            <ProductImage
-              src={item.image}
-              alt={item.selectedColor ? `${displayName} in ${item.selectedColor.name}` : displayName}
-              fill
-              sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
-              className={`object-cover ${isOut ? "opacity-60 grayscale-[35%]" : ""}`}
-            />
-          </div>
-
-          {/* Scanning Lens Reticle with Plus Symbol */}
-          {isZooming && (
-            <div
-              className="pointer-events-none absolute -translate-x-1/2 -translate-y-1/2 z-20 flex h-10 w-10 items-center justify-center rounded-full border-2 border-white/90 bg-black/25 shadow-lg backdrop-blur-[1px]"
-              style={{
-                left: `${mousePos.x}%`,
-                top: `${mousePos.y}%`,
-                transition: "left 50ms linear, top 50ms linear",
-              }}
-            >
-              <Plus className="h-5 w-5 text-white drop-shadow stroke-[2.5]" />
-            </div>
-          )}
+        <div className="relative aspect-[5/4] w-full overflow-hidden bg-theme-surface-alt">
+          <ProductImage
+            src={item.image}
+            alt={item.selectedColor ? `${displayName} in ${item.selectedColor.name}` : displayName}
+            fill
+            sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
+            className={`object-cover ${isOut ? "opacity-60 grayscale-[35%]" : ""}`}
+          />
 
           <div className="absolute left-2 top-2 z-10 flex flex-col items-start gap-1 pointer-events-none">
             {item.discountPercent > 0 && (

@@ -305,9 +305,38 @@ export const itemService = {
     }
 
     const result = await itemRepository.findAllByStyleId(style.id, { pageSize: 1 });
-    const defaultItem = result.data.find((i) => i.is_default) ?? result.data[0] ?? null;
+    let defaultItem = result.data.find((i) => i.is_default) ?? result.data[0] ?? null;
     if (!defaultItem) {
-      throw ApiError.notFound("This style has no items yet");
+      let defaultSlug = `${style.slug}-item`.substring(0, 220);
+      const existingSlug = await itemRepository.findBySlug(defaultSlug);
+      if (existingSlug) {
+        defaultSlug = `${style.slug}-${Date.now().toString(36)}`.substring(0, 220);
+      }
+
+      let itemSku = style.sku ? `${style.sku}-DEF` : null;
+      if (itemSku) {
+        const existingSku = await itemRepository.findBySku(itemSku);
+        if (existingSku) {
+          itemSku = null;
+        }
+      }
+
+      defaultItem = await itemRepository.create({
+        uuid: crypto.randomUUID(),
+        styleId: style.id,
+        name: style.name,
+        slug: defaultSlug,
+        sku: itemSku,
+        short_description: style.short_description,
+        description: style.description,
+        base_price: style.base_price ?? 0,
+        is_featured: style.is_featured ?? false,
+        is_default: true,
+        isActive: style.isActive ?? true,
+        out_of_stock: style.out_of_stock ?? false,
+        created_by: style.created_by,
+        updated_by: style.updated_by,
+      });
     }
     return defaultItem.uuid;
   },

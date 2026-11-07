@@ -24,14 +24,15 @@ const PRIMARY_TABS: StatusTab[] = [
   { label: "Shipped", href: "/admin/dashboard/orders/shipped", countKey: "shipped" },
   { label: "Out for Delivery", href: "/admin/dashboard/orders/out-for-delivery", countKey: "out_for_delivery" },
   { label: "Delivered", href: "/admin/dashboard/orders/delivered", countKey: "delivered" },
+  // Returns need reviewing on a clock, so this one stays in sight.
+  { label: "Return Requests", href: "/admin/dashboard/orders/returns", countKey: "return_requests" },
 ];
 
 // Exceptions & after-sales — tucked into a menu
 const MORE_TABS: StatusTab[] = [
   { label: "Cancelled", href: "/admin/dashboard/orders/cancelled", countKey: "cancelled" },
   { label: "Returned", href: "/admin/dashboard/orders/returned", countKey: "returned" },
-  { label: "Return Requests", href: "/admin/dashboard/orders/returns" },
-  { label: "Replacement Requests", href: "/admin/dashboard/orders/replacements" },
+  { label: "Replacement Requests", href: "/admin/dashboard/orders/replacements", countKey: "replacement_requests" },
 ];
 
 function Badge({
@@ -48,7 +49,7 @@ function Badge({
       className={cn(
         "inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full text-[10px] font-bold leading-none tabular-nums",
         active
-          ? "bg-white/20 text-white"
+          ? "bg-[#D4AF37]/20 text-[#D4AF37]"
           : warn
           ? "bg-amber-100 text-amber-800"
           : "bg-neutral-100 text-neutral-600"
@@ -105,7 +106,7 @@ export function OrderStatusTabs() {
               className={cn(
                 "inline-flex items-center gap-1.5 whitespace-nowrap rounded-xl px-3 py-1.5 text-xs font-semibold transition-colors",
                 active
-                  ? "bg-secondary-600 text-cream-white shadow-xs"
+                  ? "bg-stone-900 text-[#D4AF37] border border-[#D4AF37]/30 shadow-xs"
                   : "text-neutral-600 hover:bg-cream-200 hover:text-secondary-800"
               )}
             >
@@ -127,7 +128,7 @@ export function OrderStatusTabs() {
           className={cn(
             "inline-flex cursor-pointer items-center gap-1.5 whitespace-nowrap rounded-2xl border px-3.5 py-2 text-xs font-semibold shadow-xs transition-colors",
             activeMore
-              ? "border-secondary-600 bg-secondary-600 text-cream-white"
+              ? "border-[#D4AF37]/30 bg-stone-900 text-[#D4AF37]"
               : "border-cream-border-subtle bg-white text-neutral-600 hover:bg-cream-200 hover:text-secondary-800"
           )}
         >
@@ -139,7 +140,7 @@ export function OrderStatusTabs() {
         {open && (
           <div
             role="menu"
-            className="absolute left-0 top-full z-30 mt-2 w-56 overflow-hidden rounded-xl border border-cream-border-subtle bg-white p-1 shadow-lg"
+            className="absolute right-0 top-full z-50 mt-2 min-w-[240px] w-max overflow-hidden rounded-xl border border-cream-border bg-white p-1.5 shadow-xl"
           >
             {MORE_TABS.map((tab, i) => {
               const active = isActive(tab);
@@ -151,13 +152,13 @@ export function OrderStatusTabs() {
                     role="menuitem"
                     href={tab.href}
                     className={cn(
-                      "flex items-center justify-between rounded-lg px-3 py-2 text-xs font-semibold transition-colors",
+                      "flex items-center justify-between gap-4 rounded-lg px-3 py-2 text-xs font-semibold transition-colors",
                       active
                         ? "bg-secondary-600 text-cream-white"
                         : "text-neutral-700 hover:bg-cream-200 hover:text-secondary-800"
                     )}
                   >
-                    <span>{tab.label}</span>
+                    <span className="whitespace-nowrap">{tab.label}</span>
                     {tab.countKey && <Badge active={active}>{isLoading ? "…" : count ?? 0}</Badge>}
                   </Link>
                 </div>

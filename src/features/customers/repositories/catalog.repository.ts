@@ -118,11 +118,19 @@ const unitPriceListArgs = {
     inventories: {
       select: { quantity_available: true },
     },
-    // The Size leaf: admins split a Color into Sizes by pointing each unit
-    // price row at a Size attribute value (S/M/L/XL). Catalogs that still use
-    // this table for pack sizes leave it null and fall back to `measurement`.
+    // The primary variation value, kept for the one-line size/pack label.
+    // Catalogs that use this table for pack sizes leave it null and fall back
+    // to `measurement`.
     attribute_value: {
       select: { uuid: true, value: true },
+    },
+    // Every variation value this row sells, so a selection across several
+    // attributes (Size + Neck + Sleeve) can resolve back to exactly one row.
+    vup_attribute_values: {
+      include: {
+        product_attributes: { select: { uuid: true, name: true } },
+        attribute_values: { select: { uuid: true, value: true } },
+      },
     },
   },
   orderBy: [{ is_default: "desc" as const }, { createdAt: "asc" as const }],
@@ -137,6 +145,10 @@ type VariantUnitPriceForDto = {
   product_units: { id: bigint; uuid: string | null; name: string; code: string; type: string } | null;
   inventories?: { quantity_available: number } | null;
   attribute_value?: { uuid: string | null; value: string } | null;
+  vup_attribute_values?: Array<{
+    product_attributes: { uuid: string | null; name: string };
+    attribute_values: { uuid: string | null; value: string };
+  }> | null;
 };
 
 function pickDefaultUnitPrice(
@@ -186,6 +198,12 @@ function toVariantListItemDto(
       sizeId: up.attribute_value?.uuid ?? null,
       sizeLabel,
       label: sizeLabel || formatMeasurementLabel(measurement),
+      attributes: (up.vup_attribute_values || []).map((av) => ({
+        attributeId: av.product_attributes.uuid || "",
+        attributeName: av.product_attributes.name,
+        valueId: av.attribute_values.uuid || "",
+        value: av.attribute_values.value,
+      })),
       basePrice,
       sellingPrice: computeSellingPrice(basePrice),
       isDefault: Boolean(up.is_default),

@@ -37,7 +37,7 @@ function Modal({ open, isOpen, onClose, children, title, description, className 
   if (!isModalOpen || !mounted) return null;
 
   return createPortal(
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 overflow-y-auto">
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-4">
       {/* Backdrop with persistent background blur */}
       <div
         className="fixed inset-0 bg-black/60 backdrop-blur-sm transition-all duration-200"
@@ -48,25 +48,27 @@ function Modal({ open, isOpen, onClose, children, title, description, className 
       {/* Modal Dialog Card */}
       <div
         className={cn(
-          "relative z-10 w-full max-w-md rounded-2xl border border-neutral-200 bg-white p-6 shadow-2xl animate-in zoom-in-95 duration-200 transition-all duration-200 ease-out my-auto",
+          "relative z-10 w-full max-w-md rounded-2xl border border-neutral-200 bg-white p-6 shadow-2xl animate-in zoom-in-95 duration-200 transition-all duration-200 ease-out max-h-[90vh] flex flex-col",
           className
         )}
         onClick={(e) => e.stopPropagation()}
       >
         <button
           onClick={onClose}
-          className="absolute right-4 top-4 p-1 rounded-lg text-neutral-400 hover:text-neutral-700 hover:bg-neutral-100 transition-colors cursor-pointer"
+          className="absolute right-4 top-4 z-20 p-1 rounded-lg text-neutral-400 hover:text-neutral-700 hover:bg-neutral-100 transition-colors cursor-pointer"
           aria-label="Close dialog"
         >
           <X className="h-4 w-4" />
         </button>
         {title && (
-          <div className="mb-4">
+          <div className="mb-4 shrink-0">
             <h2 className="text-lg font-bold text-neutral-900 tracking-tight">{title}</h2>
             {description && <p className="mt-1 text-sm text-neutral-500">{description}</p>}
           </div>
         )}
-        {children}
+        <div className="flex-1 overflow-y-auto min-h-0">
+          {children}
+        </div>
       </div>
     </div>,
     document.body

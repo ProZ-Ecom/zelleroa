@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { formatPrice } from "@/lib/utils";
+import { formatPrice, formatDate } from "@/lib/utils";
 
 interface DummyOrder {
   id: string;
@@ -92,11 +92,7 @@ function RecentOrders({ orders }: RecentOrdersProps) {
                   </div>
                 </td>
                 <td className="px-3 py-3 text-[var(--color-neutral-500)]">
-                  {new Date(order.date).toLocaleDateString("en-IN", {
-                    day: "numeric",
-                    month: "short",
-                    year: "numeric",
-                  })}
+                  {formatDate(order.date)}
                 </td>
                 <td className="px-3 py-3 text-right font-semibold text-[var(--color-neutral-900)] tabular-nums">
                   {formatPrice(order.amount)}

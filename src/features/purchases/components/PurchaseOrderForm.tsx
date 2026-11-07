@@ -82,6 +82,8 @@ export function PurchaseOrderForm({ initial, isLoading, submitLabel, mode = "dra
   const searchRef = useRef<HTMLInputElement>(null);
   const [search, setSearch] = useState("");
   const [showResults, setShowResults] = useState(false);
+  const [vendorError, setVendorError] = useState<string | null>(null);
+  const [itemsError, setItemsError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const { data: vendorData } = useVendors({ page: 1, pageSize: 100 });
@@ -95,6 +97,7 @@ export function PurchaseOrderForm({ initial, isLoading, submitLabel, mode = "dra
   const addLine = (o: PurchaseProductOption) => {
     setShowResults(false);
     setSearch("");
+    if (itemsError) setItemsError(null);
     setLines((prev) =>
       prev.some((l) => l.variantUnitPriceId === o.variantUnitPriceId)
         ? prev
@@ -123,27 +126,52 @@ export function PurchaseOrderForm({ initial, isLoading, submitLabel, mode = "dra
       className="space-y-6"
       onSubmit={async (e) => {
         e.preventDefault();
-        if (!vendorId) return setError("Select a vendor");
-        if (lines.length === 0) return setError("Add at least one item");
-        if (lines.some((l) => !Number.isInteger(l.quantity) || l.quantity < 1))
-          return setError("Every quantity must be a whole number of at least 1");
-        if (lines.some((l) => !(l.unitCost >= 0)))
-          return setError("Purchase price cannot be negative");
-        if (!(additionalCharges >= 0)) return setError("Additional charges cannot be negative");
+        setVendorError(null);
+        setItemsError(null);
         setError(null);
-        await onSubmit({
-          vendorId,
-          expectedDate: expectedDate || null,
-          purchaseDate: purchaseDate || null,
-          invoiceNumber: invoiceNumber.trim(),
-          additionalCharges,
-          notes,
-          items: lines.map((l) => ({
-            variantUnitPriceId: l.variantUnitPriceId,
-            quantity: l.quantity,
-            unitCost: l.unitCost,
-          })),
-        });
+
+        let hasError = false;
+
+        if (!vendorId) {
+          setVendorError("Select a vendor");
+          hasError = true;
+        }
+
+        if (lines.length === 0) {
+          setItemsError("Add at least one item");
+          hasError = true;
+        } else if (lines.some((l) => !Number.isInteger(l.quantity) || l.quantity < 1)) {
+          setItemsError("Every quantity must be a whole number of at least 1");
+          hasError = true;
+        } else if (lines.some((l) => !(l.unitCost >= 0))) {
+          setItemsError("Purchase price cannot be negative");
+          hasError = true;
+        }
+
+        if (!(additionalCharges >= 0)) {
+          setError("Additional charges cannot be negative");
+          hasError = true;
+        }
+
+        if (hasError) return;
+
+        try {
+          await onSubmit({
+            vendorId,
+            expectedDate: expectedDate || null,
+            purchaseDate: purchaseDate || null,
+            invoiceNumber: invoiceNumber.trim(),
+            additionalCharges,
+            notes,
+            items: lines.map((l) => ({
+              variantUnitPriceId: l.variantUnitPriceId,
+              quantity: l.quantity,
+              unitCost: l.unitCost,
+            })),
+          });
+        } catch (err) {
+          setError(err instanceof Error ? err.message : "Failed to save purchase order");
+        }
       }}
     >
       <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
@@ -151,13 +179,17 @@ export function PurchaseOrderForm({ initial, isLoading, submitLabel, mode = "dra
           <label className={labelCls}>Vendor *</label>
           <Select
             value={vendorId}
-            onValueChange={(val) => setVendorId(val)}
+            onValueChange={(val) => {
+              setVendorId(val);
+              if (vendorError) setVendorError(null);
+            }}
             options={vendors.map((v) => ({
               value: v.id,
               label: `${v.name} (${v.code})`,
             }))}
             placeholder="Select vendor"
             searchable={vendors.length > 5}
+            error={vendorError ?? undefined}
             className="w-full"
           />
         </div>
@@ -254,7 +286,7 @@ export function PurchaseOrderForm({ initial, isLoading, submitLabel, mode = "dra
               <th className="px-4 py-2.5 w-28">Qty</th>
               <th className="px-4 py-2.5 w-36">Purchase price (₹)</th>
               <th className="px-4 py-2.5 w-32 text-right">Line total</th>
-              <th className="w-12" />
+              <th className="sticky right-0 z-20 w-12 bg-neutral-50 shadow-[-4px_0_6px_-2px_rgba(0,0,0,0.05)]" />
             </tr>
           </thead>
           <tbody>
@@ -305,7 +337,7 @@ export function PurchaseOrderForm({ initial, isLoading, submitLabel, mode = "dra
                 <td className="px-4 py-2.5 text-right font-medium">
                   ₹{(l.quantity * l.unitCost).toFixed(2)}
                 </td>
-                <td className="px-2">
+                <td className="sticky right-0 z-10 bg-white px-2 shadow-[-4px_0_6px_-2px_rgba(0,0,0,0.05)]">
                   <Button
                     type="button"
                     variant="ghost"
@@ -325,7 +357,7 @@ export function PurchaseOrderForm({ initial, isLoading, submitLabel, mode = "dra
                   Subtotal
                 </td>
                 <td className="px-4 py-2.5 text-right font-medium">₹{subtotal.toFixed(2)}</td>
-                <td />
+                <td className="sticky right-0 z-10 bg-neutral-50 shadow-[-4px_0_6px_-2px_rgba(0,0,0,0.05)]" />
               </tr>
               <tr className="bg-neutral-50">
                 <td colSpan={5} className="px-4 py-2.5 text-right font-medium">
@@ -345,19 +377,20 @@ export function PurchaseOrderForm({ initial, isLoading, submitLabel, mode = "dra
                     }}
                   />
                 </td>
-                <td />
+                <td className="sticky right-0 z-10 bg-neutral-50 shadow-[-4px_0_6px_-2px_rgba(0,0,0,0.05)]" />
               </tr>
               <tr className="border-t border-neutral-200 bg-neutral-50">
                 <td colSpan={5} className="px-4 py-2.5 text-right font-semibold">
                   Total
                 </td>
                 <td className="px-4 py-2.5 text-right font-semibold">₹{total.toFixed(2)}</td>
-                <td />
+                <td className="sticky right-0 z-10 bg-neutral-50 shadow-[-4px_0_6px_-2px_rgba(0,0,0,0.05)]" />
               </tr>
             </tfoot>
           )}
         </table>
       </div>
+      {itemsError && <p className="text-sm font-medium text-red-600">{itemsError}</p>}
 
       <div>
         <label className={labelCls}>Notes</label>

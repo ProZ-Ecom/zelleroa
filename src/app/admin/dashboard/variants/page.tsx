@@ -57,6 +57,7 @@ import {
   VariantCustomerPreviewModal,
   VariantUnitPriceList,
 } from "@/features/variants/components";
+import { CanAct } from "@/features/access";
 
 type ViewMode = "table" | "cards";
 
@@ -369,15 +370,7 @@ export default function AdminVariantsPage() {
                 : "bg-red-50 text-red-700 border-red-200 hover:bg-red-100"
             }`}
           >
-            {isRowPending ? (
-              <Loader2 className="w-3 h-3 animate-spin" />
-            ) : (
-              <span
-                className={`w-1.5 h-1.5 rounded-full ${
-                  isActive ? "bg-emerald-600" : "bg-red-500"
-                }`}
-              />
-            )}
+            {isRowPending && <Loader2 className="w-3 h-3 animate-spin" />}
             {isActive ? "Active" : "Inactive"}
           </button>
         );
@@ -398,32 +391,36 @@ export default function AdminVariantsPage() {
             <Eye className="h-4 w-4" />
           </Link>
 
-          <Button
-            variant="ghost"
-            size="icon"
-            title="Edit item (details, pricing & images)"
-            onClick={() => {
-              setSelectedVariant(row.original);
-              setEditTab("details");
-              setIsEditOpen(true);
-            }}
-          >
-            <Pencil className="h-4 w-4 text-[var(--color-neutral-500)]" />
-          </Button>
+          <CanAct action="UPDATE">
+            <Button
+              variant="ghost"
+              size="icon"
+              title="Edit item (details, pricing & images)"
+              onClick={() => {
+                setSelectedVariant(row.original);
+                setEditTab("details");
+                setIsEditOpen(true);
+              }}
+            >
+              <Pencil className="h-4 w-4 text-[var(--color-neutral-500)]" />
+            </Button>
+          </CanAct>
 
-          <Button
-            variant="ghost"
-            size="icon"
-            title="Delete item"
-            onClick={() =>
-              setDeleteTarget({
-                productUuid: row.original.productId,
-                variantUuid: row.original.id,
-              })
-            }
-          >
-            <Trash2 className="h-4 w-4 text-[var(--color-error-600)]" />
-          </Button>
+          <CanAct action="DELETE">
+            <Button
+              variant="ghost"
+              size="icon"
+              title="Delete item"
+              onClick={() =>
+                setDeleteTarget({
+                  productUuid: row.original.productId,
+                  variantUuid: row.original.id,
+                })
+              }
+            >
+              <Trash2 className="h-4 w-4 text-[var(--color-error-600)]" />
+            </Button>
+          </CanAct>
         </div>
       ),
     },
@@ -436,17 +433,62 @@ export default function AdminVariantsPage() {
     refetch();
   };
 
-  if (isLoading && !data) {
-    return <AdminTableSkeleton />;
-  }
-
+  // Check permission / auth errors FIRST — before isLoading — so that even when
+  // keepPreviousData is active and stale data exists, a permission error takes
+  // priority over rendering the table with stale data.
   if (error) {
+    const errMsg = (error as { message?: string })?.message ?? "";
+    const isPermissionError =
+      errMsg.toLowerCase().includes("permission") ||
+      errMsg.toLowerCase().includes("unauthorized") ||
+      (error as { status?: number })?.status === 403;
+
+    if (isPermissionError) {
+      return (
+        <div className="flex flex-1 min-h-0 flex-col">
+          <AdminPageHeader
+            title="Product Items Management"
+            description="Manage product Items, sizing, packaging, pricing, SKUs, and images with realistic customer card preview."
+          />
+          <AdminContent>
+            <div className="flex flex-col items-center justify-center py-24 gap-4 text-center">
+              <div className="rounded-full bg-red-50 p-5">
+                <svg
+                  className="h-10 w-10 text-red-400"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={1.5}
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z"
+                  />
+                </svg>
+              </div>
+              <h2 className="text-lg font-semibold text-neutral-800">
+                Access Denied
+              </h2>
+              <p className="text-sm text-neutral-500 max-w-sm">
+                You don&apos;t have permission to view Colors &amp; Items. Please contact your administrator.
+              </p>
+            </div>
+          </AdminContent>
+        </div>
+      );
+    }
+
     return (
       <ErrorState
         message="Failed to load product Items"
         onRetry={() => refetch()}
       />
     );
+  }
+
+  if (isLoading && !data) {
+    return <AdminTableSkeleton />;
   }
 
   const startEntry = totalItems > 0 ? (page - 1) * pageSize + 1 : 0;
@@ -459,8 +501,8 @@ export default function AdminVariantsPage() {
         description="Manage product Items, sizing, packaging, pricing, SKUs, and images with realistic customer card preview."
       />
 
-      <AdminContent className="flex-1 min-h-0 overflow-hidden">
-        <div className="flex h-full flex-col overflow-hidden bg-[var(--color-background)] py-1 rounded-2xl">
+      <AdminContent className="flex-1 min-h-0">
+        <div className="flex h-full flex-col bg-[var(--color-background)] py-1 rounded-2xl">
           {/* Controls Header */}
           <div className="flex-shrink-0 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <div className="flex flex-1 flex-col gap-3 sm:flex-row sm:items-center">
@@ -523,11 +565,40 @@ export default function AdminVariantsPage() {
                     variants,
                     "items",
                     [
+                      { header: "Product", accessor: (v) => v.productName || v.itemName || "-" },
                       { header: "Variant Name", accessor: (v) => v.variantName || "-" },
                       { header: "SKU", accessor: (v) => v.sku || "-" },
-                      { header: "Product", accessor: (v) => v.productName || "-" },
+                      {
+                        header: "Pack Sizes",
+                        accessor: (v) => {
+                          const prices = v.unitPrices ?? [];
+                          if (prices.length > 0) {
+                            return (
+                              prices
+                                .map((p) => `${p.measurement?.value ?? ""} ${p.measurement?.unit ?? ""}`.trim())
+                                .filter(Boolean)
+                                .join(", ") || "-"
+                            );
+                          }
+                          return v.measurement ? `${v.measurement.value} ${v.measurement.unit}` : "-";
+                        },
+                      },
+                      {
+                        header: "Price",
+                        accessor: (v) => {
+                          const prices = (v.unitPrices ?? [])
+                            .map((p) => p.basePrice)
+                            .filter((p) => typeof p === "number");
+                          if (prices.length > 0) {
+                            const min = Math.min(...prices);
+                            const max = Math.max(...prices);
+                            return min === max ? `₹${min}` : `₹${min} - ₹${max}`;
+                          }
+                          return typeof v.basePrice === "number" ? `₹${v.basePrice}` : "-";
+                        },
+                      },
+                      { header: "Stock", accessor: (v) => (v.outOfStock ? "Out of Stock" : "In Stock") },
                       { header: "Status", accessor: (v) => (v.isActive ? "Active" : "Inactive") },
-                      { header: "Created At", accessor: (v) => v.createdAt ? new Date(v.createdAt).toLocaleDateString("en-IN") : "-" },
                     ]
                   )
                 }
@@ -535,22 +606,24 @@ export default function AdminVariantsPage() {
                 className="h-11"
               />
 
-              <Button
-                onClick={() => {
-                  setCreateStep(1);
-                  setCreatedVariant(null);
-                  setIsCreateOpen(true);
-                }}
-                className="h-11 rounded-xl bg-theme-primary hover:bg-theme-primary-hover px-5 text-sm font-semibold text-white transition-colors cursor-pointer"
-              >
-                <Plus className="mr-2 h-4 w-4" />
-                Add Variant
-              </Button>
+              <CanAct action="CREATE">
+                <Button
+                  onClick={() => {
+                    setCreateStep(1);
+                    setCreatedVariant(null);
+                    setIsCreateOpen(true);
+                  }}
+                  className="h-11 rounded-xl bg-stone-900 hover:bg-stone-800 text-[#D4AF37] border border-[#D4AF37]/30 shadow-xs px-5 text-sm font-semibold transition-colors cursor-pointer"
+                >
+                  <Plus className="mr-2 h-4 w-4 text-[#D4AF37]" />
+                  Add Variant
+                </Button>
+              </CanAct>
             </div>
           </div>
 
           {/* VIEW RENDERER: Table View vs Customer Card View */}
-          <div className="mt-6 flex-1 min-h-0 overflow-hidden flex flex-col">
+          <div className="mt-6 flex-1 min-h-0 flex flex-col">
             {viewMode === "table" ? (
               <DataTable
                 columns={columns}
@@ -580,17 +653,19 @@ export default function AdminVariantsPage() {
                         ? "Try clearing filters or search query to find Items."
                         : "Start by adding your first product Item."}
                     </p>
-                    <Button
-                      onClick={() => {
-                        setCreateStep(1);
-                        setCreatedVariant(null);
-                        setIsCreateOpen(true);
-                      }}
-                      className="mt-5 rounded-xl bg-theme-primary hover:bg-theme-primary-hover px-4 text-xs font-semibold text-white transition-colors"
-                    >
-                      <Plus className="mr-1.5 h-3.5 w-3.5" />
-                      Add Variant
-                    </Button>
+                    <CanAct action="CREATE">
+                      <Button
+                        onClick={() => {
+                          setCreateStep(1);
+                          setCreatedVariant(null);
+                          setIsCreateOpen(true);
+                        }}
+                        className="mt-5 rounded-xl bg-theme-primary hover:bg-theme-primary-hover px-4 text-xs font-semibold text-white transition-colors"
+                      >
+                        <Plus className="mr-1.5 h-3.5 w-3.5" />
+                        Add Variant
+                      </Button>
+                    </CanAct>
                   </div>
                 ) : (
                   <div>

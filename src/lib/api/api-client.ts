@@ -163,6 +163,12 @@ async function fetchApi<T>(
       const isAdminEndpoint = endpoint.startsWith("/api/admin/");
       const loginPath = isAdminEndpoint ? "/admin/login" : "/login";
       if (!isOptionalCustomerEndpoint && !window.location.pathname.startsWith(loginPath)) {
+        // Clear stale session cookies so middleware does not bounce the user back into an infinite redirect loop
+        try {
+          await fetch(`${baseUrl}/api/auth/logout`, { method: "POST" });
+        } catch {
+          // ignore
+        }
         const callbackUrl = encodeURIComponent(
           window.location.pathname + window.location.search
         );

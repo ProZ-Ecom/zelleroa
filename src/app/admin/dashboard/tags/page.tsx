@@ -11,10 +11,12 @@ import { ErrorState } from "@/components/ui/error-state";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { FormModal } from "@/components/common/FormModal";
-import { StatusToggle } from "@/components/admin/StatusToggle";
+import { ExportButton } from "@/components/common/export-button";
+import { exportDataToCsv } from "@/lib/export-csv";
 import { Plus, Pencil, Trash2, Package } from "lucide-react";
 import { toast } from "@/components/ui/Toast";
 import type { ColumnDef } from "@tanstack/react-table";
+import { CanAct } from "@/features/access";
 
 function errorMessage(err: unknown, fallback: string) {
   return err instanceof Error && err.message ? err.message : fallback;
@@ -68,21 +70,20 @@ export default function AdminTagsPage() {
       ),
     },
     {
-      id: "isActive",
-      header: "Active",
-      cell: ({ row }) => (
-        <StatusToggle
-          id={0}
-          isActive={row.original.isActive}
-          onToggle={() =>
-            updateMutation.mutate({
-              id: row.original.id,
-              data: { isActive: !row.original.isActive },
-            })
-          }
-          disabled={updateMutation.isPending}
-        />
-      ),
+      accessorKey: "isActive",
+      header: "Status",
+      cell: ({ row }) => {
+        const isActive = row.original.isActive;
+        return isActive ? (
+          <span className="inline-flex items-center rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700 border border-emerald-200">
+            Active
+          </span>
+        ) : (
+          <span className="inline-flex items-center rounded-full bg-red-100 px-2.5 py-1 text-xs font-semibold text-red-700 border border-red-300">
+            Inactive
+          </span>
+        );
+      },
     },
     {
       id: "actions",
@@ -109,20 +110,46 @@ export default function AdminTagsPage() {
         title="Tags"
         description="Group products under tags like Summer Sale or New Arrivals, then pick a tag when adding a header menu item."
       />
-      <AdminContent className="flex-1 min-h-0 overflow-hidden">
-        <div className="flex h-full flex-col overflow-hidden bg-[var(--color-background)] py-1 rounded-2xl">
-          <div className="flex-shrink-0 mt-6 flex justify-end">
-            <Button
-              type="button"
-              onClick={() => setIsCreateOpen(true)}
-              className="h-11 rounded-xl px-5 text-sm font-semibold shadow-xs bg-theme-primary hover:bg-theme-primary-hover text-white transition-colors"
-            >
-              <Plus className="mr-2 h-4 w-4" />
-              Add Tag
-            </Button>
+      <AdminContent className="flex-1 min-h-0">
+        <div className="flex h-full flex-col bg-[var(--color-background)] py-1 rounded-2xl">
+          <div className="flex-shrink-0 mt-6 flex items-center justify-end gap-2">
+            <ExportButton
+              onClick={() =>
+                exportDataToCsv(
+                  items,
+                  "tags",
+                  [
+                    { header: "Tag Name", accessor: (item) => item.name },
+                    { header: "Slug", accessor: (item) => item.slug },
+                    { header: "Link", accessor: (item) => `/products?tag=${item.slug}` },
+                    {
+                      header: "Products",
+                      accessor: (item) =>
+                        item.productNames ||
+                        (item.products && item.products.length > 0
+                          ? item.products.map((p) => p.name).join(", ")
+                          : "—"),
+                    },
+                    { header: "Status", accessor: (item) => (item.isActive ? "Active" : "Inactive") },
+                  ]
+                )
+              }
+              disabled={!items.length}
+            />
+
+            <CanAct action="CREATE">
+              <Button
+                type="button"
+                onClick={() => setIsCreateOpen(true)}
+                className="h-11 rounded-xl bg-stone-900 hover:bg-stone-800 text-[#D4AF37] border border-[#D4AF37]/30 shadow-xs px-5 text-sm font-semibold transition-colors"
+              >
+                <Plus className="mr-2 h-4 w-4 text-[#D4AF37]" />
+                Add Tag
+              </Button>
+            </CanAct>
           </div>
 
-          <div className="mt-6 flex-1 min-h-0 overflow-hidden flex flex-col">
+          <div className="mt-6 flex-1 min-h-0 flex flex-col">
             <DataTable
               columns={columns}
               data={items}

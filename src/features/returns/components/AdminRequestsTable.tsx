@@ -11,12 +11,14 @@ import { exportDataToCsv } from "@/lib/export-csv";
 import { formatDateTime } from "@/lib/utils";
 import {
   REPLACEMENT_STATUSES,
-  RETURN_STATUSES,
+  RETURN_SELECTABLE_STATUSES,
+  returnStatusLabel,
   statusLabel,
 } from "../lib/policy";
 import { useAdminRequests, type RequestKind } from "../hooks/use-returns";
 import { RequestStatusBadge } from "./RequestStatusBadge";
 import { AdminRequestDetailModal } from "./AdminRequestDetailModal";
+import { AdminVideoStorageButton } from "./AdminVideoStorageAlert";
 
 const PAGE_SIZE = 10;
 
@@ -27,7 +29,7 @@ export function AdminRequestsTable({ kind }: { kind: RequestKind }) {
   const [query, setQuery] = useState("");
   const [openId, setOpenId] = useState<string | null>(null);
 
-  const statuses = kind === "returns" ? RETURN_STATUSES : REPLACEMENT_STATUSES;
+  const statuses = kind === "returns" ? RETURN_SELECTABLE_STATUSES : REPLACEMENT_STATUSES;
   const { data, isLoading, isFetching, error, refetch } = useAdminRequests(kind, {
     page,
     limit: PAGE_SIZE,
@@ -40,7 +42,7 @@ export function AdminRequestsTable({ kind }: { kind: RequestKind }) {
   const isReturn = kind === "returns";
 
   return (
-    <div className="flex h-full min-h-0 flex-col gap-3">
+    <div className="flex h-full min-h-0 flex-col gap-3">
       <form
         className="flex flex-wrap items-center gap-3"
         onSubmit={(e) => {
@@ -67,25 +69,29 @@ export function AdminRequestsTable({ kind }: { kind: RequestKind }) {
             }}
             options={[
               { value: "all", label: "All statuses" },
-              ...statuses.map((s) => ({ value: s, label: statusLabel(s) })),
+              ...statuses.map((s) => ({
+                value: s,
+                label: isReturn ? returnStatusLabel(s) : statusLabel(s),
+              })),
             ]}
           />
         </div>
-        <Button type="submit" variant="outline" size="sm" className="h-10 px-4 shrink-0">
+        <Button type="submit" size="sm" className="h-10 px-4 shrink-0 bg-stone-900 hover:bg-stone-800 text-[#D4AF37] border border-[#D4AF37]/30 shadow-xs font-semibold">
           Search
         </Button>
+        {isReturn && <AdminVideoStorageButton />}
         <ExportButton
           onClick={() =>
             exportDataToCsv(
               rows.map((r) => ({
-                RequestId: r.id.slice(0, 8).toUpperCase(),
+                ReturnId: r.returnNumber || r.id.slice(0, 8).toUpperCase(),
                 OrderNumber: r.orderNumber,
                 Customer: r.customer.name,
                 CustomerContact: r.customer.phone || r.customer.email || "",
                 Products: r.items.map((i) => i.productName).join(", "),
                 Reason: r.reason,
                 RequestedAt: formatDateTime(r.requestedAt),
-                Status: statusLabel(r.status),
+                Status: isReturn ? returnStatusLabel(r.status) : statusLabel(r.status),
               })),
               `${kind}-requests`
             )
@@ -104,9 +110,9 @@ export function AdminRequestsTable({ kind }: { kind: RequestKind }) {
         )}
       </form>
 
-      <div className="min-h-0 flex-1 overflow-auto rounded-xl border border-cream-border-subtle bg-white">
+      <div className="min-h-0 flex-1 overflow-auto scrollbar-table rounded-xl border border-cream-border-subtle bg-white">
         <table className="w-full min-w-[900px] text-left text-xs">
-          <thead className="sticky top-0 bg-neutral-50 text-[11px] uppercase tracking-wider text-neutral-500">
+          <thead className="sticky top-0 z-10 bg-stone-900 text-[11px] font-bold uppercase tracking-wider text-[#D4AF37] border-b border-stone-800 shadow-[0_1px_3px_rgba(28,25,23,0.2)]">
             <tr>
               <th className="px-3 py-2.5">Request</th>
               <th className="px-3 py-2.5">Order</th>
@@ -121,7 +127,7 @@ export function AdminRequestsTable({ kind }: { kind: RequestKind }) {
               <th className="px-3 py-2.5">Requested</th>
               {isReturn && <th className="px-3 py-2.5">Deadline</th>}
               <th className="px-3 py-2.5">Status</th>
-              <th className="sticky right-0 z-10 bg-neutral-50 px-3 py-2.5 text-center shadow-[-4px_0_6px_-2px_rgba(0,0,0,0.06)]">Actions</th>
+              <th className="sticky right-0 z-10 bg-stone-900 px-3 py-2.5 text-center shadow-[-4px_0_6px_-2px_rgba(0,0,0,0.3)]">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-neutral-100">
@@ -155,7 +161,15 @@ export function AdminRequestsTable({ kind }: { kind: RequestKind }) {
 
             {rows.map((r) => (
               <tr key={r.id} className="group hover:bg-neutral-50/70">
-                <td className="px-3 py-2.5 font-mono text-[11px]">{r.id.slice(0, 8).toUpperCase()}</td>
+                <td className="px-3 py-2.5 font-mono text-[11px]">
+                  {r.returnNumber ? (
+                    <span className="font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 inline-block shadow-2xs">
+                      {r.returnNumber}
+                    </span>
+                  ) : (
+                    <span className="text-neutral-500">{r.id.slice(0, 8).toUpperCase()}</span>
+                  )}
+                </td>
                 <td className="px-3 py-2.5 font-mono font-semibold">{r.orderNumber}</td>
                 <td className="px-3 py-2.5">
                   <div className="font-semibold">{r.customer.name}</div>
@@ -188,7 +202,7 @@ export function AdminRequestsTable({ kind }: { kind: RequestKind }) {
                   </td>
                 )}
                 <td className="px-3 py-2.5">
-                  <RequestStatusBadge status={r.status} />
+                  <RequestStatusBadge status={r.status} kind={isReturn ? "return" : "replacement"} />
                 </td>
                 <td className="sticky right-0 z-10 bg-white px-3 py-2.5 text-center shadow-[-4px_0_6px_-2px_rgba(0,0,0,0.06)] group-hover:bg-neutral-50">
                   <Button size="icon" variant="outline" title="View" aria-label="View" onClick={() => setOpenId(r.id)}>

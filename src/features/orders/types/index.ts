@@ -108,6 +108,7 @@ export interface OrderListItemResponse {
   customer: OrderCustomerDto;
   status: OrderStatus;
   paymentStatus: PaymentStatus;
+  paymentMethod?: string;
   subtotal: number;
   discountAmount: number;
   taxAmount: number;
@@ -117,6 +118,7 @@ export interface OrderListItemResponse {
   delivery?: OrderDeliveryDto;
   courierShipment?: OrderCourierShipmentDto | null;
   notes: string | null;
+  invoiceNumber?: string | null;
   /** Set when a Sales Partner placed this order on the customer's behalf. Safe to show the customer (no commission data). */
   placedByAgent?: { name: string; agentCode: string | null } | null;
   placedAt: Date | null;
@@ -172,6 +174,12 @@ export interface OrderDetailResponse extends OrderListItemResponse {
   returnRequests?: RequestSummary[];
   replacementRequests?: RequestSummary[];
   timeline?: TimelineEvent[];
+  bankDetails?: {
+    accountHolder: string | null;
+    bankName: string | null;
+    accountNumberLast4: string | null;
+    ifsc: string | null;
+  } | null;
 }
 
 export interface OrderStatusTransitionResponse {
@@ -347,6 +355,8 @@ export interface AdminOrdersCountResponse {
   cancelled: number;
   returned: number;
   total: number;
+  return_requests?: number;
+  replacement_requests?: number;
 }
 
 

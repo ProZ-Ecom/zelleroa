@@ -21,6 +21,8 @@ const userSelect = {
   role: {
     select: {
       name: true,
+      slug: true,
+      scope: true,
     },
   },
 } satisfies Prisma.UserSelect;
@@ -36,6 +38,8 @@ function formatUser<T extends Record<string, any>>(user: T) {
     roleId: typeof user.roleId === "bigint" ? Number(user.roleId) : user.roleId,
     custId: user.cust_id ?? null,
     roleName: user.role?.name,
+    roleSlug: user.role?.slug ?? null,
+    roleScope: user.role?.scope ?? null,
     isActive: Boolean(user.is_active),
     isBlocked: user.is_blocked !== null && Number(user.is_blocked) > 0,
   };
@@ -92,10 +96,30 @@ export const userRepository = {
   },
 
   async findById(idOrUuid: string | number | bigint) {
+    if (!idOrUuid) return null;
     let where: Prisma.UserWhereInput;
 
-    if (typeof idOrUuid === "string" && (idOrUuid.includes("-") || isNaN(Number(idOrUuid)))) {
-      where = { uuid: idOrUuid };
+    if (typeof idOrUuid === "string") {
+      const trimmed = idOrUuid.trim();
+      if (trimmed.includes("@")) {
+        where = { email: trimmed.toLowerCase() };
+      } else if (trimmed.includes("-")) {
+        where = { uuid: trimmed };
+      } else if (!isNaN(Number(trimmed)) && trimmed !== "") {
+        where = {
+          OR: [
+            { id: BigInt(trimmed) },
+            { uuid: trimmed },
+          ],
+        };
+      } else {
+        where = {
+          OR: [
+            { uuid: trimmed },
+            { email: trimmed.toLowerCase() },
+          ],
+        };
+      }
     } else {
       where = { id: BigInt(idOrUuid) };
     }
@@ -114,6 +138,8 @@ export const userRepository = {
         role: {
           select: {
             name: true,
+            slug: true,
+            scope: true,
           },
         },
       },
@@ -135,6 +161,8 @@ export const userRepository = {
         role: {
           select: {
             name: true,
+            slug: true,
+            scope: true,
           },
         },
       },

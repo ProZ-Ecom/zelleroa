@@ -4,6 +4,7 @@ import type {
   ProductAttributeConfigOption,
   ItemAttributeGroup,
   ConfiguredProductAttribute,
+  VariationLevel,
 } from "../types";
 
 export interface GetAttributesResult {
@@ -96,12 +97,12 @@ export async function getAttributesForProduct(productUuid: string) {
 
 export async function setAttributesForProduct(
   productUuid: string,
-  attributeIds: string[],
+  attributes: { attributeId: string; variationLevel: VariationLevel }[],
   force = false
 ) {
   const response = await apiClient.put<ProductAttributeConfigOption[]>(
     `/api/admin/products/${productUuid}/attributes`,
-    { attributeIds, force }
+    { attributes, force }
   );
   return response.data ?? [];
 }

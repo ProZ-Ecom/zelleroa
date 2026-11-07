@@ -283,15 +283,30 @@ export function OrderDetailView({
 
           {/* Return / Replace Action */}
           {!readOnly && order.status === "delivered" && (
-            <Button
-              variant="outline"
-              size="sm"
-              className="border-secondary-600 bg-secondary-50 hover:bg-secondary-100 text-secondary-800 rounded-xl text-xs font-semibold min-h-[36px]"
-              onClick={() => onRequest?.("return")}
-            >
-              <Undo2 className="mr-1.5 h-3.5 w-3.5" />
-              Return / Replace
-            </Button>
+            (order as any).returnWindow?.eligible === false ? (
+              <span
+                className="inline-flex items-center gap-1.5 rounded-xl border border-theme-border bg-theme-surface-alt px-3 py-1.5 text-xs font-semibold text-theme-text-muted opacity-70 cursor-not-allowed select-none"
+                title="Return window expired. Products can only be returned within 3 days of delivery."
+              >
+                <Undo2 className="h-3.5 w-3.5 text-theme-text-muted" />
+                Return Expired (3-Day Limit)
+              </span>
+            ) : (
+              <Button
+                variant="outline"
+                size="sm"
+                className="border-2 border-amber-500 bg-amber-50 hover:bg-amber-100 text-amber-900 dark:bg-amber-950/50 dark:border-amber-400 dark:text-amber-200 rounded-xl text-xs font-bold min-h-[36px] shadow-xs inline-flex items-center gap-1.5"
+                onClick={() => onRequest?.("return")}
+              >
+                <Undo2 className="mr-1.5 h-3.5 w-3.5 text-amber-600 stroke-[2.5]" />
+                <span>Return / Replace</span>
+                {(order as any).returnWindow?.daysLeft ? (
+                  <span className="ml-1 rounded bg-amber-200 text-amber-950 px-1.5 py-0.5 text-[10px] font-extrabold tracking-normal">
+                    {(order as any).returnWindow.daysLeft}d left
+                  </span>
+                ) : null}
+              </Button>
+            )
           )}
         </div>
       </div>
@@ -520,7 +535,9 @@ export function OrderDetailView({
                         )}
                         {p.gatewayPaymentId && (
                           <>
-                            <dt className="text-theme-text-muted">Payment ID</dt>
+                            <dt className="text-theme-text-muted">
+                              {p.gateway ? "Payment ID" : "Reference"}
+                            </dt>
                             <dd className="font-mono text-[11px] text-theme-text-primary text-right break-all">{p.gatewayPaymentId}</dd>
                           </>
                         )}

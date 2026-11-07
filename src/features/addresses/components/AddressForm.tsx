@@ -219,10 +219,16 @@ export function AddressForm({
             Select Post Office / Locality ({postOffices.length} found)
           </label>
           <Select
-            options={postOffices.map((po) => ({
-              value: po.value,
-              label: `${po.label}${po.description ? ` (${po.description})` : ""}`,
-            }))}
+            options={postOffices.map((po) => {
+              const cleanDesc = po.description
+                ?.replace(/•?\s*(non-delivery|delivery)/gi, "")
+                ?.replace(/^\s*•\s*/, "")
+                ?.trim();
+              return {
+                value: po.value,
+                label: cleanDesc ? `${po.label} (${cleanDesc})` : po.label,
+              };
+            })}
             value={selectedPostOffice}
             onValueChange={(val) => {
               setSelectedPostOffice(val);
@@ -235,28 +241,31 @@ export function AddressForm({
         </div>
       )}
 
-      {/* City & State (Auto-filled, ReadOnly, Normal background color) */}
+      {/* City & State (Auto-filled or editable) */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center justify-between">
             <span>
               City / District <span className="text-error-600 font-bold">*</span>
             </span>
-            <span className="text-xs text-gray-400 font-normal">Auto-filled</span>
+            <span className="text-xs text-gray-400 font-normal">
+              {pincodeLookupError ? "Enter manually" : "Auto-filled"}
+            </span>
           </label>
 
           <input
             {...register("city")}
-            readOnly
-            tabIndex={-1}
+            readOnly={isPincodeLoading}
             className={cn(
               inputClass,
-              "bg-gray-100 text-gray-600 cursor-not-allowed select-none shadow-none focus:outline-none",
+              isPincodeLoading
+                ? "bg-gray-100 text-gray-600 cursor-wait select-none shadow-none focus:outline-none"
+                : "bg-white text-gray-900 border-gray-300 focus:border-primary",
               errors.city
                 ? "border-red-500 bg-red-50/20"
                 : "border-gray-200"
             )}
-            placeholder={isPincodeLoading ? "Fetching city..." : "Auto-filled from Pincode"}
+            placeholder={isPincodeLoading ? "Fetching city..." : "Enter city / district"}
           />
           <FieldError message={errors.city?.message} />
         </div>
@@ -265,20 +274,23 @@ export function AddressForm({
             <span>
               State <span className="text-error-600 font-bold">*</span>
             </span>
-            <span className="text-xs text-gray-400 font-normal">Auto-filled</span>
+            <span className="text-xs text-gray-400 font-normal">
+              {pincodeLookupError ? "Enter manually" : "Auto-filled"}
+            </span>
           </label>
           <input
             {...register("state")}
-            readOnly
-            tabIndex={-1}
+            readOnly={isPincodeLoading}
             className={cn(
               inputClass,
-              "bg-gray-100 text-gray-600 cursor-not-allowed select-none shadow-none focus:outline-none",
+              isPincodeLoading
+                ? "bg-gray-100 text-gray-600 cursor-wait select-none shadow-none focus:outline-none"
+                : "bg-white text-gray-900 border-gray-300 focus:border-primary",
               errors.state
                 ? "border-red-500 bg-red-50/20"
                 : "border-gray-200"
             )}
-            placeholder={isPincodeLoading ? "Fetching state..." : "Auto-filled from Pincode"}
+            placeholder={isPincodeLoading ? "Fetching state..." : "Enter state"}
           />
           <FieldError message={errors.state?.message} />
         </div>

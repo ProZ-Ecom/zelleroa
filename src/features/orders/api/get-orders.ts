@@ -230,6 +230,29 @@ export async function assignOrderDelivery(
   return response.data!;
 }
 
+export async function updateOrderInvoiceNumber(
+  uuid: string | number,
+  invoiceNumber: string
+): Promise<OrderDetailResponse> {
+  const response = await apiClient.patch<OrderDetailResponse>(
+    `/api/admin/orders/${uuid}`,
+    { invoiceNumber }
+  );
+  return response.data!;
+}
+
+/** Admin: record the cash collected on a COD order. */
+export async function markOrderPaid(
+  uuid: string | number,
+  input?: { amount?: number; reference?: string; note?: string }
+): Promise<OrderDetailResponse> {
+  const response = await apiClient.post<OrderDetailResponse>(
+    `/api/admin/orders/${uuid}/mark-paid`,
+    input ?? {}
+  );
+  return response.data!;
+}
+
 export async function getCheckoutSummary(
   input: { deliveryMethod?: DeliveryMethod; couponCode?: string; shippingAddressId?: string }
 ): Promise<CheckoutSummary> {

@@ -28,6 +28,15 @@ export interface GetAdminAttributesParams {
   search?: string;
 }
 
+/**
+ * How far down the catalog an attribute splits stock, chosen per product.
+ *
+ * VARIANT becomes a ProductVariant and carries its own images (normally Colour);
+ * SKU joins the VariantUnitPrice identity, so it splits stock (Size, Neck, Storage);
+ * INFO is descriptive only and never multiplies the SKU set (Fabric, Fit, Care).
+ */
+export type VariationLevel = "VARIANT" | "SKU" | "INFO";
+
 /** One attribute configured on a Product, with its selectable values (e.g.
  * Color: Black/White with hex codes) - powers the single-variant Add/Edit
  * Item form and the bulk Generate Variants form. */
@@ -38,6 +47,8 @@ export interface ConfiguredProductAttribute {
   type: AttributeType;
   isRequired: boolean;
   multipleSelection: boolean;
+  variationLevel: VariationLevel;
+  sortOrder: number;
   values: AttributeValueItem[];
 }
 
@@ -51,6 +62,8 @@ export interface ProductAttributeConfigOption {
   isRequired: boolean;
   multipleSelection: boolean;
   sortOrder: number;
+  /** Defaults to SKU for an attribute that is not configured on this product yet. */
+  variationLevel: VariationLevel;
 }
 
 /** One attribute value under an Item, with whether it's currently selected. */
@@ -82,4 +95,16 @@ export interface ProductAttributeUsage {
   attributeName: string;
   itemCount: number;
   variantCount: number;
+  /** Stock rows whose identity includes this attribute. */
+  skuCount: number;
+  /**
+   * `removed` - unconfigured outright. `demoted` - moved off the SKU axis, so stock
+   * rows keep an identity the product no longer declares. `relevelled` - any other
+   * level change; variants and stock rows are keyed by the old level's axes, so they
+   * stop matching what generation would now produce.
+   */
+  change: "removed" | "demoted" | "relevelled";
+  /** Levels involved in a `demoted` / `relevelled` change, for the confirmation text. */
+  fromLevel?: VariationLevel;
+  toLevel?: VariationLevel;
 }

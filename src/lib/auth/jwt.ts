@@ -26,6 +26,8 @@ export interface AccessTokenPayload {
   userId: string; // User UUID
   email: string;
   role: string;
+  /** Area the role belongs to (roles.scope): "ADMIN" | "AGENT" | "CUSTOMER". */
+  scope?: string;
 }
 
 export interface RefreshTokenPayload {
@@ -49,6 +51,7 @@ export function generateAccessToken(payload: AccessTokenPayload): string {
       userId: payload.userId, // Expose string UUID, never numeric DB integer ID
       email: payload.email,
       role: payload.role || "CUSTOMER",
+      scope: payload.scope || undefined,
     },
     getAccessSecret(),
     { expiresIn: "15m" }
@@ -94,6 +97,7 @@ export function verifyAccessToken(token: string): AccessTokenPayload {
     userId: String(decoded.userId),
     email: String(decoded.email),
     role: decoded.role ? String(decoded.role) : "CUSTOMER",
+    scope: decoded.scope ? String(decoded.scope) : undefined,
   };
 }
 

@@ -339,7 +339,7 @@ function AdjustmentContent() {
             <Button
               type="button"
               onClick={() => validate() && setConfirmOpen(true)}
-              className="h-11 rounded-xl bg-theme-primary hover:bg-theme-primary-hover px-6 text-sm font-semibold text-white transition-colors"
+              className="h-11 rounded-xl bg-stone-900 hover:bg-stone-800 text-[#D4AF37] border border-[#D4AF37]/30 shadow-xs px-6 text-sm font-semibold transition-colors"
             >
               Review adjustment
             </Button>

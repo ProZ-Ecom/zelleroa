@@ -5,6 +5,7 @@ import type {
   AdminProductListParams,
   GetAdminProductsParams,
   AdminProductImageResponse,
+  AdminProductsCountResponse,
 } from "../types";
 
 export async function getAdminProducts(
@@ -53,6 +54,25 @@ export async function getAdminProducts(
     data: response.data ?? [],
     meta: response.meta,
   };
+}
+
+export async function getAdminProductsCount(
+  params?: AdminProductListParams
+): Promise<AdminProductsCountResponse> {
+  const body: Record<string, unknown> = {};
+  if (params?.search) body.search = String(params.search).trim();
+  if (params?.categoryId) body.categoryId = String(params.categoryId);
+  if (params?.brandId) body.brandId = String(params.brandId);
+  if (params?.hsnCodeId) body.hsnCodeId = String(params.hsnCodeId);
+
+  const response = await apiClient.post<AdminProductsCountResponse>(
+    "/api/admin/products/count",
+    body
+  );
+
+  return (
+    response.data ?? { active: 0, inactive: 0, all: 0, withoutImage: 0 }
+  );
 }
 
 export async function getAdminProduct(uuid: string) {

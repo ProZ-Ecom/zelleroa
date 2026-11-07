@@ -17,11 +17,13 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { FormModal } from "@/components/common/FormModal";
 import { ExportButton } from "@/components/common/export-button";
 import { exportDataToCsv } from "@/lib/export-csv";
+import { formatDate } from "@/lib/utils";
 import { SearchInput } from "@/components/ui/search-input";
 import { Plus, Pencil, Trash2 } from "lucide-react";
 import { createCouponSchema, type CreateCouponSchemaInput } from "@/features/coupons/validations/coupon.schema";
 import type { ColumnDef } from "@tanstack/react-table";
 import type { CouponListItem } from "@/features/coupons/types";
+import { CanAct } from "@/features/access";
 
 const typeBadgeVariant: Record<string, "info" | "success"> = {
   PERCENTAGE: "info",
@@ -199,7 +201,7 @@ const numberField = (name: NumericField) => {
       header: "Expiry",
       cell: ({ row }) =>
         row.original.expiresAt
-          ? new Date(row.original.expiresAt).toLocaleDateString("en-IN")
+          ? formatDate(row.original.expiresAt)
           : "No expiry",
     },
     {
@@ -236,8 +238,8 @@ const numberField = (name: NumericField) => {
         title="Coupons"
         description="Manage discount coupons"
       />
-      <AdminContent className="flex-1 min-h-0 overflow-hidden">
-        <div className="flex h-full flex-col overflow-hidden bg-[var(--color-background)] py-1 rounded-2xl">
+      <AdminContent className="flex-1 min-h-0">
+        <div className="flex h-full flex-col bg-[var(--color-background)] py-1 rounded-2xl">
           <div className="flex-shrink-0 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <SearchInput
               placeholder="Search coupons..."
@@ -257,24 +259,26 @@ const numberField = (name: NumericField) => {
                       UsedCount: c.usedCount,
                       UsageLimit: c.usageLimit || "Unlimited",
                       Status: c.isActive ? "Active" : "Inactive",
-                      ExpiresAt: c.expiresAt ? new Date(c.expiresAt).toLocaleDateString("en-IN") : "No expiry",
+                      ExpiresAt: c.expiresAt ? formatDate(c.expiresAt) : "No expiry",
                     })),
                     "coupons"
                   )
                 }
                 disabled={coupons.length === 0}
               />
-              <Button
-                onClick={() => handleOpenModal()}
-                className="h-11 rounded-xl bg-theme-primary hover:bg-theme-primary-hover px-5 text-sm font-semibold text-white transition-colors"
-              >
-                <Plus className="mr-2 h-4 w-4" />
-                Add Coupon
-              </Button>
+              <CanAct action="CREATE">
+                <Button
+                  onClick={() => handleOpenModal()}
+                  className="h-11 rounded-xl bg-stone-900 hover:bg-stone-800 text-[#D4AF37] border border-[#D4AF37]/30 shadow-xs px-5 text-sm font-semibold transition-colors"
+                >
+                  <Plus className="mr-2 h-4 w-4 text-[#D4AF37]" />
+                  Add Coupon
+                </Button>
+              </CanAct>
             </div>
           </div>
 
-          <div className="mt-6 flex-1 min-h-0 overflow-hidden flex flex-col">
+          <div className="mt-6 flex-1 min-h-0 flex flex-col">
             <DataTable
               columns={columns}
               data={coupons}

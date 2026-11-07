@@ -33,6 +33,7 @@ interface DataTableProps<TData, TValue> {
   totalItems?: number;
   onPageChange?: (page: number) => void;
   className?: string;
+  tableClassName?: string;
   emptyMessage?: string;
   /** Show the CSV export button (default true). */
   exportable?: boolean;
@@ -57,6 +58,7 @@ function DataTable<TData, TValue>({
   totalItems,
   onPageChange,
   className,
+  tableClassName,
   emptyMessage = "No results found.",
   exportable = false,
   exportFileName,
@@ -159,7 +161,7 @@ function DataTable<TData, TValue>({
 
     
   return (
-    <div className={cn("w-full flex-1 flex flex-col justify-between rounded-2xl overflow-hidden min-h-[380px] border border-neutral-200/70 bg-white shadow-[0_1px_2px_rgba(16,24,40,0.04),0_8px_24px_-8px_rgba(16,24,40,0.08)]", className)}>
+    <div className={cn("w-full flex-1 min-h-0 flex flex-col justify-between rounded-2xl overflow-hidden border border-neutral-200/70 bg-white shadow-[0_1px_2px_rgba(16,24,40,0.04),0_8px_24px_-8px_rgba(16,24,40,0.08)]", className)}>
       {(searchKey || exportable) && (
         <div className="flex items-center justify-between gap-2 p-3 pb-4 flex-shrink-0">
           {searchKey ? (
@@ -187,9 +189,17 @@ function DataTable<TData, TValue>({
         </div>
       )}
 
-      <div className="min-h-[240px] flex-1 overflow-hidden flex flex-col">
-        <div className="flex-1 overflow-x-auto overflow-y-scroll overscroll-x-contain">
-          <table className="w-full min-w-[720px] table-auto caption-bottom text-sm border-separate border-spacing-0">
+      <div className="min-h-0 flex-1 overflow-hidden flex flex-col">
+        {/* `relative` keeps absolutely positioned cell content (sr-only labels,
+            badges) inside this scroller; without it they resolve against the
+            page and stretch the document with empty space below the layout. */}
+        <div
+          tabIndex={0}
+          role="region"
+          aria-label="Scrollable table content"
+          className="relative flex-1 min-h-0 overflow-auto overscroll-x-contain scrollbar-table focus:outline-hidden focus-visible:ring-1 focus-visible:ring-secondary-300"
+        >
+          <table className={cn("w-full min-w-[1100px] table-auto caption-bottom text-sm border-separate border-spacing-0", tableClassName)}>
             <thead>
               {table.getHeaderGroups().map((headerGroup) => (
                 <tr key={headerGroup.id} className="transition-colors">
@@ -201,11 +211,11 @@ function DataTable<TData, TValue>({
                       <th
                         key={header.id}
                         className={cn(
-                          "group/th h-12 px-4 text-left align-middle text-[11px] font-semibold tracking-[0.08em] whitespace-nowrap text-[var(--color-neutral-500)] uppercase sm:px-5 bg-neutral-50/95 backdrop-blur border-b border-neutral-200/80 sticky top-0 z-10",
+                          "group/th h-12 px-4 text-left align-middle text-[11px] font-semibold tracking-[0.08em] whitespace-nowrap uppercase sm:px-5 bg-stone-900 text-[#D4AF37] border-b border-stone-800 shadow-[0_1px_3px_rgba(28,25,23,0.2)] sticky top-0 z-10",
                           isActions &&
-                            "text-center sticky top-0 right-0 z-30 shadow-[-8px_0_12px_-6px_rgba(16,24,40,0.06)] bg-neutral-50",
+                            "text-center sticky top-0 right-0 z-30 shadow-[-8px_0_12px_-6px_rgba(28,25,23,0.3)] bg-stone-900 text-[#D4AF37]",
                           header.column.getCanSort() &&
-                            "cursor-pointer select-none hover:text-[var(--color-neutral-800)]"
+                            "cursor-pointer select-none hover:text-[#D4AF37]/80"
                         )}
                         onClick={header.column.getToggleSortingHandler()}
                       >
@@ -219,7 +229,7 @@ function DataTable<TData, TValue>({
                             ? null
                             : flexRender(header.column.columnDef.header, header.getContext())}
                           {header.column.getCanSort() && (
-                            <span className="text-neutral-300 transition-colors group-hover/th:text-neutral-500">
+                            <span className="text-[#D4AF37]/60 transition-colors group-hover/th:text-[#D4AF37]">
                               {header.column.getIsSorted() === "asc" ? (
                                 <ChevronUp className="h-4 w-4" />
                               ) : header.column.getIsSorted() === "desc" ? (
@@ -275,7 +285,7 @@ function DataTable<TData, TValue>({
         </div>
       </div>
 
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-4 sm:px-5 py-2.5 flex-shrink-0 border-t border-neutral-200/70 bg-neutral-50/40">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-4 sm:px-5 py-2.5 flex-shrink-0 border-t border-neutral-200/70 bg-neutral-50/95 backdrop-blur sticky bottom-0 z-20">
         <div className="flex flex-wrap items-center gap-3 sm:gap-6 text-sm text-[var(--color-neutral-500)]">
           <p>
             Showing {startEntry}–{endEntry} of {computedTotalItems} entries

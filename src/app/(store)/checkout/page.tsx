@@ -25,6 +25,8 @@ import {
   Phone,
   Clock,
   Check,
+  Building2,
+  Pencil,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
@@ -40,12 +42,14 @@ import { useQueryClient } from "@tanstack/react-query";
 import {
   useCustomerAddresses,
   useCreateCustomerAddress,
+  useUpdateCustomerAddress,
 } from "@/features/customers/hooks/use-customer-address";
 import {
   useCreateCustomerOrder,
   useCreateGuestOrder,
   CUSTOMER_ORDERS_QUERY_KEY,
 } from "@/features/customers/hooks/use-customer-orders";
+import { useCustomerProfile } from "@/features/customers/hooks/use-customer-profile";
 import { customerPaymentApi } from "@/features/customers/api/customer-payment.api";
 import { useCheckout } from "@/features/checkout/checkout-context";
 import { useIsAgent, useSignedIn } from "@/features/auth/hooks/use-signed-in";
@@ -118,6 +122,9 @@ export default function CheckoutPage() {
   const { data: addresses = [], isLoading: addressesLoading } =
     useCustomerAddresses();
   const createAddressMutation = useCreateCustomerAddress();
+  const updateAddressMutation = useUpdateCustomerAddress();
+  const [editingAddressId, setEditingAddressId] = useState<string | null>(null);
+  const addressFormRef = useState<HTMLFormElement | null>(null);
   const createOrderMutation = useCreateCustomerOrder();
   const createGuestOrderMutation = useCreateGuestOrder();
 
@@ -128,6 +135,8 @@ export default function CheckoutPage() {
   const [orderFor, setOrderFor] = useState<"self" | "customer">("self");
   const isGuest = authStatus !== "loading" && !signedIn;
   const [guestEmail, setGuestEmail] = useState<string>("");
+
+  const { data: customerProfile } = useCustomerProfile({ enabled: !isGuest });
 
   // Selected state
   const [selectedAddressId, setSelectedAddressId] = useState<string>("");
@@ -170,7 +179,7 @@ export default function CheckoutPage() {
     addressLine2: "",
     landmark: "",
     city: "",
-    state: "Tamil Nadu",
+    state: "",
     pincode: "",
     country: "India",
     addressType: "shipping" as const,
@@ -187,6 +196,10 @@ export default function CheckoutPage() {
 
   const validateField = (field: string, value: string): string | null => {
     const val = (value || "").trim();
+    if (field === "area") {
+      if (postOffices.length > 0 && !val) return "Please select your area / post office";
+      return null;
+    }
     if (field === "guestEmail") {
       if (!val) return "Email address is required";
       const res = emailField.safeParse(val);
@@ -247,6 +260,10 @@ export default function CheckoutPage() {
     const pinErr = validateField("pincode", newAddressForm.pincode);
     if (pinErr) errors.pincode = pinErr;
 
+    if (postOffices.length > 0 && !area.trim()) {
+      errors.area = "Please select your area / post office";
+    }
+
     const addrErr = validateField("addressLine1", newAddressForm.addressLine1);
     if (addrErr) errors.addressLine1 = addrErr;
 
@@ -287,14 +304,19 @@ export default function CheckoutPage() {
     });
   };
 
-  // Auto-fill city and state from the PIN code. City and state are disabled/readOnly.
+  // Auto-fill city and state from PIN code, or allow manual entry when lookup fails
   const handlePincodeChange = (value: string) => {
     const pincode = value.replace(/\D/g, "").slice(0, 6);
     setArea("");
+    setFieldErrors((prev) => {
+      const next = { ...prev };
+      delete next.area;
+      return next;
+    });
     setNewAddressForm((prev) => ({
       ...prev,
       pincode,
-      ...(pincode.length < 6 ? { city: "", state: "" } : {}),
+      ...(pincode === "" ? { city: "", state: "" } : {}),
     }));
 
     if (fieldErrors.pincode) {
@@ -339,12 +361,13 @@ export default function CheckoutPage() {
   // Pricing calculations
   const items = cart?.items || [];
   const subtotal = Number(cart?.subtotal || 0);
-  // Delivery is priced by chosen delivery method (Standard = ₹49, Express = ₹99)
-  const deliveryState = isGuest
+  // Standard delivery is free within Tamil Nadu and ₹80 elsewhere; Express is flat ₹99.
+  const isUsingNewAddress = isGuest || isAddingAddress;
+  const deliveryState = isUsingNewAddress
     ? newAddressForm.state
     : addresses.find((a) => a.id === effectiveAddressId)?.state;
   const hasDeliveryState = !!deliveryState?.trim();
-  const isFreeDelivery = false;
+  const isFreeDelivery = hasDeliveryState && isFreeDeliveryState(deliveryState);
   const shippingCharge = getShippingCharge(deliveryState, deliveryMethod);
   const grandTotal = subtotal + shippingCharge;
 
@@ -406,7 +429,28 @@ export default function CheckoutPage() {
   }
 
 
-  // Handle address form creation
+  const handleEditAddress = (addr: CustomerAddressResponse) => {
+    setEditingAddressId(addr.id);
+    setIsAddingAddress(true);
+    setNewAddressForm({
+      fullName: addr.fullName,
+      phone: addr.phone.replace(/\D/g, "").slice(-10),
+      addressLine1: addr.addressLine1,
+      addressLine2: addr.addressLine2 || "",
+      landmark: addr.landmark || "",
+      city: addr.city,
+      state: addr.state,
+      pincode: addr.pincode,
+      country: addr.country || "India",
+      addressType: (addr.addressType as any) || "shipping",
+      isDefault: addr.isDefault ?? false,
+    });
+    setArea(addr.addressLine2 || "");
+    setFieldErrors({});
+    setAddressFormError(null);
+  };
+
+  // Handle address form creation or update
   const handleCreateAddress = async (e: React.FormEvent) => {
     e.preventDefault();
     setAddressFormError(null);
@@ -423,22 +467,46 @@ export default function CheckoutPage() {
         ? newAddressForm.phone
         : `+91${newAddressForm.phone.replace(/\D/g, "").slice(-10)}`;
 
-      const created = await createAddressMutation.mutateAsync({
-        fullName: newAddressForm.fullName.trim(),
-        phone: cleanPhone,
-        addressLine1: newAddressForm.addressLine1.trim(),
-        addressLine2: newAddressForm.addressLine2.trim() || undefined,
-        landmark: newAddressForm.landmark.trim() || undefined,
-        city: newAddressForm.city.trim(),
-        state: newAddressForm.state.trim(),
-        pincode: newAddressForm.pincode.trim(),
-        country: "India",
-        addressType: "shipping",
-        isDefault: newAddressForm.isDefault,
-      });
+      if (editingAddressId) {
+        const updated = await updateAddressMutation.mutateAsync({
+          uuid: editingAddressId,
+          data: {
+            fullName: newAddressForm.fullName.trim(),
+            phone: cleanPhone,
+            addressLine1: newAddressForm.addressLine1.trim(),
+            addressLine2: newAddressForm.addressLine2.trim() || area.trim() || undefined,
+            landmark: newAddressForm.landmark.trim() || undefined,
+            city: newAddressForm.city.trim(),
+            state: newAddressForm.state.trim(),
+            pincode: newAddressForm.pincode.trim(),
+            country: "India",
+            addressType: "shipping",
+            isDefault: newAddressForm.isDefault,
+          },
+        });
 
-      setSelectedAddressId(created.id);
-      setIsAddingAddress(false);
+        setSelectedAddressId(updated.id);
+        setEditingAddressId(null);
+        setIsAddingAddress(false);
+      } else {
+        const created = await createAddressMutation.mutateAsync({
+          fullName: newAddressForm.fullName.trim(),
+          phone: cleanPhone,
+          addressLine1: newAddressForm.addressLine1.trim(),
+          addressLine2: newAddressForm.addressLine2.trim() || area.trim() || undefined,
+          landmark: newAddressForm.landmark.trim() || undefined,
+          city: newAddressForm.city.trim(),
+          state: newAddressForm.state.trim(),
+          pincode: newAddressForm.pincode.trim(),
+          country: "India",
+          addressType: "shipping",
+          isDefault: newAddressForm.isDefault,
+        });
+
+        setSelectedAddressId(created.id);
+        setIsAddingAddress(false);
+      }
+
       setFieldErrors({});
       setNewAddressForm({
         fullName: "",
@@ -447,12 +515,13 @@ export default function CheckoutPage() {
         addressLine2: "",
         landmark: "",
         city: "",
-        state: "Tamil Nadu",
+        state: "",
         pincode: "",
         country: "India",
         addressType: "shipping",
         isDefault: true,
       });
+      setArea("");
     } catch (err: any) {
       setAddressFormError(err.message || "Failed to save address");
     }
@@ -507,6 +576,17 @@ export default function CheckoutPage() {
         },
         theme: {
           color: "#2563EB", // Zellora Royal Cobalt brand color
+        },
+        config: {
+          display: {
+            hide: [
+              { method: "emi" },
+              { method: "paylater" },
+            ],
+            preferences: {
+              show_default_blocks: true,
+            },
+          },
         },
         modal: {
           ondismiss: () => {
@@ -598,6 +678,7 @@ export default function CheckoutPage() {
       setCheckoutError("Please fill in all required delivery and contact details correctly.");
       return;
     }
+
     setFieldErrors({});
 
     try {
@@ -610,7 +691,7 @@ export default function CheckoutPage() {
         fullName: newAddressForm.fullName.trim(),
         phone: cleanPhone,
         addressLine1: newAddressForm.addressLine1.trim(),
-        addressLine2: newAddressForm.addressLine2.trim() || undefined,
+        addressLine2: newAddressForm.addressLine2.trim() || area.trim() || undefined,
         landmark: newAddressForm.landmark.trim() || undefined,
         city: newAddressForm.city.trim(),
         state: newAddressForm.state.trim(),
@@ -803,8 +884,27 @@ export default function CheckoutPage() {
                   type="button"
                   variant="outline"
                   size="sm"
-                  onClick={() => setIsAddingAddress(true)}
-                  className="rounded-xl border-theme-border text-xs font-bold text-theme-primary hover:bg-theme-surface-alt min-h-[36px]"
+                  onClick={() => {
+                    setEditingAddressId(null);
+                    setNewAddressForm({
+                      fullName: "",
+                      phone: "",
+                      addressLine1: "",
+                      addressLine2: "",
+                      landmark: "",
+                      city: "",
+                      state: "",
+                      pincode: "",
+                      country: "India",
+                      addressType: "shipping",
+                      isDefault: true,
+                    });
+                    setArea("");
+                    setFieldErrors({});
+                    setAddressFormError(null);
+                    setIsAddingAddress(true);
+                  }}
+                  className="rounded-xl border-theme-border text-xs font-bold text-theme-primary hover:bg-theme-surface-alt min-h-[36px] cursor-pointer"
                 >
                   <Plus className="mr-1 h-3.5 w-3.5" />
                   Add New
@@ -862,11 +962,26 @@ export default function CheckoutPage() {
                               </span>
                             </div>
 
-                            {addr.isDefault && (
-                              <span className="shrink-0 rounded-md bg-theme-status-del-bg px-2 py-0.5 text-[10px] font-extrabold text-theme-status-del-fg">
-                                Default
-                              </span>
-                            )}
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              {addr.isDefault && (
+                                <span className="rounded-md bg-theme-status-del-bg px-2 py-0.5 text-[10px] font-extrabold text-theme-status-del-fg">
+                                  Default
+                                </span>
+                              )}
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleEditAddress(addr);
+                                }}
+                                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-semibold text-theme-text-subtle hover:text-theme-primary hover:bg-theme-surface-alt border border-theme-border/60 hover:border-theme-primary/30 transition-colors cursor-pointer"
+                                title="Edit address"
+                                aria-label={`Edit address for ${addr.fullName}`}
+                              >
+                                <Pencil className="h-3 w-3" />
+                                <span>Edit</span>
+                              </button>
+                            </div>
                           </div>
 
                           <div className="text-xs text-theme-text-subtle space-y-1 pl-6">
@@ -906,17 +1021,18 @@ export default function CheckoutPage() {
               >
                 <div className="flex items-center justify-between border-b border-theme-border pb-2.5">
                   <h3 className="text-sm font-bold text-theme-text-primary">
-                    {isGuest ? "Your Contact & Delivery Details" : "New Delivery Address"}
+                    {isGuest ? "Your Contact & Delivery Details" : editingAddressId ? "Edit Delivery Address" : "New Delivery Address"}
                   </h3>
                   {!isGuest && (
                     <button
                       type="button"
                       onClick={() => {
                         setIsAddingAddress(false);
+                        setEditingAddressId(null);
                         setFieldErrors({});
                         setAddressFormError(null);
                       }}
-                      className="text-theme-text-subtle hover:text-theme-text-primary"
+                      className="text-theme-text-subtle hover:text-theme-text-primary cursor-pointer p-1 rounded-md hover:bg-theme-surface-alt transition-colors"
                     >
                       <X className="h-4 w-4" />
                     </button>
@@ -1039,22 +1155,34 @@ export default function CheckoutPage() {
                         {fieldErrors.pincode}
                       </p>
                     ) : pincodeLookupError ? (
-                      <p className="mt-1 text-xs text-red-500 font-medium animate-in fade-in duration-150">
-                        {pincodeLookupError}
-                      </p>
+                      <div className="mt-1 space-y-0.5 animate-in fade-in duration-150">
+                        <p className="text-xs text-amber-600 font-medium">
+                          {pincodeLookupError}
+                        </p>
+                        <p className="text-[11px] text-theme-text-subtle">
+                          PIN code lookup failed or timed out. Please enter your City and State manually below.
+                        </p>
+                      </div>
                     ) : null}
                   </div>
 
                   {postOffices.length > 0 && (
                     <div className="sm:col-span-2">
                       <label className="block text-xs font-semibold text-theme-text-secondary mb-1">
-                        Select your area / post office ({postOffices.length} found)
+                        Select your area
+                        <span className="text-red-600">*</span>
                       </label>
                       <Select
-                        options={postOffices.map((po) => ({
-                          value: po.value,
-                          label: `${po.label}${po.description ? ` (${po.description})` : ""}`,
-                        }))}
+                        options={postOffices.map((po) => {
+                          const cleanDesc = po.description
+                            ?.replace(/•?\s*(non-delivery|delivery)/gi, "")
+                            ?.replace(/^\s*•\s*/, "")
+                            ?.trim();
+                          return {
+                            value: po.value,
+                            label: cleanDesc ? `${po.label} (${cleanDesc})` : po.label,
+                          };
+                        })}
                         value={area}
                         onValueChange={(val) => {
                           setArea(val);
@@ -1063,15 +1191,27 @@ export default function CheckoutPage() {
                               ? { ...prev, addressLine2: val }
                               : prev
                           );
+                          if (fieldErrors.area) {
+                            setFieldErrors((prev) => {
+                              const next = { ...prev };
+                              delete next.area;
+                              return next;
+                            });
+                          }
                         }}
                         placeholder="Select area / locality…"
                       />
+                      {fieldErrors.area && (
+                        <p className="mt-1 text-xs text-red-500 font-medium animate-in fade-in duration-150">
+                          {fieldErrors.area}
+                        </p>
+                      )}
                     </div>
                   )}
 
                   <div className="sm:col-span-2">
                     <label className="block text-xs font-semibold text-theme-text-secondary mb-1">
-                      FFlat / House No., Building, Street <span className="text-red-600">*</span>
+                      Flat / House No., Building, Street <span className="text-red-600">*</span>
                     </label>
                     <input
                       type="text"
@@ -1094,20 +1234,29 @@ export default function CheckoutPage() {
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-theme-text-secondary mb-1">
-                      City <span className="text-red-600">*</span>
+                    <label className="block text-xs font-semibold text-theme-text-secondary mb-1 flex items-center justify-between">
+                      <span>
+                        City <span className="text-red-600">*</span>
+                      </span>
+                      {pincodeLookupError && (
+                        <span className="text-[10px] text-amber-600 font-normal">
+                          Enter manually
+                        </span>
+                      )}
                     </label>
                     <input
                       type="text"
-                      readOnly
-                      tabIndex={-1}
-                      placeholder={isPincodeLoading ? "Fetching city..." : "Auto-filled from pincode"}
+                      readOnly={isPincodeLoading}
+                      placeholder={isPincodeLoading ? "Fetching city..." : pincodeLookupError ? "Enter city / district" : "e.g. Namakkal"}
                       value={newAddressForm.city}
+                      onChange={(e) => handleFieldChange("city", e.target.value)}
+                      onBlur={() => handleFieldBlur("city")}
                       className={cn(
-                        "w-full min-h-[44px] rounded-xl border bg-theme-surface-alt/70 px-3 text-xs text-theme-text-primary cursor-not-allowed select-none shadow-none focus:outline-none transition-colors",
+                        "w-full min-h-[44px] rounded-xl border bg-white px-3 text-xs text-theme-text-primary placeholder:text-theme-text-muted focus:outline-none transition-colors",
+                        isPincodeLoading && "bg-theme-surface-alt/70 text-theme-text-muted cursor-wait select-none shadow-none",
                         fieldErrors.city
-                          ? "border-red-500 bg-red-50/10 ring-1 ring-red-500/40"
-                          : "border-theme-border-input"
+                          ? "border-red-500 bg-red-50/10 focus:border-red-500 focus:ring-1 focus:ring-red-500/50 ring-1 ring-red-500/40"
+                          : "border-theme-border-input focus:border-theme-primary"
                       )}
                     />
                     {fieldErrors.city && (
@@ -1118,20 +1267,29 @@ export default function CheckoutPage() {
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-theme-text-secondary mb-1">
-                      State <span className="text-red-600">*</span>
+                    <label className="block text-xs font-semibold text-theme-text-secondary mb-1 flex items-center justify-between">
+                      <span>
+                        State <span className="text-red-600">*</span>
+                      </span>
+                      {pincodeLookupError && (
+                        <span className="text-[10px] text-amber-600 font-normal">
+                          Enter manually
+                        </span>
+                      )}
                     </label>
                     <input
                       type="text"
-                      readOnly
-                      tabIndex={-1}
-                      placeholder={isPincodeLoading ? "Fetching state..." : "Auto-filled from pincode"}
+                      readOnly={isPincodeLoading}
+                      placeholder={isPincodeLoading ? "Fetching state..." : pincodeLookupError ? "Enter state" : "e.g. Tamil Nadu"}
                       value={newAddressForm.state}
+                      onChange={(e) => handleFieldChange("state", e.target.value)}
+                      onBlur={() => handleFieldBlur("state")}
                       className={cn(
-                        "w-full min-h-[44px] rounded-xl border bg-theme-surface-alt/70 px-3 text-xs text-theme-text-primary cursor-not-allowed select-none shadow-none focus:outline-none transition-colors",
+                        "w-full min-h-[44px] rounded-xl border bg-white px-3 text-xs text-theme-text-primary placeholder:text-theme-text-muted focus:outline-none transition-colors",
+                        isPincodeLoading && "bg-theme-surface-alt/70 text-theme-text-muted cursor-wait select-none shadow-none",
                         fieldErrors.state
-                          ? "border-red-500 bg-red-50/10 ring-1 ring-red-500/40"
-                          : "border-theme-border-input"
+                          ? "border-red-500 bg-red-50/10 focus:border-red-500 focus:ring-1 focus:ring-red-500/50 ring-1 ring-red-500/40"
+                          : "border-theme-border-input focus:border-theme-primary"
                       )}
                     />
                     {fieldErrors.state && (
@@ -1143,35 +1301,50 @@ export default function CheckoutPage() {
                 </div>
 
                 {!isGuest && (
-                  <div className="flex items-center justify-end gap-2.5 pt-2">
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => {
-                        setIsAddingAddress(false);
-                        setFieldErrors({});
-                        setAddressFormError(null);
-                      }}
-                      className="min-h-[40px] text-xs font-semibold rounded-xl text-theme-text-subtle"
-                    >
-                      Cancel
-                    </Button>
-                    <Button
-                      type="submit"
-                      size="sm"
-                      disabled={createAddressMutation.isPending}
-                      className="min-h-[40px] px-4 text-xs font-bold rounded-xl bg-theme-primary hover:bg-theme-primary-hover text-white"
-                    >
-                      {createAddressMutation.isPending ? (
-                        <>
-                          <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
-                          Saving Address...
-                        </>
-                      ) : (
-                        "Save Address"
-                      )}
-                    </Button>
+                  <div className="flex items-center justify-between pt-2">
+                    <label className="flex items-center gap-2 text-xs font-medium text-theme-text-secondary cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        checked={newAddressForm.isDefault}
+                        onChange={(e) =>
+                          setNewAddressForm((prev) => ({ ...prev, isDefault: e.target.checked }))
+                        }
+                        className="rounded border-theme-border text-theme-primary focus:ring-theme-primary h-4 w-4 cursor-pointer"
+                      />
+                      <span>Make this my default address</span>
+                    </label>
+
+                    <div className="flex items-center gap-2.5">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          setIsAddingAddress(false);
+                          setEditingAddressId(null);
+                          setFieldErrors({});
+                          setAddressFormError(null);
+                        }}
+                        className="min-h-[40px] text-xs font-semibold rounded-xl text-theme-text-subtle cursor-pointer"
+                      >
+                        Cancel
+                      </Button>
+                      <Button
+                        type="submit"
+                        size="sm"
+                        disabled={createAddressMutation.isPending || updateAddressMutation.isPending}
+                        className="min-h-[40px] px-4 text-xs font-bold rounded-xl bg-theme-primary hover:bg-theme-primary-hover text-white cursor-pointer"
+                      >
+                        {createAddressMutation.isPending || updateAddressMutation.isPending ? (
+                          <>
+                            <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                            {editingAddressId ? "Updating Address..." : "Saving Address..."}
+                          </>
+                        ) : (
+                          editingAddressId ? "Update Address" : "Save Address"
+                        )}
+                      </Button>
+                    </div>
                   </div>
                 )}
               </form>
@@ -1193,40 +1366,23 @@ export default function CheckoutPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
               {/* Standard Delivery Option */}
               <div
-                role="button"
-                tabIndex={0}
-                onClick={() => setDeliveryMethod("standard")}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" || e.key === " ") {
-                    e.preventDefault();
-                    setDeliveryMethod("standard");
-                  }
-                }}
-                className={`relative rounded-xl border p-4 text-left cursor-pointer transition-all duration-200 focus:outline-none select-none ${
-                  deliveryMethod === "standard"
-                    ? "border-theme-primary bg-theme-surface-alt/70 shadow-xs ring-2 ring-theme-primary/30"
-                    : "border-theme-border bg-theme-surface hover:border-theme-border-strong hover:bg-theme-surface-alt/40"
-                }`}
+                className="relative rounded-xl border border-theme-primary bg-theme-surface-alt/70 p-4 text-left shadow-xs ring-2 ring-theme-primary/30 select-none"
               >
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-2">
-                    <div
-                      className={`h-4 w-4 rounded-full border flex items-center justify-center transition-colors ${
-                        deliveryMethod === "standard"
-                          ? "border-theme-primary bg-theme-primary"
-                          : "border-theme-border-strong bg-white"
-                      }`}
-                    >
-                      {deliveryMethod === "standard" && (
-                        <div className="h-1.5 w-1.5 rounded-full bg-white" />
-                      )}
+                    <div className="h-4 w-4 rounded-full border border-theme-primary bg-theme-primary flex items-center justify-center">
+                      <div className="h-1.5 w-1.5 rounded-full bg-white" />
                     </div>
                     <span className="text-xs font-bold text-theme-text-primary">
                       Standard Delivery
                     </span>
                   </div>
                   <span className="text-xs font-extrabold text-theme-primary">
-                    {formatPrice(STANDARD_DELIVERY_CHARGE)}
+                    {isFreeDelivery
+                      ? "FREE"
+                      : formatPrice(
+                          hasDeliveryState ? shippingCharge : STANDARD_DELIVERY_CHARGE
+                        )}
                   </span>
                 </div>
                 <p className="text-[11px] text-theme-text-subtle flex items-center gap-1 mb-1">
@@ -1234,59 +1390,9 @@ export default function CheckoutPage() {
                   <span>Estimated: {STANDARD_DELIVERY_ESTIMATE}</span>
                 </p>
                 <p className="text-[11px] text-theme-text-muted">
-                  Standard doorstep delivery across India.
-                </p>
-              </div>
-
-              {/* Express Delivery Option */}
-              <div
-                role="button"
-                tabIndex={0}
-                onClick={() => setDeliveryMethod("express")}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" || e.key === " ") {
-                    e.preventDefault();
-                    setDeliveryMethod("express");
-                  }
-                }}
-                className={`relative rounded-xl border p-4 text-left cursor-pointer transition-all duration-200 focus:outline-none select-none ${
-                  deliveryMethod === "express"
-                    ? "border-theme-primary bg-theme-surface-alt/70 shadow-xs ring-2 ring-theme-primary/30"
-                    : "border-theme-border bg-theme-surface hover:border-theme-border-strong hover:bg-theme-surface-alt/40"
-                }`}
-              >
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-2">
-                    <div
-                      className={`h-4 w-4 rounded-full border flex items-center justify-center transition-colors ${
-                        deliveryMethod === "express"
-                          ? "border-theme-primary bg-theme-primary"
-                          : "border-theme-border-strong bg-white"
-                      }`}
-                    >
-                      {deliveryMethod === "express" && (
-                        <div className="h-1.5 w-1.5 rounded-full bg-white" />
-                      )}
-                    </div>
-                    <span className="text-xs font-bold text-theme-text-primary">
-                      Express Delivery
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-[9px] font-extrabold uppercase px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 border border-amber-200">
-                      Fastest
-                    </span>
-                    <span className="text-xs font-extrabold text-theme-primary">
-                      {formatPrice(EXPRESS_DELIVERY_CHARGE)}
-                    </span>
-                  </div>
-                </div>
-                <p className="text-[11px] text-theme-text-subtle flex items-center gap-1 mb-1">
-                  <Clock className="h-3 w-3 text-amber-600 shrink-0" />
-                  <span>Estimated: {EXPRESS_DELIVERY_ESTIMATE}</span>
-                </p>
-                <p className="text-[11px] text-theme-text-muted">
-                  Priority express delivery directly to your doorstep.
+                  {isFreeDelivery
+                    ? `Free delivery within ${FREE_DELIVERY_STATE}.`
+                    : `Standard doorstep delivery across India. Free within ${FREE_DELIVERY_STATE}.`}
                 </p>
               </div>
             </div>
@@ -1407,13 +1513,30 @@ export default function CheckoutPage() {
             )}
 
             {paymentMethod === "COD" && (
-              <div className="rounded-xl border border-theme-border-subtle bg-theme-surface-alt/60 p-4 sm:p-5 space-y-2">
-                <p className="text-xs font-bold text-theme-text-primary">
-                  Pay with Cash upon Doorstep Delivery
-                </p>
-                <p className="text-[11px] text-theme-text-subtle leading-relaxed">
-                  Please keep exact change ready upon delivery. Our delivery partner will verify and hand over your fresh package with a receipt.
-                </p>
+              <div className="rounded-xl border border-amber-200/80 bg-amber-50/40 p-4 sm:p-5 space-y-3">
+                <div className="flex items-start gap-3">
+                  <div className="p-2 rounded-lg bg-amber-100 text-amber-800 shrink-0 mt-0.5">
+                    <Building2 className="h-4 w-4" />
+                  </div>
+                  <div>
+                    <h3 className="text-xs font-bold text-theme-text-primary flex items-center gap-2">
+                      Cash on Delivery
+                      <span className="text-[10px] uppercase tracking-wider font-extrabold px-1.5 py-0.5 rounded bg-amber-200/80 text-amber-900">
+                        Doorstep Payment
+                      </span>
+                    </h3>
+                    <p className="text-[11px] text-theme-text-subtle mt-0.5 leading-relaxed">
+                      Pay with physical cash or UPI directly to the courier agent when your package is delivered to your doorstep.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="text-[11px] text-theme-text-subtle bg-white/90 border border-theme-border rounded-xl p-3 flex items-center gap-2">
+                  <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
+                  <span>
+                    No bank account details or online transaction required to place this order. If you ever need to return a product, you can provide your refund bank details directly during the return request.
+                  </span>
+                </div>
               </div>
             )}
           </div>
@@ -1499,7 +1622,7 @@ export default function CheckoutPage() {
                     </span>
                   </div>
                   <span className="font-semibold text-theme-text-primary">
-                    {formatPrice(shippingCharge)}
+                    {isFreeDelivery ? "FREE" : formatPrice(shippingCharge)}
                   </span>
                 </div>
 
@@ -1555,10 +1678,17 @@ export default function CheckoutPage() {
               </Button>
 
               <div className="text-[11px] text-center text-theme-text-muted space-y-1 pt-1">
-                <p className="flex items-center justify-center gap-1.5 font-medium text-emerald-700">
-                  <ShieldCheck className="h-3.5 w-3.5 text-emerald-600" />
-                  256-bit Bank-Grade Encryption by Razorpay
-                </p>
+                {paymentMethod === "COD" ? (
+                  <p className="flex items-center justify-center gap-1.5 font-medium text-amber-700">
+                    <ShieldCheck className="h-3.5 w-3.5 text-amber-600" />
+                    Doorstep Cash Payment • Direct Return Refund Protection
+                  </p>
+                ) : (
+                  <p className="flex items-center justify-center gap-1.5 font-medium text-emerald-700">
+                    <ShieldCheck className="h-3.5 w-3.5 text-emerald-600" />
+                    256-bit Bank-Grade Encryption by Razorpay
+                  </p>
+                )}
                 <p>Premium collection delivered securely to your door.</p>
               </div>
 

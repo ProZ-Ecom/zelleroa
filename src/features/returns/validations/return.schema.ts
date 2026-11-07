@@ -1,7 +1,9 @@
 import { z } from "zod";
 import {
+  RETURN_DISPOSITIONS,
   RETURN_REASONS,
   RETURN_STATUSES,
+  SHIPPING_SLIP_URL_PREFIX,
   UNBOXING_VIDEO_URL_PREFIX,
 } from "../lib/policy";
 
@@ -36,7 +38,7 @@ export type CreateReturnItemInput = z.infer<typeof createReturnItemSchema>;
 
 export const codRefundDetailsSchema = z
   .object({
-    method: z.enum(["bank_transfer", "upi"]),
+    method: z.enum(["bank_transfer", "upi"]).default("bank_transfer"),
     accountHolderName: z.string().trim().max(150).optional(),
     bankName: z.string().trim().max(150).optional(),
     accountNumber: z.string().trim().max(30).optional(),
@@ -46,36 +48,43 @@ export const codRefundDetailsSchema = z
   })
   .superRefine((data, ctx) => {
     if (data.method === "bank_transfer") {
-      if (!data.accountHolderName || data.accountHolderName.length < 2) {
+      if (!data.accountHolderName || data.accountHolderName.trim().length < 2) {
         ctx.addIssue({
           code: "custom",
           path: ["accountHolderName"],
           message: "Account holder name is required (at least 2 characters)",
         });
       }
-      if (!data.accountNumber || !/^\d{9,18}$/.test(data.accountNumber)) {
+      if (!data.accountNumber || !/^\d{9,18}$/.test(data.accountNumber.trim())) {
         ctx.addIssue({
           code: "custom",
           path: ["accountNumber"],
           message: "Please enter a valid bank account number (9 to 18 digits)",
         });
       }
-      if (data.accountNumber !== data.confirmAccountNumber) {
+      if (!data.confirmAccountNumber || data.accountNumber?.trim() !== data.confirmAccountNumber?.trim()) {
         ctx.addIssue({
           code: "custom",
           path: ["confirmAccountNumber"],
           message: "Account numbers do not match",
         });
       }
-      if (!data.ifscCode || !/^[A-Z]{4}0[A-Z0-9]{6}$/i.test(data.ifscCode)) {
+      if (!data.ifscCode || !/^[A-Z]{4}0[A-Z0-9]{6}$/i.test(data.ifscCode.trim())) {
         ctx.addIssue({
           code: "custom",
           path: ["ifscCode"],
           message: "Please enter a valid 11-character IFSC code (e.g. HDFC0001234)",
         });
       }
+      if (!data.bankName || data.bankName.trim().length < 2) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["bankName"],
+          message: "Bank name is required (at least 2 characters)",
+        });
+      }
     } else if (data.method === "upi") {
-      if (!data.upiId || !/^[\w.-]+@[\w.-]+$/.test(data.upiId)) {
+      if (!data.upiId || !/^[\w.-]+@[\w.-]+$/.test(data.upiId.trim())) {
         ctx.addIssue({
           code: "custom",
           path: ["upiId"],
@@ -139,12 +148,70 @@ export const requestActionSchema = z
   .object({
     comment: z.string().trim().max(500).optional(),
     rejectionReason: z.string().trim().max(500).optional(),
+    qcFailureReason: z.string().trim().max(500).optional(),
+    cancellationReason: z.string().trim().max(500).optional(),
     pickupDate: z.string().trim().max(40).optional(),
+    shippedDate: z.string().trim().max(40).optional(),
     transactionRef: z.string().trim().max(100).optional(),
     note: z.string().trim().max(500).optional(),
+    courierName: z.string().trim().max(100).optional(),
+    trackingNumber: z.string().trim().max(100).optional(),
+    shippingSlipUrl: z.string().trim().max(500).optional(),
+    pickupImageUrl: z.string().trim().max(500).optional(),
+    /** `refund` only: whether the inspected item is resellable or written off. */
+    disposition: z.enum(RETURN_DISPOSITIONS).optional(),
+    /** `send-back` only: how the item is being couriered back to the customer. */
+    sendbackCourierName: z.string().trim().max(100).optional(),
+    sendbackTrackingNumber: z.string().trim().max(100).optional(),
+    sendbackShippedDate: z.string().trim().max(40).optional(),
+    sendbackProofUrl: z.string().trim().max(500).optional(),
+    /**
+     * `refund` only: the SKU that actually arrived, per returned line, when it
+     * is not the one the customer ordered ("wrong product received"). Lines
+     * left out restock the ordered SKU, as before.
+     */
+    receivedVariants: z
+      .array(
+        z
+          .object({
+            orderItemId: z.string().uuid("Invalid order item UUID"),
+            variantUnitPriceId: z.coerce.number().int().positive(),
+          })
+          .strict()
+      )
+      .max(50)
+      .optional(),
   })
   .strict();
 export type RequestActionInput = z.infer<typeof requestActionSchema>;
+
+/**
+ * What the customer may send with their own two actions - the courier details
+ * they post the parcel with, or why they are pulling the request.
+ */
+export const customerReturnActionSchema = z
+  .object({
+    courierName: z.string().trim().min(2, "Courier name is required").max(100).optional(),
+    trackingNumber: z
+      .string()
+      .trim()
+      .min(3, "Tracking number is required")
+      .max(100)
+      .optional(),
+    shippedDate: z.string().trim().max(40).optional(),
+    shippingSlipUrl: z
+      .string()
+      .trim()
+      .max(500)
+      .refine(
+        (v) => v.startsWith(SHIPPING_SLIP_URL_PREFIX),
+        "Invalid delivery slip photo"
+      )
+      .optional(),
+    cancellationReason: z.string().trim().max(500).optional(),
+  })
+  .strict();
+export type CustomerReturnActionInput = z.infer<typeof customerReturnActionSchema>;
 
 export const rejectReturnSchema = requestActionSchema;
 export type RejectReturnInput = RequestActionInput;

@@ -2,9 +2,9 @@
 
 import { useMutation, useQuery, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import { toast } from "@/components/ui/Toast";
-import { purchaseKeys, vendorKeys } from "@/lib/api/query-keys";
+import { purchaseKeys, purchaseReturnKeys, vendorKeys } from "@/lib/api/query-keys";
 import * as api from "../api/purchases.api";
-import type { GetPurchasesParams, GetVendorsParams } from "../types";
+import type { GetPurchaseReturnsParams, GetPurchasesParams, GetVendorsParams } from "../types";
 
 function clean<T extends object>(params?: T) {
   const out: Record<string, string | number | boolean> = {};
@@ -85,6 +85,78 @@ export function usePurchaseProducts(search: string) {
     queryFn: () => api.searchPurchaseProducts(search),
     placeholderData: keepPreviousData,
   });
+}
+
+export function usePurchaseReturns(params?: GetPurchaseReturnsParams) {
+  const q = clean(params);
+  return useQuery({
+    queryKey: purchaseReturnKeys.list(q),
+    queryFn: () => api.getPurchaseReturns(q),
+    placeholderData: keepPreviousData,
+  });
+}
+
+export function usePurchaseReturn(uuid: string | null) {
+  return useQuery({
+    queryKey: purchaseReturnKeys.detail(uuid ?? ""),
+    queryFn: () => api.getPurchaseReturn(uuid!),
+    enabled: !!uuid,
+  });
+}
+
+/** The lines of a received purchase order that can still be sent back. */
+export function useReturnableItems(poUuid: string | null) {
+  return useQuery({
+    queryKey: [...purchaseReturnKeys.all, "returnable", poUuid ?? ""],
+    queryFn: () => api.getReturnableItems(poUuid!),
+    enabled: !!poUuid,
+  });
+}
+
+export function usePurchaseReturnMutations() {
+  const qc = useQueryClient();
+  const refresh = () => {
+    qc.invalidateQueries({ queryKey: purchaseReturnKeys.all });
+    // Completing a return takes stock out, and it changes what is still
+    // returnable on the purchase order it came from.
+    qc.invalidateQueries({ queryKey: purchaseKeys.all });
+    qc.invalidateQueries({ queryKey: ["inventory"] });
+  };
+  const onError = (e: unknown) => toast.error(errMessage(e));
+  return {
+    create: useMutation({
+      mutationFn: (data: Record<string, unknown>) => api.createPurchaseReturn(data),
+      onSuccess: () => {
+        refresh();
+        toast.success("Purchase return drafted");
+      },
+      onError,
+    }),
+    update: useMutation({
+      mutationFn: ({ uuid, data }: { uuid: string; data: Record<string, unknown> }) =>
+        api.updatePurchaseReturn(uuid, data),
+      onSuccess: () => {
+        refresh();
+        toast.success("Purchase return updated");
+      },
+      onError,
+    }),
+    act: useMutation({
+      mutationFn: ({ uuid, ...data }: { uuid: string; action: string; reason?: string; debitNoteNumber?: string }) =>
+        api.actOnPurchaseReturn(uuid, data),
+      onSuccess: (_r, v) => {
+        refresh();
+        toast.success(
+          v.action === "complete"
+            ? "Return completed"
+            : v.action === "submit"
+              ? "Return submitted"
+              : "Return cancelled"
+        );
+      },
+      onError,
+    }),
+  };
 }
 
 export function usePurchaseMutations() {

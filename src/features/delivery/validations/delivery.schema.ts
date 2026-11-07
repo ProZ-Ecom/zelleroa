@@ -94,8 +94,13 @@ export const shipViaCourierSchema = z
       .string()
       .trim()
       .toUpperCase()
-      .min(5, "Enter the tracking number")
+      .min(1, "Enter the tracking number")
       .max(50, "Tracking number is too long"),
+    invoiceNumber: z
+      .string()
+      .trim()
+      .min(1, "Invoice number is required")
+      .max(100, "Invoice number is too long"),
   })
   .strict()
   .superRefine((value, ctx) => {

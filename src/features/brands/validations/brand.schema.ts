@@ -5,6 +5,7 @@ export const getBrandsQuerySchema = z.object({
   limit: z.coerce.number().int().positive().max(100).default(10),
   search: z.string().optional(),
   isActive: z.coerce.boolean().optional(),
+  categorySlug: z.string().optional(),
 });
 
 export type GetBrandsQueryInput = z.infer<typeof getBrandsQuerySchema>;

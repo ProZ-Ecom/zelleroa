@@ -1,10 +1,11 @@
+
 "use client";
 
 import AuthFormLayout from "@/components/auth/AuthFormLayout";
 import { Suspense, useEffect, useState } from "react";
 import { signIn } from "next-auth/react";
 import { useSearchParams } from "next/navigation";
-import { FormProvider, useForm } from "react-hook-form";
+import { FormProvider, useForm, type FieldErrors } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { loginSchema, type LoginInput } from "@/lib/validations/auth";
 import { useLogin, useLoginCooldown, ACCOUNT_BLOCKED_MESSAGE, ACCOUNT_BLOCKED_TITLE } from "@/features/auth";
@@ -17,6 +18,7 @@ import { LockKeyhole, Mail, AlertCircle } from "lucide-react";
 import Link from "next/link";
 import { Checkbox } from "@/components/ui/checkbox";
 import { GoogleAuthButton } from "@/components/auth/GoogleAuthButton";
+import { toast } from "@/components/ui/Toast";
 
 function LoginForm() {
   const searchParams = useSearchParams();
@@ -55,8 +57,23 @@ function LoginForm() {
     },
   });
 
+  const onInvalid = (errors: FieldErrors<LoginInput>) => {
+    if (errors.email?.message) {
+      toast.error("Invalid Email", String(errors.email.message));
+    } else if (errors.password?.message) {
+      toast.error("Password Required", String(errors.password.message));
+    } else {
+      toast.error("Validation Error", "Please fill in all required fields correctly.");
+    }
+  };
+
   const onSubmit = (data: LoginInput) => {
-    if (busy || cooldown.coolingDown) return;
+    if (busy) return;
+    if (cooldown.coolingDown) {
+      toast.warning("Please wait", `Please wait ${cooldown.label} before trying again.`);
+      return;
+    }
+    methods.clearErrors();
     setPhase("signing-in");
     loginMutation.mutate(
       {
@@ -82,21 +99,48 @@ function LoginForm() {
             console.error("NextAuth session sync failed", err);
           }
           const userRole = response?.data?.user?.role;
+          const userScope = response?.data?.user?.scope;
           // Role decides the landing page; callbackUrl is honoured only when
           // this role is allowed to open it.
-          const target = resolvePostLoginTarget(userRole, callbackUrl);
+          const target = resolvePostLoginTarget(userRole, callbackUrl, userScope);
           setDestination(target);
           setPhase("redirecting");
           // Full navigation so the fresh auth cookies are picked up by
           // middleware and server components; soft navigation can stall here.
           window.location.assign(target);
         },
-        onError: (error) => {
+        onError: (error: any) => {
           setPhase("idle");
           cooldown.startFromError(error);
-          methods.setError("root", {
-            message: error instanceof Error ? error.message : "Login failed. Please try again.",
-          });
+          const field = (error?.details as { field?: string } | undefined)?.field;
+          const msg = error instanceof Error ? error.message : "";
+          const isBlocked =
+            msg === ACCOUNT_BLOCKED_MESSAGE ||
+            error?.code === "ACCOUNT_BLOCKED";
+
+          if (isBlocked) {
+            methods.setError("root", {
+              message: ACCOUNT_BLOCKED_MESSAGE,
+            });
+            toast.error("Account Blocked", ACCOUNT_BLOCKED_MESSAGE);
+          } else if (field === "email" || msg.toLowerCase().includes("email")) {
+            methods.setError("email", {
+              type: "server",
+              message: "Invalid email address",
+            });
+            toast.error("Invalid Email", "The email address you entered was not found.");
+          } else if (field === "password" || msg.toLowerCase().includes("password")) {
+            methods.setError("password", {
+              type: "server",
+              message: "Incorrect password",
+            });
+            toast.error("Incorrect Password", "The password you entered is incorrect. Please try again.");
+          } else {
+            methods.setError("root", {
+              message: msg || "Login failed. Please try again.",
+            });
+            toast.error("Login Failed", msg || "Login failed. Please try again.");
+          }
         },
       }
     );
@@ -146,69 +190,69 @@ function LoginForm() {
 
         <FormProvider {...methods}>
           <form
-            onSubmit={methods.handleSubmit(onSubmit)}
+            onSubmit={methods.handleSubmit(onSubmit, onInvalid)}
             className="space-y-5 md:space-y-6"
           >
-          {/* Server Error */}
-          {methods.formState.errors.root?.message && (
-            <div className="flex items-center gap-2 rounded-lg border border-error-200 bg-error-50 p-3 text-sm text-error-600">
-              <AlertCircle className="h-4 w-4 shrink-0" />
-              {methods.formState.errors.root.message === ACCOUNT_BLOCKED_MESSAGE ? (
-                <div>
-                  <p className="font-semibold">{ACCOUNT_BLOCKED_TITLE}</p>
-                  <p>{ACCOUNT_BLOCKED_MESSAGE}</p>
-                </div>
-              ) : (
-                methods.formState.errors.root.message
-              )}
-            </div>
-          )}
-
-          <FormInput
-            name="email"
-            label="Email Address"
-            type="email"
-            placeholder="Enter your email"
-            autoComplete="email"
-            leftIcon={<Mail size={18} />}
-            required
-          />
-
-          <FormPasswordInput
-            name="password"
-            label="Password"
-            placeholder="Enter your password"
-            leftIcon={<LockKeyhole size={18} />}
-            required
-          />
-
-          <div className="flex items-center justify-end">
-            {/* <Checkbox label="Remember Me" className="border-neutral-300" /> */}
-
-            <Link
-              href="/forgot-password"
-              className="text-sm font-medium text-secondary-600 hover:underline"
-            >
-              Forgot Password?
-            </Link>
-          </div>
-
-          <FormSubmitButton
-            size="xl"
-            disabled={busy || cooldown.coolingDown}
-            className="mt-2 h-12 md:h-14 w-full rounded-lg bg-secondary-600 text-sm text-white hover:bg-secondary-700 cursor-pointer disabled:opacity-50"
-          >
-            {busy ? (
-              <span className="flex items-center gap-2">
-                <Spinner size="sm" className="text-white" />
-                {phase === "redirecting" ? "Signed in..." : "Signing in..."}
-              </span>
-            ) : (
-              cooldown.coolingDown ? `Try again in ${cooldown.label}` : "Sign In"
+            {/* Server Error */}
+            {methods.formState.errors.root?.message && (
+              <div className="flex items-center gap-2 rounded-lg border border-error-200 bg-error-50 p-3 text-sm text-error-600">
+                <AlertCircle className="h-4 w-4 shrink-0" />
+                {methods.formState.errors.root.message === ACCOUNT_BLOCKED_MESSAGE ? (
+                  <div>
+                    <p className="font-semibold">{ACCOUNT_BLOCKED_TITLE}</p>
+                    <p>{ACCOUNT_BLOCKED_MESSAGE}</p>
+                  </div>
+                ) : (
+                  methods.formState.errors.root.message
+                )}
+              </div>
             )}
-          </FormSubmitButton>
-        </form>
-      </FormProvider>
+
+            <FormInput
+              name="email"
+              label="Email Address"
+              type="email"
+              placeholder="Enter your email"
+              autoComplete="email"
+              leftIcon={<Mail size={18} />}
+              required
+            />
+
+            <FormPasswordInput
+              name="password"
+              label="Password"
+              placeholder="Enter your password"
+              leftIcon={<LockKeyhole size={18} />}
+              required
+            />
+
+            <div className="flex items-center justify-end">
+              {/* <Checkbox label="Remember Me" className="border-neutral-300" /> */}
+
+              <Link
+                href="/forgot-password"
+                className="text-sm font-medium text-secondary-600 hover:underline"
+              >
+                Forgot Password?
+              </Link>
+            </div>
+
+            <FormSubmitButton
+              size="xl"
+              disabled={busy || cooldown.coolingDown}
+              className="mt-2 h-12 md:h-14 w-full rounded-lg bg-secondary-600 text-sm text-white hover:bg-secondary-700 cursor-pointer disabled:opacity-50"
+            >
+              {busy ? (
+                <span className="flex items-center gap-2">
+                  <Spinner size="sm" className="text-white" />
+                  {phase === "redirecting" ? "Signed in..." : "Signing in..."}
+                </span>
+              ) : (
+                cooldown.coolingDown ? `Try again in ${cooldown.label}` : "Sign In"
+              )}
+            </FormSubmitButton>
+          </form>
+        </FormProvider>
       </div>
 
       {phase === "redirecting" && (

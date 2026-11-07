@@ -11,8 +11,8 @@ interface ItemVariantDetailsProps {
   variants: AdminVariantResponse[];
   colorLabel: string;
   sizeLabel: string;
-  onEditItem: (item: AdminItemResponse) => void;
-  onDeleteItem: (item: AdminItemResponse) => void;
+  onEditItem?: (item: AdminItemResponse) => void;
+  onDeleteItem?: (item: AdminItemResponse) => void;
   /** Opens the one panel where this Item's colors, images, sizes and prices are managed. */
   onManageColors: (item: AdminItemResponse) => void;
 }
@@ -43,7 +43,7 @@ function ItemVariantDetails({
         <div>
           <h2 className="text-base font-bold text-neutral-900">Colors &amp; Sizes</h2>
           <p className="mt-0.5 text-xs text-neutral-500">
-            One row per item. Open &ldquo;Manage colors&rdquo; to add colors, upload their images
+            One row per model. Open &ldquo;Manage colors&rdquo; to add colors, upload their images
             and set sizes, prices and stock.
           </p>
         </div>
@@ -98,18 +98,22 @@ function ItemVariantDetails({
                   >
                     <Palette className="mr-1.5 h-3.5 w-3.5" /> Manage colors
                   </Button>
-                  <Button variant="outline" size="sm" onClick={() => onEditItem(item)}>
-                    <Pencil className="mr-1.5 h-3.5 w-3.5" /> Edit type
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => onDeleteItem(item)}
-                    title="Delete type"
-                    aria-label={`Delete ${item.name}`}
-                  >
-                    <Trash2 className="h-4 w-4 text-error-600" />
-                  </Button>
+                  {onEditItem && (
+                    <Button variant="outline" size="sm" onClick={() => onEditItem(item)}>
+                      <Pencil className="mr-1.5 h-3.5 w-3.5" /> Edit type
+                    </Button>
+                  )}
+                  {onDeleteItem && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => onDeleteItem(item)}
+                      title="Delete type"
+                      aria-label={`Delete ${item.name}`}
+                    >
+                      <Trash2 className="h-4 w-4 text-error-600" />
+                    </Button>
+                  )}
                 </div>
               </div>
 
