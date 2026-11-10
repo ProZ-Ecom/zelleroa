@@ -105,6 +105,9 @@ const MODULE_ROUTES: Array<{ prefix: string; module: string }> = [
   { prefix: "/api/admin/commissions", module: "COMMISSION" },
   { prefix: "/api/admin/commission-reports", module: "COMMISSION_REPORT" },
 
+  // Reports
+  { prefix: "/api/admin/reports", module: "REPORT" },
+
   // WhatsApp
   { prefix: "/api/admin/whatsapp", module: "WHATSAPP" },
 
