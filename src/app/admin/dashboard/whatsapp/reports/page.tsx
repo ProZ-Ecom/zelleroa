@@ -18,6 +18,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { FormModal } from "@/components/common/FormModal";
 import { Input } from "@/components/ui/input";
+import { cleanPhoneDisplay } from "@/lib/whatsapp/whatsapp-utils";
 
 interface CampaignSummary {
   id: string;
@@ -134,7 +135,7 @@ export default function WhatsAppReportsPage() {
   }, [campaignDetail, logStatusFilter, logSearchQuery]);
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto pb-16">
+    <div className="space-y-6 pb-12">
       {/* Header */}
       <AdminPageHeader
         title="WhatsApp Campaign Reports & Delivery Logs"
@@ -245,17 +246,17 @@ export default function WhatsAppReportsPage() {
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-neutral-50 text-neutral-600 uppercase tracking-wider border-b border-neutral-200 font-semibold">
+            <table className="w-full text-left text-xs border-separate border-spacing-0">
+              <thead className="bg-stone-900 text-[#D4AF37] border-b border-stone-800 shadow-[0_1px_3px_rgba(28,25,23,0.2)] sticky top-0 z-10">
                 <tr>
-                  <th className="p-4">Campaign Name</th>
-                  <th className="p-4">Type</th>
-                  <th className="p-4">Status</th>
-                  <th className="p-4">Recipients</th>
-                  <th className="p-4">Delivered</th>
-                  <th className="p-4">Failed</th>
-                  <th className="p-4">Date</th>
-                  <th className="sticky right-0 z-10 bg-neutral-50 p-4 text-center shadow-[-4px_0_6px_-2px_rgba(0,0,0,0.06)]">Action</th>
+                  <th className="h-11 px-4 text-left align-middle text-[11px] font-semibold tracking-[0.08em] uppercase whitespace-nowrap bg-stone-900 text-[#D4AF37] border-b border-stone-800">Campaign Name</th>
+                  <th className="h-11 px-4 text-left align-middle text-[11px] font-semibold tracking-[0.08em] uppercase whitespace-nowrap bg-stone-900 text-[#D4AF37] border-b border-stone-800">Type</th>
+                  <th className="h-11 px-4 text-left align-middle text-[11px] font-semibold tracking-[0.08em] uppercase whitespace-nowrap bg-stone-900 text-[#D4AF37] border-b border-stone-800">Status</th>
+                  <th className="h-11 px-4 text-left align-middle text-[11px] font-semibold tracking-[0.08em] uppercase whitespace-nowrap bg-stone-900 text-[#D4AF37] border-b border-stone-800">Recipients</th>
+                  <th className="h-11 px-4 text-left align-middle text-[11px] font-semibold tracking-[0.08em] uppercase whitespace-nowrap bg-stone-900 text-[#D4AF37] border-b border-stone-800">Delivered</th>
+                  <th className="h-11 px-4 text-left align-middle text-[11px] font-semibold tracking-[0.08em] uppercase whitespace-nowrap bg-stone-900 text-[#D4AF37] border-b border-stone-800">Failed</th>
+                  <th className="h-11 px-4 text-left align-middle text-[11px] font-semibold tracking-[0.08em] uppercase whitespace-nowrap bg-stone-900 text-[#D4AF37] border-b border-stone-800">Date</th>
+                  <th className="h-11 px-4 text-center align-middle text-[11px] font-semibold tracking-[0.08em] uppercase whitespace-nowrap sticky right-0 z-30 shadow-[-8px_0_12px_-6px_rgba(28,25,23,0.3)] bg-stone-900 text-[#D4AF37] border-b border-stone-800">Action</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-neutral-100">
@@ -306,7 +307,7 @@ export default function WhatsAppReportsPage() {
                           year: "numeric",
                         })}
                       </td>
-                      <td className="sticky right-0 z-10 bg-white p-4 text-center shadow-[-4px_0_6px_-2px_rgba(0,0,0,0.06)] group-hover:bg-neutral-50">
+                      <td className="sticky right-0 z-20 bg-white p-4 text-center shadow-[-8px_0_12px_-6px_rgba(16,24,40,0.06)] group-hover:bg-neutral-50/80 border-b border-neutral-100">
                         <Button
                           size="icon"
                           variant="outline"
@@ -411,14 +412,14 @@ export default function WhatsAppReportsPage() {
 
             {/* Recipient Logs Table */}
             <div className="border border-neutral-200/80 rounded-xl overflow-hidden max-h-[380px] overflow-y-auto">
-              <table className="w-full text-left text-xs">
-                <thead className="bg-neutral-50 text-neutral-600 uppercase tracking-wider sticky top-0 border-b border-neutral-200 font-semibold">
+              <table className="w-full text-left text-xs border-separate border-spacing-0">
+                <thead className="bg-stone-900 text-[#D4AF37] border-b border-stone-800 shadow-[0_1px_3px_rgba(28,25,23,0.2)] sticky top-0 z-10">
                   <tr>
-                    <th className="p-3">Customer Name</th>
-                    <th className="p-3">Phone</th>
-                    <th className="p-3">Delivery Status</th>
-                    <th className="p-3">Timestamp</th>
-                    <th className="p-3">Notes / Error</th>
+                    <th className="h-10 px-3 text-left align-middle text-[11px] font-semibold tracking-[0.08em] uppercase whitespace-nowrap bg-stone-900 text-[#D4AF37] border-b border-stone-800">Customer Name</th>
+                    <th className="h-10 px-3 text-left align-middle text-[11px] font-semibold tracking-[0.08em] uppercase whitespace-nowrap bg-stone-900 text-[#D4AF37] border-b border-stone-800">Phone</th>
+                    <th className="h-10 px-3 text-left align-middle text-[11px] font-semibold tracking-[0.08em] uppercase whitespace-nowrap bg-stone-900 text-[#D4AF37] border-b border-stone-800">Delivery Status</th>
+                    <th className="h-10 px-3 text-left align-middle text-[11px] font-semibold tracking-[0.08em] uppercase whitespace-nowrap bg-stone-900 text-[#D4AF37] border-b border-stone-800">Timestamp</th>
+                    <th className="h-10 px-3 text-left align-middle text-[11px] font-semibold tracking-[0.08em] uppercase whitespace-nowrap bg-stone-900 text-[#D4AF37] border-b border-stone-800">Notes / Error</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-neutral-100">
@@ -434,8 +435,10 @@ export default function WhatsAppReportsPage() {
                         <td className="p-3 font-medium text-neutral-900">
                           {r.customer_name || "Customer"}
                         </td>
-                        <td className="p-3 font-mono text-neutral-600">
-                          +{r.phone_number}
+                        <td className="p-3 font-mono text-neutral-800 text-xs">
+                          <span className="inline-flex items-center px-2 py-0.5 rounded bg-neutral-100 border border-neutral-200 text-neutral-800 font-medium">
+                            {cleanPhoneDisplay(r.phone_number)}
+                          </span>
                         </td>
                         <td className="p-3">
                           {r.status === "SENT" ? (

@@ -20,6 +20,7 @@ import {
   count,
   dateLabel,
   days,
+  formatCsvDateTime,
   money,
   moneyExact,
   percent,
@@ -71,7 +72,7 @@ function humanise(value: string) {
 
 const orderColumns: Column<OrderListRow>[] = [
   { header: "Order", cell: (r) => <span className="font-semibold">{r.orderNumber}</span>, csv: (r) => r.orderNumber },
-  { header: "Placed", cell: (r) => dateLabel(r.placedAt), csv: (r) => r.placedAt ?? "" },
+  { header: "Placed", cell: (r) => dateLabel(r.placedAt), csv: (r) => formatCsvDateTime(r.placedAt) },
   { header: "Customer", cell: (r) => r.customer, csv: (r) => r.customer },
   { header: "Status", cell: (r) => ORDER_STATUS_LABELS[r.status] ?? r.status, csv: (r) => r.status },
   { header: "Payment", cell: (r) => PAYMENT_STATUS_LABELS[r.paymentStatus] ?? r.paymentStatus, csv: (r) => r.paymentStatus },

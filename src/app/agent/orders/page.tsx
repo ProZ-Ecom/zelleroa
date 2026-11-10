@@ -4,7 +4,6 @@ import {
   COMMISSION_STATUS_OPTIONS,
   FilterForm,
   PageHeader,
-  LinkPager,
   ORDER_STATUS_OPTIONS,
   ORDER_SOURCE_OPTIONS,
   OrderSourceCell,
@@ -15,6 +14,7 @@ import {
   money,
   pct,
 } from "@/features/agents/components/shared";
+import { LinkPager } from "@/features/agents/components/AdminPagination";
 
 export const metadata = { title: "My Orders" };
 

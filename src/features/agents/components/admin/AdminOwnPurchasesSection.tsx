@@ -3,14 +3,16 @@
 import { useState } from "react";
 import type { OwnPurchaseRow } from "../../services/agent.service";
 import { errorMessage, useAdminList } from "../../hooks/use-admin-agents";
-import { ButtonPager, ORDER_STATUS_OPTIONS, Panel, SimpleTable, StatusBadge, TableSkeleton, dateOnly, money } from "../shared";
+import { ORDER_STATUS_OPTIONS, Panel, SimpleTable, StatusBadge, TableSkeleton, dateOnly, money } from "../shared";
+import { ButtonPager } from "../AdminPagination";
 import { AdminFilterBar, type FilterField } from "./AdminFilterBar";
 
 /** Orders the Sales Partner bought for themselves. These never earn commission - referral orders live in their own tab. */
 export function AdminOwnPurchasesSection({ agentId }: { agentId: string }) {
   const [filters, setFilters] = useState<Record<string, string>>({});
   const [page, setPage] = useState(1);
-  const { data, isLoading, error } = useAdminList<OwnPurchaseRow>("own-purchases", `/api/admin/agents/${agentId}/purchases`, { ...filters, page, limit: 20 });
+  const [pageSize, setPageSize] = useState(10);
+  const { data, isLoading, error } = useAdminList<OwnPurchaseRow>("own-purchases", `/api/admin/agents/${agentId}/purchases`, { ...filters, page, limit: pageSize });
 
   const fields: FilterField[] = [
     { name: "orderStatus", label: "Order status", type: "select", options: ORDER_STATUS_OPTIONS },
@@ -69,7 +71,17 @@ export function AdminOwnPurchasesSection({ agentId }: { agentId: string }) {
               { header: "Payment", cell: (r) => <StatusBadge status={r.paymentStatus} /> },
             ]}
           />
-          <ButtonPager page={page} totalPages={data?.meta.totalPages ?? 1} total={data?.meta.total ?? 0} onPage={setPage} />
+          <ButtonPager
+            page={page}
+            totalPages={data?.meta.totalPages ?? 1}
+            total={data?.meta.total ?? 0}
+            onPage={setPage}
+            pageSize={pageSize}
+            onPageSizeChange={(newSize) => {
+              setPageSize(newSize);
+              setPage(1);
+            }}
+          />
         </>
       )}
     </Panel>

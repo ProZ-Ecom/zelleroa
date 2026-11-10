@@ -1,4 +1,4 @@
-import { SNACKSLOGOS, type StorefrontProduct } from "@/constants/storefront";
+import type { StorefrontProduct } from "@/constants/storefront";
 import { formatPrice, getImageUrl } from "@/lib/utils";
 import { formatMeasurementLabel } from "@/features/variants/utils/measurement.util";
 import type {
@@ -11,7 +11,8 @@ import type { CustomerWishlistItemDto } from "@/features/wishlist/types";
 /**
  * Best-effort decorative fallback image when an apparel/clothing variant has no uploaded image yet.
  */
-export function resolveProductFallbackImage(_name: string): string {
+export function resolveProductFallbackImage(_name?: string): string {
+  void _name;
   return "/images/category_img.png";
 }
 
@@ -75,10 +76,10 @@ export function mapStyleToStorefrontProduct(
   };
 }
 
-/** The "from ₹x" / "₹x - ₹y" line a Style card shows in place of one price. */
+/** The "from ₹x" / "₹x – ₹y" line a Style card shows in place of one price. */
 export function formatStylePriceRange(style: CustomerProductListItemDto): string {
   if (style.maxPrice > style.minPrice) {
-    return `${formatPrice(style.minPrice)} - ${formatPrice(style.maxPrice)}`;
+    return `${formatPrice(style.minPrice)} – ${formatPrice(style.maxPrice)}`;
   }
   return formatPrice(style.minPrice);
 }

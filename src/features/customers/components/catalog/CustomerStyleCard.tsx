@@ -44,12 +44,14 @@ export function CustomerStyleCard({ style }: CustomerStyleCardProps) {
             <p className="text-[11px] text-theme-text-subtle line-clamp-1 sm:text-xs">{style.description}</p>
           )}
 
-          <div className="mt-0.5 flex items-center justify-between gap-2">
-            <span className="text-[13px] font-extrabold text-theme-text-primary sm:text-sm">
-              From {formatPrice(style.minPrice)}
+          <div className="mt-0.5 flex flex-wrap items-baseline justify-between gap-x-2 gap-y-0.5 min-w-0">
+            <span className="text-xs sm:text-sm font-extrabold text-theme-text-primary tracking-tight break-words">
+              {style.maxPrice && style.maxPrice > style.minPrice
+                ? `${formatPrice(style.minPrice)} – ${formatPrice(style.maxPrice)}`
+                : `From ${formatPrice(style.minPrice)}`}
             </span>
             {colorCount > 0 && (
-              <span className="text-[10px] font-semibold text-theme-text-subtle sm:text-[11px]">
+              <span className="text-[10px] font-semibold text-theme-text-subtle sm:text-[11px] shrink-0">
                 {colorCount} color{colorCount === 1 ? "" : "s"}
               </span>
             )}

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db/prisma";
 import { apiSuccess } from "@/lib/api/api-response";
 import { withApiRoles } from "@/lib/api/api-handler";
+import { normalizePhoneNumber } from "@/lib/whatsapp/whatsapp-utils";
 
 async function handleGET(request: NextRequest) {
   try {
@@ -53,8 +54,7 @@ async function handleGET(request: NextRequest) {
         const user = c.users_customer_profiles_user_idTousers;
         const orders = user?.orders || [];
         const rawPhone = c.whatsapp_no || c.phone || user?.phone || "";
-        const cleanDigits = rawPhone.replace(/\D/g, "");
-        const hasValidPhone = cleanDigits.length >= 10;
+        const norm = normalizePhoneNumber(rawPhone);
         const lastOrder = orders[0] || null;
         const isRecentBuyer = lastOrder ? new Date(lastOrder.createdAt) >= thirtyDaysAgo : false;
 
@@ -62,13 +62,14 @@ async function handleGET(request: NextRequest) {
           id: String(c.id),
           name: c.name || user?.name || "Customer",
           email: c.email || user?.email || null,
-          phone: rawPhone,
-          cleanPhone: cleanDigits,
-          isWhatsapp: Boolean(c.is_whatsapp || c.whatsapp_no || hasValidPhone),
+          phone: norm.e164 || rawPhone,
+          cleanPhone: norm.digits,
+          formattedPhone: norm.formatted,
+          isWhatsapp: Boolean(c.is_whatsapp || c.whatsapp_no || norm.isValid),
           orderCount: orders.length,
           lastOrderDate: lastOrder?.createdAt || null,
           isRecentBuyer,
-          isValidPhone: hasValidPhone,
+          isValidPhone: norm.isValid,
         };
       })
       .filter((c) => c.isValidPhone);
@@ -88,10 +89,10 @@ async function handleGET(request: NextRequest) {
       totalCount: formatted.length,
       filteredCount: filteredList.length,
     });
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error("[WhatsApp Customers API] Error:", err);
     return NextResponse.json(
-      { success: false, message: err?.message || "Failed to fetch customers" },
+      { success: false, message: (err as Error)?.message || "Failed to fetch customers" },
       { status: 500 }
     );
   }

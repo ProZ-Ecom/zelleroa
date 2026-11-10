@@ -4,7 +4,6 @@ import { pageParam, pickParams, requireAgentPage } from "@/features/agents/lib/p
 import {
   COMMISSION_STATUS_OPTIONS,
   FilterForm,
-  LinkPager,
   PageHeader,
   Panel,
   SimpleTable,
@@ -13,6 +12,7 @@ import {
   money,
   pct,
 } from "@/features/agents/components/shared";
+import { LinkPager } from "@/features/agents/components/AdminPagination";
 
 export const metadata = { title: "My Commissions" };
 

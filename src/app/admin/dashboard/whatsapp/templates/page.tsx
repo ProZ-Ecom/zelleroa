@@ -131,7 +131,7 @@ export default function WhatsAppTemplatesPage() {
   ];
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto pb-16">
+    <div className="space-y-6 pb-12">
       {/* Header */}
       <AdminPageHeader
         title="WhatsApp Message Templates"
@@ -319,7 +319,7 @@ export default function WhatsAppTemplatesPage() {
               size="sm"
               value={newTmplName}
               onChange={(e) => setNewTmplName(e.target.value)}
-              placeholder="e.g. Diwali Sweets 20% Special"
+              placeholder="e.g. Festive Kurta & Saree 20% Special"
             />
           </div>
 

@@ -27,16 +27,16 @@ export function ItemPriceBlock({
   if (!size) {
     const range =
       maxPrice > minPrice
-        ? `${formatPrice(minPrice)} - ${formatPrice(maxPrice)}`
+        ? `${formatPrice(minPrice)} – ${formatPrice(maxPrice)}`
         : formatPrice(minPrice);
     return (
       <div
         className={cn(
-          "flex items-baseline gap-2 rounded-2xl bg-theme-surface-alt px-4",
+          "flex flex-wrap items-baseline gap-2 rounded-2xl bg-theme-surface-alt px-4 py-2 min-w-0",
           className
         )}
       >
-        <span className="text-xl font-bold text-theme-text-primary">{range}</span>
+        <span className="text-xl font-bold text-theme-text-primary break-words">{range}</span>
       </div>
     );
   }

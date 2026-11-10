@@ -2,7 +2,7 @@ import path from "node:path";
 import fs from "node:fs";
 import { db } from "@/lib/db/prisma";
 import { initWhatsAppClient } from "./whatsapp-client";
-import { formatToWhatsAppJid } from "./whatsapp-utils";
+import { normalizePhoneNumber } from "./whatsapp-utils";
 
 declare global {
   // eslint-disable-next-line no-var
@@ -106,18 +106,37 @@ async function processActiveCampaigns() {
       return;
     }
 
-    // 4. Mark recipient as SENDING
+    // 4. Validate phone number format
+    const norm = normalizePhoneNumber(recipient.phone_number);
+    if (!norm.isValid) {
+      console.warn(`[WhatsApp Worker] Recipient #${recipient.id} has invalid phone: "${recipient.phone_number}"`);
+      await db.whatsAppCampaignRecipient.update({
+        where: { id: recipient.id },
+        data: {
+          status: "FAILED",
+          error_message: "Invalid phone number: missing or invalid Indian (+91) format",
+        },
+      });
+      await db.whatsAppCampaign.update({
+        where: { id: runningCampaign.id },
+        data: { failed_count: { increment: 1 } },
+      });
+      setImmediate(processActiveCampaigns);
+      return;
+    }
+
+    // 5. Mark recipient as SENDING
     await db.whatsAppCampaignRecipient.update({
       where: { id: recipient.id },
       data: { status: "SENDING" },
     });
 
-    // 5. Build personalized message
+    // 6. Build personalized message
     const personalizedMessage = interpolateVariables(runningCampaign.message, {
       customer_name: recipient.customer_name,
     });
 
-    const jid = formatToWhatsAppJid(recipient.phone_number);
+    const jid = `${norm.digits}@s.whatsapp.net`;
 
     let sendSuccess = false;
     let messageId: string | undefined = undefined;
@@ -166,16 +185,17 @@ async function processActiveCampaigns() {
       } catch {
         // Ignore presence failures
       }
-    } catch (sendErr: any) {
+    } catch (sendErr: unknown) {
       console.error(`[WhatsApp Worker] Send error for ${recipient.phone_number}:`, sendErr);
       sendSuccess = false;
-      errorMessage = sendErr?.message || "WhatsApp delivery failed";
+      const sendErrorObj = sendErr as { message?: string; output?: { statusCode?: number } };
+      errorMessage = sendErrorObj?.message || "WhatsApp delivery failed";
 
       // If socket dropped completely, pause campaign
       if (
-        sendErr?.message?.includes("Closed") ||
-        sendErr?.output?.statusCode === 428 ||
-        sendErr?.output?.statusCode === 440
+        sendErrorObj?.message?.includes("Closed") ||
+        sendErrorObj?.output?.statusCode === 428 ||
+        sendErrorObj?.output?.statusCode === 440
       ) {
         console.warn("[WhatsApp Worker] Socket closed during send. Pausing campaign.");
         await db.whatsAppCampaign.update({
@@ -275,12 +295,13 @@ export async function tickCampaignScheduler() {
     if (dueCampaigns.length > 0) {
       triggerWorker();
     }
-  } catch (schedErr: any) {
-    if (schedErr?.code === "P2021" || schedErr?.meta?.driverAdapterError?.message?.includes("TableDoesNotExist")) {
+  } catch (schedErr: unknown) {
+    const errObj = schedErr as { code?: string; meta?: { driverAdapterError?: { message?: string } }; message?: string };
+    if (errObj?.code === "P2021" || errObj?.meta?.driverAdapterError?.message?.includes("TableDoesNotExist")) {
       // Table doesn't exist in the database yet
       return;
     }
-    console.error("[WhatsApp Scheduler] Tick error:", schedErr?.message || schedErr);
+    console.error("[WhatsApp Scheduler] Tick error:", errObj?.message || schedErr);
   }
 }
 

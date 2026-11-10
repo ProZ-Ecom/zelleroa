@@ -90,9 +90,9 @@ export function Panel({
   className?: string;
 }) {
   return (
-    <section className={cn("overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-xs", className)}>
+    <section className={cn("overflow-hidden rounded-2xl border border-neutral-200/70 bg-white shadow-[0_1px_2px_rgba(16,24,40,0.04),0_8px_24px_-8px_rgba(16,24,40,0.08)]", className)}>
       {(title || action) && (
-        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-neutral-100 px-4 py-3.5 sm:px-5">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-neutral-100 px-4 py-3.5 sm:px-5 bg-white">
           <h2 className="text-sm font-bold tracking-tight text-neutral-900">{title}</h2>
           {action}
         </div>
@@ -143,143 +143,122 @@ export interface Column<T> {
   header: string;
   cell: (row: T) => React.ReactNode;
   className?: string;
+  headerClassName?: string;
   /** Pin this column to the right edge while the table scrolls horizontally. */
   stickyRight?: boolean;
 }
 
-const STICKY_RIGHT = "sticky right-0 shadow-[-4px_0_6px_-2px_rgba(0,0,0,0.06)]";
+const STICKY_RIGHT_HEADER =
+  "text-center sticky top-0 right-0 z-30 shadow-[-8px_0_12px_-6px_rgba(28,25,23,0.3)] bg-stone-900 text-[#D4AF37] border-b border-stone-800";
+const STICKY_RIGHT_CELL =
+  "text-center [&>div]:justify-center [&>div]:items-center sticky right-0 z-20 shadow-[-8px_0_12px_-6px_rgba(16,24,40,0.06)] bg-white group-hover:bg-neutral-50/80 border-b border-neutral-100";
 
-/** Plain responsive table: scrolls horizontally on small screens instead of breaking layout. */
+/** Responsive admin table with signature luxury dark stone & gold header matching DataTable. */
 export function SimpleTable<T>({
   columns,
   rows,
   rowKey,
   empty = "Nothing to show yet.",
+  className,
+  tableClassName,
 }: {
   columns: Column<T>[];
   rows: T[];
   rowKey: (row: T) => string;
   empty?: string;
+  className?: string;
+  tableClassName?: string;
 }) {
-  if (rows.length === 0) {
-    return (
-      <div className="flex flex-col items-center gap-2 px-5 py-10 text-center">
-        <span className="flex h-10 w-10 items-center justify-center rounded-full bg-neutral-100 text-neutral-400">
-          <Inbox className="h-5 w-5" />
-        </span>
-        <p className="max-w-xs text-sm text-neutral-500">{empty}</p>
-      </div>
-    );
-  }
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full min-w-max text-left text-sm">
+    <div
+      tabIndex={0}
+      role="region"
+      aria-label="Scrollable table content"
+      className={cn(
+        "relative flex-1 min-h-0 overflow-auto overscroll-x-contain scrollbar-table focus:outline-hidden focus-visible:ring-1 focus-visible:ring-secondary-300",
+        className
+      )}
+    >
+      <table
+        className={cn(
+          "w-full min-w-max table-auto caption-bottom text-sm border-separate border-spacing-0",
+          tableClassName
+        )}
+      >
         <thead>
-          <tr className="border-b border-neutral-100 bg-neutral-50 text-[11px] uppercase tracking-wider text-neutral-500">
-            {columns.map((c, i) => (
-              <th key={`${i}-${c.header}`} className={cn("px-4 py-2.5 font-semibold", c.stickyRight && cn(STICKY_RIGHT, "z-10 bg-neutral-50"), c.className)}>
-                {c.header}
-              </th>
-            ))}
+          <tr className="transition-colors">
+            {columns.map((c, i) => {
+              const isActions =
+                Boolean(c.stickyRight) ||
+                c.header.toLowerCase() === "actions" ||
+                c.header.trim() === "";
+              return (
+                <th
+                  key={`${i}-${c.header}`}
+                  className={cn(
+                    "group/th h-12 px-4 text-left align-middle text-[11px] font-semibold tracking-[0.08em] whitespace-nowrap uppercase sm:px-5 bg-stone-900 text-[#D4AF37] border-b border-stone-800 shadow-[0_1px_3px_rgba(28,25,23,0.2)] sticky top-0 z-10",
+                    isActions && STICKY_RIGHT_HEADER,
+                    c.headerClassName,
+                    c.className
+                  )}
+                >
+                  <div
+                    className={cn(
+                      "flex items-center gap-1",
+                      isActions ? "justify-center" : ""
+                    )}
+                  >
+                    {c.header}
+                  </div>
+                </th>
+              );
+            })}
           </tr>
         </thead>
         <tbody>
-          {rows.map((row) => (
-            <tr key={rowKey(row)} className="group border-b border-neutral-100 last:border-0 transition-colors hover:bg-neutral-50">
-              {columns.map((c, i) => (
-                <td key={`${i}-${c.header}`} className={cn("px-4 py-3 align-middle text-neutral-800", c.stickyRight && cn(STICKY_RIGHT, "z-10 bg-white transition-colors group-hover:bg-neutral-50"), c.className)}>
-                  {c.cell(row)}
-                </td>
-              ))}
+          {rows.length > 0 ? (
+            rows.map((row) => (
+              <tr
+                key={rowKey(row)}
+                className="group transition-colors hover:bg-neutral-50/80 border-b border-neutral-100 last:border-0"
+              >
+                {columns.map((c, i) => {
+                  const isActions =
+                    Boolean(c.stickyRight) ||
+                    c.header.toLowerCase() === "actions" ||
+                    c.header.trim() === "";
+                  return (
+                    <td
+                      key={`${i}-${c.header}`}
+                      className={cn(
+                        "px-4 py-3.5 align-middle whitespace-nowrap sm:px-5 text-sm text-neutral-800 bg-white group-hover:bg-neutral-50/80 transition-colors border-b border-neutral-100",
+                        isActions && STICKY_RIGHT_CELL,
+                        c.className
+                      )}
+                    >
+                      {c.cell(row)}
+                    </td>
+                  );
+                })}
+              </tr>
+            ))
+          ) : (
+            <tr>
+              <td
+                colSpan={columns.length}
+                className="h-32 text-center text-neutral-500 bg-white border-b border-neutral-100"
+              >
+                <div className="flex flex-col items-center justify-center gap-2 py-8 text-center">
+                  <span className="flex h-10 w-10 items-center justify-center rounded-full bg-neutral-100 text-neutral-400">
+                    <Inbox className="h-5 w-5" />
+                  </span>
+                  <p className="max-w-xs text-sm text-neutral-500 font-medium">{empty}</p>
+                </div>
+              </td>
             </tr>
-          ))}
+          )}
         </tbody>
       </table>
-    </div>
-  );
-}
-
-/** Pagination via plain links (server-rendered pages). */
-export function LinkPager({
-  basePath,
-  params,
-  page,
-  totalPages,
-  total,
-}: {
-  basePath: string;
-  params: Record<string, string | undefined>;
-  page: number;
-  totalPages: number;
-  total: number;
-}) {
-  if (totalPages <= 1) {
-    return total > 0 ? <p className="px-5 py-3 text-xs text-neutral-500">{total} record(s)</p> : null;
-  }
-  const href = (p: number) => {
-    const search = new URLSearchParams();
-    for (const [k, v] of Object.entries(params)) if (v) search.set(k, v);
-    search.set("page", String(p));
-    return `${basePath}?${search.toString()}`;
-  };
-  const linkCls = "rounded-lg border border-neutral-200 px-3 py-1.5 text-xs font-medium hover:bg-neutral-50";
-  const disabledCls = "pointer-events-none opacity-40";
-  return (
-    <div className="flex items-center justify-between gap-3 px-4 py-3 text-xs text-neutral-600 sm:px-5">
-      <span>
-        Page {page} of {totalPages} · {total} record(s)
-      </span>
-      <div className="flex gap-2">
-        <Link href={href(Math.max(1, page - 1))} className={cn(linkCls, page <= 1 && disabledCls)} aria-disabled={page <= 1}>
-          Previous
-        </Link>
-        <Link
-          href={href(Math.min(totalPages, page + 1))}
-          className={cn(linkCls, page >= totalPages && disabledCls)}
-          aria-disabled={page >= totalPages}
-        >
-          Next
-        </Link>
-      </div>
-    </div>
-  );
-}
-
-/** Button pager for client (react-query) pages. */
-export function ButtonPager({
-  page,
-  totalPages,
-  total,
-  onPage,
-}: {
-  page: number;
-  totalPages: number;
-  total: number;
-  onPage: (p: number) => void;
-}) {
-  return (
-    <div className="flex items-center justify-between gap-3 border-t border-neutral-100 px-4 py-3 text-xs text-neutral-600 sm:px-5">
-      <span>
-        Page {page} of {Math.max(1, totalPages)} · {total} record(s)
-      </span>
-      <div className="flex gap-2">
-        <button
-          type="button"
-          disabled={page <= 1}
-          onClick={() => onPage(page - 1)}
-          className="rounded-lg border border-neutral-200 px-3 py-1.5 font-medium hover:bg-neutral-50 disabled:opacity-40"
-        >
-          Previous
-        </button>
-        <button
-          type="button"
-          disabled={page >= totalPages}
-          onClick={() => onPage(page + 1)}
-          className="rounded-lg border border-neutral-200 px-3 py-1.5 font-medium hover:bg-neutral-50 disabled:opacity-40"
-        >
-          Next
-        </button>
-      </div>
     </div>
   );
 }
@@ -419,13 +398,24 @@ export function CollapsiblePanel({
   );
 }
 
-/** Loading placeholder that matches SimpleTable's footprint. */
+/** Loading placeholder that matches SimpleTable's luxury dark/gold footprint. */
 export function TableSkeleton({ rows = 5 }: { rows?: number }) {
   return (
-    <div className="space-y-2 p-4 sm:p-5" role="status" aria-label="Loading">
-      {Array.from({ length: rows }, (_, i) => (
-        <div key={i} className="h-9 animate-pulse rounded-lg bg-neutral-100" />
-      ))}
+    <div className="w-full overflow-hidden" role="status" aria-label="Loading">
+      <div className="h-12 bg-stone-900 border-b border-stone-800 flex items-center px-4 sm:px-5 gap-4">
+        {Array.from({ length: 6 }).map((_, i) => (
+          <div key={i} className="h-3.5 bg-stone-800 rounded animate-pulse flex-1" />
+        ))}
+      </div>
+      <div className="divide-y divide-neutral-100 bg-white">
+        {Array.from({ length: rows }, (_, i) => (
+          <div key={i} className="flex items-center px-4 sm:px-5 py-3.5 gap-4">
+            {Array.from({ length: 6 }).map((_, j) => (
+              <div key={j} className="h-4 bg-neutral-100 rounded animate-pulse flex-1" />
+            ))}
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

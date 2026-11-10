@@ -9,7 +9,6 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import type { CommissionRow } from "../../types";
 import { errorMessage, useAdminList } from "../../hooks/use-admin-agents";
 import {
-  ButtonPager,
   COMMISSION_STATUS_OPTIONS,
   ORDER_STATUS_OPTIONS,
   Panel,
@@ -17,7 +16,10 @@ import {
   StatusBadge,
   dateOnly,
   money,
-  pct, TableSkeleton } from "../shared";
+  pct,
+  TableSkeleton,
+} from "../shared";
+import { ButtonPager } from "../AdminPagination";
 import { AdminFilterBar, type FilterField } from "./AdminFilterBar";
 import { AuditModal } from "./AuditModal";
 
@@ -26,11 +28,12 @@ export function AdminCommissionsSection({ fixedAgent, allowApprove = true }: { f
   const qc = useQueryClient();
   const [filters, setFilters] = useState<Record<string, string>>({});
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
   const [auditId, setAuditId] = useState<string | null>(null);
   const [approving, setApproving] = useState(false);
   const [confirmApprove, setConfirmApprove] = useState(false);
 
-  const params = { ...filters, ...(fixedAgent ? { agent: fixedAgent } : {}), page, limit: 20 };
+  const params = { ...filters, ...(fixedAgent ? { agent: fixedAgent } : {}), page, limit: pageSize };
   const { data, isLoading, error } = useAdminList<CommissionRow>("commissions", "/api/admin/commissions", params);
 
   const fields: FilterField[] = [
@@ -142,7 +145,17 @@ export function AdminCommissionsSection({ fixedAgent, allowApprove = true }: { f
               },
             ]}
           />
-          <ButtonPager page={page} totalPages={data?.meta.totalPages ?? 1} total={data?.meta.total ?? 0} onPage={setPage} />
+          <ButtonPager
+            page={page}
+            totalPages={data?.meta.totalPages ?? 1}
+            total={data?.meta.total ?? 0}
+            onPage={setPage}
+            pageSize={pageSize}
+            onPageSizeChange={(newSize) => {
+              setPageSize(newSize);
+              setPage(1);
+            }}
+          />
         </>
       )}
       <ConfirmDialog

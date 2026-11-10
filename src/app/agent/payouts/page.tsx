@@ -4,7 +4,6 @@ import { pageParam, pickParams, requireAgentPage } from "@/features/agents/lib/p
 import { RequestPayoutForm } from "@/features/agents/components/RequestPayoutForm";
 import {
   FilterForm,
-  LinkPager,
   PAYOUT_STATUS_OPTIONS,
   Panel,
   SimpleTable,
@@ -12,6 +11,7 @@ import {
   dateOnly,
   money,
 } from "@/features/agents/components/shared";
+import { LinkPager } from "@/features/agents/components/AdminPagination";
 
 export const metadata = { title: "Payouts" };
 

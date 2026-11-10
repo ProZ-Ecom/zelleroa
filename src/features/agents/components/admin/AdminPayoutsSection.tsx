@@ -8,7 +8,8 @@ import { Modal } from "@/components/ui/modal";
 import { toast } from "@/components/ui/Toast";
 import type { PayoutRow } from "../../types";
 import { errorMessage, useAdminList } from "../../hooks/use-admin-agents";
-import { ButtonPager, PAYOUT_STATUS_OPTIONS, Panel, SimpleTable, StatusBadge, TableSkeleton, Tooltip, dateOnly, fieldCls, money } from "../shared";
+import { PAYOUT_STATUS_OPTIONS, Panel, SimpleTable, StatusBadge, TableSkeleton, Tooltip, dateOnly, fieldCls, money } from "../shared";
+import { ButtonPager } from "../AdminPagination";
 import { AdminFilterBar, type FilterField } from "./AdminFilterBar";
 import { AuditModal } from "./AuditModal";
 
@@ -35,10 +36,11 @@ export function AdminPayoutsSection({ fixedAgent }: { fixedAgent?: string }) {
   const qc = useQueryClient();
   const [filters, setFilters] = useState<Record<string, string>>({});
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
   const [dialog, setDialog] = useState<Dialog>(null);
   const [auditId, setAuditId] = useState<string | null>(null);
 
-  const params = { ...filters, ...(fixedAgent ? { agent: fixedAgent } : {}), page, limit: 20 };
+  const params = { ...filters, ...(fixedAgent ? { agent: fixedAgent } : {}), page, limit: pageSize };
   const { data, isLoading, error } = useAdminList<PayoutRow>("payouts", "/api/admin/agent-payouts", params);
 
   const refresh = () => qc.invalidateQueries({ queryKey: ["agents-admin"] });
@@ -158,7 +160,17 @@ export function AdminPayoutsSection({ fixedAgent }: { fixedAgent?: string }) {
               },
             ]}
           />
-          <ButtonPager page={page} totalPages={data?.meta.totalPages ?? 1} total={data?.meta.total ?? 0} onPage={setPage} />
+          <ButtonPager
+            page={page}
+            totalPages={data?.meta.totalPages ?? 1}
+            total={data?.meta.total ?? 0}
+            onPage={setPage}
+            pageSize={pageSize}
+            onPageSizeChange={(newSize) => {
+              setPageSize(newSize);
+              setPage(1);
+            }}
+          />
         </>
       )}
 

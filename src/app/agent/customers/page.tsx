@@ -1,6 +1,7 @@
 import { agentService } from "@/features/agents/services/agent.service";
 import { pageParam, pickParams, requireAgentPage } from "@/features/agents/lib/page-context";
-import { FilterForm, LinkPager, PageHeader, Panel, SimpleTable, StatusBadge, dateOnly, money } from "@/features/agents/components/shared";
+import { FilterForm, PageHeader, Panel, SimpleTable, StatusBadge, dateOnly, money } from "@/features/agents/components/shared";
+import { LinkPager } from "@/features/agents/components/AdminPagination";
 
 export const metadata = { title: "My Customers" };
 

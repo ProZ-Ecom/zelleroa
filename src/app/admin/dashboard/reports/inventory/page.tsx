@@ -15,6 +15,7 @@ import {
   ReportSkeleton,
   count,
   dateLabel,
+  formatCsvDateTime,
   money,
   moneyExact,
   percent,
@@ -61,7 +62,7 @@ const stockColumns: Column<StockRow>[] = [
   },
   { header: "Value at price", align: "right", cell: (r) => moneyExact(r.valueAtPrice), csv: (r) => r.valueAtPrice },
   { header: "Sold in period", align: "right", cell: (r) => count(r.soldInRange), csv: (r) => r.soldInRange },
-  { header: "Last movement", cell: (r) => dateLabel(r.lastMovementAt), csv: (r) => r.lastMovementAt },
+  { header: "Last movement", cell: (r) => dateLabel(r.lastMovementAt), csv: (r) => formatCsvDateTime(r.lastMovementAt) },
 ];
 
 const alertColumns: Column<StockRow>[] = [
@@ -70,7 +71,7 @@ const alertColumns: Column<StockRow>[] = [
   { header: "On hand", align: "right", cell: (r) => count(r.onHand), csv: (r) => r.onHand },
   { header: "Reorder at", align: "right", cell: (r) => count(r.reorderLevel), csv: (r) => r.reorderLevel },
   { header: "Sold in period", align: "right", cell: (r) => count(r.soldInRange), csv: (r) => r.soldInRange },
-  { header: "Last movement", cell: (r) => dateLabel(r.lastMovementAt), csv: (r) => r.lastMovementAt },
+  { header: "Last movement", cell: (r) => dateLabel(r.lastMovementAt), csv: (r) => formatCsvDateTime(r.lastMovementAt) },
 ];
 
 const movementColumns: Column<MovementRow>[] = [
@@ -89,7 +90,7 @@ const movementColumns: Column<MovementRow>[] = [
 ];
 
 const ledgerColumns: Column<LedgerRow>[] = [
-  { header: "When", cell: (r) => dateLabel(r.at), csv: (r) => r.at },
+  { header: "When", cell: (r) => dateLabel(r.at), csv: (r) => formatCsvDateTime(r.at) },
   { header: "SKU", cell: (r) => <span className="font-mono text-xs">{r.sku}</span>, csv: (r) => r.sku },
   { header: "Movement", cell: (r) => r.movementType ?? r.type, csv: (r) => r.movementType ?? r.type },
   {
