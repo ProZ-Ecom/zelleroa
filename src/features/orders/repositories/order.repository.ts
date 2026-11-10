@@ -418,6 +418,7 @@ export function formatOrderDetail(
     status: order.order_status,
     paymentStatus: order.payment_status,
     paymentMethod: inferOrderPaymentMethod(order),
+    orderSource: (order as any).order_source ?? null,
     subtotal: Number(order.subtotal),
     discountAmount: Number(order.discountAmount),
     taxAmount: Number(order.taxAmount),
@@ -519,23 +520,52 @@ export function inferOrderPaymentMethod(order: {
   notes?: string | null;
   order_status?: string | null;
   payment_status?: string | null;
+  order_source?: string | null;
   order_status_history?: Array<{ note?: string | null }> | null;
   payments?: Array<unknown> | null;
 }): "COD" | "CARD" {
+  // 1. Any order placed through the Sales Partner (Agent) portal is Cash on Delivery (COD)
+  if (
+    order.order_source === "AGENT_PLACED_FOR_CUSTOMER" ||
+    order.order_source === "AGENT_OWN"
+  ) {
+    return "COD";
+  }
+
+  // 2. An order where a cash payment was recorded
+  const hasCashPayment = (order.payments || []).some((p: any) =>
+    p?.payment_methods?.code === "COD" ||
+    p?.gatewayResponse?.source === "COD_CASH_COLLECTED"
+  );
+  if (hasCashPayment) return "COD";
+
   const mentionsCod = (text?: string | null) => {
     const upper = (text || "").toUpperCase();
     return upper.includes("COD") || upper.includes("CASH ON DELIVERY");
   };
 
-  const isCod =
+  // 3. Clues from bank account, notes, or status history
+  if (
     Boolean(order.bank_account_holder) ||
     mentionsCod(order.notes) ||
-    (order.order_status_history || []).some((h) => mentionsCod(h.note)) ||
-    (order.order_status === "confirmed" &&
-      order.payment_status === "pending" &&
-      (!order.payments || order.payments.length === 0));
+    (order.order_status_history || []).some((h) => mentionsCod(h.note))
+  ) {
+    return "COD";
+  }
 
-  return isCod ? "COD" : "CARD";
+  // 4. Live order that has progressed without an online payment
+  const hasOnlinePayments = (order.payments || []).some(
+    (p: any) => p?.status === "success" && p?.payment_methods?.code !== "COD"
+  );
+  const isPendingCod =
+    order.payment_status === "pending" &&
+    !hasOnlinePayments &&
+    order.order_status !== "cancelled" &&
+    order.order_status !== "pending";
+
+  if (isPendingCod) return "COD";
+
+  return "CARD";
 }
 
 export function formatOrderListItem(
@@ -572,6 +602,7 @@ export function formatOrderListItem(
     status: order.order_status,
     paymentStatus: order.payment_status,
     paymentMethod: inferOrderPaymentMethod(order),
+    orderSource: (order as any).order_source ?? null,
     subtotal: Number(order.subtotal),
     discountAmount: Number(order.discountAmount),
     taxAmount: Number(order.taxAmount),
@@ -979,16 +1010,15 @@ export const orderRepository = {
           order_id: createdOrder.id,
           status: (params.orderStatus ?? "pending") as any,
           note:
-            params.notes ||
-            (params.orderSource === "AGENT_PLACED_FOR_CUSTOMER"
-              ? "Order placed by Sales Partner on behalf of the customer"
+            params.orderSource === "AGENT_PLACED_FOR_CUSTOMER"
+              ? `Order placed by Sales Partner on behalf of the customer (COD)${params.notes ? `: ${params.notes}` : ""}`
               : params.orderSource === "AGENT_OWN"
-                ? "Order placed by Sales Partner for themselves"
+                ? `Order placed by Sales Partner for themselves (COD)${params.notes ? `: ${params.notes}` : ""}`
                 : params.paymentStatus === "paid"
-              ? `Order confirmed with payment via ${params.paymentMethod ?? "CARD"}`
-              : params.paymentMethod === "COD"
-                ? "Order placed via Cash on Delivery (COD)"
-                : "Order placed by customer"),
+                  ? `Order confirmed with payment via ${params.paymentMethod ?? "CARD"}${params.notes ? `: ${params.notes}` : ""}`
+                  : params.paymentMethod === "COD"
+                    ? `Order placed via Cash on Delivery (COD)${params.notes ? `: ${params.notes}` : ""}`
+                    : (params.notes || "Order placed by customer"),
           changed_by: actorId,
           is_active: true,
           created_by: actorId,
@@ -1353,7 +1383,11 @@ export const orderRepository = {
           },
           payments: {
             where: { is_active: true },
-            select: { id: true, status: true },
+            select: {
+              id: true,
+              status: true,
+              payment_methods: { select: { code: true } },
+            },
           },
           shipments: {
             where: { is_active: true },

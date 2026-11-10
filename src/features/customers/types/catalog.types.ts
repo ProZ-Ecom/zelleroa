@@ -32,6 +32,8 @@ export interface CustomerProductListItemDto {
   maxPrice: number;
   /** Distinct Color count across the Style's Items - shown on the storefront card. */
   colorCount?: number;
+  inStock?: boolean;
+  outOfStock?: boolean;
   unitPrices?: Array<{
     id: string;
     label: string;

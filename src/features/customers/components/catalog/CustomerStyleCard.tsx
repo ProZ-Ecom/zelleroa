@@ -17,6 +17,8 @@ export interface CustomerStyleCardProps {
  */
 export function CustomerStyleCard({ style }: CustomerStyleCardProps) {
   const colorCount = style.colorCount ?? 0;
+  const isOutOfStock =
+    style.outOfStock ?? (style.inStock !== undefined ? !style.inStock : false);
 
   return (
     <div className="group flex flex-col overflow-hidden rounded-xl border border-theme-border bg-theme-surface shadow-2xs transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md">
@@ -27,8 +29,13 @@ export function CustomerStyleCard({ style }: CustomerStyleCardProps) {
             alt={style.name}
             fill
             sizes="(max-width: 768px) 50vw, 25vw"
-            className="object-cover"
+            className={`object-cover ${isOutOfStock ? "opacity-60 grayscale-[35%]" : ""}`}
           />
+          {isOutOfStock && (
+            <span className="absolute inset-x-0 bottom-0 bg-theme-text-primary/75 py-1 text-center text-[10px] font-bold uppercase tracking-wider text-white pointer-events-none">
+              Out of stock
+            </span>
+          )}
         </div>
 
         <div className="flex flex-1 flex-col gap-1 p-2.5 sm:p-3">
@@ -51,7 +58,12 @@ export function CustomerStyleCard({ style }: CustomerStyleCardProps) {
         </div>
       </Link>
       <div className="px-2.5 pb-2.5 sm:px-3 sm:pb-3">
-        <ItemQuickAdd styleId={style.id} name={style.name} />
+        <ItemQuickAdd
+          styleId={style.id}
+          name={style.name}
+          inStock={!isOutOfStock}
+          outOfStock={isOutOfStock}
+        />
       </div>
     </div>
   );

@@ -28,14 +28,16 @@ export function CustomerProductCard({ product }: CustomerProductCardProps) {
 
   // Convert product.unitPrices to SnackCardVariant[]
   const variants: SnackCardVariant[] = React.useMemo(() => {
+    const isOut =
+      product.outOfStock ?? (product.inStock !== undefined ? !product.inStock : false);
     return (product.unitPrices || []).map((up) => ({
       id: up.id,
       label: up.label,
       price: up.sellingPrice,
       comparePrice: up.basePrice > up.sellingPrice ? up.basePrice : null,
-      inStock: true,
+      inStock: !isOut,
     }));
-  }, [product.unitPrices]);
+  }, [product.unitPrices, product.outOfStock, product.inStock]);
 
   const [selectedVariantId, setSelectedVariantId] = React.useState(
     variants[0]?.id || ""

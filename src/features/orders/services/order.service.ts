@@ -620,6 +620,11 @@ export const orderService = {
         "This order is cancelled. Payment cannot be recorded against it."
       );
     }
+    if (order.order_status !== "delivered") {
+      throw ApiError.badRequest(
+        "Cash on Delivery payment can only be marked as paid once the order is delivered."
+      );
+    }
     if (order.payment_status === "paid") {
       throw ApiError.badRequest("This order is already marked as paid.");
     }
