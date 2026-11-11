@@ -171,7 +171,7 @@ export function LinkPager({
   pageSizeOptions?: number[];
 }) {
   const router = useRouter();
-  const currentLimit = Number(params.limit ?? params.pageSize ?? pageSize);
+  const currentLimit = Number(params.limit ?? params.pageSize ?? pageSize ?? 10);
   const effectivePageSize = Number.isFinite(currentLimit) && currentLimit > 0 ? currentLimit : 10;
 
   const href = (p: number, limitVal = effectivePageSize) => {
@@ -182,7 +182,7 @@ export function LinkPager({
       }
     }
     search.set("page", String(p));
-    if (limitVal !== 10) search.set("limit", String(limitVal));
+    search.set("limit", String(limitVal));
     return `${basePath}?${search.toString()}`;
   };
 

@@ -1,5 +1,5 @@
 import crypto from "crypto";
-import { voidCommissions } from "@/features/agents/services/commission.service";
+import { voidCommissions, restoreCommissions } from "@/features/agents/services/commission.service";
 import { db } from "@/lib/db/prisma";
 import { ApiError } from "@/lib/api/api-error";
 import { recordStockMovement } from "@/features/inventory/services/stock-ledger.service";
@@ -399,6 +399,41 @@ export const returnRepository = {
         },
       });
       const orderId = p.request.orderId;
+
+      if (p.action === "approve") {
+        await voidCommissions(tx, {
+          orderId,
+          orderItemIds: items.map((i) => i.order_item_id),
+          items: items.map((i) => ({
+            orderItemId: i.order_item_id,
+            returnedQuantity: i.quantity,
+            totalQuantity: i.order_items.quantity,
+            totalPrice: Number(i.order_items.total_price),
+          })),
+          kind: "returned",
+          reason: "Return request approved",
+          actor: { id: p.actor.id, role: "ADMIN" },
+        });
+      } else if (p.action === "expire" || p.action === "cancel" || p.action === "delivered-back") {
+        await restoreCommissions(tx, {
+          orderId,
+          orderItemIds: items.map((i) => i.order_item_id),
+          items: items.map((i) => ({
+            orderItemId: i.order_item_id,
+            returnedQuantity: i.quantity,
+            totalQuantity: i.order_items.quantity,
+            totalPrice: Number(i.order_items.total_price),
+          })),
+          reason:
+            p.action === "expire"
+              ? "Return request expired"
+              : p.action === "cancel"
+                ? "Return request cancelled"
+                : "Return item delivered back to customer after QC failure",
+          actor: { id: p.actor.id, role: p.actor.type === "USER" ? "CUSTOMER" : "ADMIN" },
+        });
+      }
+
       let historyNote = p.rejectionReason ?? p.note ?? p.comment ?? null;
 
       if (p.action === "shipped" && !p.note && !p.comment) {
@@ -525,14 +560,6 @@ export const returnRepository = {
             }
           }
         }
-
-        await voidCommissions(tx, {
-          orderId,
-          orderItemIds: items.map((i) => i.order_item_id),
-          kind: "returned",
-          reason: "Item returned",
-          actor: { id: p.actor.id, role: "ADMIN" },
-        });
 
         // Whole order back? then the order itself becomes "returned".
         const received = await tx.return_items.findMany({

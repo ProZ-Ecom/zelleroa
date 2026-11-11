@@ -2,6 +2,7 @@
 
 import React from "react";
 import { useLogout } from "@/features/auth/hooks/use-auth-mutations";
+import { LogoutConfirmDialog } from "@/components/common/LogoutConfirmDialog";
 import { DashboardTab } from "./DashboardTab";
 import { OrdersTab } from "./OrdersTab";
 import { ProfileDetailsTab } from "./ProfileDetailsTab";
@@ -21,6 +22,7 @@ interface AccountShellProps {
 }
 export function AccountShell({ activeTab, onTabChange }: AccountShellProps) {
   const logout = useLogout("/login");
+  const [showLogoutConfirm, setShowLogoutConfirm] = React.useState(false);
   const { data: profile, isLoading: profileLoading } = useCustomerProfile();
   const {
     data: ordersResponse,
@@ -61,7 +63,7 @@ export function AccountShell({ activeTab, onTabChange }: AccountShellProps) {
 
   const handleNavClick = (id: string) => {
     if (id === "logout") {
-      if (!logout.isPending) logout.mutate();
+      setShowLogoutConfirm(true);
       return;
     }
     onTabChange(id);
@@ -260,6 +262,13 @@ export function AccountShell({ activeTab, onTabChange }: AccountShellProps) {
           {activeTab === "settings" && <SettingsTab />}
         </main>
       </div>
+
+      <LogoutConfirmDialog
+        open={showLogoutConfirm}
+        onClose={() => setShowLogoutConfirm(false)}
+        onConfirm={() => logout.mutate()}
+        isLoading={logout.isPending}
+      />
     </div>
   );
 }

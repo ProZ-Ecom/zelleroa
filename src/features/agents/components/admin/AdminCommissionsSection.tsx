@@ -7,7 +7,7 @@ import { apiClient } from "@/lib/api/api-client";
 import { toast } from "@/components/ui/Toast";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import type { CommissionRow } from "../../types";
-import { errorMessage, useAdminList } from "../../hooks/use-admin-agents";
+import { errorMessage, useAdminList, useAdminObject } from "../../hooks/use-admin-agents";
 import {
   COMMISSION_STATUS_OPTIONS,
   ORDER_STATUS_OPTIONS,
@@ -35,6 +35,13 @@ export function AdminCommissionsSection({ fixedAgent, allowApprove = true }: { f
 
   const params = { ...filters, ...(fixedAgent ? { agent: fixedAgent } : {}), page, limit: pageSize };
   const { data, isLoading, error } = useAdminList<CommissionRow>("commissions", "/api/admin/commissions", params);
+  const settings = useAdminObject<{ returnPeriodDays: number; autoApprove: boolean }>(
+    "commission-settings",
+    "/api/admin/commission-settings"
+  );
+
+  const isAutoApprove = settings.data?.autoApprove ?? data?.meta.autoApprove ?? false;
+  const canApprove = allowApprove && !isAutoApprove;
 
   const fields: FilterField[] = [
     ...(fixedAgent ? [] : [{ name: "agent", label: "Sales Partner", type: "agent" as const }]),
@@ -65,7 +72,7 @@ export function AdminCommissionsSection({ fixedAgent, allowApprove = true }: { f
     <Panel
       title="Commissions"
       action={
-        allowApprove && (
+        canApprove && (
           <button
             type="button"
             onClick={() => setConfirmApprove(true)}
@@ -127,7 +134,7 @@ export function AdminCommissionsSection({ fixedAgent, allowApprove = true }: { f
                 header: "",
                 cell: (r) => (
                   <div className="flex items-center gap-3">
-                    {r.status === "pending_approval" && (
+                    {canApprove && (r.status === "pending_approval" || r.status === "pending") && (
                       <button
                         type="button"
                         disabled={approving}

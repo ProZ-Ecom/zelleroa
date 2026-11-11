@@ -634,6 +634,7 @@ export const agentService = {
           product_name_snapshot: true,
           quantity: true,
           total_price: true,
+          createdAt: true,
           order: {
             select: {
               uuid: true,

@@ -43,7 +43,7 @@ export function StatusBadge({ status, className, title }: { status: string | nul
     <span
       title={title}
       className={cn(
-        "inline-flex items-center whitespace-nowrap rounded-full border px-2.5 py-0.5 text-xs font-semibold",
+        "inline-flex items-center justify-center text-center whitespace-nowrap rounded-full border px-2.5 py-0.5 text-xs font-semibold",
         STATUS_STYLES[status] ?? "bg-neutral-100 text-neutral-700 border-neutral-200",
         className
       )}

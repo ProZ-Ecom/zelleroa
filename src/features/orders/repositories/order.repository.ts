@@ -73,6 +73,9 @@ export const orderItemInclude = Prisma.validator<Prisma.OrderItemInclude>()({
   // only path to the color's images.
   variant: {
     select: {
+      id: true,
+      uuid: true,
+      variant_name: true,
       color_name: true,
       color_hex: true,
       product_variant_images: {
@@ -212,7 +215,7 @@ export function formatOrderItem(
   item: Prisma.OrderItemGetPayload<{ include: typeof orderItemInclude }>
 ): OrderItemResponse {
   const unitPrice = item.variant_unit_price;
-  const variant = unitPrice?.variant;
+  const variant = unitPrice?.variant ?? item.variant;
   const measurement = formatVariantMeasurement(
     unitPrice?.product_units,
     unitPrice?.unit_value ?? 0
@@ -230,8 +233,8 @@ export function formatOrderItem(
     id: item.uuid || String(item.id),
     productId: item.product?.uuid || String(item.productId),
     itemId: item.style?.uuid || String(item.styleId),
-    variantId: variant?.uuid || String(variant?.id ?? ""),
-    variantUnitPriceId: unitPrice?.uuid || String(item.variantUnitPriceId),
+    variantId: variant?.uuid || item.variant?.uuid || String(variant?.id ?? item.variantId ?? ""),
+    variantUnitPriceId: unitPrice?.uuid || (item.variantUnitPriceId ? String(item.variantUnitPriceId) : ""),
     productName: item.product_name_snapshot,
     itemName: item.item_name_snapshot,
     variantName: item.variant_snapshot,
@@ -696,9 +699,13 @@ export const orderRepository = {
     });
     if (!order?.agent) return null;
 
+    const activeCommissions = order.commissions.filter(
+      (c) => !["cancelled", "reversed"].includes(c.status)
+    );
     const statuses = new Set(order.commissions.map((c) => c.status));
-    const total = order.commissions.reduce((sum, c) => sum + Number(c.commission_amount), 0);
-    const base = order.commissions.reduce((sum, c) => sum + Number(c.product_amount), 0);
+    const activeStatuses = new Set(activeCommissions.map((c) => c.status));
+    const total = activeCommissions.reduce((sum, c) => sum + Number(c.commission_amount), 0);
+    const base = activeCommissions.reduce((sum, c) => sum + Number(c.product_amount), 0);
     return {
       orderSource: order.order_source,
       orderedByName: order.ordered_by?.name ?? null,
@@ -714,8 +721,20 @@ export const orderRepository = {
           : base > 0
             ? Math.round((total * 10000) / base) / 100
             : 0,
-      commissionAmount: order.commission_amount != null ? Number(order.commission_amount) : Math.round(total * 100) / 100,
-      commissionStatus: statuses.size === 0 ? "none" : statuses.size === 1 ? [...statuses][0] : "mixed",
+      commissionAmount:
+        order.commission_amount != null
+          ? Number(order.commission_amount)
+          : Math.round(total * 100) / 100,
+      commissionStatus:
+        activeCommissions.length === 0
+          ? statuses.size === 1
+            ? [...statuses][0]
+            : statuses.size === 0
+              ? "none"
+              : "mixed"
+          : activeStatuses.size === 1
+            ? [...activeStatuses][0]
+            : "mixed",
     };
   },
 
@@ -1149,8 +1168,21 @@ export const orderRepository = {
       where.payment_status = { in: Array.from(new Set(validPayments)) };
     }
 
-    if (params.search) {
-      where.orderNumber = { contains: params.search };
+    if (params.search && params.search.trim()) {
+      const cleanTerm = params.search.trim();
+      const strippedNumber = cleanTerm.replace(/^#/, "");
+      where.OR = [
+        { orderNumber: { contains: cleanTerm } },
+        ...(strippedNumber !== cleanTerm ? [{ orderNumber: { contains: strippedNumber } }] : []),
+        {
+          items: {
+            some: {
+              is_active: true,
+              product_name_snapshot: { contains: cleanTerm },
+            },
+          },
+        },
+      ];
     }
 
     const sortOrder =

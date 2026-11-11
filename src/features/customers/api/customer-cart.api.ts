@@ -16,7 +16,8 @@ const EMPTY_CART: CartResponse = {
 };
 
 export interface AddCartItemPayload {
-  variantId: string;
+  variantUnitPriceId?: string;
+  variantId?: string;
   quantity: number;
 }
 

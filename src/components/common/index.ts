@@ -12,3 +12,5 @@ export { ImageCropperModal } from "./ImageCropperModal";
 export type { ImageCropperModalProps } from "./ImageCropperModal";
 export { ExportButton } from "./export-button";
 export type { ExportButtonProps } from "./export-button";
+export { LogoutConfirmDialog } from "./LogoutConfirmDialog";
+export type { LogoutConfirmDialogProps } from "./LogoutConfirmDialog";
