@@ -1,67 +1,108 @@
-import { agentService } from "@/features/agents/services/agent.service";
-import { pageParam, pickParams, requireAgentPage } from "@/features/agents/lib/page-context";
-import { FilterForm, LinkPager, PageHeader, Panel, SimpleTable, StatusBadge, dateOnly, money } from "@/features/agents/components/shared";
+"use client";
 
-export const metadata = { title: "My Customers" };
+import { Suspense, useState } from "react";
+import type { AgentCustomerRow } from "@/features/agents/services/agent.service";
+import { errorMessage, useAdminList } from "@/features/agents/hooks/use-admin-agents";
+import { PageHeader, Panel, SimpleTable, StatusBadge, dateOnly, money, TableSkeleton } from "@/features/agents/components/shared";
+import { ButtonPager } from "@/features/agents/components/AdminPagination";
+import { AdminFilterBar, type FilterField } from "@/features/agents/components/admin/AdminFilterBar";
 
-export default async function AgentCustomersPage({
-  searchParams,
-}: {
-  searchParams: Promise<Record<string, string | string[] | undefined>>;
-}) {
-  const { agentId } = await requireAgentPage("/agent/customers");
-  const sp = await searchParams;
-  const filters = pickParams(sp, ["search", "status"]);
-  const page = pageParam(sp);
+function AgentCustomersContent() {
+  const [filters, setFilters] = useState<Record<string, string>>({});
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
 
-  const result = await agentService.listCustomers(agentId, { search: filters.search, status: filters.status, page, limit: 20 });
+  const params = { ...filters, page, limit: pageSize };
+  const { data, isLoading, error } = useAdminList<AgentCustomerRow>("agent-customers", "/api/agent/customers", params);
+
+  const fields: FilterField[] = [
+    { name: "search", label: "Search name, ID, email or phone", type: "text" },
+    {
+      name: "status",
+      label: "Status",
+      type: "select",
+      options: [
+        { value: "active", label: "Active" },
+        { value: "inactive", label: "Inactive" },
+      ],
+    },
+  ];
 
   return (
     <>
-      <PageHeader title="My Customers" description="Customers currently assigned to you. If an admin transfers a customer to another Sales Partner, they leave this list and you can no longer see or order for them." />
+      <PageHeader
+        title="My Customers"
+        description="Customers currently assigned to you. If an admin transfers a customer to another Sales Partner, they leave this list and you can no longer see or order for them."
+      />
 
       <Panel>
-        <FilterForm
-          action="/agent/customers"
+        <AdminFilterBar
+          fields={fields}
           values={filters}
-          fields={[
-            { name: "search", label: "Search name, ID, email or phone" },
-            { name: "status", label: "Status", type: "select", options: [{ value: "active", label: "Active" }, { value: "inactive", label: "Inactive" }] },
-          ]}
+          onApply={(v) => {
+            setFilters(v);
+            setPage(1);
+          }}
         />
-        <SimpleTable
-          rows={result.data}
-          rowKey={(r) => r.id}
-          empty="No customers found."
-          columns={[
-            {
-              header: "Customer",
-              cell: (r) => (
-                <div className="min-w-[10rem]">
-                  <p className="font-medium text-neutral-900">{r.name}</p>
-                </div>
-              ),
-            },
-            {
-              header: "Customer ID",
-              cell: (r) => (
-                <span className="font-mono text-xs text-neutral-800" title={r.customerCode || r.id}>
-                  {r.customerCode || r.id || "—"}
-                </span>
-              ),
-            },
-            { header: "Mobile", cell: (r) => r.phone ?? "—" },
-            { header: "Email", cell: (r) => r.email ?? "—" },
-            { header: "Registered", cell: (r) => dateOnly(r.registeredAt) },
-            { header: "Last order", cell: (r) => dateOnly(r.lastOrderAt) },
-            { header: "Orders", cell: (r) => r.totalOrders },
-            { header: "Sales", cell: (r) => money(r.totalSales) },
-            { header: "Commission", cell: (r) => <strong>{money(r.commissionGenerated)}</strong> },
-            { header: "Status", cell: (r) => <StatusBadge status={r.status} /> },
-          ]}
-        />
-        <LinkPager basePath="/agent/customers" params={filters} page={result.meta.page} totalPages={result.meta.totalPages} total={result.meta.total} />
+        {error ? (
+          <p className="px-5 py-10 text-center text-sm text-red-600">{errorMessage(error)}</p>
+        ) : isLoading ? (
+          <TableSkeleton />
+        ) : (
+          <>
+            <SimpleTable
+              rows={data?.data ?? []}
+              rowKey={(r) => r.id}
+              empty="No customers found."
+              columns={[
+                {
+                  header: "Customer",
+                  cell: (r) => (
+                    <div className="min-w-[10rem]">
+                      <p className="font-medium text-neutral-900">{r.name}</p>
+                    </div>
+                  ),
+                },
+                {
+                  header: "Customer ID",
+                  cell: (r) => (
+                    <span className="font-mono text-xs text-neutral-800" title={r.customerCode || r.id}>
+                      {r.customerCode || r.id || "—"}
+                    </span>
+                  ),
+                },
+                { header: "Mobile", cell: (r) => r.phone ?? "—" },
+                { header: "Email", cell: (r) => r.email ?? "—" },
+                { header: "Registered", cell: (r) => dateOnly(r.registeredAt) },
+                { header: "Last order", cell: (r) => dateOnly(r.lastOrderAt) },
+                { header: "Orders", cell: (r) => r.totalOrders },
+                { header: "Sales", cell: (r) => money(r.totalSales) },
+                { header: "Commission", cell: (r) => <strong>{money(r.commissionGenerated)}</strong> },
+                { header: "Status", cell: (r) => <StatusBadge status={r.status} /> },
+              ]}
+            />
+            <ButtonPager
+              page={page}
+              totalPages={data?.meta.totalPages ?? 1}
+              total={data?.meta.total ?? 0}
+              onPage={setPage}
+              pageSize={pageSize}
+              onPageSizeChange={(newSize) => {
+                setPageSize(newSize);
+                setPage(1);
+              }}
+            />
+          </>
+        )}
       </Panel>
     </>
+  );
+}
+
+export default function AgentCustomersPage() {
+  return (
+    <Suspense fallback={<TableSkeleton />}>
+      <AgentCustomersContent />
+    </Suspense>
   );
 }

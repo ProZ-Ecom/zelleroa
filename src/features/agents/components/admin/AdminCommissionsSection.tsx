@@ -7,9 +7,8 @@ import { apiClient } from "@/lib/api/api-client";
 import { toast } from "@/components/ui/Toast";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import type { CommissionRow } from "../../types";
-import { errorMessage, useAdminList } from "../../hooks/use-admin-agents";
+import { errorMessage, useAdminList, useAdminObject } from "../../hooks/use-admin-agents";
 import {
-  ButtonPager,
   COMMISSION_STATUS_OPTIONS,
   ORDER_STATUS_OPTIONS,
   Panel,
@@ -17,7 +16,10 @@ import {
   StatusBadge,
   dateOnly,
   money,
-  pct, TableSkeleton } from "../shared";
+  pct,
+  TableSkeleton,
+} from "../shared";
+import { ButtonPager } from "../AdminPagination";
 import { AdminFilterBar, type FilterField } from "./AdminFilterBar";
 import { AuditModal } from "./AuditModal";
 
@@ -26,12 +28,20 @@ export function AdminCommissionsSection({ fixedAgent, allowApprove = true }: { f
   const qc = useQueryClient();
   const [filters, setFilters] = useState<Record<string, string>>({});
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
   const [auditId, setAuditId] = useState<string | null>(null);
   const [approving, setApproving] = useState(false);
   const [confirmApprove, setConfirmApprove] = useState(false);
 
-  const params = { ...filters, ...(fixedAgent ? { agent: fixedAgent } : {}), page, limit: 20 };
+  const params = { ...filters, ...(fixedAgent ? { agent: fixedAgent } : {}), page, limit: pageSize };
   const { data, isLoading, error } = useAdminList<CommissionRow>("commissions", "/api/admin/commissions", params);
+  const settings = useAdminObject<{ returnPeriodDays: number; autoApprove: boolean }>(
+    "commission-settings",
+    "/api/admin/commission-settings"
+  );
+
+  const isAutoApprove = settings.data?.autoApprove ?? data?.meta.autoApprove ?? false;
+  const canApprove = allowApprove && !isAutoApprove;
 
   const fields: FilterField[] = [
     ...(fixedAgent ? [] : [{ name: "agent", label: "Sales Partner", type: "agent" as const }]),
@@ -62,7 +72,7 @@ export function AdminCommissionsSection({ fixedAgent, allowApprove = true }: { f
     <Panel
       title="Commissions"
       action={
-        allowApprove && (
+        canApprove && (
           <button
             type="button"
             onClick={() => setConfirmApprove(true)}
@@ -124,7 +134,7 @@ export function AdminCommissionsSection({ fixedAgent, allowApprove = true }: { f
                 header: "",
                 cell: (r) => (
                   <div className="flex items-center gap-3">
-                    {r.status === "pending_approval" && (
+                    {canApprove && (r.status === "pending_approval" || r.status === "pending") && (
                       <button
                         type="button"
                         disabled={approving}
@@ -142,7 +152,17 @@ export function AdminCommissionsSection({ fixedAgent, allowApprove = true }: { f
               },
             ]}
           />
-          <ButtonPager page={page} totalPages={data?.meta.totalPages ?? 1} total={data?.meta.total ?? 0} onPage={setPage} />
+          <ButtonPager
+            page={page}
+            totalPages={data?.meta.totalPages ?? 1}
+            total={data?.meta.total ?? 0}
+            onPage={setPage}
+            pageSize={pageSize}
+            onPageSizeChange={(newSize) => {
+              setPageSize(newSize);
+              setPage(1);
+            }}
+          />
         </>
       )}
       <ConfirmDialog

@@ -20,6 +20,7 @@ import {
   count,
   dateLabel,
   days,
+  formatCsvDateTime,
   money,
   moneyExact,
   percent,
@@ -40,7 +41,7 @@ const customerColumns: Column<TopCustomerRow>[] = [
   { header: "Orders", align: "right", cell: (r) => count(r.orders), csv: (r) => r.orders },
   { header: "Spent", align: "right", cell: (r) => moneyExact(r.revenue), csv: (r) => r.revenue },
   { header: "Average order", align: "right", cell: (r) => moneyExact(r.avgOrderValue), csv: (r) => r.avgOrderValue },
-  { header: "Last order", cell: (r) => dateLabel(r.lastOrderAt), csv: (r) => r.lastOrderAt },
+  { header: "Last order", cell: (r) => dateLabel(r.lastOrderAt), csv: (r) => formatCsvDateTime(r.lastOrderAt) },
   {
     header: "Since last order",
     align: "right",

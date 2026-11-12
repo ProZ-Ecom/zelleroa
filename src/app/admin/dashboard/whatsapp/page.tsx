@@ -192,7 +192,7 @@ export default function AdminWhatsAppPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 pb-12">
       <AdminPageHeader
         title="WhatsApp Integration"
         description="100% free WhatsApp messaging with your personal admin number. Manage device pairing, anti-ban protection, and customer notification templates."

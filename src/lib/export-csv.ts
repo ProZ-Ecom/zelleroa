@@ -2,9 +2,37 @@ import type { Table } from "@tanstack/react-table";
 
 const SKIPPED_COLUMNS = new Set(["select", "actions", "action", "expander"]);
 
+/**
+ * Formats a date or timestamp into a uniform, clean string: YYYY-MM-DD HH:MM:SS.
+ * Removes ISO 8601 artifacts (T, .000Z, milliseconds) and handles empty values gracefully.
+ */
+export function formatCsvDateTime(value: string | Date | null | undefined): string {
+  if (!value) return "";
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (!trimmed) return "";
+    // If it's already a clean YYYY-MM-DD date without time, keep it as-is
+    if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return trimmed;
+    // If it's already formatted as YYYY-MM-DD HH:MM:SS, keep it
+    if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}(:\d{2})?$/.test(trimmed)) return trimmed;
+  }
+  const d = typeof value === "string" ? new Date(value) : value;
+  if (Number.isNaN(d.getTime())) return typeof value === "string" ? value : "";
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  const hh = String(d.getHours()).padStart(2, "0");
+  const min = String(d.getMinutes()).padStart(2, "0");
+  const ss = String(d.getSeconds()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd} ${hh}:${min}:${ss}`;
+}
+
 function formatCell(value: unknown): string {
   if (value === null || value === undefined) return "";
-  if (value instanceof Date) return value.toISOString();
+  if (value instanceof Date) return formatCsvDateTime(value);
+  if (typeof value === "string" && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(value)) {
+    return formatCsvDateTime(value);
+  }
   if (Array.isArray(value)) return value.map(formatCell).join("; ");
   if (typeof value === "object") return JSON.stringify(value);
   return String(value);
@@ -94,7 +122,7 @@ export interface CsvColumn<TData> {
 }
 
 /** Exports raw array data to CSV using column definitions or object keys. */
-export function exportDataToCsv<TData extends Record<string, any>>(
+export function exportDataToCsv<TData extends Record<string, unknown>>(
   data: TData[],
   fileName: string,
   columns?: CsvColumn<TData>[]

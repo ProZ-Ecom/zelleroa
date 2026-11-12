@@ -24,9 +24,9 @@ function formatPayout(p: PayoutWithRelations): PayoutRow {
   return {
     id: p.uuid,
     code: padCode("PAY", p.id),
-    agentId: p.agent.uuid ?? String(p.agent_id),
-    agentName: p.agent.name,
-    agentCode: p.agent.agent_profile?.agent_code ?? null,
+    agentId: p.agent?.uuid ?? String(p.agent_id),
+    agentName: p.agent?.name ?? "—",
+    agentCode: p.agent?.agent_profile?.agent_code ?? null,
     amount: Number(p.amount),
     method: p.method,
     destination,

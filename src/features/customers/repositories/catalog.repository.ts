@@ -743,8 +743,8 @@ export const catalogRepository = {
         (v.variant_unit_prices || []).map((up) => Number(up.base_price))
       );
 
-      let minP = allPrices.length > 0 ? Math.min(...allPrices) : 0;
-      let maxP = allPrices.length > 0 ? Math.max(...allPrices) : 0;
+      const minP = allPrices.length > 0 ? Math.min(...allPrices) : 0;
+      const maxP = allPrices.length > 0 ? Math.max(...allPrices) : 0;
 
       // Resolve primary image from product.images or the first style's variant images
       let imgUrl: string | null = p.images[0]?.image_url ?? null;
@@ -771,6 +771,19 @@ export const catalogRepository = {
         };
       });
 
+      const inStock = p.styles.some((s) =>
+        !s.out_of_stock &&
+        s.items.some((i) =>
+          !i.out_of_stock &&
+          i.variants.some((v) =>
+            !v.out_of_stock &&
+            v.variant_unit_prices.some((up) =>
+              (up.inventories?.quantity_available ?? 0) > 0
+            )
+          )
+        )
+      );
+
       return {
         id: p.uuid || String(p.id),
         name: p.name,
@@ -782,6 +795,8 @@ export const catalogRepository = {
         minPrice: minP,
         maxPrice: maxP,
         unitPrices,
+        inStock,
+        outOfStock: !inStock,
       };
     });
 
@@ -967,6 +982,18 @@ export const catalogRepository = {
         imgUrl = allVariants[0].product_variant_images[0]?.image_url ?? null;
       }
 
+      const inStock =
+        !s.out_of_stock &&
+        s.items.some((i) =>
+          !i.out_of_stock &&
+          i.variants.some((v) =>
+            !v.out_of_stock &&
+            v.variant_unit_prices.some((up) =>
+              (up.inventories?.quantity_available ?? 0) > 0
+            )
+          )
+        );
+
       return {
         id: s.uuid || String(s.id),
         name: s.name,
@@ -977,6 +1004,8 @@ export const catalogRepository = {
         minPrice,
         maxPrice,
         colorCount: colorNames.size,
+        inStock,
+        outOfStock: !inStock,
       };
     });
 

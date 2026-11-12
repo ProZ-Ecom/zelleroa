@@ -3,8 +3,10 @@
 import * as React from "react";
 import { ArrowDownRight, ArrowUpRight, Download, Info, Minus } from "lucide-react";
 import { Select } from "@/components/ui/select";
-import { downloadCsv } from "@/lib/export-csv";
+import { downloadCsv, formatCsvDateTime } from "@/lib/export-csv";
 import { cn } from "@/lib/utils";
+
+export { formatCsvDateTime };
 
 /* ------------------------------------------------------------------ formatting */
 
@@ -227,9 +229,14 @@ export function Panel({
   className?: string;
 }) {
   return (
-    <section className={cn("overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-xs", className)}>
+    <section
+      className={cn(
+        "overflow-hidden rounded-2xl border border-neutral-200/70 bg-white shadow-[0_1px_2px_rgba(16,24,40,0.04),0_8px_24px_-8px_rgba(16,24,40,0.08)]",
+        className
+      )}
+    >
       {(title || action) && (
-        <div className="flex flex-wrap items-start justify-between gap-2 border-b border-neutral-100 px-4 py-3.5 sm:px-5">
+        <div className="flex flex-wrap items-start justify-between gap-2 border-b border-neutral-100 px-4 py-3.5 sm:px-5 bg-white">
           <div>
             <h2 className="text-sm font-bold tracking-tight text-neutral-900">{title}</h2>
             {hint && <p className="mt-0.5 max-w-2xl text-xs text-neutral-500">{hint}</p>}
@@ -362,35 +369,89 @@ export function DataTable<T>({
 }) {
   if (rows.length === 0) {
     return (
-      <div className="flex flex-col items-center gap-1.5 px-5 py-12 text-center">
-        <p className="text-sm font-medium text-neutral-700">{empty}</p>
-        {emptyHint && <p className="max-w-sm text-xs text-neutral-500">{emptyHint}</p>}
+      <div
+        tabIndex={0}
+        role="region"
+        aria-label="Scrollable table content"
+        className={cn(
+          "relative flex-1 min-h-0 overflow-auto overscroll-x-contain scrollbar-table focus:outline-hidden focus-visible:ring-1 focus-visible:ring-secondary-300",
+          maxHeight
+        )}
+      >
+        <table className="w-full min-w-max table-auto caption-bottom text-sm border-separate border-spacing-0">
+          <thead className="bg-stone-900 text-[#D4AF37] border-b border-stone-800 shadow-[0_1px_3px_rgba(28,25,23,0.2)] sticky top-0 z-10">
+            <tr>
+              {columns.map((c, i) => (
+                <th
+                  key={`${i}-${c.header}`}
+                  className={cn(
+                    "group/th h-12 px-4 text-left align-middle text-[11px] font-semibold tracking-[0.08em] whitespace-nowrap uppercase sm:px-5 bg-stone-900 text-[#D4AF37] border-b border-stone-800 shadow-[0_1px_3px_rgba(28,25,23,0.2)] sticky top-0 z-10",
+                    c.align === "right" && "text-right",
+                    c.className
+                  )}
+                >
+                  <div className={cn("flex items-center gap-1", c.align === "right" ? "justify-end" : "justify-start")}>
+                    {c.header}
+                  </div>
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td
+                colSpan={columns.length}
+                className="px-5 py-12 text-center text-sm text-neutral-500 bg-white border-b border-neutral-100"
+              >
+                <p className="font-medium text-neutral-700">{empty}</p>
+                {emptyHint && <p className="mt-1 max-w-sm mx-auto text-xs text-neutral-500">{emptyHint}</p>}
+              </td>
+            </tr>
+          </tbody>
+        </table>
       </div>
     );
   }
   return (
-    <div className={cn("overflow-auto", maxHeight)} style={maxHeight ? undefined : undefined}>
-      <table className="w-full min-w-max text-left text-sm">
-        <thead className="sticky top-0 z-10">
-          <tr className="border-b border-neutral-100 bg-neutral-50 text-[11px] uppercase tracking-wider text-neutral-500">
+    <div
+      tabIndex={0}
+      role="region"
+      aria-label="Scrollable table content"
+      className={cn(
+        "relative flex-1 min-h-0 overflow-auto overscroll-x-contain scrollbar-table focus:outline-hidden focus-visible:ring-1 focus-visible:ring-secondary-300",
+        maxHeight
+      )}
+    >
+      <table className="w-full min-w-max table-auto caption-bottom text-sm border-separate border-spacing-0">
+        <thead className="bg-stone-900 text-[#D4AF37] border-b border-stone-800 shadow-[0_1px_3px_rgba(28,25,23,0.2)] sticky top-0 z-10">
+          <tr className="transition-colors">
             {columns.map((c, i) => (
               <th
                 key={`${i}-${c.header}`}
-                className={cn("px-4 py-2.5 font-semibold", c.align === "right" && "text-right", c.className)}
+                className={cn(
+                  "group/th h-12 px-4 text-left align-middle text-[11px] font-semibold tracking-[0.08em] whitespace-nowrap uppercase sm:px-5 bg-stone-900 text-[#D4AF37] border-b border-stone-800 shadow-[0_1px_3px_rgba(28,25,23,0.2)] sticky top-0 z-10",
+                  c.align === "right" && "text-right",
+                  c.className
+                )}
               >
-                {c.header}
+                <div className={cn("flex items-center gap-1", c.align === "right" ? "justify-end" : "justify-start")}>
+                  {c.header}
+                </div>
               </th>
             ))}
           </tr>
         </thead>
         <tbody>
           {rows.map((row) => (
-            <tr key={rowKey(row)} className="border-b border-neutral-100 last:border-0 transition-colors hover:bg-neutral-50">
+            <tr
+              key={rowKey(row)}
+              className="group transition-colors hover:bg-neutral-50/80 border-b border-neutral-100 last:border-0"
+            >
               {columns.map((c, i) => (
                 <td
                   key={`${i}-${c.header}`}
                   className={cn(
-                    "px-4 py-3 align-middle text-neutral-800",
+                    "px-4 py-3.5 align-middle whitespace-nowrap sm:px-5 text-sm text-neutral-800 bg-white group-hover:bg-neutral-50/80 transition-colors border-b border-neutral-100",
                     c.align === "right" && "text-right tabular-nums",
                     c.className
                   )}

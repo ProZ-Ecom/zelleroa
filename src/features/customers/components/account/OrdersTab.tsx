@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Check, Package, X, CreditCard, Loader2, AlertCircle, Undo2 } from "lucide-react";
 import { formatPrice } from "@/lib/utils";
 import type { OrderDetailResponse } from "@/features/orders/types";
@@ -43,6 +44,7 @@ export function OrdersTab({
   error: initialError,
   onRefetch,
 }: OrdersTabProps) {
+  const router = useRouter();
   const [selectedStatus, setSelectedStatus] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [trackingOrder, setTrackingOrder] = useState<OrderDetailResponse | null>(null);
@@ -74,7 +76,29 @@ export function OrdersTab({
     ...(searchQuery.trim() ? { search: searchQuery.trim() } : {}),
   });
 
-  const orders = ordersResponse?.data ?? initialOrders;
+  const isFiltered = selectedStatus !== "all" || Boolean(searchQuery.trim());
+  const rawOrders = ordersResponse?.data ?? (isFiltered ? [] : initialOrders);
+
+  const orders = React.useMemo(() => {
+    let list = rawOrders;
+    if (selectedStatus !== "all") {
+      list = list.filter((o) => o.status?.toLowerCase() === selectedStatus.toLowerCase());
+    }
+    if (searchQuery.trim()) {
+      const q = searchQuery.trim().toLowerCase().replace(/^#/, "");
+      list = list.filter((o) => {
+        const orderNum = (o.orderNumber || "").toLowerCase();
+        const idStr = String(o.id).toLowerCase();
+        const matchesOrder = orderNum.includes(q) || idStr.includes(q);
+        const matchesItem = o.items?.some((it) =>
+          it.productName?.toLowerCase().includes(q)
+        );
+        return matchesOrder || matchesItem;
+      });
+    }
+    return list;
+  }, [rawOrders, selectedStatus, searchQuery]);
+
   const isLoading = isOrdersLoading || (initialLoading && !ordersResponse) || isFetching;
   const error = ordersQueryError || initialError;
 
@@ -127,22 +151,50 @@ export function OrdersTab({
   };
 
   const handleReorder = async (order: OrderDetailResponse) => {
-    if (!order.items || order.items.length === 0) return;
+    if (!order.items || order.items.length === 0) {
+      toast.error("No items found in this order to reorder.");
+      return;
+    }
     setReorderingId(order.id);
+    let addedCount = 0;
+    let lastError: string | null = null;
+
     try {
       for (const item of order.items) {
-        const variantId = item.variantId || item.productId;
-        if (variantId) {
+        if (!item.variantUnitPriceId && !item.variantId) continue;
+
+        try {
           await addToCartMutation.mutateAsync({
-            variantId: String(variantId),
+            ...(item.variantUnitPriceId ? { variantUnitPriceId: item.variantUnitPriceId } : {}),
+            ...(item.variantId ? { variantId: item.variantId } : {}),
             quantity: item.quantity || 1,
           });
+          addedCount++;
+        } catch (itemErr: any) {
+          lastError = itemErr?.message || "Failed to add item to cart";
+          console.error("Failed to reorder item into cart:", itemErr);
         }
       }
-      setReorderSuccessId(order.id);
-      setTimeout(() => setReorderSuccessId(null), 4000);
-    } catch (err) {
+
+      if (addedCount > 0) {
+        setReorderSuccessId(order.id);
+        toast.success(
+          "Added to cart",
+          `${addedCount} item${addedCount > 1 ? "s" : ""} added to your cart.`
+        );
+        router.push("/cart");
+      } else {
+        toast.error(
+          "Could not reorder items",
+          lastError || "The ordered items are currently unavailable or out of stock."
+        );
+      }
+    } catch (err: any) {
       console.error("Failed to reorder items into cart:", err);
+      toast.error(
+        "Could not reorder items",
+        err?.message || "Failed to reorder items into cart"
+      );
     } finally {
       setReorderingId(null);
     }
@@ -262,6 +314,7 @@ export function OrdersTab({
         <div className="flex items-center gap-2.5 flex-wrap sm:flex-nowrap">
           <div className="w-full sm:w-56">
             <SearchInput
+              value={searchQuery}
               placeholder="Search order number..."
               onSearch={(val) => setSearchQuery(val)}
               debounceMs={400}
@@ -627,12 +680,12 @@ export function OrdersTab({
                         onClick={() =>
                           setReturnTarget({ orderId: order.id, mode: "return" })
                         }
-                        className="border-2 border-amber-500 bg-amber-50 hover:bg-amber-100 text-amber-900 dark:bg-amber-950/50 dark:border-amber-400 dark:text-amber-200 text-xs font-bold uppercase tracking-wider py-2.5 px-4 rounded-lg transition-all duration-200 cursor-pointer min-h-[40px] inline-flex items-center gap-1.5 shadow-xs hover:shadow active:scale-[0.98]"
+                        className="btn-return-replace text-xs font-bold uppercase tracking-wider py-2.5 px-4 rounded-lg cursor-pointer min-h-[40px] inline-flex items-center gap-1.5 shadow-xs"
                       >
-                        <Undo2 className="h-3.5 w-3.5 text-amber-600 stroke-[2.5]" />
+                        <Undo2 className="h-3.5 w-3.5 stroke-[2.5]" />
                         <span>Return / Replace</span>
                         {order.returnWindow?.daysLeft ? (
-                          <span className="ml-1 rounded bg-amber-200 text-amber-950 px-1.5 py-0.5 text-[10px] font-extrabold tracking-normal">
+                          <span className="return-badge ml-1 rounded px-1.5 py-0.5 text-[10px] font-extrabold tracking-normal">
                             {order.returnWindow.daysLeft}d left
                           </span>
                         ) : null}

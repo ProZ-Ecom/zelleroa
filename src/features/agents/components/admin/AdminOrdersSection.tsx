@@ -4,7 +4,6 @@ import { useState } from "react";
 import type { AgentOrderLine } from "../../services/agent.service";
 import { errorMessage, useAdminList } from "../../hooks/use-admin-agents";
 import {
-  ButtonPager,
   COMMISSION_STATUS_OPTIONS,
   ORDER_STATUS_OPTIONS,
   ORDER_SOURCE_OPTIONS,
@@ -14,14 +13,18 @@ import {
   StatusBadge,
   dateOnly,
   money,
-  pct, TableSkeleton } from "../shared";
+  pct,
+  TableSkeleton,
+} from "../shared";
+import { ButtonPager } from "../AdminPagination";
 import { AdminFilterBar, type FilterField } from "./AdminFilterBar";
 
 export function AdminOrdersSection({ fixedAgent }: { fixedAgent?: string }) {
   const [filters, setFilters] = useState<Record<string, string>>({});
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
 
-  const params = { ...filters, ...(fixedAgent ? { agent: fixedAgent } : {}), page, limit: 20 };
+  const params = { ...filters, ...(fixedAgent ? { agent: fixedAgent } : {}), page, limit: pageSize };
   const { data, isLoading, error } = useAdminList<AgentOrderLine>("orders", "/api/admin/agent-orders", params);
 
   const fields: FilterField[] = [
@@ -71,7 +74,17 @@ export function AdminOrdersSection({ fixedAgent }: { fixedAgent?: string }) {
               { header: "Comm. status", cell: (r) => <StatusBadge status={r.commissionStatus} /> },
             ]}
           />
-          <ButtonPager page={page} totalPages={data?.meta.totalPages ?? 1} total={data?.meta.total ?? 0} onPage={setPage} />
+          <ButtonPager
+            page={page}
+            totalPages={data?.meta.totalPages ?? 1}
+            total={data?.meta.total ?? 0}
+            onPage={setPage}
+            pageSize={pageSize}
+            onPageSizeChange={(newSize) => {
+              setPageSize(newSize);
+              setPage(1);
+            }}
+          />
         </>
       )}
     </Panel>

@@ -15,6 +15,7 @@ import { useRecentSearches } from "@/hooks/use-recent-searches";
 import { SearchDropdown } from "@/components/storefront/search/SearchDropdown";
 import { getInitials, toTitleCase } from "@/lib/utils";
 import { useLogout } from "@/features/auth/hooks/use-auth-mutations";
+import { LogoutConfirmDialog } from "@/components/common/LogoutConfirmDialog";
 import { useCustomerWishlistCount } from "@/features/customers/hooks/use-customer-wishlist";
 import { useCustomerCartCount } from "@/features/customers/hooks/use-customer-cart";
 import { useCustomerProfile } from "@/features/customers/hooks/use-customer-profile";
@@ -186,6 +187,7 @@ export function Header({
   const accountDropdownRef = React.useRef<HTMLDivElement>(null);
 
   const [isAccountDropdownOpen, setIsAccountDropdownOpen] = React.useState(false);
+  const [showLogoutConfirm, setShowLogoutConfirm] = React.useState(false);
   const accountCloseTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const logout = useLogout(isStaffUser ? "/admin/login" : "/login");
@@ -585,7 +587,7 @@ export function Header({
                           disabled={logout.isPending}
                           onClick={() => {
                             setIsAccountDropdownOpen(false);
-                            logout.mutate();
+                            setShowLogoutConfirm(true);
                           }}
                           className="group flex items-center gap-2.5 w-full px-3 py-2 rounded-xl text-xs font-semibold text-theme-status-can-fg hover:bg-red-50 dark:hover:bg-red-950/20 transition-colors cursor-pointer disabled:opacity-60 text-left"
                         >
@@ -792,6 +794,13 @@ export function Header({
           );
         })}
       </div>
+
+      <LogoutConfirmDialog
+        open={showLogoutConfirm}
+        onClose={() => setShowLogoutConfirm(false)}
+        onConfirm={() => logout.mutate()}
+        isLoading={logout.isPending}
+      />
       </header>
     </>
   );

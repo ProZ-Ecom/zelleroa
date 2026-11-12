@@ -47,7 +47,16 @@ async function run() {
   let m;
   while ((m = enumRegex.exec(content)) !== null) {
     const enumName = m[1];
-    const values = m[2].trim().split(/\s+/).filter(Boolean);
+    const lines = m[2].split('\n');
+    const values = [];
+    for (const rawLine of lines) {
+      const line = rawLine.trim();
+      if (!line || line.startsWith('//')) continue;
+      const val = line.split(/\s+/)[0];
+      if (val && !val.startsWith('//')) {
+        values.push(val);
+      }
+    }
     enums[enumName] = values;
   }
 
@@ -298,14 +307,30 @@ async function run() {
       await conn.query(createSql);
       // Ensure any newly added columns exist in already-created tables
       const existingDbCols = await conn.query(`DESCRIBE \`${t.tableName}\``);
-      const existingColNames = new Set(existingDbCols.map(c => c.Field));
+      const existingColMap = new Map(existingDbCols.map(c => [c.Field, c]));
       for (const col of t.columns) {
-        if (!existingColNames.has(col.colName)) {
+        const existingCol = existingColMap.get(col.colName);
+        if (!existingCol) {
           try {
             await conn.query(`ALTER TABLE \`${t.tableName}\` ADD COLUMN ${col.colDef};`);
             console.log(`✓ Added missing column \`${t.tableName}\`.\`${col.colName}\``);
           } catch (colErr) {
             console.warn(`Could not add column \`${t.tableName}\`.\`${col.colName}\`:`, colErr.message);
+          }
+        } else if (col.colDef.includes(' ENUM(')) {
+          // If it's an enum column, check if the enum values in DB match the schema
+          const enumMatch = col.colDef.match(/ENUM\(([^)]+)\)/i);
+          if (enumMatch) {
+            const schemaEnumDef = `enum(${enumMatch[1].toLowerCase().replace(/\s+/g, '')})`;
+            const dbEnumDef = (existingCol.Type || '').toLowerCase().replace(/\s+/g, '');
+            if (schemaEnumDef !== dbEnumDef) {
+              try {
+                await conn.query(`ALTER TABLE \`${t.tableName}\` MODIFY COLUMN ${col.colDef};`);
+                console.log(`✓ Updated enum column \`${t.tableName}\`.\`${col.colName}\` to match schema`);
+              } catch (modErr) {
+                console.warn(`Could not update enum column \`${t.tableName}\`.\`${col.colName}\`:`, modErr.message);
+              }
+            }
           }
         }
       }

@@ -634,6 +634,7 @@ export const agentService = {
           product_name_snapshot: true,
           quantity: true,
           total_price: true,
+          createdAt: true,
           order: {
             select: {
               uuid: true,
@@ -662,20 +663,24 @@ export const agentService = {
     return {
       data: rows.map((r) => ({
         id: String(r.id),
-        orderId: r.order.uuid ?? "",
-        orderNumber: r.order.orderNumber,
-        referralCode: r.order.referral_code,
-        customerName: r.order.is_manual_customer ? r.order.manual_customer_name || "Walk-in customer" : r.order.user.name,
-        customerContact: r.order.is_manual_customer ? r.order.manual_customer_phone : (r.order.user.email ?? r.order.user.phone ?? null),
-        orderSource: r.order.order_source,
-        orderedByName: r.order.ordered_by?.name ?? null,
-        agentName: r.order.agent?.name ?? "",
-        agentCode: r.order.agent?.agent_profile?.agent_code ?? null,
-        orderDate: r.order.createdAt.toISOString(),
+        orderId: r.order?.uuid ?? "",
+        orderNumber: r.order?.orderNumber ?? "—",
+        referralCode: r.order?.referral_code ?? null,
+        customerName: r.order?.is_manual_customer
+          ? r.order?.manual_customer_name || "Walk-in customer"
+          : (r.order?.user?.name ?? "—"),
+        customerContact: r.order?.is_manual_customer
+          ? (r.order?.manual_customer_phone ?? null)
+          : (r.order?.user?.email ?? r.order?.user?.phone ?? null),
+        orderSource: r.order?.order_source ?? "CUSTOMER_DIRECT",
+        orderedByName: r.order?.ordered_by?.name ?? null,
+        agentName: r.order?.agent?.name ?? "",
+        agentCode: r.order?.agent?.agent_profile?.agent_code ?? null,
+        orderDate: r.order?.createdAt ? r.order.createdAt.toISOString() : r.createdAt.toISOString(),
         productName: r.product_name_snapshot,
         quantity: r.quantity,
         productAmount: Number(r.total_price),
-        orderStatus: r.order.order_status,
+        orderStatus: r.order?.order_status ?? "pending",
         commissionPercentage: r.commission ? Number(r.commission.commission_percentage) : null,
         commissionAmount: r.commission ? Number(r.commission.commission_amount) : null,
         commissionStatus: r.commission?.status ?? null,
