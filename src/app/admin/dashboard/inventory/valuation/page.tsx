@@ -394,16 +394,16 @@ export default function ValuationPage() {
                 columns={stockColumns}
                 data={stock.data?.rows ?? []}
                 emptyMessage="Nothing to value yet"
-                className="bg-white border border-cream-border [&_th]:!bg-[#dbeafe] [&_th]:!text-[#1e3a8a] [&_th_*]:!text-[#1e3a8a] [&_th]:!font-bold [&_th]:!border-b-2 [&_th]:!border-[#93c5fd] [&_th]:shadow-[0_1px_3px_rgba(37,99,235,0.08)] [&_th_svg]:!text-[#2563eb]"
-                tableClassName="min-w-[1700px] [&_th]:!bg-[#dbeafe] [&_th]:!text-[#1e3a8a] [&_th_*]:!text-[#1e3a8a] [&_th]:!font-bold [&_th]:!border-b-2 [&_th]:!border-[#93c5fd] [&_th_svg]:!text-[#2563eb]"
+                className="bg-white border border-cream-border [&_th]:!bg-stone-900 [&_th]:!text-[#D4AF37] [&_th_*]:!text-[#D4AF37] [&_th]:!font-bold [&_th]:!border-b [&_th]:!border-stone-800 [&_th]:shadow-[0_1px_3px_rgba(28,25,23,0.2)] [&_th_svg]:!text-[#D4AF37]"
+                tableClassName="min-w-[1700px] [&_th]:!bg-stone-900 [&_th]:!text-[#D4AF37] [&_th_*]:!text-[#D4AF37] [&_th]:!font-bold [&_th]:!border-b [&_th]:!border-stone-800 [&_th_svg]:!text-[#D4AF37]"
               />
             ) : (
               <DataTable
                 columns={salesColumns}
                 data={sales.data?.rows ?? []}
                 emptyMessage="No sales in this period"
-                className="bg-white border border-cream-border [&_th]:!bg-[#dbeafe] [&_th]:!text-[#1e3a8a] [&_th_*]:!text-[#1e3a8a] [&_th]:!font-bold [&_th]:!border-b-2 [&_th]:!border-[#93c5fd] [&_th]:shadow-[0_1px_3px_rgba(37,99,235,0.08)] [&_th_svg]:!text-[#2563eb]"
-                tableClassName="min-w-[1700px] [&_th]:!bg-[#dbeafe] [&_th]:!text-[#1e3a8a] [&_th_*]:!text-[#1e3a8a] [&_th]:!font-bold [&_th]:!border-b-2 [&_th]:!border-[#93c5fd] [&_th_svg]:!text-[#2563eb]"
+                className="bg-white border border-cream-border [&_th]:!bg-stone-900 [&_th]:!text-[#D4AF37] [&_th_*]:!text-[#D4AF37] [&_th]:!font-bold [&_th]:!border-b [&_th]:!border-stone-800 [&_th]:shadow-[0_1px_3px_rgba(28,25,23,0.2)] [&_th_svg]:!text-[#D4AF37]"
+                tableClassName="min-w-[1700px] [&_th]:!bg-stone-900 [&_th]:!text-[#D4AF37] [&_th_*]:!text-[#D4AF37] [&_th]:!font-bold [&_th]:!border-b [&_th]:!border-stone-800 [&_th_svg]:!text-[#D4AF37]"
               />
             )}
           </div>

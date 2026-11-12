@@ -17,6 +17,10 @@ function AdminLayout({ children }: AdminLayoutProps) {
   useEffect(() => {
     const stored = localStorage.getItem(SIDEBAR_COLLAPSED_KEY);
     if (stored === "true") setSidebarCollapsed(true);
+    document.body.classList.add("admin-body");
+    return () => {
+      document.body.classList.remove("admin-body");
+    };
   }, []);
 
   const toggleSidebarCollapsed = () => {
@@ -28,7 +32,7 @@ function AdminLayout({ children }: AdminLayoutProps) {
   };
 
   return (
-    <div className="flex h-screen overflow-hidden">
+    <div className="admin-body flex h-screen overflow-hidden">
       <AdminSidebar
         mobileOpen={mobileSidebarOpen}
         onMobileClose={() => setMobileSidebarOpen(false)}

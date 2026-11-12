@@ -175,6 +175,14 @@ function formatAdminVariantResponse(
       name: string;
       slug?: string | null;
       base_price?: Prisma.Decimal | number | null;
+      style?: {
+        productId?: bigint;
+        product?: {
+          uuid: string | null;
+          name: string;
+          slug?: string | null;
+        } | null;
+      } | null;
     } | null;
     product_variant_images?: Array<{ image_url: string; is_primary: boolean }> | null;
     variant_unit_prices?: VariantUnitPriceWithRelations[] | null;
@@ -225,9 +233,9 @@ function formatAdminVariantResponse(
     itemId: itemUuid,
     itemName,
     itemSlug,
-    productId: itemUuid,
-    productName: itemName,
-    productSlug: itemSlug,
+    productId: variant.item?.style?.product?.uuid || itemUuid,
+    productName: variant.item?.style?.product?.name || itemName,
+    productSlug: variant.item?.style?.product?.slug || itemSlug,
     variantName,
     slug: variant.slug || "",
     colorName: variant.color_name ?? null,
@@ -843,9 +851,8 @@ export const variantService = {
           const variantName = colorCombo.length
             ? colorCombo.map((v) => v.value).join(" / ")
             : item.name;
-          const slugBase = `${itemSlug}-${
-            colorCombo.length ? colorCombo.map((v) => slugify(v.value)).join("-") : "default"
-          }`.slice(0, 230);
+          const slugBase = `${itemSlug}-${colorCombo.length ? colorCombo.map((v) => slugify(v.value)).join("-") : "default"
+            }`.slice(0, 230);
           let variantSlug = slugBase;
           let slugSuffix = 1;
           // eslint-disable-next-line no-await-in-loop
@@ -1100,8 +1107,8 @@ export const variantService = {
     const existingColorKeys = new Set(
       colorCombinations.length > 0 || touchesColorAxis
         ? existingVariants.map((v) =>
-            v.variant_attribute_values.map((x) => x.attribute_value_id.toString()).sort().join(",")
-          )
+          v.variant_attribute_values.map((x) => x.attribute_value_id.toString()).sort().join(",")
+        )
         : []
     );
 

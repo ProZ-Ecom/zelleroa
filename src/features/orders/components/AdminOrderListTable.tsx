@@ -535,7 +535,7 @@ export function AdminOrderListTable({
                   setCourierInvoiceNumber(row.original.invoiceNumber || "");
                 }}
                 title="Ship via Courier"
-                className="grid h-8 w-8 place-items-center rounded-lg border border-secondary-600 bg-secondary-600 text-xs font-semibold text-white hover:bg-secondary-700 transition-all cursor-pointer shadow-xs"
+                className="grid h-8 w-8 place-items-center rounded-lg border border-[#D4AF37]/40 bg-stone-900 text-xs font-semibold text-[#D4AF37] hover:bg-stone-800 transition-all cursor-pointer shadow-xs"
                 disabled={isTransitionPending}
               >
                 <Truck className="h-3.5 w-3.5" />
@@ -763,8 +763,8 @@ export function AdminOrderListTable({
               setPageSize(newSize);
               setPage(1);
             }}
-            className="bg-white border border-cream-border [&_th]:!bg-[#dbeafe] [&_th]:!text-[#1e3a8a] [&_th_*]:!text-[#1e3a8a] [&_th]:!font-bold [&_th]:!border-b-2 [&_th]:!border-[#93c5fd] [&_th]:shadow-[0_1px_3px_rgba(37,99,235,0.08)] [&_th_svg]:!text-[#2563eb]"
-            tableClassName="min-w-[1700px] [&_th]:!bg-[#dbeafe] [&_th]:!text-[#1e3a8a] [&_th_*]:!text-[#1e3a8a] [&_th]:!font-bold [&_th]:!border-b-2 [&_th]:!border-[#93c5fd] [&_th_svg]:!text-[#2563eb]"
+            className="bg-white border border-cream-border [&_th]:!bg-stone-900 [&_th]:!text-[#D4AF37] [&_th_*]:!text-[#D4AF37] [&_th]:!font-bold [&_th]:!border-b [&_th]:!border-stone-800 [&_th]:shadow-[0_1px_3px_rgba(28,25,23,0.2)] [&_th_svg]:!text-[#D4AF37]"
+            tableClassName="min-w-[1700px] [&_th]:!bg-stone-900 [&_th]:!text-[#D4AF37] [&_th_*]:!text-[#D4AF37] [&_th]:!font-bold [&_th]:!border-b [&_th]:!border-stone-800 [&_th_svg]:!text-[#D4AF37]"
             emptyMessage={emptyMessage}
           />
         )}
@@ -805,7 +805,7 @@ export function AdminOrderListTable({
                 {currentDetailStatus === "pending" && (
                   <Button
                     size="sm"
-                    className="bg-secondary-600 hover:bg-secondary-700 text-white"
+                    className="bg-stone-900 hover:bg-stone-800 text-[#D4AF37] border border-[#D4AF37]/30 shadow-xs"
                     onClick={() => {
                       confirmOrder.mutate(
                         { id: orderDetail.id, note: "Order confirmed by admin" },
@@ -895,13 +895,14 @@ export function AdminOrderListTable({
                 {currentDetailStatus === "packed" && (
                   <Button
                     size="sm"
-                    className="bg-secondary-600 hover:bg-secondary-700 text-white"
-                    onClick={() =>
+                    className="bg-stone-900 hover:bg-stone-800 text-[#D4AF37] border border-[#D4AF37]/30 shadow-xs"
+                    onClick={() => {
                       setCourierOrder({
                         id: orderDetail.id,
                         orderNumber: orderDetail.orderNumber,
-                      })
-                    }
+                      });
+                      setCourierInvoiceNumber(orderDetail.invoiceNumber || "");
+                    }}
                     disabled={isTransitionPending}
                   >
                     {shipViaCourier.isPending ? (
@@ -1049,15 +1050,24 @@ export function AdminOrderListTable({
               Cancel
             </Button>
             <Button
-              disabled={shipViaCourier.isPending || !courierOrder || !consignmentNumber.trim()}
+              disabled={
+                shipViaCourier.isPending ||
+                !courierOrder ||
+                !consignmentNumber.trim() ||
+                !courierInvoiceNumber.trim()
+              }
               onClick={() => {
                 if (!courierOrder) return;
+                if (!courierInvoiceNumber.trim()) {
+                  toast.error("Invoice number required", "Please enter the invoice number.");
+                  return;
+                }
                 shipViaCourier.mutate(
                   {
                     orderId: courierOrder.id,
                     courier: courierCode,
                     trackingNumber: consignmentNumber.trim().toUpperCase(),
-                    invoiceNumber: courierInvoiceNumber.trim() || undefined,
+                    invoiceNumber: courierInvoiceNumber.trim(),
                   },
                   {
                     onSuccess: () => {
@@ -1113,13 +1123,14 @@ export function AdminOrderListTable({
           </div>
           <div className="space-y-1.5">
             <label className="block text-xs font-semibold text-neutral-700">
-              Invoice Number <span className="text-neutral-400 font-normal text-[11px]">(optional / from billing)</span>
+              Invoice Number <span className="text-red-500">*</span>
             </label>
             <Input
               placeholder="e.g. INV-2026-001"
               value={courierInvoiceNumber}
               onChange={(e) => setCourierInvoiceNumber(e.target.value)}
               maxLength={50}
+              required
             />
           </div>
         </div>

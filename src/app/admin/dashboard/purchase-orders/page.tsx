@@ -186,9 +186,9 @@ export default function PurchaseOrdersPage() {
               <CanAct action="CREATE">
                 <Button
                   onClick={() => router.push("/admin/dashboard/purchase-orders/confirm")}
-                  className="h-11 rounded-xl bg-theme-primary hover:bg-theme-primary-hover px-4 xl:px-5 text-sm font-semibold text-white transition-colors whitespace-nowrap shrink-0"
+                  className="h-11 rounded-xl bg-stone-900 hover:bg-stone-800 text-[#D4AF37] border border-[#D4AF37]/30 shadow-xs px-4 xl:px-5 text-sm font-semibold transition-colors whitespace-nowrap shrink-0"
                 >
-                  <Plus className="mr-1.5 h-4 w-4" />
+                  <Plus className="mr-1.5 h-4 w-4 text-[#D4AF37]" />
                   Create Purchase
                 </Button>
               </CanAct>

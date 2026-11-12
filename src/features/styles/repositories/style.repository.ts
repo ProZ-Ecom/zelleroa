@@ -196,6 +196,21 @@ export const styleRepository = {
     const existing = await this.findByUuid(uuid);
     if (!existing) return null;
 
+    // Soft-delete and retire all items under this style so unique slugs/skus are freed
+    const items = await db.item.findMany({ where: { styleId: existing.id } });
+    for (const it of items) {
+      await db.item.update({
+        where: { id: it.id },
+        data: {
+          isActive: false,
+          deleted_at: it.deleted_at ?? new Date(),
+          slug: retireUniqueValue(it.slug, it.id, 220),
+          ...(it.sku ? { sku: retireUniqueValue(it.sku, it.id, 100) } : {}),
+          ...(adminId ? { updated_by: adminId } : {}),
+        },
+      });
+    }
+
     return db.style.update({
       where: { id: existing.id },
       data: {

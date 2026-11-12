@@ -76,7 +76,7 @@ export function AdminRequestsTable({ kind }: { kind: RequestKind }) {
             ]}
           />
         </div>
-        <Button type="submit" variant="outline" size="sm" className="h-10 px-4 shrink-0">
+        <Button type="submit" size="sm" className="h-10 px-4 shrink-0 bg-stone-900 hover:bg-stone-800 text-[#D4AF37] border border-[#D4AF37]/30 shadow-xs font-semibold">
           Search
         </Button>
         {isReturn && <AdminVideoStorageButton />}
@@ -112,7 +112,7 @@ export function AdminRequestsTable({ kind }: { kind: RequestKind }) {
 
       <div className="min-h-0 flex-1 overflow-auto scrollbar-table rounded-xl border border-cream-border-subtle bg-white">
         <table className="w-full min-w-[900px] text-left text-xs">
-          <thead className="sticky top-0 bg-neutral-50 text-[11px] uppercase tracking-wider text-neutral-500">
+          <thead className="sticky top-0 z-10 bg-stone-900 text-[11px] font-bold uppercase tracking-wider text-[#D4AF37] border-b border-stone-800 shadow-[0_1px_3px_rgba(28,25,23,0.2)]">
             <tr>
               <th className="px-3 py-2.5">Request</th>
               <th className="px-3 py-2.5">Order</th>
@@ -127,7 +127,7 @@ export function AdminRequestsTable({ kind }: { kind: RequestKind }) {
               <th className="px-3 py-2.5">Requested</th>
               {isReturn && <th className="px-3 py-2.5">Deadline</th>}
               <th className="px-3 py-2.5">Status</th>
-              <th className="sticky right-0 z-10 bg-neutral-50 px-3 py-2.5 text-center shadow-[-4px_0_6px_-2px_rgba(0,0,0,0.06)]">Actions</th>
+              <th className="sticky right-0 z-10 bg-stone-900 px-3 py-2.5 text-center shadow-[-4px_0_6px_-2px_rgba(0,0,0,0.3)]">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-neutral-100">

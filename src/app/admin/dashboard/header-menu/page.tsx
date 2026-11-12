@@ -280,10 +280,10 @@ export default function AdminHeaderMenuPage() {
                   className={`h-11 rounded-xl transition-all px-5 text-sm font-semibold shadow-xs ${
                     isLimitReached
                       ? "bg-slate-200 text-slate-500 cursor-not-allowed opacity-75 shadow-none"
-                      : "bg-theme-primary hover:bg-theme-primary-hover text-white transition-colors"
+                      : "bg-stone-900 hover:bg-stone-800 text-[#D4AF37] border border-[#D4AF37]/30 transition-colors"
                   }`}
                 >
-                  <Plus className="mr-2 h-4 w-4" />
+                  <Plus className="mr-2 h-4 w-4 text-[#D4AF37]" />
                   Add Menu Item
                 </Button>
               </CanAct>
