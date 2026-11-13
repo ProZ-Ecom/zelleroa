@@ -1,14 +1,20 @@
 import { apiClient } from "@/lib/api/api-client";
 import type {
   PosBillDto,
+  PosCouponResult,
   PosCustomerLookupDto,
+  PosPaymentMode,
   PosProductOption,
+  PosPurchaseListItem,
+  PosPurchasesSummary,
   PosSessionDto,
   PosSessionSummary,
   PosStoreDto,
 } from "../types";
 import type {
   PosBillInput,
+  PosCouponValidateInput,
+  PosPurchasesQueryInput,
   PosShiftCloseInput,
   PosShiftListInput,
   PosShiftOpenInput,
@@ -30,6 +36,9 @@ export interface PosRecentBill {
   voided: boolean;
   billedAt: string | null;
   customerName: string | null;
+  customerPhone?: string | null;
+  paymentMode?: PosPaymentMode;
+  itemCount?: number;
 }
 
 export async function getShiftState() {
@@ -100,3 +109,42 @@ export async function voidBill(data: PosVoidInput) {
   );
   return res.data;
 }
+
+export async function validateCoupon(data: PosCouponValidateInput) {
+  const res = await apiClient.post<PosCouponResult>("/api/admin/pos/coupon", data);
+  return res.data as PosCouponResult;
+}
+
+export async function getActiveCoupons() {
+  const res = await apiClient.get<any[]>("/api/admin/pos/coupon");
+  return res.data ?? [];
+}
+
+export async function getPurchases(params: PosPurchasesQueryInput) {
+  const res = await apiClient.get<{ items: PosPurchaseListItem[]; summary: PosPurchasesSummary }>(
+    "/api/admin/pos/purchases",
+    {
+      params: params as unknown as Params,
+    }
+  );
+  return {
+    data: res.data?.items ?? [],
+    summary: res.data?.summary ?? {
+      totalCount: 0,
+      deliveredCount: 0,
+      voidedCount: 0,
+      grossSales: 0,
+      netSales: 0,
+      cashSales: 0,
+      upiSales: 0,
+      cardSales: 0,
+    },
+    meta: res.meta,
+  };
+}
+
+export async function getPurchaseDetail(uuid: string) {
+  const res = await apiClient.get<PosBillDto>(`/api/admin/pos/purchases/${uuid}`);
+  return res.data as PosBillDto;
+}
+

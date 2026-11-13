@@ -8,7 +8,9 @@ import {
   Minus,
   Plus,
   ScanLine,
+  ShoppingBag,
   Smartphone,
+  Tag,
   Trash2,
   X,
 } from "lucide-react";
@@ -22,13 +24,18 @@ import { useCan } from "@/features/access";
 import * as api from "../api/pos.api";
 import { useCreateBill, useProductSearch } from "../hooks/use-pos";
 import { printReceipt } from "./PosReceipt";
-import type { PosBillDto, PosPaymentMode, PosProductOption, PosSessionDto, PosStoreDto } from "../types";
+import { PosRecentPurchasesDrawer } from "./PosRecentPurchasesDrawer";
+import type { PosBillDto, PosCouponResult, PosPaymentMode, PosProductOption, PosSessionDto, PosStoreDto } from "../types";
 
 interface CartLine {
   variantUnitPriceId: number;
   sku: string;
   label: string;
+  originalPrice: number;
   unitPrice: number;
+  discountAmount: number;
+  discountPercent?: number;
+  offerName?: string | null;
   quantity: number;
   sellable: number;
 }
@@ -55,6 +62,8 @@ export function PosBillingScreen({
   const [term, setTerm] = useState("");
   const [lines, setLines] = useState<CartLine[]>([]);
   const [discount, setDiscount] = useState(0);
+  const [couponOpen, setCouponOpen] = useState(false);
+  const [appliedCoupon, setAppliedCoupon] = useState<PosCouponResult | null>(null);
   const [customerPhone, setCustomerPhone] = useState("");
   const [customerName, setCustomerName] = useState("");
   const [lookupState, setLookupState] = useState<"idle" | "found" | "new">("idle");
@@ -63,6 +72,7 @@ export function PosBillingScreen({
   const [lastBill, setLastBill] = useState<PosBillDto | null>(null);
   const [adding, setAdding] = useState(false);
   const [clearConfirm, setClearConfirm] = useState(false);
+  const [purchasesDrawerOpen, setPurchasesDrawerOpen] = useState(false);
   /** Briefly ringed so the cashier can see which line their SKU landed on. */
   const [justAdded, setJustAdded] = useState<number | null>(null);
 
@@ -89,12 +99,63 @@ export function PosBillingScreen({
     return () => window.clearTimeout(timer);
   }, [justAdded]);
 
-  const subtotal = useMemo(
-    () => round2(lines.reduce((sum, line) => sum + line.unitPrice * line.quantity, 0)),
+  const originalSubtotal = useMemo(
+    () =>
+      round2(
+        lines.reduce(
+          (sum, line) => sum + (line.originalPrice || line.unitPrice) * line.quantity,
+          0
+        )
+      ),
     [lines]
   );
-  const total = round2(Math.max(0, subtotal - discount));
+
+  const itemDiscount = useMemo(
+    () =>
+      round2(
+        lines.reduce(
+          (sum, line) =>
+            sum + Math.max(0, (line.originalPrice - line.unitPrice) * line.quantity),
+          0
+        )
+      ),
+    [lines]
+  );
+
+  const couponDiscount = appliedCoupon?.discountAmount ?? 0;
+  const totalDiscount = round2(itemDiscount + couponDiscount + discount);
+  const subtotal = originalSubtotal;
+  const total = round2(Math.max(0, originalSubtotal - totalDiscount));
   const totalUnits = useMemo(() => lines.reduce((sum, line) => sum + line.quantity, 0), [lines]);
+
+  // Silently re-validate coupon if cart lines change
+  useEffect(() => {
+    if (!appliedCoupon || lines.length === 0) return;
+    let cancelled = false;
+    api
+      .validateCoupon({
+        code: appliedCoupon.code,
+        customerPhone: /^\d{10}$/.test(customerPhone) ? customerPhone : undefined,
+        items: lines.map((l) => ({
+          variantUnitPriceId: l.variantUnitPriceId,
+          quantity: l.quantity,
+        })),
+      })
+      .then((res) => {
+        if (!cancelled) {
+          setAppliedCoupon(res);
+        }
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          setAppliedCoupon(null);
+          toast.error(`Coupon "${appliedCoupon.code}" removed: ${err.message}`);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [lines, customerPhone]);
 
   const addLine = useCallback(
     (option: PosProductOption) => {
@@ -121,7 +182,11 @@ export function PosBillingScreen({
             variantUnitPriceId: option.variantUnitPriceId,
             sku: option.sku,
             label: option.label || option.productName,
+            originalPrice: option.originalPrice ?? option.unitPrice,
             unitPrice: option.unitPrice,
+            discountAmount: option.discountAmount ?? 0,
+            discountPercent: option.discountPercent ?? 0,
+            offerName: option.offerName ?? null,
             quantity: 1,
             sellable: option.sellable,
           },
@@ -187,6 +252,7 @@ export function PosBillingScreen({
   const clearCart = useCallback(() => {
     setLines([]);
     setDiscount(0);
+    setAppliedCoupon(null);
     setCustomerPhone("");
     setCustomerName("");
     setLookupState("idle");
@@ -197,10 +263,23 @@ export function PosBillingScreen({
   // suppressed while a dialog is open so typing in it is not hijacked.
   useEffect(() => {
     const handler = (event: KeyboardEvent) => {
-      if (payOpen || discountOpen || clearConfirm) return;
+      if (payOpen || discountOpen || couponOpen || clearConfirm || purchasesDrawerOpen) {
+        if (event.key === "Escape" && purchasesDrawerOpen) {
+          event.preventDefault();
+          setPurchasesDrawerOpen(false);
+          focusSku();
+        }
+        return;
+      }
       if (event.key === "F9") {
         event.preventDefault();
         if (lines.length > 0) setPayOpen(true);
+      } else if (event.key === "F2") {
+        event.preventDefault();
+        if (lines.length > 0) setCouponOpen(true);
+      } else if (event.key === "F3") {
+        event.preventDefault();
+        setPurchasesDrawerOpen(true);
       } else if (event.key === "F4") {
         event.preventDefault();
         if (lines.length > 0 && mayDiscount) setDiscountOpen(true);
@@ -213,7 +292,7 @@ export function PosBillingScreen({
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [payOpen, discountOpen, clearConfirm, lines.length, mayDiscount]);
+  }, [payOpen, discountOpen, couponOpen, clearConfirm, purchasesDrawerOpen, lines.length, mayDiscount, focusSku]);
 
   const lookupPhone = async (phone: string) => {
     if (!/^\d{10}$/.test(phone)) {
@@ -240,6 +319,7 @@ export function PosBillingScreen({
         quantity: line.quantity,
       })),
       discountAmount: discount,
+      couponCode: appliedCoupon?.code,
       customerPhone: /^\d{10}$/.test(customerPhone) ? customerPhone : undefined,
       customerName: customerName.trim() || undefined,
       paymentMode: mode,
@@ -258,7 +338,7 @@ export function PosBillingScreen({
     <div className="flex flex-1 min-h-0 flex-col gap-4 lg:flex-row">
       {/* Left: entry and lines */}
       <div className="flex min-h-0 flex-1 flex-col rounded-2xl bg-white p-4 shadow-sm ring-1 ring-black/[0.04]">
-        <div className="mb-3 flex items-center justify-between gap-3">
+        <div className="mb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
           <div>
             <p className="text-sm font-semibold text-neutral-900">{store.name}</p>
             <p className="text-xs text-neutral-500">
@@ -269,9 +349,23 @@ export function PosBillingScreen({
               })}
             </p>
           </div>
-          <Button variant="ghost" size="sm" onClick={onCloseShift}>
-            Close shift
-          </Button>
+          <div className="flex items-center gap-2 self-start sm:self-auto">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setPurchasesDrawerOpen(true)}
+              className="gap-1.5 text-xs border-neutral-200 text-neutral-700 hover:bg-neutral-50"
+            >
+              <ShoppingBag className="h-3.5 w-3.5 text-neutral-500" />
+              Purchases
+              <kbd className="ml-1 rounded bg-neutral-100 px-1.5 py-0.5 text-[10px] font-mono text-neutral-500 border border-neutral-200">
+                F3
+              </kbd>
+            </Button>
+            <Button variant="ghost" size="sm" onClick={onCloseShift}>
+              Close shift
+            </Button>
+          </div>
         </div>
 
         <div className="relative">
@@ -306,6 +400,12 @@ export function PosBillingScreen({
                   <span>
                     <span className="font-medium text-neutral-900">{option.label}</span>
                     <span className="ml-2 font-mono text-xs text-neutral-500">{option.sku}</span>
+                    {option.originalPrice > option.unitPrice && (
+                      <span className="ml-2 inline-flex items-center rounded-md bg-emerald-50 px-1.5 py-0.5 text-[10px] font-medium text-emerald-700 ring-1 ring-inset ring-emerald-600/20">
+                        {option.offerName || "Discount"}
+                        {option.discountPercent ? ` · ${option.discountPercent}% OFF` : ""}
+                      </span>
+                    )}
                   </span>
                   <span className="flex items-center gap-3 text-xs">
                     <span
@@ -320,8 +420,21 @@ export function PosBillingScreen({
                     >
                       {option.sellable < 1 ? "Out of stock" : `${option.sellable} left`}
                     </span>
-                    <span className="font-semibold tabular-nums">
-                      {formatPrice(option.unitPrice)}
+                    <span className="flex flex-col items-end tabular-nums">
+                      {option.originalPrice > option.unitPrice ? (
+                        <>
+                          <span className="font-semibold text-emerald-700">
+                            {formatPrice(option.unitPrice)}
+                          </span>
+                          <span className="text-[11px] text-neutral-400 line-through">
+                            {formatPrice(option.originalPrice)}
+                          </span>
+                        </>
+                      ) : (
+                        <span className="font-semibold text-neutral-900">
+                          {formatPrice(option.unitPrice)}
+                        </span>
+                      )}
                     </span>
                   </span>
                 </button>
@@ -330,7 +443,7 @@ export function PosBillingScreen({
           )}
         </div>
 
-        <div className="mt-4 min-h-0 flex-1 overflow-auto">
+        <div className="mt-4 min-h-0 flex-1 overflow-x-auto">
           {lines.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-16 text-center">
               <span className="mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-neutral-50">
@@ -342,13 +455,13 @@ export function PosBillingScreen({
               </p>
             </div>
           ) : (
-            <table className="w-full text-sm">
+            <table className="w-full text-xs sm:text-sm min-w-[500px]">
               <thead className="sticky top-0 bg-white text-left text-xs uppercase text-neutral-500">
                 <tr>
                   <th className="py-2">Item</th>
-                  <th className="w-36 py-2 text-center">Qty</th>
-                  <th className="w-24 py-2 text-right">Rate</th>
-                  <th className="w-28 py-2 text-right">Amount</th>
+                  <th className="w-32 sm:w-36 py-2 text-center">Qty</th>
+                  <th className="w-20 sm:w-24 py-2 text-right">Rate</th>
+                  <th className="w-24 sm:w-28 py-2 text-right">Amount</th>
                   <th className="w-10" />
                 </tr>
               </thead>
@@ -363,7 +476,15 @@ export function PosBillingScreen({
                   >
                     <td className="py-2.5">
                       <p className="font-medium text-neutral-900">{line.label}</p>
-                      <p className="font-mono text-xs text-neutral-500">{line.sku}</p>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="font-mono text-xs text-neutral-500">{line.sku}</p>
+                        {line.originalPrice > line.unitPrice && (
+                          <span className="inline-flex items-center rounded-md bg-emerald-50 px-1.5 py-0.5 text-[10px] font-medium text-emerald-700 ring-1 ring-inset ring-emerald-600/20">
+                            {line.offerName || "Discount"}
+                            {line.discountPercent ? ` · ${line.discountPercent}% OFF` : ""}
+                          </span>
+                        )}
+                      </div>
                       {line.quantity >= line.sellable && (
                         <p className="mt-0.5 text-xs text-amber-700">
                           That is all {line.sellable} in stock
@@ -371,7 +492,7 @@ export function PosBillingScreen({
                       )}
                     </td>
                     <td className="py-2.5">
-                      <div className="mx-auto flex w-32 items-center justify-center gap-1">
+                      <div className="mx-auto flex w-28 sm:w-32 items-center justify-center gap-1">
                         <StepButton
                           label={`One less ${line.sku}`}
                           onClick={() => bump(line, -1)}
@@ -384,7 +505,7 @@ export function PosBillingScreen({
                           max={line.sellable}
                           value={line.quantity}
                           aria-label={`Quantity of ${line.sku}`}
-                          className="h-10 w-14 px-1 text-center text-base font-semibold"
+                          className="h-9 w-12 sm:h-10 sm:w-14 px-1 text-center text-sm sm:text-base font-semibold"
                           onChange={(event) =>
                             setQuantity(line.variantUnitPriceId, Number(event.target.value))
                           }
@@ -399,10 +520,34 @@ export function PosBillingScreen({
                       </div>
                     </td>
                     <td className="py-2.5 text-right tabular-nums">
-                      {formatPrice(line.unitPrice)}
+                      {line.originalPrice > line.unitPrice ? (
+                        <div className="flex flex-col items-end">
+                          <span className="font-semibold text-emerald-700">
+                            {formatPrice(line.unitPrice)}
+                          </span>
+                          <span className="text-[11px] text-neutral-400 line-through">
+                            {formatPrice(line.originalPrice)}
+                          </span>
+                        </div>
+                      ) : (
+                        <span>{formatPrice(line.unitPrice)}</span>
+                      )}
                     </td>
-                    <td className="py-2.5 text-right font-semibold tabular-nums">
-                      {formatPrice(round2(line.unitPrice * line.quantity))}
+                    <td className="py-2.5 text-right tabular-nums">
+                      {line.originalPrice > line.unitPrice ? (
+                        <div className="flex flex-col items-end">
+                          <span className="font-semibold text-neutral-900">
+                            {formatPrice(round2(line.unitPrice * line.quantity))}
+                          </span>
+                          <span className="text-[11px] font-normal text-neutral-400 line-through">
+                            {formatPrice(round2(line.originalPrice * line.quantity))}
+                          </span>
+                        </div>
+                      ) : (
+                        <span className="font-semibold text-neutral-900">
+                          {formatPrice(round2(line.unitPrice * line.quantity))}
+                        </span>
+                      )}
                     </td>
                     <td className="py-2.5 text-right">
                       <button
@@ -425,6 +570,8 @@ export function PosBillingScreen({
         {/* The shortcuts spelled out, so nobody has to be told them twice. */}
         <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-neutral-100 pt-3 text-[11px] text-neutral-400">
           <Hint keyName="Enter">add item</Hint>
+          <Hint keyName="F2">coupon</Hint>
+          <Hint keyName="F3">purchases</Hint>
           <Hint keyName="F4">discount</Hint>
           <Hint keyName="F9">pay</Hint>
           <Hint keyName="Esc">clear bill</Hint>
@@ -432,7 +579,7 @@ export function PosBillingScreen({
       </div>
 
       {/* Right: customer, totals, pay */}
-      <div className="flex w-full flex-col gap-4 lg:w-80">
+      <div className="flex w-full flex-col gap-4 lg:w-80 lg:shrink-0">
         <div className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-black/[0.04]">
           <label className="mb-1.5 block text-xs font-medium uppercase text-neutral-500">
             Customer (optional)
@@ -470,8 +617,49 @@ export function PosBillingScreen({
               {totalUnits} {totalUnits === 1 ? "piece" : "pieces"}
             </span>
           </div>
-          <Row label="Subtotal" value={formatPrice(subtotal)} />
-          <Row label="Discount" value={discount > 0 ? `-${formatPrice(discount)}` : "—"} />
+          <Row label="Subtotal" value={formatPrice(originalSubtotal)} />
+          {itemDiscount > 0 && (
+            <div className="flex items-center justify-between py-0.5 text-sm text-emerald-700">
+              <span>Item Discount</span>
+              <span className="tabular-nums font-medium">-{formatPrice(itemDiscount)}</span>
+            </div>
+          )}
+          {appliedCoupon && (
+            <div className="flex items-center justify-between py-0.5 text-sm text-emerald-700">
+              <span className="flex items-center gap-1.5">
+                <Tag className="h-3.5 w-3.5" />
+                <span>Coupon ({appliedCoupon.code})</span>
+                <button
+                  type="button"
+                  title="Remove coupon"
+                  onClick={() => setAppliedCoupon(null)}
+                  className="rounded text-neutral-400 hover:text-red-600"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </span>
+              <span className="tabular-nums font-medium">-{formatPrice(appliedCoupon.discountAmount)}</span>
+            </div>
+          )}
+          {discount > 0 && (
+            <div className="flex items-center justify-between py-0.5 text-sm text-neutral-700">
+              <span className="flex items-center gap-1.5">
+                <span>Bill Discount</span>
+                <button
+                  type="button"
+                  title="Remove bill discount"
+                  onClick={() => setDiscount(0)}
+                  className="rounded text-neutral-400 hover:text-red-600"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </span>
+              <span className="tabular-nums font-medium">-{formatPrice(discount)}</span>
+            </div>
+          )}
+          {totalDiscount === 0 && (
+            <Row label="Discount" value="—" />
+          )}
           <div className="mt-3 flex items-end justify-between border-t border-neutral-100 pt-3">
             <span className="text-sm font-semibold text-neutral-900">Total</span>
             <span className="text-3xl font-bold tabular-nums leading-none text-neutral-900">
@@ -480,24 +668,36 @@ export function PosBillingScreen({
           </div>
           <p className="mt-1.5 text-right text-[11px] text-neutral-400">GST included</p>
 
-          <div className="mt-4 grid grid-cols-2 gap-2">
+          <div className="mt-4 flex flex-col gap-2">
+            <div className="grid grid-cols-2 gap-2">
+              <Button
+                variant="outline"
+                className="h-11"
+                disabled={lines.length === 0}
+                onClick={() => setCouponOpen(true)}
+              >
+                <Tag className="mr-1.5 h-4 w-4 text-emerald-600" />
+                {appliedCoupon ? "Coupon" : "Apply Coupon"}
+                <kbd className="ml-1 text-[10px] text-neutral-400">F2</kbd>
+              </Button>
+              <Button
+                variant="outline"
+                className="h-11"
+                disabled={lines.length === 0 || !mayDiscount}
+                title={mayDiscount ? undefined : "A manager has to apply a discount"}
+                onClick={() => setDiscountOpen(true)}
+              >
+                Discount
+                <kbd className="ml-1 text-[10px] text-neutral-400">F4</kbd>
+              </Button>
+            </div>
             <Button
               variant="outline"
-              className="h-11"
-              disabled={lines.length === 0 || !mayDiscount}
-              title={mayDiscount ? undefined : "A manager has to apply a discount"}
-              onClick={() => setDiscountOpen(true)}
-            >
-              Discount
-              <kbd className="ml-1 text-[10px] text-neutral-400">F4</kbd>
-            </Button>
-            <Button
-              variant="outline"
-              className="h-11"
+              className="h-8 w-full text-xs text-neutral-500 hover:border-red-200 hover:bg-red-50 hover:text-red-600"
               disabled={lines.length === 0}
               onClick={() => setClearConfirm(true)}
             >
-              Clear
+              Clear bill
               <kbd className="ml-1 text-[10px] text-neutral-400">Esc</kbd>
             </Button>
           </div>
@@ -567,11 +767,40 @@ export function PosBillingScreen({
         variant="destructive"
       />
 
+      <PosRecentPurchasesDrawer
+        open={purchasesDrawerOpen}
+        onClose={() => {
+          setPurchasesDrawerOpen(false);
+          focusSku();
+        }}
+      />
+
       {/* Mounted only while open, so each dialog starts from a clean slate
           without an effect resetting its fields on the way in. */}
+      {couponOpen && (
+        <CouponDialog
+          lines={lines}
+          customerPhone={customerPhone}
+          current={appliedCoupon}
+          onClose={() => {
+            setCouponOpen(false);
+            focusSku();
+          }}
+          onApply={(coupon) => {
+            setAppliedCoupon(coupon);
+            setCouponOpen(false);
+            focusSku();
+          }}
+          onRemove={() => {
+            setAppliedCoupon(null);
+            focusSku();
+          }}
+        />
+      )}
+
       {discountOpen && (
         <DiscountDialog
-          subtotal={subtotal}
+          subtotal={Math.max(0, originalSubtotal - itemDiscount - (appliedCoupon?.discountAmount ?? 0))}
           current={discount}
           maxPercent={store.maxCashierDiscountPercent}
           onClose={() => {
@@ -628,7 +857,7 @@ function StepButton({
       aria-label={label}
       disabled={disabled}
       onClick={onClick}
-      className="flex h-10 w-9 flex-shrink-0 items-center justify-center rounded-lg border border-neutral-200 text-neutral-600 hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-40"
+      className="flex h-9 w-8 sm:h-10 sm:w-9 flex-shrink-0 items-center justify-center rounded-lg border border-neutral-200 text-neutral-600 hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-40"
     >
       {children}
     </button>
@@ -643,6 +872,173 @@ function Hint({ keyName, children }: { keyName: string; children: React.ReactNod
       </kbd>
       {children}
     </span>
+  );
+}
+
+function CouponDialog({
+  lines,
+  customerPhone,
+  current,
+  onClose,
+  onApply,
+  onRemove,
+}: {
+  lines: CartLine[];
+  customerPhone?: string;
+  current: PosCouponResult | null;
+  onClose: () => void;
+  onApply: (coupon: PosCouponResult) => void;
+  onRemove: () => void;
+}) {
+  const [code, setCode] = useState(current?.code || "");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [activeCoupons, setActiveCoupons] = useState<any[]>([]);
+
+  useEffect(() => {
+    let active = true;
+    api
+      .getActiveCoupons()
+      .then((list) => {
+        if (active) setActiveCoupons(list);
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const handleValidate = async (couponCode: string) => {
+    const trimmed = couponCode.trim().toUpperCase();
+    if (!trimmed) {
+      setError("Please enter a coupon code");
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await api.validateCoupon({
+        code: trimmed,
+        customerPhone: /^\d{10}$/.test(customerPhone || "") ? customerPhone : undefined,
+        items: lines.map((l) => ({
+          variantUnitPriceId: l.variantUnitPriceId,
+          quantity: l.quantity,
+        })),
+      });
+      onApply(res);
+      toast.success(`Coupon "${trimmed}" applied: -${formatPrice(res.discountAmount)}`);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Invalid coupon";
+      setError(message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <Modal open onClose={onClose} title="Apply Coupon">
+      <div className="space-y-4">
+        {current && (
+          <div className="flex items-center justify-between rounded-xl bg-emerald-50 p-3 border border-emerald-200">
+            <div>
+              <p className="text-xs font-semibold text-emerald-800">
+                Applied: {current.code}
+              </p>
+              <p className="text-xs text-emerald-700">
+                Discount: -{formatPrice(current.discountAmount)}
+              </p>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              className="text-xs text-red-600 hover:bg-red-50 hover:border-red-200"
+              onClick={() => {
+                onRemove();
+                onClose();
+              }}
+            >
+              Remove
+            </Button>
+          </div>
+        )}
+
+        <div>
+          <label className="mb-1.5 block text-xs font-medium uppercase text-neutral-500">
+            Coupon Code
+          </label>
+          <div className="flex gap-2">
+            <Input
+              autoFocus
+              value={code}
+              placeholder="e.g. DIWALI50"
+              className="uppercase font-mono text-base font-semibold"
+              onChange={(e) => {
+                setCode(e.target.value.toUpperCase());
+                setError(null);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !loading) {
+                  e.preventDefault();
+                  void handleValidate(code);
+                }
+              }}
+            />
+            <Button
+              className="bg-stone-900 text-[#D4AF37] hover:bg-stone-800 px-5"
+              disabled={loading || !code.trim()}
+              onClick={() => void handleValidate(code)}
+            >
+              {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Apply"}
+            </Button>
+          </div>
+          {error && <p className="mt-1.5 text-xs text-red-600">{error}</p>}
+        </div>
+
+        {activeCoupons.length > 0 && (
+          <div>
+            <p className="mb-2 text-xs font-medium uppercase text-neutral-400">
+              Available Coupons
+            </p>
+            <div className="max-h-48 overflow-y-auto space-y-2 pr-1">
+              {activeCoupons.map((c) => (
+                <div
+                  key={c.id || c.code}
+                  className="flex items-center justify-between rounded-lg border border-neutral-200 p-2.5 hover:bg-neutral-50 transition-colors"
+                >
+                  <div>
+                    <span className="font-mono text-xs font-bold text-neutral-900 bg-neutral-100 px-1.5 py-0.5 rounded">
+                      {c.code}
+                    </span>
+                    <p className="mt-1 text-[11px] text-neutral-500">
+                      {c.type === "percentage" ? `${c.value}% OFF` : `Flat ${formatPrice(c.value)} OFF`}
+                      {c.minOrderAmount ? ` · Min order ${formatPrice(c.minOrderAmount)}` : ""}
+                    </p>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-8 text-xs font-medium text-emerald-700 hover:bg-emerald-50 hover:text-emerald-800"
+                    disabled={loading || current?.code === c.code}
+                    onClick={() => {
+                      setCode(c.code);
+                      void handleValidate(c.code);
+                    }}
+                  >
+                    {current?.code === c.code ? "Applied" : "Apply"}
+                  </Button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <div className="flex justify-end pt-2">
+          <Button variant="ghost" onClick={onClose}>
+            Close
+          </Button>
+        </div>
+      </div>
+    </Modal>
   );
 }
 

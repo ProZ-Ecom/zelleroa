@@ -28,7 +28,11 @@ export interface PosProductOption {
   variantName: string | null;
   colorName: string | null;
   sizeName: string | null;
+  originalPrice: number;
   unitPrice: number;
+  discountAmount?: number;
+  discountPercent?: number;
+  offerName?: string | null;
   /** quantity_available minus what online carts and orders are holding. */
   sellable: number;
 }
@@ -87,6 +91,10 @@ export interface PosBillDto {
   lines: PosBillLineDto[];
   subtotal: number;
   discountAmount: number;
+  offerDiscount?: number;
+  couponDiscount?: number;
+  couponCode?: string | null;
+  manualDiscount?: number;
   taxableValue: number;
   cgstAmount: number;
   sgstAmount: number;
@@ -96,9 +104,58 @@ export interface PosBillDto {
   changeDue: number | null;
 }
 
+export interface PosCouponResult {
+  couponId: number;
+  code: string;
+  discountAmount: number;
+  eligibleSubtotal: number;
+}
+
 export interface PosCustomerLookupDto {
   userId: number | null;
   name: string | null;
   phone: string;
   found: boolean;
+}
+
+export interface PosPurchaseListItem {
+  orderUuid: string;
+  orderNumber: string;
+  invoiceNumber: string | null;
+  placedAt: string;
+  customerName: string | null;
+  customerPhone: string | null;
+  cashierName: string;
+  storeName: string;
+  paymentMode: PosPaymentMode;
+  paymentReference: string | null;
+  itemCount: number;
+  itemsSummary: string;
+  subtotal: number;
+  discountAmount: number;
+  taxAmount: number;
+  totalAmount: number;
+  status: "delivered" | "cancelled";
+}
+
+export interface PosPurchasesSummary {
+  totalCount: number;
+  deliveredCount: number;
+  voidedCount: number;
+  grossSales: number;
+  netSales: number;
+  cashSales: number;
+  upiSales: number;
+  cardSales: number;
+}
+
+export interface PosPurchasesResponse {
+  data: PosPurchaseListItem[];
+  summary: PosPurchasesSummary;
+  meta: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
 }

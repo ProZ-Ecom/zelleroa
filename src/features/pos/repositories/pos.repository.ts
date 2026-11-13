@@ -49,6 +49,7 @@ export interface CreatePosBillParams {
   discountAmount: number;
   taxAmount: number;
   totalAmount: number;
+  coupon?: { id: bigint; discountAmount: number } | null;
   paymentMode: PosPaymentMode;
   paymentReference: string | null;
   note: string | null;
@@ -138,6 +139,7 @@ export const posRepository = {
           agent_id: null,
           referral_code: null,
           cart_id: null,
+          couponId: params.coupon?.id ?? null,
           delivery_slot_id: null,
           order_status: "delivered",
           payment_status: "paid",
@@ -209,6 +211,17 @@ export const posRepository = {
           updated_by: params.cashierId,
         })),
       });
+
+      if (params.coupon) {
+        await tx.coupon_usage.create({
+          data: {
+            coupon_id: params.coupon.id,
+            user_id: params.buyerUserId,
+            order_id: order.id,
+            discount_amount: params.coupon.discountAmount,
+          },
+        });
+      }
 
       // `recordStockMovement` locks each stock row with SELECT ... FOR UPDATE
       // and refuses to go below zero, so two cashiers selling the last piece of

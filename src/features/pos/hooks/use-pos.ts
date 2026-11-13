@@ -3,7 +3,7 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "@/components/ui/Toast";
 import * as api from "../api/pos.api";
-import type { PosShiftListInput } from "../validations/pos.schema";
+import type { PosPurchasesQueryInput, PosShiftListInput } from "../validations/pos.schema";
 
 const KEY = "pos";
 
@@ -89,3 +89,20 @@ export function useVoidBill() {
     onError: (e) => toast.error(e instanceof Error ? e.message : "Could not void the bill"),
   });
 }
+
+export function usePurchases(params: PosPurchasesQueryInput) {
+  return useQuery({
+    queryKey: [KEY, "purchases", params],
+    queryFn: () => api.getPurchases(params),
+    placeholderData: keepPreviousData,
+  });
+}
+
+export function usePurchaseDetail(uuid: string | null) {
+  return useQuery({
+    queryKey: [KEY, "purchase", uuid],
+    queryFn: () => (uuid ? api.getPurchaseDetail(uuid) : null),
+    enabled: Boolean(uuid),
+  });
+}
+

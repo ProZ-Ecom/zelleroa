@@ -68,7 +68,15 @@ export function receiptText(bill: PosBillDto): string {
 
   out.push(line);
   out.push(row("Subtotal", money(bill.subtotal)));
-  if (bill.discountAmount > 0) out.push(row("Discount", `-${money(bill.discountAmount)}`));
+  if (bill.couponCode && (bill.couponDiscount ?? 0) > 0) {
+    const otherDiscount = bill.discountAmount - (bill.couponDiscount ?? 0);
+    if (otherDiscount > 0) {
+      out.push(row("Discount", `-${money(otherDiscount)}`));
+    }
+    out.push(row(`Coupon (${bill.couponCode})`, `-${money(bill.couponDiscount ?? 0)}`));
+  } else if (bill.discountAmount > 0) {
+    out.push(row("Discount", `-${money(bill.discountAmount)}`));
+  }
   out.push(row("Taxable", money(bill.taxableValue)));
   out.push(row("CGST", money(bill.cgstAmount)));
   out.push(row("SGST", money(bill.sgstAmount)));

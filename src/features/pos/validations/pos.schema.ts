@@ -47,6 +47,7 @@ export const posBillSchema = z
       .min(1, "Add at least one item"),
     /** Whole-bill discount in rupees. Gated by POS_DISCOUNT and the store's cap. */
     discountAmount: z.coerce.number().min(0).default(0),
+    couponCode: z.string().trim().max(50).optional(),
     customerPhone: z
       .string()
       .trim()
@@ -72,6 +73,24 @@ export const posVoidSchema = z.object({
 });
 export type PosVoidInput = z.infer<typeof posVoidSchema>;
 
+export const posCouponValidateSchema = z.object({
+  code: z.string().trim().min(1, "Enter a coupon code"),
+  customerPhone: z
+    .string()
+    .trim()
+    .regex(/^\d{10}$/, "Enter a 10-digit phone number")
+    .optional(),
+  items: z
+    .array(
+      z.object({
+        variantUnitPriceId: z.coerce.number().int().positive(),
+        quantity: z.coerce.number().int().min(1).max(999),
+      })
+    )
+    .min(1, "Add at least one item"),
+});
+export type PosCouponValidateInput = z.infer<typeof posCouponValidateSchema>;
+
 export const posShiftListSchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   limit: z.coerce.number().int().min(1).max(100).default(20),
@@ -81,3 +100,15 @@ export const posShiftListSchema = z.object({
   status: z.enum(["OPEN", "CLOSED"]).optional(),
 });
 export type PosShiftListInput = z.infer<typeof posShiftListSchema>;
+
+export const posPurchasesQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+  limit: z.coerce.number().int().min(1).max(100).default(20),
+  search: z.string().trim().optional(),
+  from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Use YYYY-MM-DD").optional(),
+  to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Use YYYY-MM-DD").optional(),
+  paymentMode: posPaymentModeEnum.optional(),
+  status: z.enum(["delivered", "cancelled", "all"]).optional(),
+  staffUserId: z.coerce.number().int().positive().optional(),
+});
+export type PosPurchasesQueryInput = z.infer<typeof posPurchasesQuerySchema>;
