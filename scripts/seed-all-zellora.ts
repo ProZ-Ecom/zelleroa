@@ -29,14 +29,20 @@ async function main() {
   console.log("🚀 STARTING COMPLETE ZELLORA STORE DATABASE SEED");
   console.log("=================================================\n");
 
-  // Disable FK checks during clear
-  await prisma.$executeRawUnsafe("SET FOREIGN_KEY_CHECKS = 0;");
-
+  // Tables to clear in order, with foreign keys disabled in a single transaction
   const tablesToClear = [
+    // 1. Returns, Replacements & Shipments
+    "return_request_history",
     "return_items",
     "return_requests",
+    "replacement_request_history",
+    "replacement_request_items",
+    "replacement_requests",
+    "refunds",
     "shipment_tracking",
     "shipments",
+
+    // 2. Reviews, Orders, Addresses & Payments
     "review_images",
     "reviews",
     "order_items",
@@ -45,15 +51,47 @@ async function main() {
     "payment_transactions",
     "payments",
     "orders",
+
+    // 3. Commissions & Referral tracking
+    "commission_audit_logs",
+    "commissions",
+    "commission_payouts",
+    "commission_rates",
+    "customer_agent_history",
+
+    // 4. Purchase Orders, Receipts & Returns
+    "purchase_return_items",
+    "purchase_returns",
+    "purchase_receipt_items",
+    "purchase_receipts",
+    "purchase_order_history",
+    "purchase_order_items",
+    "purchase_orders",
+
+    // 5. Carts, Wishlist, Coupons & Offers
     "cart_items",
     "carts",
     "wishlist_items",
+    "coupon_usage",
+    "coupon_products",
+    "coupon_categories",
+    "coupons",
+    "offer_products",
+    "offer_items",
+    "offer_categories",
+    "offer_brands",
+    "offers",
+
+    // 6. Inventory & Stock
     "stock_adjustments",
     "stock_reports",
     "inventory_transactions",
     "inventory_reservations",
     "inventories",
+
+    // 7. Variants, Items, Styles & Prices
     "variant_price_history",
+    "variant_unit_price_attribute_values",
     "variant_attribute_values",
     "item_attribute_values",
     "variant_unit_prices",
@@ -62,19 +100,22 @@ async function main() {
     "items",
     "style_images",
     "styles",
+
+    // 8. Products, Tags & Configs
     "product_images",
     "product_attribute_configs",
     "product_attribute_values",
     "product_tag_maps",
     "combo_product_items",
-    "offer_products",
-    "coupon_products",
     "products",
     "size_charts",
+
+    // 9. Categories, Brands, Attributes & Units
+    "header_menu_item_categories",
+    "header_menu_item_tags",
+    "header_menu_items",
     "category_attributes",
     "product_category_images",
-    "header_menu_item_categories",
-    "header_menu_items",
     "product_categories",
     "produt_brand_images",
     "product_brands",
@@ -82,30 +123,32 @@ async function main() {
     "attribute_values",
     "product_attributes",
     "product_units",
+
+    // 10. CMS & Company
     "banners",
     "banner_positions",
-    "coupons",
-    "offers",
     "customer_addresses",
     "companies",
   ];
 
-  for (const table of tablesToClear) {
-    try {
-      if (table === "product_units") {
-        await prisma.$executeRawUnsafe("UPDATE `product_units` SET `base_unit_id` = NULL;");
+  await prisma.$transaction(
+    async (tx) => {
+      await tx.$executeRawUnsafe("SET FOREIGN_KEY_CHECKS = 0;");
+      for (const table of tablesToClear) {
+        if (table === "product_units") {
+          await tx.$executeRawUnsafe("UPDATE `product_units` SET `base_unit_id` = NULL;");
+        }
+        if (table === "product_categories") {
+          await tx.$executeRawUnsafe("UPDATE `product_categories` SET `parent_id` = NULL;");
+        }
+        await tx.$executeRawUnsafe(`DELETE FROM \`${table}\`;`);
+        console.log(`✓ Cleared table: ${table}`);
       }
-      if (table === "product_categories") {
-        await prisma.$executeRawUnsafe("UPDATE `product_categories` SET `parent_id` = NULL;");
-      }
-      await prisma.$executeRawUnsafe(`DELETE FROM \`${table}\`;`);
-      console.log(`✓ Cleared table: ${table}`);
-    } catch (e: any) {
-      console.warn(`! Warning on clearing ${table}: ${e.message}`);
-    }
-  }
+      await tx.$executeRawUnsafe("SET FOREIGN_KEY_CHECKS = 1;");
+    },
+    { maxWait: 30000, timeout: 120000 }
+  );
 
-  await prisma.$executeRawUnsafe("SET FOREIGN_KEY_CHECKS = 1;");
   console.log("\nDatabase cleared successfully.\n");
 
   // 1. ROLES & USERS
@@ -351,8 +394,16 @@ async function main() {
   // 4. PRODUCT UNITS
   console.log("4. SEEDING PRODUCT UNITS...");
   const createUnit = async (name: string, code: string, type: "count" | "weight" | "volume" = "count") => {
-    return prisma.product_units.create({
-      data: {
+    return prisma.product_units.upsert({
+      where: { code },
+      update: {
+        name,
+        type,
+        conversion_factor: 1,
+        is_active: true,
+        status: true,
+      },
+      create: {
         uuid: crypto.randomUUID(),
         name,
         code,
@@ -713,14 +764,18 @@ async function main() {
         },
       });
 
-            try {
-        await prisma.$executeRawUnsafe(
-          `INSERT INTO \`product_category_images\` (\`category_id\`, \`image_url\`, \`is_primary\`, \`sort_order\`, \`created_at\`, \`updated_at\`)
-           VALUES (?, ?, 1, 0, NOW(), NOW())`,
-          created.id,
-          imageUrl
-        );
-           } catch (e: any) {
+      try {
+        await prisma.product_category_images.create({
+          data: {
+            uuid: crypto.randomUUID(),
+            category_id: created.id,
+            image_url: imageUrl,
+            sort_order: 0,
+            is_active: true,
+            status: true,
+          },
+        });
+      } catch (e: any) {
         throw new Error(`Category image insert failed for ${node.slug}: ${e.message}`);
       }
       categoryMap.set(node.slug, created);
