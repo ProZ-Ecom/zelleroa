@@ -43,6 +43,19 @@ export const PERMISSION_MODULES: PermissionModuleDefinition[] = [
   { module: "DELIVERY", label: "Deliveries", group: "Operations", actions: ["VIEW", "UPDATE", "ASSIGN"] },
   { module: "PAYMENT", label: "Payments", group: "Operations", actions: ["VIEW", "REFUND"] },
 
+  // ------------------------------------------------------------------ Counter
+  // Split finely on purpose: a cashier gets VIEW + BILL + SHIFT, and the three
+  // actions that move money the other way (discount, void, return) stay with a
+  // manager. REPORT_VIEW is separate again so a cashier cannot read the day's
+  // takings or another cashier's shift.
+  {
+    module: "POS",
+    label: "Counter sales (POS)",
+    group: "Counter",
+    actions: ["VIEW", "BILL", "DISCOUNT", "VOID", "RETURN", "SHIFT", "REPORT_VIEW"],
+  },
+  { module: "POS_STORE", label: "Counters / stores", group: "Counter", actions: CRUD },
+
   // ------------------------------------------------------------------- Catalog
   { module: "CATEGORY", label: "Categories", group: "Catalog", actions: CRUD },
   { module: "HEADER_MENU", label: "Header menu", group: "Catalog", actions: CRUD },

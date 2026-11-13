@@ -144,6 +144,11 @@ model User {
   combo_products_combo_products_updated_byTousers                     combo_products[]           @relation("combo_products_updated_byTousers")
   companies_companies_created_byTousers                               Company[]                  @relation("companies_created_byTousers")
   companies_companies_updated_byTousers                               Company[]                  @relation("companies_updated_byTousers")
+  pos_stores_created_byTousers                                        pos_stores[]               @relation("pos_stores_created_byTousers")
+  pos_stores_updated_byTousers                                        pos_stores[]               @relation("pos_stores_updated_byTousers")
+  pos_sessions_staff                                                  pos_sessions[]             @relation("pos_sessions_staff")
+  pos_sessions_created_byTousers                                      pos_sessions[]             @relation("pos_sessions_created_byTousers")
+  pos_sessions_updated_byTousers                                      pos_sessions[]             @relation("pos_sessions_updated_byTousers")
   bulk_order_enquiries_bulk_order_enquiries_created_byTousers         bulk_order_enquiries[]     @relation("bulk_order_enquiries_created_byTousers")
   bulk_order_enquiries_bulk_order_enquiries_updated_byTousers         bulk_order_enquiries[]     @relation("bulk_order_enquiries_updated_byTousers")
   contact_messages_contact_messages_created_byTousers                 contact_messages[]         @relation("contact_messages_created_byTousers")
@@ -1064,7 +1069,9 @@ model Order {
   id                             BigInt                   @id @default(autoincrement()) @db.UnsignedBigInt
   uuid                           String?                  @default("UUID()") @db.VarChar(255)
   orderNumber                    String                   @unique(map: "order_number") @map("order_number") @db.VarChar(50)
-  invoice_number                 String?                  @map("invoice_number") @db.VarChar(100)
+  /// Unique: a counter bill prints its number the moment it is created, so two
+  /// cashiers billing in the same second must never be able to share one.
+  invoice_number                 String?                  @unique(map: "uq_orders_invoice_number") @map("invoice_number") @db.VarChar(100)
   userId                         BigInt                   @map("user_id") @db.UnsignedBigInt
   cart_id                        BigInt?                  @db.UnsignedBigInt
   couponId                       BigInt?                  @map("coupon_id") @db.UnsignedBigInt
@@ -1111,6 +1118,10 @@ model Order {
   /// USER | ADMIN | SYSTEM
   cancelled_by                   String?                  @db.VarChar(20)
   cancelled_by_user_id           BigInt?                  @db.UnsignedBigInt
+  /// Counter that sold this order. Null for every online order.
+  store_id                       BigInt?                  @db.UnsignedBigInt
+  /// Cashier shift the bill was rung up in; what ties a day's cash to a person.
+  pos_session_id                 BigInt?                  @db.UnsignedBigInt
   coupon_usage                   coupon_usage[]
   address                        OrderAddress[]
   items                          OrderItem[]
@@ -1130,7 +1141,11 @@ model Order {
   replacement_requests           replacement_requests[]
   shipments                      shipments[]
   inventory_reservations         inventory_reservations[]
+  store                          pos_stores?              @relation(fields: [store_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_orders_store")
+  pos_session                    pos_sessions?            @relation(fields: [pos_session_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_orders_pos_session")
 
+  @@index([store_id], map: "fk_orders_store")
+  @@index([pos_session_id], map: "fk_orders_pos_session")
   @@index([delivered_at], map: "idx_order_delivered_at")
   @@index([cancelled_at], map: "idx_order_cancelled_at")
   @@index([cart_id], map: "fk_order_cart")
@@ -1781,6 +1796,98 @@ model Company {
   @@index([createdBy], map: "fk_companies_created_by")
   @@index([updatedBy], map: "fk_companies_updated_by")
   @@map("companies")
+}
+
+/// A selling counter. One row today; the column is on every POS record so a
+/// second branch is a row and a staff assignment, not a migration of history.
+/// Address fields left null fall back to `companies` when a bill is printed.
+model pos_stores {
+  id                                 BigInt         @id @default(autoincrement()) @db.UnsignedBigInt
+  uuid                               String         @unique(map: "idx_pos_stores_uuid") @default("UUID()") @db.VarChar(255)
+  name                               String         @db.VarChar(150)
+  code                               String         @unique(map: "uq_pos_stores_code") @db.VarChar(30)
+  address                            String?        @db.Text
+  city                               String?        @db.VarChar(100)
+  state                              String?        @db.VarChar(100)
+  /// Two-digit GST state code of the counter: the place of supply on every bill it prints.
+  state_code                         String?        @db.VarChar(2)
+  pincode                            String?        @db.VarChar(20)
+  phone                              String?        @db.VarChar(20)
+  gstin                              String?        @db.VarChar(20)
+  /// Series the counter's bills are numbered under, e.g. "ZEL/POS".
+  invoice_prefix                     String         @default("POS") @db.VarChar(20)
+  /// Discount a cashier may give without a manager: percent of the line subtotal.
+  max_cashier_discount_percent       Decimal        @default(0.00) @db.Decimal(5, 2)
+  is_active                          Boolean        @default(true)
+  created_at                         DateTime       @default(now()) @db.Timestamp(0)
+  updated_at                         DateTime       @default(now()) @updatedAt @db.Timestamp(0)
+  created_by                         BigInt?        @db.UnsignedBigInt
+  updated_by                         BigInt?        @db.UnsignedBigInt
+  users_pos_stores_created_byTousers User?          @relation("pos_stores_created_byTousers", fields: [created_by], references: [id], onUpdate: NoAction, map: "fk_pos_stores_created_by")
+  users_pos_stores_updated_byTousers User?          @relation("pos_stores_updated_byTousers", fields: [updated_by], references: [id], onUpdate: NoAction, map: "fk_pos_stores_updated_by")
+  orders                             Order[]
+  sessions                           pos_sessions[]
+  counters                           pos_invoice_counters[]
+
+  @@index([created_by], map: "fk_pos_stores_created_by")
+  @@index([updated_by], map: "fk_pos_stores_updated_by")
+}
+
+/// One cashier's shift at one counter. Every bill they ring up points here, so
+/// the cash in the drawer at close has a single person and period behind it.
+model pos_sessions {
+  id                                   BigInt             @id @default(autoincrement()) @db.UnsignedBigInt
+  uuid                                 String             @unique(map: "idx_pos_sessions_uuid") @default("UUID()") @db.VarChar(255)
+  store_id                             BigInt             @db.UnsignedBigInt
+  staff_user_id                        BigInt             @db.UnsignedBigInt
+  status                               pos_session_status @default(OPEN)
+  opened_at                            DateTime           @default(now()) @db.Timestamp(0)
+  /// Float the cashier starts the drawer with.
+  opening_cash                         Decimal            @default(0.00) @db.Decimal(12, 2)
+  closed_at                            DateTime?          @db.Timestamp(0)
+  /// Cash the cashier physically counted at close.
+  closing_cash_counted                 Decimal?           @db.Decimal(12, 2)
+  /// opening_cash + cash taken in - cash paid out, as the system saw it.
+  expected_cash                        Decimal?           @db.Decimal(12, 2)
+  /// counted - expected. Negative is short.
+  cash_variance                        Decimal?           @db.Decimal(12, 2)
+  /// Why the drawer did not match; required whenever the variance is not zero.
+  variance_reason                      String?            @db.VarChar(255)
+  created_at                           DateTime           @default(now()) @db.Timestamp(0)
+  updated_at                           DateTime           @default(now()) @updatedAt @db.Timestamp(0)
+  created_by                           BigInt?            @db.UnsignedBigInt
+  updated_by                           BigInt?            @db.UnsignedBigInt
+  store                                pos_stores         @relation(fields: [store_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_pos_sessions_store")
+  staff                                User               @relation("pos_sessions_staff", fields: [staff_user_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_pos_sessions_staff")
+  users_pos_sessions_created_byTousers User?              @relation("pos_sessions_created_byTousers", fields: [created_by], references: [id], onUpdate: NoAction, map: "fk_pos_sessions_created_by")
+  users_pos_sessions_updated_byTousers User?              @relation("pos_sessions_updated_byTousers", fields: [updated_by], references: [id], onUpdate: NoAction, map: "fk_pos_sessions_updated_by")
+  orders                               Order[]
+
+  @@index([store_id], map: "fk_pos_sessions_store")
+  @@index([created_by], map: "fk_pos_sessions_created_by")
+  @@index([updated_by], map: "fk_pos_sessions_updated_by")
+  @@index([staff_user_id, status], map: "idx_pos_sessions_staff_status")
+  @@index([opened_at], map: "idx_pos_sessions_opened_at")
+}
+
+/// The bill-number sequence. A counter bill prints its number immediately, so
+/// the number cannot be "max + 1" read in application code - three cashiers
+/// would read the same max. The row is locked with SELECT ... FOR UPDATE and
+/// incremented inside the billing transaction, which is what keeps a GST series
+/// gapless and unique.
+model pos_invoice_counters {
+  id             BigInt     @id @default(autoincrement()) @db.UnsignedBigInt
+  store_id       BigInt     @db.UnsignedBigInt
+  /// "SALE" for bills, "RETURN" for credit notes: separate series, separate rows.
+  series         String     @default("SALE") @db.VarChar(20)
+  /// Indian financial year the series runs for, e.g. "26-27".
+  financial_year String     @db.VarChar(10)
+  last_number    Int        @default(0)
+  created_at     DateTime   @default(now()) @db.Timestamp(0)
+  updated_at     DateTime   @default(now()) @updatedAt @db.Timestamp(0)
+  store          pos_stores @relation(fields: [store_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_pos_counters_store")
+
+  @@unique([store_id, series, financial_year], map: "uq_pos_counter_series")
 }
 
 model bulk_order_enquiries {
@@ -3421,6 +3528,19 @@ enum order_source {
   CUSTOMER_DIRECT
   AGENT_PLACED_FOR_CUSTOMER
   AGENT_OWN
+  /// Sold over the counter: no address, no shipping, paid and handed over at once.
+  POS
+}
+
+enum pos_session_status {
+  OPEN
+  CLOSED
+}
+
+enum pos_payment_mode {
+  CASH
+  UPI
+  CARD
 }
 
 enum customer_agent_action {

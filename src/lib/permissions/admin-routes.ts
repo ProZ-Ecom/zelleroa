@@ -20,6 +20,9 @@ const ADMIN_ROUTE_PERMISSIONS: Array<{ prefix: string; permission: string }> = [
   { prefix: "/admin/dashboard/orders/replacements", permission: "REPLACEMENT_VIEW" },
   { prefix: "/admin/dashboard/bulk-orders", permission: "BULK_ORDER_VIEW" },
   { prefix: "/admin/dashboard/customers", permission: "CUSTOMER_VIEW" },
+  { prefix: "/admin/dashboard/pos", permission: "POS_VIEW" },
+  { prefix: "/admin/dashboard/pos/shifts", permission: "POS_REPORT_VIEW" },
+  { prefix: "/admin/dashboard/pos/stores", permission: "POS_STORE_VIEW" },
   { prefix: "/admin/dashboard/delivery", permission: "DELIVERY_VIEW" },
 
   // Catalog

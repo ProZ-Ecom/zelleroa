@@ -80,6 +80,16 @@ const sidebarItems: SidebarItem[] = [
     ],
   },
   {
+    label: "Counter (POS)",
+    href: "/admin/dashboard/pos",
+    icon: Store,
+    section: "Operations",
+    children: [
+      { label: "Billing", href: "/admin/dashboard/pos", icon: Store },
+      { label: "Shifts", href: "/admin/dashboard/pos/shifts", icon: Wallet },
+    ],
+  },
+  {
     label: "Catalog",
     href: "/admin/dashboard/catalog",
     icon: Package,
