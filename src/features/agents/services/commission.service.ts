@@ -571,8 +571,19 @@ export const commissionService = {
 
     const rows = await db.commissions.findMany({
       where: {
-        status: opts.ids?.length ? { in: ["pending", "pending_approval"] } : "pending_approval",
-        ...(opts.ids?.length ? { uuid: { in: opts.ids } } : {}),
+        ...(opts.ids?.length
+          ? {
+              OR: [
+                { status: "pending_approval" },
+                {
+                  status: "pending",
+                  delivered_at: { not: null },
+                  return_period_ends_at: { lte: new Date() },
+                },
+              ],
+              uuid: { in: opts.ids },
+            }
+          : { status: "pending_approval" }),
         order_item: {
           return_items: {
             none: {
@@ -592,7 +603,7 @@ export const commissionService = {
     if (opts.ids?.length && rows.length === 0) {
       const exists = await db.commissions.findFirst({
         where: { uuid: { in: opts.ids } },
-        select: { status: true },
+        select: { status: true, delivered_at: true, return_period_ends_at: true },
       });
       if (!exists) {
         throw ApiError.notFound("Commission not found");
@@ -602,6 +613,12 @@ export const commissionService = {
       }
       if (exists.status === "cancelled" || exists.status === "reversed") {
         throw ApiError.badRequest("Cancelled or reversed commissions cannot be approved");
+      }
+      if (!exists.delivered_at) {
+        throw ApiError.badRequest("Commission cannot be approved before the order is delivered");
+      }
+      if (exists.return_period_ends_at && exists.return_period_ends_at > new Date()) {
+        throw ApiError.badRequest("Commission cannot be approved before the return request deadline has expired");
       }
       throw ApiError.badRequest("Commission cannot be approved while a return request is under review");
     }

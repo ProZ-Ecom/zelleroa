@@ -132,23 +132,44 @@ export function AdminCommissionsSection({ fixedAgent, allowApprove = true }: { f
               { header: "Payout", cell: (r) => r.payoutCode ?? "—" },
               {
                 header: "",
-                cell: (r) => (
-                  <div className="flex items-center gap-3">
-                    {canApprove && (r.status === "pending_approval" || r.status === "pending") && (
+                cell: (r) => {
+                  const isEligible =
+                    canApprove &&
+                    (r.status === "pending_approval" ||
+                      (r.status === "pending" &&
+                        Boolean(r.eligibleAt && new Date(r.eligibleAt).getTime() <= Date.now())));
+
+                  const isReturnWindowActive =
+                    r.status === "pending" &&
+                    Boolean(r.eligibleAt && new Date(r.eligibleAt).getTime() > Date.now());
+
+                  return (
+                    <div className="flex items-center gap-3">
+                      {isEligible && (
+                        <button
+                          type="button"
+                          disabled={approving}
+                          onClick={() => approveCommissions([r.id])}
+                          className="rounded-md bg-emerald-600 px-2.5 py-1 text-xs font-semibold text-white hover:bg-emerald-700 disabled:opacity-60 shadow-2xs transition-colors"
+                        >
+                          Approve
+                        </button>
+                      )}
+                      {isReturnWindowActive && (
+                        <span className="text-[11px] font-medium text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200 whitespace-nowrap">
+                          Return window active
+                        </span>
+                      )}
                       <button
                         type="button"
-                        disabled={approving}
-                        onClick={() => approveCommissions([r.id])}
-                        className="rounded-md bg-emerald-600 px-2 py-1 text-xs font-semibold text-white hover:bg-emerald-700 disabled:opacity-60"
+                        onClick={() => setAuditId(r.id)}
+                        className="text-xs font-semibold text-neutral-700 underline-offset-4 hover:underline"
                       >
-                        Approve
+                        History
                       </button>
-                    )}
-                    <button type="button" onClick={() => setAuditId(r.id)} className="text-xs font-semibold text-neutral-700 underline-offset-4 hover:underline">
-                    History
-                    </button>
-                  </div>
-                ),
+                    </div>
+                  );
+                },
               },
             ]}
           />

@@ -30,11 +30,73 @@ const STATUS_STYLES: Record<string, string> = {
   active: "bg-emerald-50 text-emerald-700 border-emerald-200",
   inactive: "bg-neutral-100 text-neutral-600 border-neutral-200",
   ended: "bg-neutral-100 text-neutral-600 border-neutral-200",
+  // returns & replacements
+  return_requested: "bg-amber-50 text-amber-800 border-amber-200",
+  under_review: "bg-purple-50 text-purple-800 border-purple-200",
+  return_approved: "bg-blue-50 text-blue-800 border-blue-200",
+  return_shipped: "bg-indigo-50 text-indigo-800 border-indigo-200",
+  shipped_by_customer: "bg-indigo-50 text-indigo-800 border-indigo-200",
+  return_received: "bg-teal-50 text-teal-800 border-teal-200",
+  received: "bg-teal-50 text-teal-800 border-teal-200",
+  refund_pending: "bg-amber-50 text-amber-800 border-amber-200",
+  refunded: "bg-red-50 text-red-700 border-red-200",
+  qc_failed: "bg-red-50 text-red-700 border-red-200",
+  returning_to_customer: "bg-amber-50 text-amber-800 border-amber-200",
+  returned_to_customer: "bg-neutral-100 text-neutral-700 border-neutral-200",
+  return_rejected: "bg-red-50 text-red-700 border-red-200",
+  return_expired: "bg-neutral-100 text-neutral-700 border-neutral-300",
+  return_cancelled: "bg-neutral-100 text-neutral-700 border-neutral-300",
+  return_closed: "bg-neutral-100 text-neutral-600 border-neutral-200",
+  closed: "bg-neutral-100 text-neutral-600 border-neutral-200",
+  replacement_requested: "bg-amber-50 text-amber-800 border-amber-200",
+  replacement_approved: "bg-blue-50 text-blue-800 border-blue-200",
+  replacement_processing: "bg-sky-50 text-sky-700 border-sky-200",
+  replacement_shipped: "bg-indigo-50 text-indigo-700 border-indigo-200",
+  replaced: "bg-emerald-50 text-emerald-800 border-emerald-200",
+  replacement_rejected: "bg-red-50 text-red-700 border-red-200",
+  replacement_expired: "bg-neutral-100 text-neutral-700 border-neutral-300",
+  replacement_cancelled: "bg-neutral-100 text-neutral-700 border-neutral-300",
+  replacement_closed: "bg-neutral-100 text-neutral-600 border-neutral-200",
+};
+
+const PRODUCT_ORDER_STATUS_LABELS: Record<string, string> = {
+  return_requested: "Return Requested",
+  under_review: "Return Under Review",
+  return_approved: "Return Approved",
+  return_shipped: "Return Shipped",
+  shipped_by_customer: "Return Shipped",
+  return_received: "Return Received",
+  received: "Return Received",
+  refund_pending: "Refund Pending",
+  refunded: "Returned",
+  returned: "Returned",
+  qc_failed: "QC Failed",
+  returning_to_customer: "Sending Back",
+  returned_to_customer: "Returned to Customer",
+  return_rejected: "Return Rejected",
+  return_expired: "Return Expired",
+  return_cancelled: "Return Cancelled",
+  return_closed: "Return Closed",
+  closed: "Return Closed",
+  replacement_requested: "Replacement Requested",
+  replacement_approved: "Replacement Approved",
+  replacement_processing: "Replacement Processing",
+  replacement_shipped: "Replacement Shipped",
+  replaced: "Replaced",
+  replacement_rejected: "Replacement Rejected",
+  replacement_expired: "Replacement Expired",
+  replacement_cancelled: "Replacement Cancelled",
+  replacement_closed: "Replacement Closed",
 };
 
 export function humanize(value: string | null | undefined) {
   if (!value) return "—";
-  return COMMISSION_STATUS_LABELS[value] ?? PAYOUT_STATUS_LABELS[value] ?? value.replace(/_/g, " ").replace(/^\w/, (c) => c.toUpperCase());
+  return (
+    COMMISSION_STATUS_LABELS[value] ??
+    PAYOUT_STATUS_LABELS[value] ??
+    PRODUCT_ORDER_STATUS_LABELS[value] ??
+    value.replace(/_/g, " ").replace(/^\w/, (c) => c.toUpperCase())
+  );
 }
 
 export function StatusBadge({ status, className, title }: { status: string | null | undefined; className?: string; title?: string }) {
@@ -324,6 +386,9 @@ export const ORDER_STATUS_OPTIONS = [
   "delivered",
   "cancelled",
   "returned",
+  "return_requested",
+  "return_approved",
+  "return_closed",
 ].map((v) => ({ value: v, label: humanize(v) }));
 
 export const ORDER_SOURCE_LABELS: Record<string, string> = {

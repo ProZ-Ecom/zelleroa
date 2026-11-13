@@ -52,6 +52,10 @@ export interface AdminRequest extends RequestSummary {
   shipDeadline?: string | null;
   shipDaysLeft?: number;
   shipWindowExpired?: boolean;
+  /** Admin decision deadline (1 week from request creation date). */
+  adminDeadline?: string | null;
+  adminDaysLeft?: number;
+  adminDeadlineExpired?: boolean;
   deliveredReplacementAt?: string | null;
   customer: { id: string; name: string; email: string | null; phone: string | null };
   shippingAddress?: {
