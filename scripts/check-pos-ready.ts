@@ -162,6 +162,46 @@ async function main() {
       console.log("        -> grant POS_VIEW under Roles, or npm run db:permissions:sync");
     }
 
+    // 7. Zero dates in anything the shift endpoint reads.
+    //
+    //    MySQL stores '0000-00-00 00:00:00' happily, the driver hands it back
+    //    as an Invalid Date, and Prisma's serializer calls toISOString() on it
+    //    - which is the "Invalid time value" the counter fails with. The rows
+    //    below are every row GET /api/admin/pos/shift touches.
+    const dateColumns = await prisma.$queryRaw<
+      { TABLE_NAME: string; COLUMN_NAME: string }[]
+    >`
+      SELECT TABLE_NAME, COLUMN_NAME FROM information_schema.COLUMNS
+      WHERE TABLE_SCHEMA = DATABASE()
+        AND TABLE_NAME IN ('companies', 'pos_stores', 'pos_sessions', 'users')
+        AND DATA_TYPE IN ('timestamp', 'datetime', 'date')
+    `;
+
+    let zeroed = 0;
+    for (const column of dateColumns) {
+      // Identifiers cannot be bound, and both come from information_schema of
+      // the connected database, so there is nothing user-supplied here.
+      const sql = `SELECT COUNT(*) AS c FROM \`${column.TABLE_NAME}\`
+                   WHERE CAST(\`${column.COLUMN_NAME}\` AS CHAR) LIKE '0000-00-00%'`;
+      const [row] = await prisma.$queryRawUnsafe<{ c: bigint }[]>(sql);
+      const count = Number(row?.c ?? 0);
+      if (count > 0) {
+        zeroed += 1;
+        console.log(
+          `  BAD   ${column.TABLE_NAME}.${column.COLUMN_NAME}: ${count} row(s) are 0000-00-00`
+        );
+      }
+    }
+    if (zeroed === 0) {
+      ok(`no zero dates in ${dateColumns.length} date column(s) the counter reads`);
+    } else {
+      problems += 1;
+      console.log(
+        "        -> these make the shift API fail with \"Invalid time value\"; set them"
+      );
+      console.log("           to a real timestamp (or NULL where the column allows it)");
+    }
+
     console.log(
       problems === 0
         ? "\nReady. Run npx prisma generate and restart the dev server if you have not."

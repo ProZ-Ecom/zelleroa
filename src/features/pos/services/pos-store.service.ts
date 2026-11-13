@@ -80,9 +80,13 @@ export async function resolveStore(tx: Tx, storeId?: bigint | null): Promise<Sto
   if (existing) return existing as StoreRow;
 
   const company = await tx.company.findFirst({ where: { isActive: true } });
+  // created_at/updated_at are written explicitly rather than left to the column
+  // default: a table created by scripts/db-sync.cjs does not always carry one,
+  // and a TIMESTAMP with no default takes '0000-00-00', which comes back as an
+  // Invalid Date and fails the whole endpoint with "Invalid time value".
   await tx.$executeRaw`
-    INSERT IGNORE INTO pos_stores (uuid, name, code, invoice_prefix)
-    VALUES (UUID(), ${company?.companyName ?? "Main Counter"}, ${DEFAULT_STORE_CODE}, 'POS')`;
+    INSERT IGNORE INTO pos_stores (uuid, name, code, invoice_prefix, created_at, updated_at)
+    VALUES (UUID(), ${company?.companyName ?? "Main Counter"}, ${DEFAULT_STORE_CODE}, 'POS', NOW(), NOW())`;
 
   return (await tx.pos_stores.findFirstOrThrow({
     where: { code: DEFAULT_STORE_CODE },
