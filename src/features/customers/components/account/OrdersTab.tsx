@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Check, Package, X, CreditCard, Loader2, AlertCircle, Undo2 } from "lucide-react";
+import { Check, Package, X, CreditCard, Loader2, AlertCircle, Undo2, PackageCheck, Clock, Truck } from "lucide-react";
 import { formatPrice } from "@/lib/utils";
 import type { OrderDetailResponse } from "@/features/orders/types";
 import { useCustomerOrders, useCancelCustomerOrder } from "../../hooks/use-customer-orders";
@@ -15,8 +15,10 @@ import { SearchInput } from "@/components/common/search-input";
 import { ProductImage } from "@/components/common/ProductImage";
 import { toast } from "@/components/ui/Toast";
 import { CancelOrderDialog } from "@/features/orders/components/CancelOrderDialog";
-import { isOrderCancellable } from "@/features/returns/lib/policy";
+import { isOrderCancellable, getShipWindow, formatStoreDate } from "@/features/returns/lib/policy";
 import { RequestWizard } from "@/features/returns/components/RequestWizard";
+import { ShipReturnModal } from "@/features/returns/components/ShipReturnModal";
+import type { RequestSummary } from "@/features/returns/lib/summary";
 
 const STATUS_OPTIONS: DropdownOption[] = [
   { value: "all", label: "All Orders" },
@@ -56,6 +58,7 @@ export function OrdersTab({
   const [cancelTarget, setCancelTarget] = useState<OrderDetailResponse | null>(null);
   const [cancelError, setCancelError] = useState<string | null>(null);
   const [returnTarget, setReturnTarget] = useState<{ orderId: string; mode: "return" | "replacement" } | null>(null);
+  const [shippingReturn, setShippingReturn] = useState<RequestSummary | null>(null);
   const cancelMutation = useCancelCustomerOrder();
   const addToCartMutation = useAddToCartMutation();
   const createRazorpayOrderMutation = useCreateRazorpayOrder();
@@ -127,6 +130,66 @@ export function OrdersTab({
       default:
         return { bg: "bg-theme-surface-alt text-theme-text-muted border-theme-border", dot: "bg-theme-border" };
     }
+  };
+
+  const getReturnStatusMeta = (status?: string) => {
+    switch (status?.toLowerCase()) {
+      case "approved":
+        return { label: "Return Approved", bg: "bg-blue-50 text-blue-700 border-blue-200", dot: "bg-blue-500" };
+      case "shipped_by_customer":
+        return { label: "Item Shipped", bg: "bg-sky-50 text-sky-700 border-sky-200", dot: "bg-sky-500" };
+      case "received":
+        return { label: "Return Received", bg: "bg-indigo-50 text-indigo-700 border-indigo-200", dot: "bg-indigo-500" };
+      case "refund_pending":
+        return { label: "Refund Pending", bg: "bg-emerald-50 text-emerald-700 border-emerald-200", dot: "bg-emerald-500" };
+      case "refunded":
+        return { label: "Refunded", bg: "bg-purple-50 text-purple-700 border-purple-200", dot: "bg-purple-500" };
+      case "return_requested":
+        return { label: "Return Requested", bg: "bg-orange-50 text-orange-700 border-orange-200", dot: "bg-orange-500" };
+      case "under_review":
+        return { label: "Return Under Review", bg: "bg-amber-50 text-amber-700 border-amber-200", dot: "bg-amber-500" };
+      case "qc_failed":
+        return { label: "QC Failed", bg: "bg-red-50 text-red-700 border-red-200", dot: "bg-red-500" };
+      case "returning_to_customer":
+        return { label: "Returning to Customer", bg: "bg-amber-50 text-amber-700 border-amber-200", dot: "bg-amber-500" };
+      case "returned_to_customer":
+        return { label: "Returned to Customer", bg: "bg-slate-50 text-slate-700 border-slate-200", dot: "bg-slate-500" };
+      case "rejected":
+        return { label: "Return Rejected", bg: "bg-red-50 text-red-700 border-red-200", dot: "bg-red-500" };
+      case "cancelled":
+        return { label: "Return Cancelled", bg: "bg-neutral-100 text-neutral-700 border-neutral-300", dot: "bg-neutral-400" };
+      case "expired":
+        return { label: "Return Expired", bg: "bg-neutral-100 text-neutral-700 border-neutral-300", dot: "bg-neutral-400" };
+      case "closed":
+        return { label: "Return Closed", bg: "bg-neutral-100 text-neutral-600 border-neutral-200", dot: "bg-neutral-400" };
+      default:
+        return null;
+    }
+  };
+
+  const getReturnShipDaysLeft = (ret?: RequestSummary | null) => {
+    if (!ret || ret.status !== "approved") return null;
+
+    if (ret.shipDeadlineAt) {
+      const deadline = new Date(ret.shipDeadlineAt);
+      if (!Number.isNaN(deadline.getTime())) {
+        const now = new Date();
+        const expired = now.getTime() > deadline.getTime();
+        const diffMs = deadline.getTime() - now.getTime();
+        const daysLeft = expired
+          ? 0
+          : Math.max(0, Math.ceil(diffMs / (1000 * 60 * 60 * 24)));
+        return { daysLeft, expired, deadline };
+      }
+    }
+
+    if (ret.approvedAt) {
+      const sw = getShipWindow(ret.approvedAt);
+      return { daysLeft: sw.daysLeft, expired: sw.expired, deadline: sw.deadline };
+    }
+
+    const sw = getShipWindow(new Date());
+    return { daysLeft: sw.daysLeft, expired: sw.expired, deadline: sw.deadline };
   };
 
   // 4 Breakpoint Stepper (Placed -> Packed by Admin, Out for Delivery by Staff, Delivered / Returned / Cancelled)
@@ -452,6 +515,27 @@ export function OrdersTab({
             const statusMeta = getStatusMeta(order.status);
             const itemCount = order.items?.length ?? 0;
 
+            const activeReturn =
+              order.returnRequests?.find((r) =>
+                [
+                  "return_requested",
+                  "under_review",
+                  "approved",
+                  "shipped_by_customer",
+                  "received",
+                  "qc_failed",
+                  "returning_to_customer",
+                  "returned_to_customer",
+                  "refund_pending",
+                  "refunded",
+                ].includes(r.status)
+              ) || order.returnRequests?.[0];
+
+            const returnMeta = activeReturn ? getReturnStatusMeta(activeReturn.status) : null;
+            const effectiveStatusMeta = returnMeta ?? statusMeta;
+            const effectiveStatusLabel = returnMeta?.label ?? order.status.replace(/_/g, " ");
+            const shipDaysInfo = activeReturn ? getReturnShipDaysLeft(activeReturn) : null;
+
             return (
               <div
                 key={order.id}
@@ -510,19 +594,70 @@ export function OrdersTab({
                   </div>
 
                   <div className="flex items-center gap-2 flex-wrap">
-                    {order.returnRequests?.some((r) => r.returnNumber) && (
+                    {activeReturn?.returnNumber && (
                       <span className="inline-flex items-center gap-1 font-mono text-[11px] font-bold text-emerald-800 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200 shadow-2xs">
-                        Return ID: {order.returnRequests.find((r) => r.returnNumber)?.returnNumber}
+                        Return ID: {activeReturn.returnNumber}
                       </span>
                     )}
                     <span
-                      className={`inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider px-3 py-1.5 rounded-full border ${statusMeta.bg}`}
+                      className={`inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider px-3 py-1.5 rounded-full border ${effectiveStatusMeta.bg}`}
                     >
-                      <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${statusMeta.dot}`} />
-                      {order.status.replace(/_/g, " ")}
+                      <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${effectiveStatusMeta.dot}`} />
+                      {effectiveStatusLabel}
                     </span>
+
+                    {/* Time left for customer shipment badge in card header */}
+                    {activeReturn?.status === "approved" && shipDaysInfo && (
+                      <span
+                        suppressHydrationWarning
+                        className={`inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-full border shadow-2xs ${
+                          shipDaysInfo.expired
+                            ? "bg-red-50 text-red-700 border-red-200"
+                            : shipDaysInfo.daysLeft <= 1
+                            ? "bg-amber-50 text-amber-800 border-amber-300 animate-pulse"
+                            : "bg-blue-50 text-blue-800 border-blue-200"
+                        }`}
+                        title={shipDaysInfo.deadline ? `Courier return deadline: ${formatStoreDate(shipDaysInfo.deadline)}` : undefined}
+                      >
+                        <Clock className="h-3 w-3" />
+                        {shipDaysInfo.expired
+                          ? "Shipment window expired"
+                          : `${shipDaysInfo.daysLeft} ${shipDaysInfo.daysLeft === 1 ? "day" : "days"} left to ship`}
+                      </span>
+                    )}
                   </div>
                 </div>
+
+                {/* Shipment Alert Banner when return is approved */}
+                {activeReturn?.status === "approved" && (
+                  <div className="mx-5 mt-3.5 rounded-xl border border-blue-200 bg-blue-50/70 p-3 text-xs text-blue-950 flex items-start gap-2.5">
+                    <Truck className="h-4 w-4 text-blue-700 shrink-0 mt-0.5" />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between gap-2 flex-wrap">
+                        <span className="font-bold text-blue-950">Return Approved — Please Courier Item</span>
+                        {shipDaysInfo && (
+                          <span
+                            suppressHydrationWarning
+                            className={`font-semibold px-2 py-0.5 rounded text-[11px] ${
+                              shipDaysInfo.expired
+                                ? "bg-red-100 text-red-800 font-bold"
+                                : shipDaysInfo.daysLeft <= 1
+                                ? "bg-amber-100 text-amber-900 font-bold"
+                                : "bg-blue-100 text-blue-800 font-bold"
+                            }`}
+                          >
+                            {shipDaysInfo.expired
+                              ? "Shipping deadline passed"
+                              : `${shipDaysInfo.daysLeft} ${shipDaysInfo.daysLeft === 1 ? "day" : "days"} left to ship${shipDaysInfo.deadline ? ` (by ${formatStoreDate(shipDaysInfo.deadline)})` : ""}`}
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-[11px] text-blue-800 mt-1">
+                        Please pack the item and courier it to the seller. Then click <strong>&quot;I have shipped the item&quot;</strong> below to enter your tracking details.
+                      </p>
+                    </div>
+                  </div>
+                )}
 
                 {/* Ordered Items List */}
                 <div className="px-5 py-4 flex flex-col divide-y divide-theme-border-subtle">
@@ -691,6 +826,32 @@ export function OrdersTab({
                         ) : null}
                       </button>
                     )
+                  )}
+
+                  {/* "I have shipped the item" button shown after return/replace button, ONLY when return status is approved */}
+                  {activeReturn?.status === "approved" && (
+                    <button
+                      type="button"
+                      onClick={() => setShippingReturn(activeReturn)}
+                      className="inline-flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold uppercase tracking-wider py-2.5 px-4 rounded-lg transition-colors cursor-pointer min-h-[40px] shadow-xs"
+                    >
+                      <PackageCheck className="h-3.5 w-3.5" />
+                      <span>I have shipped the item</span>
+                      {shipDaysInfo && (
+                        <span
+                          suppressHydrationWarning
+                          className={`ml-1 rounded px-1.5 py-0.5 text-[10px] font-extrabold tracking-normal ${
+                            shipDaysInfo.expired
+                              ? "bg-red-500 text-white"
+                              : shipDaysInfo.daysLeft <= 1
+                              ? "bg-amber-400 text-amber-950 font-black"
+                              : "bg-white/25 text-white"
+                          }`}
+                        >
+                          {shipDaysInfo.expired ? "Expired" : `${shipDaysInfo.daysLeft}d left`}
+                        </span>
+                      )}
+                    </button>
                   )}
 
                   <Link href="/contact">
@@ -985,6 +1146,18 @@ export function OrdersTab({
           initialMode={returnTarget.mode}
           onClose={() => {
             setReturnTarget(null);
+            handleRefetch();
+          }}
+        />
+      )}
+
+      {shippingReturn && (
+        <ShipReturnModal
+          open={Boolean(shippingReturn)}
+          request={shippingReturn}
+          onClose={() => setShippingReturn(null)}
+          onSuccess={() => {
+            setShippingReturn(null);
             handleRefetch();
           }}
         />

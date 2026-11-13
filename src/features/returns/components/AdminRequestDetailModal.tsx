@@ -13,6 +13,7 @@ import {
   availableActions,
   formatStoreDate,
   REPLACEMENT_TRANSITIONS,
+  RETURN_DEADLINES,
   RETURN_DISPOSITION_HINTS,
   RETURN_DISPOSITION_LABELS,
   RETURN_DISPOSITIONS,
@@ -314,6 +315,37 @@ export function AdminRequestDetailModal({ kind, uuid, onClose }: Props) {
             <RequestStatusBadge status={req.status} kind={kind === "returns" ? "return" : "replacement"} />
           </div>
 
+          {kind === "returns" && ["return_requested", "under_review"].includes(req.status) && req.adminDeadline && (
+            <div
+              className={`flex items-start gap-2 rounded-xl border px-4 py-2.5 text-xs ${
+                req.adminDeadlineExpired
+                  ? "border-red-200 bg-red-50 text-red-800"
+                  : (req.adminDaysLeft ?? 0) <= 2
+                  ? "border-amber-200 bg-amber-50 text-amber-900"
+                  : "border-blue-200 bg-blue-50 text-blue-900"
+              }`}
+            >
+              <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+              <span>
+                {req.adminDeadlineExpired ? (
+                  <>
+                    <strong>Admin decision deadline expired</strong> ({formatStoreDate(new Date(req.adminDeadline))}).
+                    This request was not reviewed within {RETURN_DEADLINES.ADMIN_APPROVAL_DAYS} days and is subject to automatic rejection.
+                  </>
+                ) : (
+                  <>
+                    <strong>Admin Review Window:</strong> You have {RETURN_DEADLINES.ADMIN_APPROVAL_DAYS} days from request submission to approve or reject this request.
+                    Deadline: <strong>{formatStoreDate(new Date(req.adminDeadline))}</strong>
+                    {typeof req.adminDaysLeft === "number"
+                      ? ` (${req.adminDaysLeft} ${req.adminDaysLeft === 1 ? "day" : "days"} left)`
+                      : ""}
+                    . If no action is taken, it will automatically expire.
+                  </>
+                )}
+              </span>
+            </div>
+          )}
+
           {kind === "returns" && req.status === "approved" && req.shipDeadline && (
             <div
               className={`flex items-start gap-2 rounded-xl border px-4 py-2.5 text-xs ${
@@ -383,10 +415,28 @@ export function AdminRequestDetailModal({ kind, uuid, onClose }: Props) {
               <p className="font-mono font-semibold">{req.orderNumber}</p>
               <p>Status: {req.orderStatus}</p>
               <p>Delivered: {req.deliveredAt ? formatDateTime(req.deliveredAt) : "—"}</p>
-              <p>
-                {kind === "returns" ? "Return" : "Replacement"} deadline:{" "}
-                {req.returnDeadline ? formatDateTime(req.returnDeadline) : "—"}
-              </p>
+              {kind === "returns" && ["return_requested", "under_review"].includes(req.status) && req.adminDeadline ? (
+                <p>
+                  Admin Decision Deadline:{" "}
+                  <strong className={req.adminDeadlineExpired ? "text-red-600" : "text-neutral-900"}>
+                    {formatStoreDate(new Date(req.adminDeadline))}
+                    {typeof req.adminDaysLeft === "number" ? ` (${req.adminDaysLeft}d left)` : ""}
+                  </strong>
+                </p>
+              ) : kind === "returns" && req.status === "approved" && req.shipDeadline ? (
+                <p>
+                  Customer Courier Deadline:{" "}
+                  <strong className={req.shipWindowExpired ? "text-red-600" : "text-neutral-900"}>
+                    {formatStoreDate(new Date(req.shipDeadline))}
+                    {typeof req.shipDaysLeft === "number" ? ` (${req.shipDaysLeft}d left)` : ""}
+                  </strong>
+                </p>
+              ) : (
+                <p>
+                  {kind === "returns" ? "Return" : "Replacement"} deadline:{" "}
+                  {req.returnDeadline ? formatDateTime(req.returnDeadline) : "—"}
+                </p>
+              )}
               {req.orderTotal !== undefined && <p>Order total: {formatPrice(req.orderTotal)}</p>}
             </Block>
             <Block title="Customer Pickup Address">

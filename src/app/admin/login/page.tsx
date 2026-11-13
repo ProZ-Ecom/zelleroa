@@ -184,7 +184,7 @@ function AdminLoginForm() {
             name="email"
             label="Email Address"
             type="email"
-            placeholder="admin@zellora.com"
+            placeholder="Enter your email"
             autoComplete="email"
             leftIcon={<Mail size={18} />}
             required

@@ -122,7 +122,7 @@ export interface CsvColumn<TData> {
 }
 
 /** Exports raw array data to CSV using column definitions or object keys. */
-export function exportDataToCsv<TData extends Record<string, unknown>>(
+export function exportDataToCsv<TData>(
   data: TData[],
   fileName: string,
   columns?: CsvColumn<TData>[]
@@ -132,9 +132,9 @@ export function exportDataToCsv<TData extends Record<string, unknown>>(
   const cols: CsvColumn<TData>[] =
     columns && columns.length > 0
       ? columns
-      : Object.keys(data[0])
+      : Object.keys((data[0] || {}) as object)
           .filter((k) => !SKIPPED_COLUMNS.has(k.toLowerCase()))
-          .map((k) => ({ key: k, header: k }));
+          .map((k) => ({ key: k, header: k } as CsvColumn<TData>));
 
   const headerLine = cols.map((c) => escapeCsv(c.header));
   const lines = data.map((row) =>
@@ -144,14 +144,14 @@ export function exportDataToCsv<TData extends Record<string, unknown>>(
         if (c.accessor) {
           val = c.accessor(row);
         } else if (c.key) {
-          val = row[c.key as string];
+          val = (row as Record<string, unknown>)[c.key as string];
         }
         return escapeCsv(formatCell(val));
       })
       .join(",")
   );
 
-  const csv = "﻿" + [headerLine.join(","), ...lines].join("\r\n");
+  const csv = "\uFEFF" + [headerLine.join(","), ...lines].join("\r\n");
   const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8;" }));
   const a = document.createElement("a");
   a.href = url;

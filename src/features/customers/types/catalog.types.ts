@@ -115,6 +115,7 @@ export interface CustomerVariantListItemDto {
   colorHex: string | null;
   /** Full set of images for this color - the gallery to show when this variant/color is selected. */
   images: CustomerVariantImageDto[];
+  inStock?: boolean;
   outOfStock?: boolean;
   // Full list of sellable Sizes/pack sizes for this color - each independently
   // priced. `sku`/`basePrice`/`salePrice`/`measurement` above mirror the

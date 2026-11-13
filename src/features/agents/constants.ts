@@ -1,5 +1,7 @@
+import { RETURN_WINDOW_DAYS } from "@/features/returns/lib/deadlines";
+
 export const RETURN_PERIOD_SETTING_KEY = "agent_commission_return_period_days";
-export const DEFAULT_RETURN_PERIOD_DAYS = 3;
+export const DEFAULT_RETURN_PERIOD_DAYS = RETURN_WINDOW_DAYS;
 
 /**
  * When on, a commission that clears its return period goes straight to
