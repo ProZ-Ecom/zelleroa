@@ -46,6 +46,8 @@ const MODULE_ROUTES: Array<{ prefix: string; module: string }> = [
   { prefix: "/api/admin/delivery", module: "DELIVERY" },
   { prefix: "/api/staff/deliveries", module: "DELIVERY" },
   { prefix: "/api/admin/payments", module: "PAYMENT" },
+  { prefix: "/api/admin/pos", module: "POS" },
+  { prefix: "/api/admin/pos/stores", module: "POS_STORE" },
   { prefix: "/api/dashboard", module: "DASHBOARD" },
 
   // Catalog
@@ -134,6 +136,9 @@ const ACTION_SUFFIXES: Array<{ match: RegExp; action: string }> = [
   { match: /\/reassign$/, action: "TRANSFER" },
   { match: /\/agent$/, action: "TRANSFER" },
   { match: /\/debit-note$/, action: "DEBIT_NOTE" },
+  { match: /\/bill$/, action: "BILL" },
+  { match: /\/void$/, action: "VOID" },
+  { match: /\/shift(\/(open|close))?$/, action: "SHIFT" },
   { match: /\/mark-paid$/, action: "APPROVE" },
   { match: /\/send$/, action: "CAMPAIGN_SEND" },
   { match: /\/campaigns$/, action: "CAMPAIGN_VIEW" },
