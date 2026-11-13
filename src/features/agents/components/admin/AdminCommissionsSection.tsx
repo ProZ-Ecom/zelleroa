@@ -12,6 +12,7 @@ import {
   COMMISSION_STATUS_OPTIONS,
   ORDER_STATUS_OPTIONS,
   Panel,
+  ProductWithQuantity,
   SimpleTable,
   StatusBadge,
   dateOnly,
@@ -110,7 +111,17 @@ export function AdminCommissionsSection({ fixedAgent, allowApprove = true }: { f
               { header: "Order", cell: (r) => <span className="font-mono text-xs">{r.orderNumber}</span> },
               { header: "Referral code", cell: (r) => <span className="font-mono text-xs">{r.referralCode ?? "—"}</span> },
               { header: "Customer", cell: (r) => r.customerName },
-              { header: "Product", cell: (r) => `${r.productName} × ${r.quantity}` },
+              {
+                header: "Product",
+                cell: (r) => (
+                  <ProductWithQuantity
+                    productName={r.productName}
+                    quantity={r.quantity}
+                    originalQuantity={r.originalQuantity}
+                    returnedQuantity={r.returnedQuantity}
+                  />
+                ),
+              },
               { header: "Category", cell: (r) => r.categoryName ?? "—" },
               { header: "Product amount", cell: (r) => money(r.productAmount) },
               { header: "%", cell: (r) => <span title={`Rate source: ${r.rateSource}`}>{pct(r.percentage)}</span> },
