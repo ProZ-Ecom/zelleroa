@@ -1,9 +1,11 @@
 "use client";
 
 import React, { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Check } from "lucide-react";
 import { formatPrice, getImageUrl } from "@/lib/utils";
 import { ProductImage } from "@/components/common/ProductImage";
+import { toast } from "@/components/ui/Toast";
 import type { CustomerProfileResponse } from "../../types";
 import type { OrderDetailResponse } from "@/features/orders/types";
 import { useAddToCartMutation } from "../../hooks/use-customer-cart";
@@ -26,6 +28,7 @@ export function DashboardTab({
   isLoading = false,
   onNavigateTab,
 }: DashboardTabProps) {
+  const router = useRouter();
   const userName = profile?.name || "Customer";
   const addToCartMutation = useAddToCartMutation();
   const [addingVariantId, setAddingVariantId] = useState<string | null>(null);
@@ -130,6 +133,7 @@ export function DashboardTab({
   // Extract past ordered items for "Buy Again"
   interface BuyAgainItem {
     variantId?: string;
+    variantUnitPriceId?: string;
     name: string;
     price: number;
     image: string | null;
@@ -141,6 +145,7 @@ export function DashboardTab({
     o.items?.forEach((item: any) => {
       const key = item.productName || item.product_name_snapshot || "";
       const vId = item.variantId ? String(item.variantId) : undefined;
+      const vUpId = item.variantUnitPriceId ? String(item.variantUnitPriceId) : undefined;
       const imgSrc =
         item.primaryImage ||
         item.image ||
@@ -150,8 +155,9 @@ export function DashboardTab({
         null;
 
       if (key && !pastItemsMap.has(key)) {
-       pastItemsMap.set(key, {
+        pastItemsMap.set(key, {
           variantId: vId,
+          variantUnitPriceId: vUpId,
           name: key,
           price: typeof item.unitPrice === "number" ? item.unitPrice : Number(item.unitPrice || 0),
           image: imgSrc || (item as any).primaryImage || (item as any).image || null,
@@ -163,21 +169,32 @@ export function DashboardTab({
   const buyAgainItems = Array.from(pastItemsMap.values()).slice(0, 4);
 
   const handleBuyAgain = async (item: BuyAgainItem) => {
-    if (!item.variantId) {
-      onNavigateTab("orders");
+    const itemKey = item.variantUnitPriceId || item.variantId || item.name;
+    if (!item.variantUnitPriceId && !item.variantId) {
+      toast.error(
+        "Could not reorder item",
+        "Product variant information is unavailable."
+      );
       return;
     }
-    setAddingVariantId(item.variantId);
+
+    setAddingVariantId(itemKey);
     try {
       await addToCartMutation.mutateAsync({
-        variantId: item.variantId,
+        ...(item.variantUnitPriceId ? { variantUnitPriceId: item.variantUnitPriceId } : {}),
+        ...(item.variantId ? { variantId: item.variantId } : {}),
         quantity: 1,
       });
-      setAddedVariantId(item.variantId);
-      setTimeout(() => setAddedVariantId(null), 3000);
-    } catch (err) {
+      setAddedVariantId(itemKey);
+      toast.success(
+        "Added to cart",
+        `${item.name} has been added to your cart.`
+      );
+      router.push("/cart");
+    } catch (err: any) {
       console.error("Failed to add to cart:", err);
-      onNavigateTab("orders");
+      const msg = err?.message || "Failed to add item to cart";
+      toast.error("Could not reorder item", msg);
     } finally {
       setAddingVariantId(null);
     }
@@ -522,26 +539,33 @@ export function DashboardTab({
                   </div>
 
                   <div className="flex flex-col gap-1.5 mt-1">
-                    <button
-                      type="button"
-                      disabled={addingVariantId === item.variantId}
-                      onClick={() => handleBuyAgain(item)}
-                      className={`w-full text-xs font-semibold uppercase tracking-wider py-2.5 rounded-md transition-colors cursor-pointer min-h-[40px] ${
-                        addedVariantId === item.variantId
-                          ? "bg-green-600 text-white"
-                          : "bg-theme-secondary hover:bg-theme-secondary-hover text-theme-secondary-fg"
-                      } disabled:opacity-50`}
-                    >
-                      {addingVariantId === item.variantId ? (
-                        "Adding..."
-                      ) : addedVariantId === item.variantId ? (
-                        <span className="inline-flex items-center gap-1">
-                          <Check className="h-3.5 w-3.5" /> Added to Cart
-                        </span>
-                      ) : (
-                        "Reorder"
-                      )}
-                    </button>
+                    {(() => {
+                      const itemKey = item.variantUnitPriceId || item.variantId || item.name;
+                      const isAdding = addingVariantId === itemKey;
+                      const isAdded = addedVariantId === itemKey;
+                      return (
+                        <button
+                          type="button"
+                          disabled={isAdding}
+                          onClick={() => handleBuyAgain(item)}
+                          className={`w-full text-xs font-semibold uppercase tracking-wider py-2.5 rounded-md transition-colors cursor-pointer min-h-[40px] ${
+                            isAdded
+                              ? "bg-green-600 text-white"
+                              : "bg-theme-secondary hover:bg-theme-secondary-hover text-theme-secondary-fg"
+                          } disabled:opacity-50`}
+                        >
+                          {isAdding ? (
+                            "Adding to Cart..."
+                          ) : isAdded ? (
+                            <span className="inline-flex items-center gap-1">
+                              <Check className="h-3.5 w-3.5" /> Added to Cart
+                            </span>
+                          ) : (
+                            "Reorder"
+                          )}
+                        </button>
+                      );
+                    })()}
 
                     <button
                       type="button"

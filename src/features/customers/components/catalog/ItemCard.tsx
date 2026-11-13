@@ -197,11 +197,9 @@ export function ItemCard(props: ItemCardProps | CompactItemCardProps) {
           )}
         </div>
       </Link>
-      {!isOut && (
-        <div className="px-2.5 pb-2.5 sm:px-3 sm:pb-3">
-          <ItemQuickAdd itemId={item.id} />
-        </div>
-      )}
+      <div className="px-2.5 pb-2.5 sm:px-3 sm:pb-3">
+        <ItemQuickAdd itemId={item.id} name={displayName} inStock={!isOut} outOfStock={isOut} />
+      </div>
     </div>
   );
 }

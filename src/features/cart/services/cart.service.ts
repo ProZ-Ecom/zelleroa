@@ -189,7 +189,12 @@ export const cartService = {
     let unitPrice = input.variantUnitPriceId
       ? await db.variantUnitPrice.findFirst({
           where: {
-            uuid: input.variantUnitPriceId,
+            OR: [
+              { uuid: input.variantUnitPriceId },
+              ...(/^\d+$/.test(input.variantUnitPriceId)
+                ? [{ id: BigInt(input.variantUnitPriceId) }]
+                : []),
+            ],
             deleted_at: null,
           },
           include: {
@@ -199,14 +204,19 @@ export const cartService = {
         })
       : null;
 
-    // If not found by unit price UUID or variantId was passed directly, try finding by variant UUID
+    // If not found by unit price UUID/ID or variantId was passed directly, try finding by variant UUID/ID
     if (!unitPrice) {
-      const variantUuid = input.variantId || input.variantUnitPriceId;
-      if (variantUuid) {
+      const variantKey = input.variantId || input.variantUnitPriceId;
+      if (variantKey) {
         // Try finding default unit price of variant
         unitPrice = await db.variantUnitPrice.findFirst({
           where: {
-            variant: { uuid: variantUuid },
+            variant: {
+              OR: [
+                { uuid: variantKey },
+                ...(/^\d+$/.test(variantKey) ? [{ id: BigInt(variantKey) }] : []),
+              ],
+            },
             deleted_at: null,
           },
           orderBy: [{ is_default: "desc" }, { createdAt: "asc" }],

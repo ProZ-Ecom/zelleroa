@@ -52,6 +52,7 @@ import { APP_NAME } from "@/lib/constants";
 import { useSession } from "next-auth/react";
 import { useLogout } from "@/features/auth/hooks/use-auth-mutations";
 import { Drawer } from "@/components/common/drawer";
+import { LogoutConfirmDialog } from "@/components/common/LogoutConfirmDialog";
 import { useAdminAccess } from "@/features/access";
 import { permissionForAdminPath } from "@/lib/permissions/admin-routes";
 
@@ -410,14 +411,14 @@ function SidebarNavigation({
 
 function SidebarFooter({ collapsed }: { collapsed?: boolean }) {
   const { data: session } = useSession();
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const name = session?.user?.name || "Admin";
   const role = (session?.user as { role?: string })?.role;
   const roleLabel = role ? role.charAt(0) + role.slice(1).toLowerCase() : "Administrator";
 
   const logout = useLogout("/admin/login");
   const handleLogout = () => {
-    if (logout.isPending) return;
-    logout.mutate();
+    setShowLogoutConfirm(true);
   };
 
   const actionBase =
@@ -457,6 +458,13 @@ function SidebarFooter({ collapsed }: { collapsed?: boolean }) {
           {!collapsed && "Logout"}
         </button>
       </div>
+
+      <LogoutConfirmDialog
+        open={showLogoutConfirm}
+        onClose={() => setShowLogoutConfirm(false)}
+        onConfirm={() => logout.mutate()}
+        isLoading={logout.isPending}
+      />
     </div>
   );
 }

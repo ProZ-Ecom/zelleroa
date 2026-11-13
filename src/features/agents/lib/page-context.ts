@@ -50,3 +50,9 @@ export function pageParam(sp: SearchParams) {
   const n = Number(raw);
   return Number.isFinite(n) && n > 0 ? Math.floor(n) : 1;
 }
+
+export function limitParam(sp: SearchParams, fallback = 10) {
+  const raw = Array.isArray(sp.limit) ? sp.limit[0] : sp.limit ?? (Array.isArray(sp.pageSize) ? sp.pageSize[0] : sp.pageSize);
+  const n = Number(raw);
+  return Number.isFinite(n) && n > 0 ? Math.floor(n) : fallback;
+}

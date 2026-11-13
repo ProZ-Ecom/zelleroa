@@ -14,6 +14,7 @@ import {
   RETURN_SELECTABLE_STATUSES,
   returnStatusLabel,
   statusLabel,
+  formatStoreDate,
 } from "../lib/policy";
 import { useAdminRequests, type RequestKind } from "../hooks/use-returns";
 import { RequestStatusBadge } from "./RequestStatusBadge";
@@ -42,7 +43,8 @@ export function AdminRequestsTable({ kind }: { kind: RequestKind }) {
   const isReturn = kind === "returns";
 
   return (
-    <div className="flex h-full min-h-0 flex-col gap-3">
+    <div className="flex h-full min-h-0 flex-col gap-3">
+
       <form
         className="flex flex-wrap items-center gap-3"
         onSubmit={(e) => {
@@ -197,8 +199,52 @@ export function AdminRequestsTable({ kind }: { kind: RequestKind }) {
                 </td>
                 <td className="px-3 py-2.5 whitespace-nowrap">{formatDateTime(r.requestedAt)}</td>
                 {isReturn && (
-                  <td className="px-3 py-2.5 whitespace-nowrap">
-                    {r.returnDeadline ? formatDateTime(r.returnDeadline) : "—"}
+                  <td className="px-3 py-2.5 whitespace-nowrap text-xs">
+                    {["return_requested", "under_review"].includes(r.status) && r.adminDeadline ? (
+                      <div className="flex flex-col">
+                        <span className="font-semibold text-neutral-900">
+                          {formatStoreDate(new Date(r.adminDeadline))}
+                        </span>
+                        <span
+                          className={`text-[10px] font-bold ${
+                            r.adminDeadlineExpired
+                              ? "text-red-600"
+                              : (r.adminDaysLeft ?? 0) <= 2
+                              ? "text-amber-700 font-extrabold"
+                              : "text-blue-700"
+                          }`}
+                        >
+                          {r.adminDeadlineExpired
+                            ? "Review expired"
+                            : `${r.adminDaysLeft}d left to Approve`}
+                        </span>
+                      </div>
+                    ) : r.status === "approved" && r.shipDeadline ? (
+                      <div className="flex flex-col">
+                        <span className="font-semibold text-neutral-900">
+                          {formatStoreDate(new Date(r.shipDeadline))}
+                        </span>
+                        <span
+                          className={`text-[10px] font-bold ${
+                            r.shipWindowExpired
+                              ? "text-red-600"
+                              : (r.shipDaysLeft ?? 0) <= 1
+                              ? "text-amber-700 font-extrabold"
+                              : "text-blue-700"
+                          }`}
+                        >
+                          {r.shipWindowExpired
+                            ? "Shipment expired"
+                            : `${r.shipDaysLeft}d left to ship`}
+                        </span>
+                      </div>
+                    ) : r.returnDeadline ? (
+                      <span className="text-neutral-500">
+                        {formatStoreDate(new Date(r.returnDeadline))}
+                      </span>
+                    ) : (
+                      <span className="text-neutral-400">—</span>
+                    )}
                   </td>
                 )}
                 <td className="px-3 py-2.5">

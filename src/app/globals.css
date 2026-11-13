@@ -619,6 +619,50 @@ textarea:focus-visible {
   background-color: var(--secondary-800);
 }
 
+/* Return / Replace Action Button (Storefront / My Orders) */
+.btn-return-replace {
+  background-color: var(--theme-secondary-light, #fffbeb);
+  color: var(--tertiary-900, #78350f);
+  border: 1.5px solid var(--theme-secondary, #f59e0b);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.btn-return-replace:hover {
+  background-color: #78350f !important; /* Rich deep brown */
+  border-color: #582407 !important;
+  color: #ffffff !important;
+  box-shadow: 0 4px 14px 0 rgba(120, 53, 15, 0.35) !important;
+  transform: translateY(-1px);
+}
+
+.btn-return-replace:active {
+  transform: translateY(0);
+  background-color: #451a03 !important; /* Dark roasted espresso brown */
+  border-color: #451a03 !important;
+}
+
+.btn-return-replace svg {
+  color: var(--tertiary-700, #b45309);
+  transition: color 0.2s ease;
+}
+
+.btn-return-replace:hover svg {
+  color: #ffffff !important;
+}
+
+.btn-return-replace .return-badge {
+  background-color: var(--tertiary-200, #fde68a);
+  color: var(--tertiary-900, #78350f);
+  border: 1px solid var(--tertiary-300, #fcd34d);
+  transition: all 0.2s ease;
+}
+
+.btn-return-replace:hover .return-badge {
+  background-color: rgba(255, 255, 255, 0.2) !important;
+  border-color: rgba(255, 255, 255, 0.35) !important;
+  color: #ffffff !important;
+}
+
 .drawer-active {
   background-color: var(--secondary-800);
 }

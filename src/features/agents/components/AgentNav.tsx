@@ -25,6 +25,7 @@ import { APP_NAME } from "@/lib/constants";
 import { useLogout } from "@/features/auth/hooks/use-auth-mutations";
 import { ProfileAvatarRing } from "@/components/ui/ProfileAvatarRing";
 import { Tooltip } from "./Tooltip";
+import { LogoutConfirmDialog } from "@/components/common/LogoutConfirmDialog";
 
 type NavItem = { href: string; label: string; icon: LucideIcon };
 
@@ -116,10 +117,10 @@ export function AgentShell({
     });
   };
 
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const logout = useLogout("/login");
   const handleLogout = () => {
-    if (logout.isPending) return;
-    logout.mutate();
+    setShowLogoutConfirm(true);
   };
 
   const initial = name.trim().charAt(0).toUpperCase() || "A";
@@ -311,6 +312,16 @@ export function AgentShell({
         </header>
         <main className="flex w-full flex-1 flex-col gap-5 px-4 py-5 sm:px-6 sm:py-6">{children}</main>
       </div>
+
+      <LogoutConfirmDialog
+        open={showLogoutConfirm}
+        onClose={() => setShowLogoutConfirm(false)}
+        onConfirm={() => logout.mutate()}
+        isLoading={logout.isPending}
+        title="Sign Out"
+        description="Are you sure you want to sign out of the sales partner portal?"
+        confirmText="Sign Out"
+      />
     </div>
   );
 }

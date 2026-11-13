@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { Heart, ShoppingCart } from "lucide-react";
-import { formatPrice, getImageUrl } from "@/lib/utils";
+import { formatPrice } from "@/lib/utils";
 import { ProductImage } from "@/components/common/ProductImage";
 import { ProductRating } from "@/features/products/components/ProductRating";
 import { usePublicProductReviews } from "@/features/reviews/hooks/use-public-reviews";
@@ -149,7 +149,7 @@ export function SnackCard({
 
   return (
     <div
-      className={`group bg-theme-surface rounded-xl border border-theme-border pb-3 flex flex-col justify-between w-full max-w-sm transition-all duration-300 hover:shadow-md hover:border-theme-primary/40 ${className}`}
+      className={`group bg-theme-surface rounded-xl border border-theme-border pb-2.5 sm:pb-3 flex flex-col justify-between w-full max-w-sm overflow-hidden transition-all duration-300 hover:shadow-md hover:border-theme-primary/40 ${className}`}
     >
       {/* 1. Square Product Image Container */}
       <div className="relative aspect-square w-full overflow-hidden rounded-t-xl bg-theme-surface-alt">
@@ -193,17 +193,17 @@ export function SnackCard({
         )}
       </div>
 
-      {/* 2. Middle Info Row: Title on Left, Variants + Price on Right */}
-      <div className="mt-3.5 sm:mt-4 flex items-start justify-between gap-3 px-3">
-        {/* Left Column: Product/Variant Title */}
-        <div className="flex-1 pr-1 min-w-0">
+      {/* 2. Middle Info: Title on top, Variants & Price below with responsive wrapping */}
+      <div className="mt-2.5 sm:mt-3 flex flex-1 flex-col justify-between px-2.5 sm:px-3 min-w-0">
+        {/* Product/Variant Title */}
+        <div className="w-full min-w-0">
           {subtitle && (
-            <p className="text-[11px] sm:text-xs text-theme-text-subtle font-medium truncate mb-0.5">
+            <p className="text-[10px] sm:text-xs text-theme-text-subtle font-medium truncate mb-0.5">
               {subtitle}
             </p>
           )}
           <Link href={resolvedHref} className="block">
-            <h3 className="font-bold text-theme-text-primary text-sm sm:text-base tracking-tight leading-tight line-clamp-2 text-hover-primary transition-colors">
+            <h3 className="font-bold text-theme-text-primary text-xs sm:text-sm tracking-tight leading-snug line-clamp-2 text-hover-primary transition-colors break-words">
               {resolvedName}
             </h3>
           </Link>
@@ -212,11 +212,11 @@ export function SnackCard({
           )}
         </div>
 
-        {/* Right Column: Variant Selector & Prices */}
-        <div className="flex flex-col items-end shrink-0">
+        {/* Variant Selector Pills & Prices Container */}
+        <div className="mt-2 w-full min-w-0 flex flex-col gap-1.5">
           {/* Variant Selector Pills */}
           {!viewOnly && resolvedVariants.length > 0 && (
-            <div className="flex items-center gap-1.5 flex-wrap justify-end">
+            <div className="flex items-center gap-1.5 flex-wrap">
               {resolvedVariants.map((v) => {
                 const isSelected = v.id === activeVariant?.id;
                 return (
@@ -224,15 +224,15 @@ export function SnackCard({
                     key={v.id}
                     type="button"
                     onClick={() => handleSelectVariant(v.id)}
-                    className={`px-2 sm:px-2.5 py-0.5 text-xs font-bold rounded transition-all cursor-pointer select-none ${isSelected
+                    className={`px-1.5 sm:px-2 py-0.5 text-[10px] sm:text-xs font-bold rounded transition-all cursor-pointer select-none ${isSelected
                         ? "bg-theme-primary text-white border border-theme-primary"
                         : "bg-white text-theme-primary border border-theme-primary hover:bg-theme-primary-light"
                       }`}
                   >
                     {typeof v.label === "string"
                       ? v.label
-                      : typeof v.label === "object" && v.label !== null
-                        ? `${(v.label as any).value ?? ""} ${(v.label as any).unit ?? ""}`.trim() || "Standard"
+                      : typeof v.label === "object" && v.label !== null && "value" in v.label
+                        ? `${String((v.label as Record<string, unknown>).value ?? "")} ${String((v.label as Record<string, unknown>).unit ?? "")}`.trim() || "Standard"
                         : String(v.label || "")}
                   </button>
                 );
@@ -241,19 +241,19 @@ export function SnackCard({
           )}
 
           {/* Price & Strikethrough Row */}
-          <div className="flex items-baseline gap-1.5 sm:gap-2 mt-1.5 justify-end">
+          <div className="flex flex-wrap items-baseline gap-x-1.5 gap-y-0.5 min-w-0">
             {priceRangeText && (viewOnly || resolvedVariants.length === 0) ? (
-              <span className="font-bold text-theme-text-primary text-sm sm:text-base tracking-tight">
+              <span className="font-extrabold text-theme-text-primary text-xs sm:text-sm tracking-tight break-words">
                 {priceRangeText}
               </span>
             ) : (
               <>
-                <span className="font-bold text-theme-text-primary text-sm sm:text-base tracking-tight">
+                <span className="font-extrabold text-theme-text-primary text-xs sm:text-sm tracking-tight">
                   {formatPrice(currentPrice)}
                 </span>
 
                 {originalPrice && originalPrice > currentPrice && (
-                  <span className="text-xs sm:text-sm text-[var(--neutral-400)] line-through tracking-tight font-normal">
+                  <span className="text-[10px] sm:text-xs text-[var(--neutral-400)] line-through tracking-tight font-normal">
                     {formatPrice(originalPrice)}
                   </span>
                 )}
@@ -264,11 +264,11 @@ export function SnackCard({
       </div>
 
       {/* 3. Bottom Action: add to cart, or - for a Style - a link to its page */}
-      <div className="w-full px-3 mt-3.5 sm:mt-4">
+      <div className="w-full px-2.5 sm:px-3 mt-3 sm:mt-3.5">
         {viewOnly ? (
           <Link
             href={resolvedHref}
-            className="w-full bg-theme-primary-light text-theme-primary hover:bg-theme-primary hover:text-theme-primary-fg font-bold text-xs sm:text-sm tracking-wide uppercase py-2.5 sm:py-3 px-4 rounded-lg shadow-xs flex items-center justify-center gap-2 transition-all cursor-pointer"
+            className="w-full bg-theme-primary-light text-theme-primary hover:bg-theme-primary hover:text-theme-primary-fg font-bold text-xs sm:text-sm tracking-wide uppercase py-2 sm:py-2.5 px-3 rounded-lg shadow-xs flex items-center justify-center gap-2 transition-all cursor-pointer text-center"
           >
             {viewLabel}
           </Link>
@@ -277,7 +277,7 @@ export function SnackCard({
             type="button"
             disabled={disabled || isLoading || (activeVariant && activeVariant.inStock === false)}
             onClick={() => onAddToCart?.(activeVariant?.id)}
-            className="w-full bg-theme-primary-light text-theme-primary hover:bg-theme-primary hover:text-theme-primary-fg font-bold text-xs sm:text-sm tracking-wide uppercase py-2.5 sm:py-3 px-4 rounded-lg shadow-xs flex items-center justify-center gap-2 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full bg-theme-primary-light text-theme-primary hover:bg-theme-primary hover:text-theme-primary-fg font-bold text-xs sm:text-sm tracking-wide uppercase py-2 sm:py-2.5 px-3 rounded-lg shadow-xs flex items-center justify-center gap-2 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <ShoppingCart className="w-4 h-4" strokeWidth={2} />
             {isLoading

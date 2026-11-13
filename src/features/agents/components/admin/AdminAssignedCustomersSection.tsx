@@ -7,11 +7,13 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Select } from "@/components/ui/select";
 import type { AgentCustomerRow } from "../../services/agent.service";
 import { errorMessage, useAdminList, useAgentOptions } from "../../hooks/use-admin-agents";
-import { ButtonPager, Panel, SimpleTable, StatusBadge, TableSkeleton, dateOnly, money } from "../shared";
+import { Panel, SimpleTable, StatusBadge, TableSkeleton, dateOnly, money } from "../shared";
+import { ButtonPager } from "../AdminPagination";
 
 interface ReassignResult {
-  moved: number;
-  failed: { customerId: string; message: string }[];
+  moved?: number;
+  released?: number;
+  failed?: { customerId: string; message: string }[];
 }
 
 /**
@@ -21,6 +23,7 @@ interface ReassignResult {
 export function AdminAssignedCustomersSection({ agentId, agentActive }: { agentId: string; agentActive: boolean }) {
   const qc = useQueryClient();
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [toAgent, setToAgent] = useState("");
   const [reason, setReason] = useState("");
@@ -28,7 +31,7 @@ export function AdminAssignedCustomersSection({ agentId, agentActive }: { agentI
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
 
-  const { data, isLoading, error } = useAdminList<AgentCustomerRow>("assigned-customers", `/api/admin/agents/${agentId}/customers`, { page, limit: 20 });
+  const { data, isLoading, error } = useAdminList<AgentCustomerRow>("assigned-customers", `/api/admin/agents/${agentId}/customers`, { page, limit: pageSize });
   const { data: options } = useAgentOptions();
   const choices = (options ?? []).filter((o) => o.isActive && o.id !== agentId);
   const target = choices.find((o) => o.id === toAgent);
@@ -60,8 +63,8 @@ export function AdminAssignedCustomersSection({ agentId, agentActive }: { agentI
       setMsg({
         ok: true,
         text: isRelease
-          ? `${(res.data as any)?.released ?? (isSelected ? selected.size : total)} customer(s) released to the open pool.`
-          : `${r.moved} customer(s) moved.${r.failed?.length ? ` ${r.failed.length} failed: ${r.failed[0].message}.` : ""} Past orders and commissions stay with this Sales Partner.`,
+          ? `${r?.released ?? (isSelected ? selected.size : total)} customer(s) released to the open pool.`
+          : `${r.moved ?? 0} customer(s) moved.${r.failed?.length ? ` ${r.failed.length} failed: ${r.failed[0].message}.` : ""} Past orders and commissions stay with this Sales Partner.`,
       });
       setSelected(new Set());
       await qc.invalidateQueries({ queryKey: ["agents-admin"] });
@@ -174,7 +177,17 @@ export function AdminAssignedCustomersSection({ agentId, agentActive }: { agentI
               { header: "Status", cell: (r) => <StatusBadge status={r.status} /> },
             ]}
           />
-          <ButtonPager page={page} totalPages={data?.meta.totalPages ?? 1} total={total} onPage={setPage} />
+          <ButtonPager
+            page={page}
+            totalPages={data?.meta.totalPages ?? 1}
+            total={total}
+            onPage={setPage}
+            pageSize={pageSize}
+            onPageSizeChange={(newSize) => {
+              setPageSize(newSize);
+              setPage(1);
+            }}
+          />
         </>
       )}
 

@@ -30,11 +30,73 @@ const STATUS_STYLES: Record<string, string> = {
   active: "bg-emerald-50 text-emerald-700 border-emerald-200",
   inactive: "bg-neutral-100 text-neutral-600 border-neutral-200",
   ended: "bg-neutral-100 text-neutral-600 border-neutral-200",
+  // returns & replacements
+  return_requested: "bg-amber-50 text-amber-800 border-amber-200",
+  under_review: "bg-purple-50 text-purple-800 border-purple-200",
+  return_approved: "bg-blue-50 text-blue-800 border-blue-200",
+  return_shipped: "bg-indigo-50 text-indigo-800 border-indigo-200",
+  shipped_by_customer: "bg-indigo-50 text-indigo-800 border-indigo-200",
+  return_received: "bg-teal-50 text-teal-800 border-teal-200",
+  received: "bg-teal-50 text-teal-800 border-teal-200",
+  refund_pending: "bg-amber-50 text-amber-800 border-amber-200",
+  refunded: "bg-red-50 text-red-700 border-red-200",
+  qc_failed: "bg-red-50 text-red-700 border-red-200",
+  returning_to_customer: "bg-amber-50 text-amber-800 border-amber-200",
+  returned_to_customer: "bg-neutral-100 text-neutral-700 border-neutral-200",
+  return_rejected: "bg-red-50 text-red-700 border-red-200",
+  return_expired: "bg-neutral-100 text-neutral-700 border-neutral-300",
+  return_cancelled: "bg-neutral-100 text-neutral-700 border-neutral-300",
+  return_closed: "bg-neutral-100 text-neutral-600 border-neutral-200",
+  closed: "bg-neutral-100 text-neutral-600 border-neutral-200",
+  replacement_requested: "bg-amber-50 text-amber-800 border-amber-200",
+  replacement_approved: "bg-blue-50 text-blue-800 border-blue-200",
+  replacement_processing: "bg-sky-50 text-sky-700 border-sky-200",
+  replacement_shipped: "bg-indigo-50 text-indigo-700 border-indigo-200",
+  replaced: "bg-emerald-50 text-emerald-800 border-emerald-200",
+  replacement_rejected: "bg-red-50 text-red-700 border-red-200",
+  replacement_expired: "bg-neutral-100 text-neutral-700 border-neutral-300",
+  replacement_cancelled: "bg-neutral-100 text-neutral-700 border-neutral-300",
+  replacement_closed: "bg-neutral-100 text-neutral-600 border-neutral-200",
+};
+
+const PRODUCT_ORDER_STATUS_LABELS: Record<string, string> = {
+  return_requested: "Return Requested",
+  under_review: "Return Under Review",
+  return_approved: "Return Approved",
+  return_shipped: "Return Shipped",
+  shipped_by_customer: "Return Shipped",
+  return_received: "Return Received",
+  received: "Return Received",
+  refund_pending: "Refund Pending",
+  refunded: "Returned",
+  returned: "Returned",
+  qc_failed: "QC Failed",
+  returning_to_customer: "Sending Back",
+  returned_to_customer: "Returned to Customer",
+  return_rejected: "Return Rejected",
+  return_expired: "Return Expired",
+  return_cancelled: "Return Cancelled",
+  return_closed: "Return Closed",
+  closed: "Return Closed",
+  replacement_requested: "Replacement Requested",
+  replacement_approved: "Replacement Approved",
+  replacement_processing: "Replacement Processing",
+  replacement_shipped: "Replacement Shipped",
+  replaced: "Replaced",
+  replacement_rejected: "Replacement Rejected",
+  replacement_expired: "Replacement Expired",
+  replacement_cancelled: "Replacement Cancelled",
+  replacement_closed: "Replacement Closed",
 };
 
 export function humanize(value: string | null | undefined) {
   if (!value) return "—";
-  return COMMISSION_STATUS_LABELS[value] ?? PAYOUT_STATUS_LABELS[value] ?? value.replace(/_/g, " ").replace(/^\w/, (c) => c.toUpperCase());
+  return (
+    COMMISSION_STATUS_LABELS[value] ??
+    PAYOUT_STATUS_LABELS[value] ??
+    PRODUCT_ORDER_STATUS_LABELS[value] ??
+    value.replace(/_/g, " ").replace(/^\w/, (c) => c.toUpperCase())
+  );
 }
 
 export function StatusBadge({ status, className, title }: { status: string | null | undefined; className?: string; title?: string }) {
@@ -43,7 +105,7 @@ export function StatusBadge({ status, className, title }: { status: string | nul
     <span
       title={title}
       className={cn(
-        "inline-flex items-center whitespace-nowrap rounded-full border px-2.5 py-0.5 text-xs font-semibold",
+        "inline-flex items-center justify-center text-center whitespace-nowrap rounded-full border px-2.5 py-0.5 text-xs font-semibold",
         STATUS_STYLES[status] ?? "bg-neutral-100 text-neutral-700 border-neutral-200",
         className
       )}
@@ -90,9 +152,9 @@ export function Panel({
   className?: string;
 }) {
   return (
-    <section className={cn("overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-xs", className)}>
+    <section className={cn("overflow-hidden rounded-2xl border border-neutral-200/70 bg-white shadow-[0_1px_2px_rgba(16,24,40,0.04),0_8px_24px_-8px_rgba(16,24,40,0.08)]", className)}>
       {(title || action) && (
-        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-neutral-100 px-4 py-3.5 sm:px-5">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-neutral-100 px-4 py-3.5 sm:px-5 bg-white">
           <h2 className="text-sm font-bold tracking-tight text-neutral-900">{title}</h2>
           {action}
         </div>
@@ -143,143 +205,122 @@ export interface Column<T> {
   header: string;
   cell: (row: T) => React.ReactNode;
   className?: string;
+  headerClassName?: string;
   /** Pin this column to the right edge while the table scrolls horizontally. */
   stickyRight?: boolean;
 }
 
-const STICKY_RIGHT = "sticky right-0 shadow-[-4px_0_6px_-2px_rgba(0,0,0,0.06)]";
+const STICKY_RIGHT_HEADER =
+  "text-center sticky top-0 right-0 z-30 shadow-[-8px_0_12px_-6px_rgba(28,25,23,0.3)] bg-stone-900 text-[#D4AF37] border-b border-stone-800";
+const STICKY_RIGHT_CELL =
+  "text-center [&>div]:justify-center [&>div]:items-center sticky right-0 z-20 shadow-[-8px_0_12px_-6px_rgba(16,24,40,0.06)] bg-white group-hover:bg-neutral-50/80 border-b border-neutral-100";
 
-/** Plain responsive table: scrolls horizontally on small screens instead of breaking layout. */
+/** Responsive admin table with signature luxury dark stone & gold header matching DataTable. */
 export function SimpleTable<T>({
   columns,
   rows,
   rowKey,
   empty = "Nothing to show yet.",
+  className,
+  tableClassName,
 }: {
   columns: Column<T>[];
   rows: T[];
   rowKey: (row: T) => string;
   empty?: string;
+  className?: string;
+  tableClassName?: string;
 }) {
-  if (rows.length === 0) {
-    return (
-      <div className="flex flex-col items-center gap-2 px-5 py-10 text-center">
-        <span className="flex h-10 w-10 items-center justify-center rounded-full bg-neutral-100 text-neutral-400">
-          <Inbox className="h-5 w-5" />
-        </span>
-        <p className="max-w-xs text-sm text-neutral-500">{empty}</p>
-      </div>
-    );
-  }
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full min-w-max text-left text-sm">
+    <div
+      tabIndex={0}
+      role="region"
+      aria-label="Scrollable table content"
+      className={cn(
+        "relative flex-1 min-h-0 overflow-auto overscroll-x-contain scrollbar-table focus:outline-hidden focus-visible:ring-1 focus-visible:ring-secondary-300",
+        className
+      )}
+    >
+      <table
+        className={cn(
+          "w-full min-w-max table-auto caption-bottom text-sm border-separate border-spacing-0",
+          tableClassName
+        )}
+      >
         <thead>
-          <tr className="border-b border-neutral-100 bg-neutral-50 text-[11px] uppercase tracking-wider text-neutral-500">
-            {columns.map((c, i) => (
-              <th key={`${i}-${c.header}`} className={cn("px-4 py-2.5 font-semibold", c.stickyRight && cn(STICKY_RIGHT, "z-10 bg-neutral-50"), c.className)}>
-                {c.header}
-              </th>
-            ))}
+          <tr className="transition-colors">
+            {columns.map((c, i) => {
+              const isActions =
+                Boolean(c.stickyRight) ||
+                c.header.toLowerCase() === "actions" ||
+                c.header.trim() === "";
+              return (
+                <th
+                  key={`${i}-${c.header}`}
+                  className={cn(
+                    "group/th h-12 px-4 text-left align-middle text-[11px] font-semibold tracking-[0.08em] whitespace-nowrap uppercase sm:px-5 bg-stone-900 text-[#D4AF37] border-b border-stone-800 shadow-[0_1px_3px_rgba(28,25,23,0.2)] sticky top-0 z-10",
+                    isActions && STICKY_RIGHT_HEADER,
+                    c.headerClassName,
+                    c.className
+                  )}
+                >
+                  <div
+                    className={cn(
+                      "flex items-center gap-1",
+                      isActions ? "justify-center" : ""
+                    )}
+                  >
+                    {c.header}
+                  </div>
+                </th>
+              );
+            })}
           </tr>
         </thead>
         <tbody>
-          {rows.map((row) => (
-            <tr key={rowKey(row)} className="group border-b border-neutral-100 last:border-0 transition-colors hover:bg-neutral-50">
-              {columns.map((c, i) => (
-                <td key={`${i}-${c.header}`} className={cn("px-4 py-3 align-middle text-neutral-800", c.stickyRight && cn(STICKY_RIGHT, "z-10 bg-white transition-colors group-hover:bg-neutral-50"), c.className)}>
-                  {c.cell(row)}
-                </td>
-              ))}
+          {rows.length > 0 ? (
+            rows.map((row) => (
+              <tr
+                key={rowKey(row)}
+                className="group transition-colors hover:bg-neutral-50/80 border-b border-neutral-100 last:border-0"
+              >
+                {columns.map((c, i) => {
+                  const isActions =
+                    Boolean(c.stickyRight) ||
+                    c.header.toLowerCase() === "actions" ||
+                    c.header.trim() === "";
+                  return (
+                    <td
+                      key={`${i}-${c.header}`}
+                      className={cn(
+                        "px-4 py-3.5 align-middle whitespace-nowrap sm:px-5 text-sm text-neutral-800 bg-white group-hover:bg-neutral-50/80 transition-colors border-b border-neutral-100",
+                        isActions && STICKY_RIGHT_CELL,
+                        c.className
+                      )}
+                    >
+                      {c.cell(row)}
+                    </td>
+                  );
+                })}
+              </tr>
+            ))
+          ) : (
+            <tr>
+              <td
+                colSpan={columns.length}
+                className="h-32 text-center text-neutral-500 bg-white border-b border-neutral-100"
+              >
+                <div className="flex flex-col items-center justify-center gap-2 py-8 text-center">
+                  <span className="flex h-10 w-10 items-center justify-center rounded-full bg-neutral-100 text-neutral-400">
+                    <Inbox className="h-5 w-5" />
+                  </span>
+                  <p className="max-w-xs text-sm text-neutral-500 font-medium">{empty}</p>
+                </div>
+              </td>
             </tr>
-          ))}
+          )}
         </tbody>
       </table>
-    </div>
-  );
-}
-
-/** Pagination via plain links (server-rendered pages). */
-export function LinkPager({
-  basePath,
-  params,
-  page,
-  totalPages,
-  total,
-}: {
-  basePath: string;
-  params: Record<string, string | undefined>;
-  page: number;
-  totalPages: number;
-  total: number;
-}) {
-  if (totalPages <= 1) {
-    return total > 0 ? <p className="px-5 py-3 text-xs text-neutral-500">{total} record(s)</p> : null;
-  }
-  const href = (p: number) => {
-    const search = new URLSearchParams();
-    for (const [k, v] of Object.entries(params)) if (v) search.set(k, v);
-    search.set("page", String(p));
-    return `${basePath}?${search.toString()}`;
-  };
-  const linkCls = "rounded-lg border border-neutral-200 px-3 py-1.5 text-xs font-medium hover:bg-neutral-50";
-  const disabledCls = "pointer-events-none opacity-40";
-  return (
-    <div className="flex items-center justify-between gap-3 px-4 py-3 text-xs text-neutral-600 sm:px-5">
-      <span>
-        Page {page} of {totalPages} · {total} record(s)
-      </span>
-      <div className="flex gap-2">
-        <Link href={href(Math.max(1, page - 1))} className={cn(linkCls, page <= 1 && disabledCls)} aria-disabled={page <= 1}>
-          Previous
-        </Link>
-        <Link
-          href={href(Math.min(totalPages, page + 1))}
-          className={cn(linkCls, page >= totalPages && disabledCls)}
-          aria-disabled={page >= totalPages}
-        >
-          Next
-        </Link>
-      </div>
-    </div>
-  );
-}
-
-/** Button pager for client (react-query) pages. */
-export function ButtonPager({
-  page,
-  totalPages,
-  total,
-  onPage,
-}: {
-  page: number;
-  totalPages: number;
-  total: number;
-  onPage: (p: number) => void;
-}) {
-  return (
-    <div className="flex items-center justify-between gap-3 border-t border-neutral-100 px-4 py-3 text-xs text-neutral-600 sm:px-5">
-      <span>
-        Page {page} of {Math.max(1, totalPages)} · {total} record(s)
-      </span>
-      <div className="flex gap-2">
-        <button
-          type="button"
-          disabled={page <= 1}
-          onClick={() => onPage(page - 1)}
-          className="rounded-lg border border-neutral-200 px-3 py-1.5 font-medium hover:bg-neutral-50 disabled:opacity-40"
-        >
-          Previous
-        </button>
-        <button
-          type="button"
-          disabled={page >= totalPages}
-          onClick={() => onPage(page + 1)}
-          className="rounded-lg border border-neutral-200 px-3 py-1.5 font-medium hover:bg-neutral-50 disabled:opacity-40"
-        >
-          Next
-        </button>
-      </div>
     </div>
   );
 }
@@ -345,6 +386,9 @@ export const ORDER_STATUS_OPTIONS = [
   "delivered",
   "cancelled",
   "returned",
+  "return_requested",
+  "return_approved",
+  "return_closed",
 ].map((v) => ({ value: v, label: humanize(v) }));
 
 export const ORDER_SOURCE_LABELS: Record<string, string> = {
@@ -419,13 +463,24 @@ export function CollapsiblePanel({
   );
 }
 
-/** Loading placeholder that matches SimpleTable's footprint. */
+/** Loading placeholder that matches SimpleTable's luxury dark/gold footprint. */
 export function TableSkeleton({ rows = 5 }: { rows?: number }) {
   return (
-    <div className="space-y-2 p-4 sm:p-5" role="status" aria-label="Loading">
-      {Array.from({ length: rows }, (_, i) => (
-        <div key={i} className="h-9 animate-pulse rounded-lg bg-neutral-100" />
-      ))}
+    <div className="w-full overflow-hidden" role="status" aria-label="Loading">
+      <div className="h-12 bg-stone-900 border-b border-stone-800 flex items-center px-4 sm:px-5 gap-4">
+        {Array.from({ length: 6 }).map((_, i) => (
+          <div key={i} className="h-3.5 bg-stone-800 rounded animate-pulse flex-1" />
+        ))}
+      </div>
+      <div className="divide-y divide-neutral-100 bg-white">
+        {Array.from({ length: rows }, (_, i) => (
+          <div key={i} className="flex items-center px-4 sm:px-5 py-3.5 gap-4">
+            {Array.from({ length: 6 }).map((_, j) => (
+              <div key={j} className="h-4 bg-neutral-100 rounded animate-pulse flex-1" />
+            ))}
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

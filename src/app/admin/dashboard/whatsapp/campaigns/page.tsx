@@ -139,7 +139,7 @@ export default function WhatsAppCampaignsPage() {
   const totalSentMessages = campaigns.reduce((acc, c) => acc + (c.sent_count || 0), 0);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 pb-12">
       <AdminPageHeader
         title="WhatsApp Campaigns"
         description="Schedule promotional festival offers, track live delivery progress, and reach 200–500 targeted customers safely with zero simultaneous blasting."

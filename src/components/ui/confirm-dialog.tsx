@@ -8,13 +8,15 @@ import { cn } from "@/lib/utils";
 interface ConfirmDialogProps {
   open: boolean;
   onClose: () => void;
-  onConfirm: () => void;
+  onConfirm: () => any;
   title?: string;
   description?: string;
   confirmText?: string;
   cancelText?: string;
   variant?: "default" | "destructive";
   isLoading?: boolean;
+  icon?: React.ReactNode;
+  autoClose?: boolean;
 }
 
 function ConfirmDialog({
@@ -27,6 +29,8 @@ function ConfirmDialog({
   cancelText = "Cancel",
   variant = "destructive",
   isLoading,
+  icon,
+  autoClose = true,
 }: ConfirmDialogProps) {
   const isDestructive = variant === "destructive";
 
@@ -41,11 +45,11 @@ function ConfirmDialog({
               : "bg-success-50 text-success-700"
           )}
         >
-          {isDestructive ? (
+          {icon ?? (isDestructive ? (
             <AlertTriangle className="h-6 w-6" />
           ) : (
             <CheckCircle2 className="h-6 w-6" />
-          )}
+          ))}
         </div>
         <h3 className="text-lg font-bold text-neutral-900 mb-2 tracking-tight">{title}</h3>
         <p className="text-sm text-neutral-500 mb-6 max-w-sm leading-relaxed">{description}</p>
@@ -64,9 +68,11 @@ function ConfirmDialog({
               "flex-1 rounded-xl font-semibold transition-colors cursor-pointer",
               !isDestructive && "bg-stone-900 hover:bg-stone-800 text-[#D4AF37] border border-[#D4AF37]/30 shadow-xs"
             )}
-            onClick={() => {
-              onConfirm();
-              onClose();
+            onClick={async () => {
+              await onConfirm();
+              if (autoClose) {
+                onClose();
+              }
             }}
             isLoading={isLoading}
           >

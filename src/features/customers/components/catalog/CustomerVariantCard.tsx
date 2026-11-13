@@ -40,10 +40,15 @@ export function CustomerVariantCard({ variant }: CustomerVariantCardProps) {
         label,
         price: up.sellingPrice,
         comparePrice: up.basePrice > up.sellingPrice ? up.basePrice : null,
-        inStock: !variant.outOfStock,
+        inStock:
+          up.inStock !== undefined
+            ? up.inStock
+            : variant.inStock !== undefined
+              ? variant.inStock
+              : !variant.outOfStock,
       };
     });
-  }, [variant.unitPrices, variant.outOfStock]);
+  }, [variant.unitPrices, variant.outOfStock, variant.inStock]);
 
   const defaultUnit = variant.unitPrices?.find((u) => u.isDefault);
   const [selectedUnitPriceId, setSelectedUnitPriceId] = React.useState(

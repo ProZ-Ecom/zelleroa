@@ -134,13 +134,54 @@ export async function createCommissionsForOrder(tx: Prisma.TransactionClient, or
   return created;
 }
 
-interface VoidParams {
+export interface VoidItemParam {
+  orderItemId: bigint;
+  returnedQuantity?: number;
+  totalQuantity?: number;
+  totalPrice?: number;
+}
+
+export interface VoidParams {
   orderId: bigint;
   /** Limit to specific order items (partial return); omit to void the whole order. */
   orderItemIds?: bigint[];
+  items?: VoidItemParam[];
   kind: "cancelled" | "returned";
   reason: string;
   actor: AuditActor;
+}
+
+/**
+ * Recalculates the parent order's active commission amount and blended commission
+ * percentage based on remaining active (non-cancelled, non-reversed) item commissions.
+ */
+export async function recalculateOrderCommission(tx: Prisma.TransactionClient, orderId: bigint) {
+  const activeCommissions = await tx.commissions.findMany({
+    where: {
+      order_id: orderId,
+      status: { notIn: ["cancelled", "reversed"] },
+    },
+    select: {
+      product_amount: true,
+      commission_amount: true,
+    },
+  });
+
+  const totalBase = activeCommissions.reduce((sum, c) => sum + Number(c.product_amount), 0);
+  const totalCommission = activeCommissions.reduce((sum, c) => sum + Number(c.commission_amount), 0);
+  const blendedPercentage =
+    totalBase > 0 ? Math.round((totalCommission * 10000) / totalBase) / 100 : 0;
+  const roundedCommission = Math.round(totalCommission * 100) / 100;
+
+  await tx.order.update({
+    where: { id: orderId },
+    data: {
+      commission_amount: roundedCommission,
+      commission_percentage: blendedPercentage,
+    },
+  });
+
+  return { totalBase, totalCommission: roundedCommission, blendedPercentage };
 }
 
 /**
@@ -163,8 +204,58 @@ export async function voidCommissions(tx: Prisma.TransactionClient, params: Void
 
   const now = new Date();
   const touchedPayouts = new Set<bigint>();
+  const itemsMap = new Map<string, VoidItemParam>();
+  if (params.items) {
+    for (const it of params.items) {
+      itemsMap.set(String(it.orderItemId), it);
+    }
+  }
 
   for (const row of rows) {
+    const itemParam = itemsMap.get(String(row.order_item_id));
+    const isPartial =
+      itemParam?.returnedQuantity != null &&
+      itemParam?.totalQuantity != null &&
+      itemParam.returnedQuantity > 0 &&
+      itemParam.returnedQuantity < itemParam.totalQuantity;
+
+    if (isPartial) {
+      // Partial quantity returned on this line: reduce product_amount & commission_amount to kept units
+      const keptQty = itemParam.totalQuantity! - itemParam.returnedQuantity!;
+      const unitPrice = (itemParam.totalPrice ?? Number(row.product_amount)) / itemParam.totalQuantity!;
+      const keptProductAmount = Math.round(unitPrice * keptQty * 100) / 100;
+      const keptCommissionAmount = calculateCommissionAmount(
+        keptProductAmount,
+        Number(row.commission_percentage)
+      );
+
+      await tx.commissions.update({
+        where: { id: row.id },
+        data: {
+          product_amount: keptProductAmount,
+          commission_amount: keptCommissionAmount,
+        },
+      });
+
+      await writeAudit(tx, {
+        entityType: "commission",
+        entityId: row.id,
+        agentId: row.agent_id,
+        action: "commission_partial_return_adjusted",
+        fromStatus: row.status,
+        toStatus: row.status,
+        actor: params.actor,
+        note: `Partial return (${itemParam.returnedQuantity} of ${itemParam.totalQuantity} units returned)`,
+        metadata: {
+          previousProductAmount: Number(row.product_amount),
+          newProductAmount: keptProductAmount,
+          previousCommissionAmount: Number(row.commission_amount),
+          newCommissionAmount: keptCommissionAmount,
+        },
+      });
+      continue;
+    }
+
     const cancelOnly = params.kind === "cancelled" && (row.status === "pending" || row.status === "pending_approval");
     const toStatus = cancelOnly ? "cancelled" : "reversed";
     const inOpenPayout = row.status === "payout_requested" || row.status === "payout_approved";
@@ -230,7 +321,110 @@ export async function voidCommissions(tx: Prisma.TransactionClient, params: Void
       metadata: { previousAmount: Number(payout.amount), newAmount: remaining },
     });
   }
+
+  // Recalculate parent order's commission amount and blended percentage
+  await recalculateOrderCommission(tx, params.orderId);
+
   return rows.length;
+}
+
+/**
+ * Restores reversed commissions when an approved return request expires or is cancelled.
+ */
+export async function restoreCommissions(
+  tx: Prisma.TransactionClient,
+  params: {
+    orderId: bigint;
+    orderItemIds?: bigint[];
+    items?: VoidItemParam[];
+    reason: string;
+    actor: AuditActor;
+  }
+) {
+  const rows = await tx.commissions.findMany({
+    where: {
+      order_id: params.orderId,
+      ...(params.orderItemIds ? { order_item_id: { in: params.orderItemIds } } : {}),
+    },
+  });
+  if (rows.length === 0) return 0;
+
+  const itemsMap = new Map<string, VoidItemParam>();
+  if (params.items) {
+    for (const it of params.items) {
+      itemsMap.set(String(it.orderItemId), it);
+    }
+  }
+
+  let restoredCount = 0;
+  for (const row of rows) {
+    const itemParam = itemsMap.get(String(row.order_item_id));
+    const isPartial =
+      itemParam?.returnedQuantity != null &&
+      itemParam?.totalQuantity != null &&
+      itemParam.returnedQuantity > 0 &&
+      itemParam.returnedQuantity < itemParam.totalQuantity;
+
+    if (isPartial && itemParam.totalPrice != null) {
+      const originalProductAmount = Number(itemParam.totalPrice);
+      const originalCommissionAmount = calculateCommissionAmount(
+        originalProductAmount,
+        Number(row.commission_percentage)
+      );
+      await tx.commissions.update({
+        where: { id: row.id },
+        data: {
+          product_amount: originalProductAmount,
+          commission_amount: originalCommissionAmount,
+        },
+      });
+
+      await writeAudit(tx, {
+        entityType: "commission",
+        entityId: row.id,
+        agentId: row.agent_id,
+        action: "commission_partial_return_restored",
+        fromStatus: row.status,
+        toStatus: row.status,
+        actor: params.actor,
+        note: params.reason,
+        metadata: {
+          restoredProductAmount: originalProductAmount,
+          restoredCommissionAmount: originalCommissionAmount,
+        },
+      });
+      restoredCount++;
+    } else if (row.status === "reversed") {
+      await tx.commissions.update({
+        where: { id: row.id },
+        data: {
+          status: "pending",
+          reversed_at: null,
+          reversal_reason: null,
+        },
+      });
+
+      await writeAudit(tx, {
+        entityType: "commission",
+        entityId: row.id,
+        agentId: row.agent_id,
+        action: "commission_restored",
+        fromStatus: "reversed",
+        toStatus: "pending",
+        actor: params.actor,
+        note: params.reason,
+        metadata: {
+          amount: Number(row.commission_amount),
+        },
+      });
+      restoredCount++;
+    }
+  }
+
+  if (restoredCount > 0) {
+    await recalculateOrderCommission(tx, params.orderId);
+  }
+  return restoredCount;
 }
 
 /**
@@ -289,12 +483,46 @@ export const commissionService = {
   async markReadyForApproval(opts: { agentId?: bigint; actor?: AuditActor } = {}): Promise<number> {
     const actor = opts.actor ?? SYSTEM_ACTOR;
     const autoApprove = await getAutoApprove();
+
+    // Backfill any delivered commissions that missed return_period_ends_at
+    const unsyncedDelivered = await db.commissions.findMany({
+      where: {
+        status: "pending",
+        delivered_at: null,
+        order: { order_status: "delivered" },
+      },
+      select: { id: true, order: { select: { updatedAt: true } } },
+      take: 100,
+    });
+    if (unsyncedDelivered.length > 0) {
+      const days = await getReturnPeriodDays();
+      for (const row of unsyncedDelivered) {
+        const deliveredAt = row.order?.updatedAt ?? new Date();
+        const endsAt = new Date(deliveredAt.getTime() + days * DAY_MS);
+        await db.commissions.update({
+          where: { id: row.id },
+          data: { delivered_at: deliveredAt, return_period_ends_at: endsAt },
+        });
+      }
+    }
+
     const due = await db.commissions.findMany({
       where: {
         status: "pending",
         delivered_at: { not: null },
         return_period_ends_at: { lte: new Date() },
         ...(opts.agentId ? { agent_id: opts.agentId } : {}),
+        order_item: {
+          return_items: {
+            none: {
+              is_active: true,
+              return_requests: {
+                status: { in: ["return_requested", "under_review"] },
+                is_active: true,
+              },
+            },
+          },
+        },
       },
       select: { id: true, agent_id: true },
       take: 500,
@@ -333,7 +561,7 @@ export const commissionService = {
   },
 
   /**
-   * Admin approval: `pending_approval` -> `approved` (now withdrawable). `ids` = commission uuids;
+   * Admin approval: `pending_approval` / `pending` -> `approved` (now withdrawable). `ids` = commission uuids;
    * omit to approve everything awaiting approval. The conditional update means a commission that was
    * returned/cancelled in the meantime is never approved.
    */
@@ -342,16 +570,64 @@ export const commissionService = {
     await this.markReadyForApproval({ actor: opts.actor });
 
     const rows = await db.commissions.findMany({
-      where: { status: "pending_approval", ...(opts.ids?.length ? { uuid: { in: opts.ids } } : {}) },
-      select: { id: true, agent_id: true },
+      where: {
+        ...(opts.ids?.length
+          ? {
+              OR: [
+                { status: "pending_approval" },
+                {
+                  status: "pending",
+                  delivered_at: { not: null },
+                  return_period_ends_at: { lte: new Date() },
+                },
+              ],
+              uuid: { in: opts.ids },
+            }
+          : { status: "pending_approval" }),
+        order_item: {
+          return_items: {
+            none: {
+              is_active: true,
+              return_requests: {
+                status: { in: ["return_requested", "under_review"] },
+                is_active: true,
+              },
+            },
+          },
+        },
+      },
+      select: { id: true, agent_id: true, status: true },
       take: 500,
     });
+
+    if (opts.ids?.length && rows.length === 0) {
+      const exists = await db.commissions.findFirst({
+        where: { uuid: { in: opts.ids } },
+        select: { status: true, delivered_at: true, return_period_ends_at: true },
+      });
+      if (!exists) {
+        throw ApiError.notFound("Commission not found");
+      }
+      if (exists.status === "approved" || exists.status === "paid") {
+        throw ApiError.badRequest("Commission is already approved or paid");
+      }
+      if (exists.status === "cancelled" || exists.status === "reversed") {
+        throw ApiError.badRequest("Cancelled or reversed commissions cannot be approved");
+      }
+      if (!exists.delivered_at) {
+        throw ApiError.badRequest("Commission cannot be approved before the order is delivered");
+      }
+      if (exists.return_period_ends_at && exists.return_period_ends_at > new Date()) {
+        throw ApiError.badRequest("Commission cannot be approved before the return request deadline has expired");
+      }
+      throw ApiError.badRequest("Commission cannot be approved while a return request is under review");
+    }
 
     let approved = 0;
     for (const row of rows) {
       await db.$transaction(async (tx) => {
         const res = await tx.commissions.updateMany({
-          where: { id: row.id, status: "pending_approval" },
+          where: { id: row.id, status: row.status },
           data: { status: "approved", approved_at: new Date() },
         });
         if (res.count === 0) return;
@@ -361,7 +637,7 @@ export const commissionService = {
           entityId: row.id,
           agentId: row.agent_id,
           action: "commission_approved",
-          fromStatus: "pending_approval",
+          fromStatus: row.status,
           toStatus: "approved",
           actor: opts.actor,
           note: "Approved by admin",

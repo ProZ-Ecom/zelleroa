@@ -151,7 +151,7 @@ function SelectionBody({
 
         <Button
           type="button"
-          className="w-full gap-2"
+          className={`w-full gap-2 ${!sel.purchasable ? "cursor-not-allowed opacity-80" : ""}`}
           onClick={submit}
           disabled={addToCart.isPending || !sel.purchasable}
         >
@@ -160,26 +160,33 @@ function SelectionBody({
           ) : (
             <ShoppingBag className="h-4 w-4 mr-2" />
           )}
-          <span>Add to Cart</span>
+          <span>{sel.purchasable ? "Add to Cart" : "Out of Stock"}</span>
         </Button>
       </div>
     </>
   );
 }
 
+export interface ItemQuickAddProps {
+  itemId?: string;
+  styleId?: string;
+  name?: string;
+  inStock?: boolean;
+  outOfStock?: boolean;
+}
+
 /**
- * The Item card's "Add to Cart". Fetches the Item on click: a single buyable
+ * The Item/Style card's "Add to Cart". Fetches the Item on click: a single buyable
  * Colour+Size goes straight to the cart, anything else opens the picker.
+ * When out of stock, displays a disabled "Out of Stock" button.
  */
 export function ItemQuickAdd({
   itemId,
   styleId,
   name,
-}: {
-  itemId?: string;
-  styleId?: string;
-  name?: string;
-}) {
+  inStock,
+  outOfStock,
+}: ItemQuickAddProps) {
   const router = useRouter();
   const pathname = usePathname();
   const session = useSignedIn();
@@ -188,7 +195,13 @@ export function ItemQuickAdd({
   const [loading, setLoading] = useState(false);
   const [dialog, setDialog] = useState<{ items: CustomerStyleItemDto[]; title: string } | null>(null);
 
+  const propOutOfStock =
+    outOfStock !== undefined ? outOfStock : inStock !== undefined ? !inStock : false;
+  const [runtimeOutOfStock, setRuntimeOutOfStock] = useState(false);
+  const isOutOfStock = propOutOfStock || runtimeOutOfStock;
+
   const handleClick = async () => {
+    if (isOutOfStock) return;
     if (!session) {
       router.push(`/login?callbackUrl=${encodeURIComponent(pathname || "/")}`);
       return;
@@ -213,6 +226,7 @@ export function ItemQuickAdd({
       const rows = items.flatMap(sellableRows);
       const title = name ?? items[0]?.name ?? "";
       if (rows.length === 0) {
+        setRuntimeOutOfStock(true);
         toast.error("This item is out of stock");
       } else if (rows.length === 1) {
         const [{ color, up }] = rows;
@@ -237,15 +251,20 @@ export function ItemQuickAdd({
       <button
         type="button"
         onClick={handleClick}
-        disabled={loading}
-        className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-theme-primary px-3 py-1.5 text-xs font-bold text-theme-primary-fg transition-colors hover:bg-theme-primary-hover disabled:opacity-60"
+        disabled={loading || isOutOfStock}
+        aria-disabled={loading || isOutOfStock}
+        className={`inline-flex w-full items-center justify-center gap-2 rounded-lg px-3 py-1.5 text-xs font-bold transition-colors ${
+          isOutOfStock
+            ? "cursor-not-allowed bg-stone-200 text-stone-500 border border-stone-300 opacity-90 select-none shadow-none"
+            : "cursor-pointer bg-theme-primary text-theme-primary-fg hover:bg-theme-primary-hover disabled:opacity-60"
+        }`}
       >
         {loading ? (
           <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />
         ) : (
           <ShoppingBag className="h-3.5 w-3.5 mr-1.5" />
         )}
-        <span>Add to Cart</span>
+        <span>{isOutOfStock ? "Out of Stock" : "Add to Cart"}</span>
       </button>
       {dialog && <SelectionDialog {...dialog} onClose={() => setDialog(null)} />}
     </>

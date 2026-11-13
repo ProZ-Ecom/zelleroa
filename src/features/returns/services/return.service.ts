@@ -7,7 +7,10 @@ import { razorpayService } from "@/features/payment/services/razorpay.service";
 import { returnRepository, type Actor } from "../repositories/return.repository";
 import {
   getReturnWindow,
+  getAdminReviewWindow,
   getShipWindow,
+  RETURN_DEADLINES,
+  DAY_MS,
   RETURN_CUSTOMER_ACTIONS,
   RETURN_TRANSITIONS,
   SHIPPING_SLIP_MANDATORY_NOTICE,
@@ -42,6 +45,8 @@ function formatRequest(req: any) {
       }
     : null;
   const ship = getShipWindow(req.approved_at);
+  const adminReview = getAdminReviewWindow(req.requested_at || req.created_at);
+
   return {
     ...summarizeReturnRequest(req),
     /** Ship-back deadline and how much of it is left, for the approved state. */
@@ -49,6 +54,10 @@ function formatRequest(req: any) {
     shipDaysLeft: ship.daysLeft,
     /** True when the request sat in `approved` past the deadline. */
     shipWindowExpired: ship.expired && req.status === "approved",
+    /** Admin review & decision deadline (1 week from request created). */
+    adminDeadline: adminReview.deadline,
+    adminDaysLeft: adminReview.daysLeft,
+    adminDeadlineExpired: adminReview.expired && ["return_requested", "under_review"].includes(req.status),
     orderId: req.orders.uuid || String(req.orders.id),
     orderNumber: req.orders.orderNumber,
     orderStatus: req.orders.order_status,
@@ -74,6 +83,37 @@ function meta(result: { total: number; page: number; limit: number }) {
     total: result.total,
     totalPages: Math.ceil(result.total / result.limit) || 1,
   };
+}
+
+/**
+ * Automatically rejects return requests whose admin review window (1 week)
+ * has passed without approval or rejection.
+ */
+async function autoRejectExpiredAdminReviewRequests() {
+  const cutoff = new Date(Date.now() - RETURN_DEADLINES.ADMIN_APPROVAL_DAYS * DAY_MS);
+  try {
+    const expiredList = await db.return_requests.findMany({
+      where: {
+        status: { in: ["return_requested", "under_review"] },
+        is_active: true,
+        requested_at: { lt: cutoff },
+      },
+      select: { id: true, status: true, order_id: true, requested_at: true },
+      take: 50,
+    });
+
+    for (const r of expiredList) {
+      await returnRepository.transition({
+        request: { id: r.id, status: r.status as any, orderId: r.order_id },
+        action: "reject",
+        to: "rejected",
+        actor: { id: BigInt(0), type: "SYSTEM" },
+        rejectionReason: `Request automatically rejected: Admin decision deadline (${RETURN_DEADLINES.ADMIN_APPROVAL_DAYS} days) expired without action.`,
+      });
+    }
+  } catch (err) {
+    console.error("Auto-reject expired return requests check failed:", err);
+  }
 }
 
 export interface GatewayRefundResult {
@@ -253,12 +293,14 @@ export const returnService = {
   },
 
   async getCustomerReturnRequests(sessionUserId: string, params: CustomerReturnListInput) {
+    await autoRejectExpiredAdminReviewRequests();
     const customerId = await resolveCustomerId(sessionUserId);
     const result = await returnRepository.listForCustomer(customerId, params);
     return { data: result.requests.map(formatRequest), meta: meta(result) };
   },
 
   async getCustomerReturnRequestByUuid(sessionUserId: string, uuid: string) {
+    await autoRejectExpiredAdminReviewRequests();
     const customerId = await resolveCustomerId(sessionUserId);
     const req = await returnRepository.findByUuid(uuid, customerId);
     if (!req) throw ApiError.notFound("Return request not found");
@@ -266,11 +308,13 @@ export const returnService = {
   },
 
   async getAdminReturnRequests(params: AdminReturnListInput) {
+    await autoRejectExpiredAdminReviewRequests();
     const result = await returnRepository.listForAdmin(params);
     return { data: result.requests.map(formatRequest), meta: meta(result) };
   },
 
   async getAdminReturnRequestByUuid(uuid: string) {
+    await autoRejectExpiredAdminReviewRequests();
     const req = await returnRepository.findByUuid(uuid);
     if (!req) throw ApiError.notFound("Return request not found");
     return formatRequest(req);
@@ -335,6 +379,15 @@ async function applyAction(
     const qcFailureReason = (input.qcFailureReason ?? input.comment ?? "").trim();
     if (action === "qc-fail" && qcFailureReason.length < 3) {
       throw ApiError.badRequest("A quality check failure reason is required");
+    }
+
+    if (["approve", "review"].includes(action)) {
+      const reviewWindow = getAdminReviewWindow(req.requested_at || req.created_at);
+      if (reviewWindow.expired) {
+        throw ApiError.badRequest(
+          `The admin decision window (${RETURN_DEADLINES.ADMIN_APPROVAL_DAYS} days) has expired for this request.`
+        );
+      }
     }
 
     let shipDeadlineAt: Date | undefined;

@@ -109,6 +109,7 @@ export interface OrderListItemResponse {
   status: OrderStatus;
   paymentStatus: PaymentStatus;
   paymentMethod?: string;
+  orderSource?: "CUSTOMER_DIRECT" | "AGENT_PLACED_FOR_CUSTOMER" | "AGENT_OWN" | string | null;
   subtotal: number;
   discountAmount: number;
   taxAmount: number;

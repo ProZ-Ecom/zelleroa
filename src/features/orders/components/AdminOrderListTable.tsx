@@ -141,8 +141,8 @@ export function AdminOrderListTable({
   };
 
   /**
-   * COD cash can only be booked once, and only while the order is live and
-   * still unpaid - a cancelled or refunded order has nothing to collect.
+   * COD cash can only be booked once the order has been delivered and is
+   * still unpaid - cash is collected upon physical delivery to the customer.
    */
   const canRecordCashPayment = (order: {
     paymentMethod?: string;
@@ -151,7 +151,7 @@ export function AdminOrderListTable({
   }) =>
     (order.paymentMethod || "").toUpperCase() === "COD" &&
     ["pending", "failed"].includes((order.paymentStatus || "").toLowerCase()) &&
-    (order.status || "").toLowerCase() !== "cancelled";
+    (order.status || "").toLowerCase() === "delivered";
 
   const closeCashModal = () => {
     setCashOrder(null);
@@ -1394,11 +1394,37 @@ export function AdminOrderListTable({
           </div>
 
           <div className="space-y-1.5">
-            <label className="block text-xs font-semibold text-neutral-700">
-              Note (optional)
-            </label>
+            <div className="flex items-center justify-between">
+              <label className="block text-xs font-semibold text-neutral-700">
+                Note (optional)
+              </label>
+              <span className="text-[10px] text-neutral-400">Quick channel:</span>
+            </div>
+            <div className="flex flex-wrap gap-1.5 pb-1">
+              <button
+                type="button"
+                onClick={() => setCashNote("Courier COD Remittance")}
+                className="text-[11px] px-2.5 py-0.5 rounded-full border border-neutral-200 bg-neutral-50 hover:bg-neutral-100 text-neutral-700 cursor-pointer transition-colors"
+              >
+                Courier Remittance
+              </button>
+              <button
+                type="button"
+                onClick={() => setCashNote("Collected by Sales Partner / Agent")}
+                className="text-[11px] px-2.5 py-0.5 rounded-full border border-neutral-200 bg-neutral-50 hover:bg-neutral-100 text-neutral-700 cursor-pointer transition-colors"
+              >
+                Agent Handover
+              </button>
+              <button
+                type="button"
+                onClick={() => setCashNote("Direct Store Collection")}
+                className="text-[11px] px-2.5 py-0.5 rounded-full border border-neutral-200 bg-neutral-50 hover:bg-neutral-100 text-neutral-700 cursor-pointer transition-colors"
+              >
+                Store Direct
+              </button>
+            </div>
             <Input
-              placeholder="e.g. Collected by delivery staff Ravi"
+              placeholder="e.g. Courier remittance or collected by sales partner"
               value={cashNote}
               onChange={(e) => setCashNote(e.target.value)}
               maxLength={200}

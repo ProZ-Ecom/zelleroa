@@ -5,6 +5,8 @@ export interface PaginationMeta {
   totalPages: number;
   /** Optional extras some lists add (e.g. own purchases total spend). */
   totalSpend?: number;
+  autoApprove?: boolean;
+  availableForPayout?: { amount: number; count: number } | number;
 }
 
 export interface PaginatedResult<T> {

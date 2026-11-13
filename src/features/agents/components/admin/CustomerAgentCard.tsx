@@ -130,25 +130,25 @@ export function CustomerAgentCard({ customerId, canTransfer = true }: { customer
       {msg && <p className={`text-xs ${msg.ok ? "text-green-700" : "text-red-600"}`}>{msg.text}</p>}
 
       {data && data.history.length > 0 && (
-        <div className="overflow-x-auto">
-          <table className="w-full text-xs">
+        <div className="overflow-x-auto rounded-xl border border-neutral-200/70 overflow-hidden">
+          <table className="w-full text-xs border-separate border-spacing-0">
             <thead>
-              <tr className="text-left text-neutral-500">
-                <th className="py-1 pr-3 font-medium">When</th>
-                <th className="py-1 pr-3 font-medium">From</th>
-                <th className="py-1 pr-3 font-medium">To</th>
-                <th className="py-1 pr-3 font-medium">By</th>
-                <th className="py-1 font-medium">Reason</th>
+              <tr className="bg-stone-900 text-[#D4AF37] border-b border-stone-800">
+                <th className="py-2.5 px-3 text-left font-semibold uppercase tracking-wider text-[10px]">When</th>
+                <th className="py-2.5 px-3 text-left font-semibold uppercase tracking-wider text-[10px]">From</th>
+                <th className="py-2.5 px-3 text-left font-semibold uppercase tracking-wider text-[10px]">To</th>
+                <th className="py-2.5 px-3 text-left font-semibold uppercase tracking-wider text-[10px]">By</th>
+                <th className="py-2.5 px-3 text-left font-semibold uppercase tracking-wider text-[10px]">Reason</th>
               </tr>
             </thead>
             <tbody>
               {data.history.map((h) => (
-                <tr key={h.id} className="border-t border-cream-border">
-                  <td className="py-1.5 pr-3 whitespace-nowrap">{fmt(h.at)}</td>
-                  <td className="py-1.5 pr-3">{label(h.fromAgentName, h.fromAgentCode)}</td>
-                  <td className="py-1.5 pr-3">{label(h.toAgentName, h.toAgentCode)}</td>
-                  <td className="py-1.5 pr-3">{h.transferredBy}</td>
-                  <td className="py-1.5">{h.reason ?? "—"}</td>
+                <tr key={h.id} className="border-b border-neutral-100 last:border-0 hover:bg-neutral-50/80 transition-colors">
+                  <td className="py-2 px-3 whitespace-nowrap border-b border-neutral-100 text-neutral-800">{fmt(h.at)}</td>
+                  <td className="py-2 px-3 border-b border-neutral-100 text-neutral-800">{label(h.fromAgentName, h.fromAgentCode)}</td>
+                  <td className="py-2 px-3 border-b border-neutral-100 text-neutral-800">{label(h.toAgentName, h.toAgentCode)}</td>
+                  <td className="py-2 px-3 border-b border-neutral-100 text-neutral-800">{h.transferredBy}</td>
+                  <td className="py-2 px-3 border-b border-neutral-100 text-neutral-800">{h.reason ?? "—"}</td>
                 </tr>
               ))}
             </tbody>

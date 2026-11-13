@@ -4,11 +4,11 @@ export const addCartItemSchema = z
   .object({
     variantUnitPriceId: z
       .string()
-      .uuid("Invalid variantUnitPriceId UUID format")
+      .min(1, "variantUnitPriceId cannot be empty")
       .optional(),
     variantId: z
       .string()
-      .uuid("Invalid variantId UUID format")
+      .min(1, "variantId cannot be empty")
       .optional(),
     quantity: z
       .number({ message: "quantity is required" })

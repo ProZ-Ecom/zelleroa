@@ -18,6 +18,7 @@ import {
   compareLabelFor,
   count,
   dateLabel,
+  formatCsvDateTime,
   money,
   moneyExact,
   percent,
@@ -58,7 +59,7 @@ const statusColumns: Column<PaymentStatusRow>[] = [
 
 const outstandingColumns: Column<OutstandingRow>[] = [
   { header: "Order", cell: (r) => <span className="font-semibold">{r.orderNumber}</span>, csv: (r) => r.orderNumber },
-  { header: "Placed", cell: (r) => dateLabel(r.placedAt), csv: (r) => r.placedAt ?? "" },
+  { header: "Placed", cell: (r) => dateLabel(r.placedAt), csv: (r) => formatCsvDateTime(r.placedAt) },
   { header: "Customer", cell: (r) => r.customer, csv: (r) => r.customer },
   { header: "Order status", cell: (r) => ORDER_STATUS_LABELS[r.status] ?? r.status, csv: (r) => r.status },
   { header: "Order value", align: "right", cell: (r) => moneyExact(r.value), csv: (r) => r.value },

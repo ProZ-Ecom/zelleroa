@@ -272,6 +272,11 @@ export function createApiHandler(
         return apiValidationError(parsedQuery.errors);
       }
       context.query = parsedQuery.data;
+    } else {
+      const parsedQuery = parseSearchParams(searchParams);
+      if ("data" in parsedQuery) {
+        context.query = parsedQuery.data;
+      }
     }
 
     if (

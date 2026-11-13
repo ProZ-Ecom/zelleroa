@@ -73,6 +73,9 @@ export const orderItemInclude = Prisma.validator<Prisma.OrderItemInclude>()({
   // only path to the color's images.
   variant: {
     select: {
+      id: true,
+      uuid: true,
+      variant_name: true,
       color_name: true,
       color_hex: true,
       product_variant_images: {
@@ -212,7 +215,7 @@ export function formatOrderItem(
   item: Prisma.OrderItemGetPayload<{ include: typeof orderItemInclude }>
 ): OrderItemResponse {
   const unitPrice = item.variant_unit_price;
-  const variant = unitPrice?.variant;
+  const variant = unitPrice?.variant ?? item.variant;
   const measurement = formatVariantMeasurement(
     unitPrice?.product_units,
     unitPrice?.unit_value ?? 0
@@ -230,8 +233,8 @@ export function formatOrderItem(
     id: item.uuid || String(item.id),
     productId: item.product?.uuid || String(item.productId),
     itemId: item.style?.uuid || String(item.styleId),
-    variantId: variant?.uuid || String(variant?.id ?? ""),
-    variantUnitPriceId: unitPrice?.uuid || String(item.variantUnitPriceId),
+    variantId: variant?.uuid || item.variant?.uuid || String(variant?.id ?? item.variantId ?? ""),
+    variantUnitPriceId: unitPrice?.uuid || (item.variantUnitPriceId ? String(item.variantUnitPriceId) : ""),
     productName: item.product_name_snapshot,
     itemName: item.item_name_snapshot,
     variantName: item.variant_snapshot,
@@ -418,6 +421,7 @@ export function formatOrderDetail(
     status: order.order_status,
     paymentStatus: order.payment_status,
     paymentMethod: inferOrderPaymentMethod(order),
+    orderSource: (order as any).order_source ?? null,
     subtotal: Number(order.subtotal),
     discountAmount: Number(order.discountAmount),
     taxAmount: Number(order.taxAmount),
@@ -519,23 +523,52 @@ export function inferOrderPaymentMethod(order: {
   notes?: string | null;
   order_status?: string | null;
   payment_status?: string | null;
+  order_source?: string | null;
   order_status_history?: Array<{ note?: string | null }> | null;
   payments?: Array<unknown> | null;
 }): "COD" | "CARD" {
+  // 1. Any order placed through the Sales Partner (Agent) portal is Cash on Delivery (COD)
+  if (
+    order.order_source === "AGENT_PLACED_FOR_CUSTOMER" ||
+    order.order_source === "AGENT_OWN"
+  ) {
+    return "COD";
+  }
+
+  // 2. An order where a cash payment was recorded
+  const hasCashPayment = (order.payments || []).some((p: any) =>
+    p?.payment_methods?.code === "COD" ||
+    p?.gatewayResponse?.source === "COD_CASH_COLLECTED"
+  );
+  if (hasCashPayment) return "COD";
+
   const mentionsCod = (text?: string | null) => {
     const upper = (text || "").toUpperCase();
     return upper.includes("COD") || upper.includes("CASH ON DELIVERY");
   };
 
-  const isCod =
+  // 3. Clues from bank account, notes, or status history
+  if (
     Boolean(order.bank_account_holder) ||
     mentionsCod(order.notes) ||
-    (order.order_status_history || []).some((h) => mentionsCod(h.note)) ||
-    (order.order_status === "confirmed" &&
-      order.payment_status === "pending" &&
-      (!order.payments || order.payments.length === 0));
+    (order.order_status_history || []).some((h) => mentionsCod(h.note))
+  ) {
+    return "COD";
+  }
 
-  return isCod ? "COD" : "CARD";
+  // 4. Live order that has progressed without an online payment
+  const hasOnlinePayments = (order.payments || []).some(
+    (p: any) => p?.status === "success" && p?.payment_methods?.code !== "COD"
+  );
+  const isPendingCod =
+    order.payment_status === "pending" &&
+    !hasOnlinePayments &&
+    order.order_status !== "cancelled" &&
+    order.order_status !== "pending";
+
+  if (isPendingCod) return "COD";
+
+  return "CARD";
 }
 
 export function formatOrderListItem(
@@ -572,6 +605,7 @@ export function formatOrderListItem(
     status: order.order_status,
     paymentStatus: order.payment_status,
     paymentMethod: inferOrderPaymentMethod(order),
+    orderSource: (order as any).order_source ?? null,
     subtotal: Number(order.subtotal),
     discountAmount: Number(order.discountAmount),
     taxAmount: Number(order.taxAmount),
@@ -665,9 +699,13 @@ export const orderRepository = {
     });
     if (!order?.agent) return null;
 
+    const activeCommissions = order.commissions.filter(
+      (c) => !["cancelled", "reversed"].includes(c.status)
+    );
     const statuses = new Set(order.commissions.map((c) => c.status));
-    const total = order.commissions.reduce((sum, c) => sum + Number(c.commission_amount), 0);
-    const base = order.commissions.reduce((sum, c) => sum + Number(c.product_amount), 0);
+    const activeStatuses = new Set(activeCommissions.map((c) => c.status));
+    const total = activeCommissions.reduce((sum, c) => sum + Number(c.commission_amount), 0);
+    const base = activeCommissions.reduce((sum, c) => sum + Number(c.product_amount), 0);
     return {
       orderSource: order.order_source,
       orderedByName: order.ordered_by?.name ?? null,
@@ -683,8 +721,20 @@ export const orderRepository = {
           : base > 0
             ? Math.round((total * 10000) / base) / 100
             : 0,
-      commissionAmount: order.commission_amount != null ? Number(order.commission_amount) : Math.round(total * 100) / 100,
-      commissionStatus: statuses.size === 0 ? "none" : statuses.size === 1 ? [...statuses][0] : "mixed",
+      commissionAmount:
+        order.commission_amount != null
+          ? Number(order.commission_amount)
+          : Math.round(total * 100) / 100,
+      commissionStatus:
+        activeCommissions.length === 0
+          ? statuses.size === 1
+            ? [...statuses][0]
+            : statuses.size === 0
+              ? "none"
+              : "mixed"
+          : activeStatuses.size === 1
+            ? [...activeStatuses][0]
+            : "mixed",
     };
   },
 
@@ -979,16 +1029,15 @@ export const orderRepository = {
           order_id: createdOrder.id,
           status: (params.orderStatus ?? "pending") as any,
           note:
-            params.notes ||
-            (params.orderSource === "AGENT_PLACED_FOR_CUSTOMER"
-              ? "Order placed by Sales Partner on behalf of the customer"
+            params.orderSource === "AGENT_PLACED_FOR_CUSTOMER"
+              ? `Order placed by Sales Partner on behalf of the customer (COD)${params.notes ? `: ${params.notes}` : ""}`
               : params.orderSource === "AGENT_OWN"
-                ? "Order placed by Sales Partner for themselves"
+                ? `Order placed by Sales Partner for themselves (COD)${params.notes ? `: ${params.notes}` : ""}`
                 : params.paymentStatus === "paid"
-              ? `Order confirmed with payment via ${params.paymentMethod ?? "CARD"}`
-              : params.paymentMethod === "COD"
-                ? "Order placed via Cash on Delivery (COD)"
-                : "Order placed by customer"),
+                  ? `Order confirmed with payment via ${params.paymentMethod ?? "CARD"}${params.notes ? `: ${params.notes}` : ""}`
+                  : params.paymentMethod === "COD"
+                    ? `Order placed via Cash on Delivery (COD)${params.notes ? `: ${params.notes}` : ""}`
+                    : (params.notes || "Order placed by customer"),
           changed_by: actorId,
           is_active: true,
           created_by: actorId,
@@ -1119,8 +1168,21 @@ export const orderRepository = {
       where.payment_status = { in: Array.from(new Set(validPayments)) };
     }
 
-    if (params.search) {
-      where.orderNumber = { contains: params.search };
+    if (params.search && params.search.trim()) {
+      const cleanTerm = params.search.trim();
+      const strippedNumber = cleanTerm.replace(/^#/, "");
+      where.OR = [
+        { orderNumber: { contains: cleanTerm } },
+        ...(strippedNumber !== cleanTerm ? [{ orderNumber: { contains: strippedNumber } }] : []),
+        {
+          items: {
+            some: {
+              is_active: true,
+              product_name_snapshot: { contains: cleanTerm },
+            },
+          },
+        },
+      ];
     }
 
     const sortOrder =
@@ -1353,7 +1415,11 @@ export const orderRepository = {
           },
           payments: {
             where: { is_active: true },
-            select: { id: true, status: true },
+            select: {
+              id: true,
+              status: true,
+              payment_methods: { select: { code: true } },
+            },
           },
           shipments: {
             where: { is_active: true },

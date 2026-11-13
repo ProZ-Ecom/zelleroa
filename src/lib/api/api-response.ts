@@ -18,6 +18,9 @@ export interface PaginationMeta {
   pageSize?: number;
   total: number;
   totalPages: number;
+  autoApprove?: boolean;
+  availableForPayout?: { amount: number; count: number } | number;
+  totalSpend?: number;
 }
 
 export interface PaginationParams {
