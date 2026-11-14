@@ -2,6 +2,7 @@
 
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "@/components/ui/Toast";
+import { adminOrderKeys } from "@/lib/api/query-keys";
 import * as api from "../api/pos.api";
 import type { PosPurchasesQueryInput, PosShiftListInput } from "../validations/pos.schema";
 
@@ -72,6 +73,8 @@ export function useCreateBill() {
       // The shift totals and the stock screens both move with every bill.
       qc.invalidateQueries({ queryKey: [KEY] });
       qc.invalidateQueries({ queryKey: ["inventory"] });
+      qc.invalidateQueries({ queryKey: adminOrderKeys.all });
+      qc.invalidateQueries({ queryKey: ["admin-orders", "count"] });
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : "Could not create the bill"),
   });
@@ -84,6 +87,8 @@ export function useVoidBill() {
     onSuccess: (res) => {
       qc.invalidateQueries({ queryKey: [KEY] });
       qc.invalidateQueries({ queryKey: ["inventory"] });
+      qc.invalidateQueries({ queryKey: adminOrderKeys.all });
+      qc.invalidateQueries({ queryKey: ["admin-orders", "count"] });
       toast.success(`Bill ${res?.invoiceNumber ?? res?.orderNumber ?? ""} voided`);
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : "Could not void the bill"),

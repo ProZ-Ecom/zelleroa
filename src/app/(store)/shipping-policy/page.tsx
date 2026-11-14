@@ -1,12 +1,14 @@
 import type { Metadata } from "next";
 import { PolicyLayout } from "@/components/storefront/policy/PolicyLayout";
 import { Truck, Clock, ShieldCheck, MapPin } from "lucide-react";
+import { constructMetadata } from "@/lib/seo";
 
-export const metadata: Metadata = {
-  title: "Shipping & Delivery Policy | Zellora",
+export const metadata: Metadata = constructMetadata({
+  title: "Shipping & Delivery Policy",
   description:
     "Learn about Zellora India shipping methods, delivery timelines, standard & express delivery charges, tracking, and pan-India shipping policy.",
-};
+  canonicalUrl: "/shipping-policy",
+});
 
 const sectionClass =
   "space-y-3 pt-6 border-t border-[var(--theme-border-subtle,#F0E6D6)]";

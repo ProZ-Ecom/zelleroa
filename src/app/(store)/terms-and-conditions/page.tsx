@@ -2,12 +2,14 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { PolicyLayout } from "@/components/storefront/policy/PolicyLayout";
 import { FileText } from "lucide-react";
+import { constructMetadata } from "@/lib/seo";
 
-export const metadata: Metadata = {
-  title: "Terms & Conditions | Zellora",
+export const metadata: Metadata = constructMetadata({
+  title: "Terms & Conditions",
   description:
     "Read the Terms & Conditions governing the use of the Zellora website, orders, payments, delivery, cancellations, and services.",
-};
+  canonicalUrl: "/terms-and-conditions",
+});
 
 export default function TermsAndConditionsPage() {
   return (

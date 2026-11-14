@@ -43,3 +43,19 @@ export async function resolveBrandFilter(ref?: string | null): Promise<bigint | 
   });
   return row?.id ?? BigInt(0);
 }
+
+/** Resolves a cashier reference (uuid or numeric id) to users.id. */
+export async function resolveCashierFilter(ref?: string | null): Promise<bigint | null> {
+  if (!ref) return null;
+  const staff = await db.user.findFirst({
+    where: {
+      OR: [
+        { uuid: ref },
+        ...(/^\d+$/.test(ref) ? [{ id: BigInt(ref) }] : []),
+      ],
+    },
+    select: { id: true },
+  });
+  return staff?.id ?? BigInt(0);
+}
+

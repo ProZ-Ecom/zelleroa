@@ -1,12 +1,14 @@
 import type { Metadata } from "next";
 import { PolicyLayout } from "@/components/storefront/policy/PolicyLayout";
 import { RotateCcw, Clock, Video } from "lucide-react";
+import { constructMetadata } from "@/lib/seo";
 
-export const metadata: Metadata = {
-  title: "Return & Refund Policy | Zellora",
+export const metadata: Metadata = constructMetadata({
+  title: "Return & Refund Policy",
   description:
     "Zellora India return, replacement, and refund policy: requests within 3 days of delivery with a mandatory unboxing video, only for wrong or damaged products.",
-};
+  canonicalUrl: "/return-refund-policy",
+});
 
 const sectionClass =
   "space-y-3 pt-6 border-t border-[var(--theme-border-subtle,#F0E6D6)]";

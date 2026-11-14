@@ -1,6 +1,26 @@
 import { apiClient } from "@/lib/api/api-client";
 
 export type DashboardRange = 7 | 30 | 90;
+export type DashboardChannel = "all" | "online" | "pos";
+
+export interface ChannelBreakdown {
+  online: {
+    totalOrders: number;
+    todayOrders: number;
+    totalRevenue: number;
+    todayRevenue: number;
+    pendingOrders: number;
+  };
+  pos: {
+    totalOrders: number;
+    todayOrders: number;
+    totalRevenue: number;
+    todayRevenue: number;
+    cashSales: number;
+    upiSales: number;
+    cardSales: number;
+  };
+}
 
 export interface DashboardMetrics {
   users: number;
@@ -60,6 +80,8 @@ export interface DashboardStats {
     aovGrowth: number | null;
     customersGrowth: number | null;
   };
+  activeChannel?: DashboardChannel;
+  channelBreakdown: ChannelBreakdown;
   salesTrend: { label: string; value: number; orders: number }[];
   ordersByStatus: { status: string; count: number }[];
   paymentBreakdown: { status: string; count: number; amount: number }[];
@@ -70,6 +92,7 @@ export interface DashboardStats {
     date: string;
     amount: number;
     status: string;
+    source?: string | null;
   }[];
   topProducts: { id: string; name: string; unitsSold: number; revenue: number }[];
   topCustomers: {
@@ -82,7 +105,12 @@ export interface DashboardStats {
   lowStockItems: { id: string; name: string; variant: string | null; sku: string; stock: number; reorderLevel: number }[];
 }
 
-export async function getDashboardStats(range: DashboardRange = 7): Promise<DashboardStats> {
-  const response = await apiClient.get<DashboardStats>(`/api/dashboard/stats?range=${range}`);
+export async function getDashboardStats(
+  range: DashboardRange = 7,
+  channel: DashboardChannel = "all"
+): Promise<DashboardStats> {
+  const response = await apiClient.get<DashboardStats>(
+    `/api/dashboard/stats?range=${range}&channel=${channel}`
+  );
   return response.data!;
 }

@@ -74,6 +74,7 @@ const sidebarItems: SidebarItem[] = [
     section: "Operations",
     children: [
       { label: "Orders", href: "/admin/dashboard/orders", icon: ShoppingCart },
+      { label: "POS Sales", href: "/admin/dashboard/orders/pos", icon: Store },
       { label: "Return Requests", href: "/admin/dashboard/orders/returns", icon: Undo2 },
       // { label: "Bulk Orders", href: "/admin/dashboard/bulk-orders", icon: PackagePlus },
       { label: "Customers", href: "/admin/dashboard/customers", icon: Users },

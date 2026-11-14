@@ -1,4 +1,13 @@
+import type { Metadata } from "next";
 import dynamic from "next/dynamic";
+import { constructMetadata } from "@/lib/seo";
+
+export const metadata: Metadata = constructMetadata({
+  title: "Luxury Fashion, Watches & Lifestyle",
+  description:
+    "Discover designer dresses, luxury timepieces, handcrafted leather bags, and contemporary fashion at Zellora. Timeless elegance delivered to your doorstep.",
+  canonicalUrl: "/",
+});
 
 import {
   HeroIntro,

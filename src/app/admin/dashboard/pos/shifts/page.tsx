@@ -6,18 +6,15 @@ import {
   Banknote,
   CheckCircle2,
   Clock,
-  CreditCard,
   RefreshCw,
-  Smartphone,
   Store,
   Wallet,
-  X,
 } from "lucide-react";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminTableSkeleton } from "@/components/admin/AdminTableSkeleton";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Pagination } from "@/components/ui/pagination";
+import { TablePagination } from "@/components/admin/data-table/TablePagination";
 import { Select, type SelectOption } from "@/components/ui/select";
 import { cn, formatDateTime, formatPrice } from "@/lib/utils";
 import { useShifts } from "@/features/pos/hooks/use-pos";
@@ -39,6 +36,7 @@ const SHIFT_STATUS_OPTIONS: SelectOption[] = [
  */
 export default function PosShiftsPage() {
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
   const [status, setStatus] = useState<"ALL" | "OPEN" | "CLOSED">("ALL");
   const [datePreset, setDatePreset] = useState<DatePreset>("month");
   const [fromDate, setFromDate] = useState(() => {
@@ -80,16 +78,16 @@ export default function PosShiftsPage() {
   const queryParams = useMemo(() => {
     return {
       page,
-      limit: 20,
+      limit: pageSize,
       status: status !== "ALL" ? status : undefined,
       from: fromDate || undefined,
       to: toDate || undefined,
     };
-  }, [page, status, fromDate, toDate]);
+  }, [page, pageSize, status, fromDate, toDate]);
 
   const { data, isLoading, refetch, isFetching } = useShifts(queryParams);
 
-  const rows = data?.data ?? [];
+  const rows = useMemo(() => data?.data ?? [], [data?.data]);
 
   // Compute quick metrics across fetched shifts
   const metrics = useMemo(() => {
@@ -234,7 +232,7 @@ export default function PosShiftsPage() {
               <Select
                 value={status}
                 onValueChange={(val) => {
-                  setStatus(val as any);
+                  setStatus(val as "ALL" | "OPEN" | "CLOSED");
                   setPage(1);
                 }}
                 options={SHIFT_STATUS_OPTIONS}
@@ -274,7 +272,7 @@ export default function PosShiftsPage() {
       </div>
 
       {/* Responsive Shifts Data Table */}
-      <div className="rounded-2xl border border-neutral-200 bg-white shadow-sm overflow-hidden">
+      <div className="rounded-2xl border border-cream-border bg-white shadow-xs overflow-hidden">
         {isLoading && !data ? (
           <div className="p-6">
             <AdminTableSkeleton />
@@ -288,34 +286,52 @@ export default function PosShiftsPage() {
             </p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-xs sm:text-sm min-w-[760px]">
-              <thead className="border-b border-neutral-200 bg-neutral-50 text-left text-xs uppercase tracking-wider text-neutral-500">
+          <div className="overflow-x-auto scrollbar-table">
+            <table className="w-full min-w-[900px] table-auto caption-bottom text-sm border-separate border-spacing-0">
+              <thead className="sticky top-0 z-10 bg-stone-900 text-[#D4AF37] border-b border-stone-800 shadow-[0_1px_3px_rgba(28,25,23,0.2)]">
                 <tr>
-                  <th className="px-4 py-3 font-semibold">Cashier</th>
-                  <th className="px-4 py-3 font-semibold">Opened</th>
-                  <th className="px-4 py-3 font-semibold">Closed</th>
-                  <th className="px-4 py-3 font-semibold text-right">Bills</th>
-                  <th className="px-4 py-3 font-semibold text-right">Net sales</th>
-                  <th className="px-4 py-3 font-semibold text-right">Cash</th>
-                  <th className="px-4 py-3 font-semibold text-right">UPI</th>
-                  <th className="px-4 py-3 font-semibold text-right">Card</th>
-                  <th className="px-4 py-3 font-semibold text-right">Variance</th>
+                  <th className="h-12 px-4 sm:px-5 text-left align-middle text-[11px] font-bold uppercase tracking-[0.08em] whitespace-nowrap text-[#D4AF37] bg-stone-900 border-b border-stone-800 shadow-[0_1px_3px_rgba(28,25,23,0.2)]">
+                    Cashier
+                  </th>
+                  <th className="h-12 px-4 sm:px-5 text-left align-middle text-[11px] font-bold uppercase tracking-[0.08em] whitespace-nowrap text-[#D4AF37] bg-stone-900 border-b border-stone-800 shadow-[0_1px_3px_rgba(28,25,23,0.2)]">
+                    Opened
+                  </th>
+                  <th className="h-12 px-4 sm:px-5 text-left align-middle text-[11px] font-bold uppercase tracking-[0.08em] whitespace-nowrap text-[#D4AF37] bg-stone-900 border-b border-stone-800 shadow-[0_1px_3px_rgba(28,25,23,0.2)]">
+                    Closed
+                  </th>
+                  <th className="h-12 px-4 sm:px-5 text-right align-middle text-[11px] font-bold uppercase tracking-[0.08em] whitespace-nowrap text-[#D4AF37] bg-stone-900 border-b border-stone-800 shadow-[0_1px_3px_rgba(28,25,23,0.2)]">
+                    Bills
+                  </th>
+                  <th className="h-12 px-4 sm:px-5 text-right align-middle text-[11px] font-bold uppercase tracking-[0.08em] whitespace-nowrap text-[#D4AF37] bg-stone-900 border-b border-stone-800 shadow-[0_1px_3px_rgba(28,25,23,0.2)]">
+                    Net Sales
+                  </th>
+                  <th className="h-12 px-4 sm:px-5 text-right align-middle text-[11px] font-bold uppercase tracking-[0.08em] whitespace-nowrap text-[#D4AF37] bg-stone-900 border-b border-stone-800 shadow-[0_1px_3px_rgba(28,25,23,0.2)]">
+                    Cash
+                  </th>
+                  <th className="h-12 px-4 sm:px-5 text-right align-middle text-[11px] font-bold uppercase tracking-[0.08em] whitespace-nowrap text-[#D4AF37] bg-stone-900 border-b border-stone-800 shadow-[0_1px_3px_rgba(28,25,23,0.2)]">
+                    UPI
+                  </th>
+                  <th className="h-12 px-4 sm:px-5 text-right align-middle text-[11px] font-bold uppercase tracking-[0.08em] whitespace-nowrap text-[#D4AF37] bg-stone-900 border-b border-stone-800 shadow-[0_1px_3px_rgba(28,25,23,0.2)]">
+                    Card
+                  </th>
+                  <th className="h-12 px-4 sm:px-5 text-right align-middle text-[11px] font-bold uppercase tracking-[0.08em] whitespace-nowrap text-[#D4AF37] bg-stone-900 border-b border-stone-800 shadow-[0_1px_3px_rgba(28,25,23,0.2)]">
+                    Variance
+                  </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-neutral-100">
                 {rows.map((row) => {
                   const variance = row.session.cashVariance;
                   return (
-                    <tr key={row.session.uuid} className="hover:bg-neutral-50/60 transition-colors">
-                      <td className="px-4 py-3 whitespace-nowrap">
+                    <tr key={row.session.uuid} className="group hover:bg-neutral-50/80 transition-colors">
+                      <td className="px-4 py-3.5 sm:px-5 whitespace-nowrap border-b border-neutral-100">
                         <p className="font-semibold text-neutral-900">{row.session.staffName}</p>
                         <p className="text-[11px] text-neutral-400">{row.session.storeName}</p>
                       </td>
-                      <td className="px-4 py-3 text-neutral-600 whitespace-nowrap text-xs">
+                      <td className="px-4 py-3.5 sm:px-5 text-neutral-600 whitespace-nowrap text-xs border-b border-neutral-100">
                         {formatDateTime(row.session.openedAt)}
                       </td>
-                      <td className="px-4 py-3 text-neutral-600 whitespace-nowrap text-xs">
+                      <td className="px-4 py-3.5 sm:px-5 text-neutral-600 whitespace-nowrap text-xs border-b border-neutral-100">
                         {row.session.closedAt ? (
                           formatDateTime(row.session.closedAt)
                         ) : (
@@ -325,7 +341,7 @@ export default function PosShiftsPage() {
                           </span>
                         )}
                       </td>
-                      <td className="px-4 py-3 text-right tabular-nums whitespace-nowrap font-medium">
+                      <td className="px-4 py-3.5 sm:px-5 text-right tabular-nums whitespace-nowrap font-medium border-b border-neutral-100">
                         {row.billCount}
                         {row.voidedCount > 0 && (
                           <span className="ml-1 text-xs text-amber-600">
@@ -333,19 +349,19 @@ export default function PosShiftsPage() {
                           </span>
                         )}
                       </td>
-                      <td className="px-4 py-3 text-right tabular-nums whitespace-nowrap font-bold text-neutral-900">
+                      <td className="px-4 py-3.5 sm:px-5 text-right tabular-nums whitespace-nowrap font-bold text-neutral-900 border-b border-neutral-100">
                         {formatPrice(row.netSales)}
                       </td>
-                      <td className="px-4 py-3 text-right tabular-nums whitespace-nowrap text-neutral-700">
+                      <td className="px-4 py-3.5 sm:px-5 text-right tabular-nums whitespace-nowrap text-neutral-700 border-b border-neutral-100">
                         {formatPrice(row.cash)}
                       </td>
-                      <td className="px-4 py-3 text-right tabular-nums whitespace-nowrap text-neutral-700">
+                      <td className="px-4 py-3.5 sm:px-5 text-right tabular-nums whitespace-nowrap text-neutral-700 border-b border-neutral-100">
                         {formatPrice(row.upi)}
                       </td>
-                      <td className="px-4 py-3 text-right tabular-nums whitespace-nowrap text-neutral-700">
+                      <td className="px-4 py-3.5 sm:px-5 text-right tabular-nums whitespace-nowrap text-neutral-700 border-b border-neutral-100">
                         {formatPrice(row.card)}
                       </td>
-                      <td className="px-4 py-3 text-right whitespace-nowrap">
+                      <td className="px-4 py-3.5 sm:px-5 text-right whitespace-nowrap border-b border-neutral-100">
                         {variance === null ? (
                           <span className="text-neutral-400 font-mono">—</span>
                         ) : (
@@ -374,16 +390,19 @@ export default function PosShiftsPage() {
           </div>
         )}
 
-        {/* Responsive Pagination */}
-        {(data?.meta?.totalPages ?? 1) > 1 && (
-          <div className="border-t border-neutral-100 px-4 py-3">
-            <Pagination
-              currentPage={page}
-              totalPages={data?.meta?.totalPages ?? 1}
-              onPageChange={setPage}
-            />
-          </div>
-        )}
+        {/* Standard Table Pagination */}
+        <TablePagination
+          page={page}
+          totalPages={data?.meta?.totalPages ?? 1}
+          total={data?.meta?.total ?? rows.length}
+          pageSize={pageSize}
+          pageSizeOptions={[10, 20, 30, 50]}
+          onPageChange={setPage}
+          onPageSizeChange={(newSize) => {
+            setPageSize(newSize);
+            setPage(1);
+          }}
+        />
       </div>
     </div>
   );

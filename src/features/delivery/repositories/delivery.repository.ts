@@ -20,6 +20,7 @@ export const deliveryRepository = {
 
     const where: Prisma.OrderWhereInput = {
       is_active: true,
+      order_source: { not: "POS" },
     };
 
     if (params.orderStatus) {

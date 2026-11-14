@@ -9,6 +9,7 @@ export interface ReportOptions {
   categories: ReportOption[];
   brands: ReportOption[];
   agents: ReportOption[];
+  cashiers: ReportOption[];
 }
 
 /**
@@ -17,7 +18,7 @@ export interface ReportOptions {
  */
 export const reportOptionsService = {
   async all(): Promise<ReportOptions> {
-    const [categories, brands, agents] = await Promise.all([
+    const [categories, brands, agents, staff] = await Promise.all([
       db.productCategory.findMany({
         where: { isActive: true, deleted_at: null },
         orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
@@ -32,6 +33,17 @@ export const reportOptionsService = {
         where: { deleted_at: null, role: { slug: "agent" } },
         orderBy: { name: "asc" },
         select: { uuid: true, id: true, name: true, agent_profile: { select: { agent_code: true } } },
+      }),
+      db.user.findMany({
+        where: {
+          deleted_at: null,
+          OR: [
+            { pos_sessions_staff: { some: {} } },
+            { role: { slug: { in: ["admin", "staff", "pos_cashier"] } } },
+          ],
+        },
+        orderBy: { name: "asc" },
+        select: { uuid: true, id: true, name: true, email: true },
       }),
     ]);
 
@@ -54,6 +66,10 @@ export const reportOptionsService = {
       agents: agents.map((a) => ({
         value: a.uuid ?? String(a.id),
         label: `${a.name}${a.agent_profile?.agent_code ? ` (${a.agent_profile.agent_code})` : ""}`,
+      })),
+      cashiers: staff.map((s) => ({
+        value: s.uuid ?? String(s.id),
+        label: s.name ? `${s.name} (${s.email})` : s.email,
       })),
     };
   },

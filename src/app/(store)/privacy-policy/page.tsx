@@ -1,12 +1,14 @@
 import type { Metadata } from "next";
 import { PolicyLayout } from "@/components/storefront/policy/PolicyLayout";
 import { Lock } from "lucide-react";
+import { constructMetadata } from "@/lib/seo";
 
-export const metadata: Metadata = {
-  title: "Privacy Policy | Zellora",
+export const metadata: Metadata = constructMetadata({
+  title: "Privacy Policy",
   description:
     "Learn how Zellora collects, uses, protects, and manages customer information.",
-};
+  canonicalUrl: "/privacy-policy",
+});
 
 export default function PrivacyPolicyPage() {
   return (

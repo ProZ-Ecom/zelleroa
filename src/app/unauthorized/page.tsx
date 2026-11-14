@@ -1,4 +1,11 @@
+import type { Metadata } from "next";
 import Link from "next/link";
+import { constructMetadata } from "@/lib/seo";
+
+export const metadata: Metadata = constructMetadata({
+  title: "Unauthorized Access",
+  noIndex: true,
+});
 
 export default function UnauthorizedPage() {
   return (

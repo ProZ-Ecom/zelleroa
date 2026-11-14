@@ -167,6 +167,7 @@ export const adminOrdersListSchema = z
     customerId: z.string().uuid("Invalid customerId UUID format").optional(),
     status: z.enum(ORDER_STATUS_ENUM).optional(),
     paymentStatus: z.enum(PAYMENT_STATUS_ENUM).optional(),
+    channel: z.enum(["all", "online", "pos"]).default("online").optional(),
     sortBy: z
       .enum([
         "orderNumber",
