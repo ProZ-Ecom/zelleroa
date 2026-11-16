@@ -8,10 +8,14 @@ import { cn } from "@/lib/utils";
 import { useAdminOrdersCount } from "@/features/orders/hooks";
 import type { AdminOrdersCountResponse } from "@/features/orders/types";
 
+type OrderCountKey = {
+  [K in keyof AdminOrdersCountResponse]: AdminOrdersCountResponse[K] extends number | undefined ? K : never;
+}[keyof AdminOrdersCountResponse];
+
 interface StatusTab {
   label: string;
   href: string;
-  countKey?: keyof AdminOrdersCountResponse;
+  countKey?: OrderCountKey;
 }
 
 // Main fulfilment pipeline — always visible
@@ -100,8 +104,11 @@ export function OrderStatusTabs() {
       ? pathname === tab.href
       : pathname === tab.href || pathname.startsWith(tab.href + "/");
 
-  const countOf = (tab: StatusTab) =>
-    tab.countKey && counts ? counts[tab.countKey] : undefined;
+  const countOf = (tab: StatusTab): number | undefined => {
+    if (!tab.countKey || !counts) return undefined;
+    const val = counts[tab.countKey];
+    return typeof val === "number" ? val : undefined;
+  };
 
   const activeMore = MORE_TABS.find(isActive);
   const moreTotal = MORE_TABS.reduce((sum, t) => sum + (countOf(t) ?? 0), 0);

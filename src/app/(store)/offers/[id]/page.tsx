@@ -33,7 +33,7 @@ export async function generateMetadata({
   const description = offer.code
     ? `Use offer code ${offer.code} to enjoy exclusive discounts on selected styles at Zellora.`
     : `Shop exclusive discounts with ${offer.name} at Zellora. Limited time luxury deals.`;
-  const image = offer.bannerImage || null;
+  const image = null;
 
   return constructMetadata({
     title,

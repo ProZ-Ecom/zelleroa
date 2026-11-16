@@ -232,7 +232,7 @@ export function PosRecentPurchasesDrawer({ open, onClose }: PosRecentPurchasesDr
           {/* Footer link to full purchases history */}
           <div className="border-t border-neutral-200 bg-neutral-50 px-5 py-3">
             <Link
-              href="/admin/dashboard/pos/purchases"
+              href="/admin/dashboard/orders/pos"
               onClick={onClose}
               className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-neutral-200 bg-white py-2 text-xs font-semibold text-neutral-800 shadow-sm transition hover:bg-neutral-100"
             >

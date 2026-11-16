@@ -659,6 +659,7 @@ export const CHART_COLORS = {
   amber: "#d97706",
   rose: "#e11d48",
   violet: "#7c3aed",
+  indigo: "#4f46e5",
   slate: "#64748b",
 };
 

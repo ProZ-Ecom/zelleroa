@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/Switch";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/forms/label";
+import { Select, type SelectOption } from "@/components/ui/select";
 import { User, Mail, Phone, Lock, Loader2 } from "lucide-react";
 import { useCreateStaff, useUpdateStaff, useAssignableStaffRoles } from "../hooks/use-staff";
 import type { StaffResponse } from "../types";
@@ -70,6 +71,12 @@ export function StaffFormModal({
     () => roles.find((role) => role.slug === "staff")?.id ?? roles[0]?.id,
     [roles]
   );
+  const roleOptions: SelectOption[] = React.useMemo(() => {
+    return roles.map((role) => ({
+      value: String(role.id),
+      label: role.name,
+    }));
+  }, [roles]);
 
   const isSubmitting =
     createMutation.isPending || updateMutation.isPending;
@@ -315,19 +322,23 @@ export function StaffFormModal({
           <Label htmlFor="staff-role" className="block mb-1.5 font-medium text-neutral-800">
             Role <span className="text-red-500">*</span>
           </Label>
-          <select
-            id="staff-role"
-            {...register("roleId", { valueAsNumber: true })}
-            disabled={isSubmitting || rolesLoading}
-            className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary disabled:bg-neutral-50"
-          >
-            <option value="">{rolesLoading ? "Loading roles..." : "Select a role"}</option>
-            {roles.map((role) => (
-              <option key={role.id} value={role.id}>
-                {role.name}
-              </option>
-            ))}
-          </select>
+          <Controller
+            name="roleId"
+            control={control}
+            render={({ field }) => (
+              <Select
+                id="staff-role"
+                value={field.value ? String(field.value) : ""}
+                onValueChange={(val) => field.onChange(val ? Number(val) : undefined)}
+                options={roleOptions}
+                placeholder={rolesLoading ? "Loading roles..." : "Select a role"}
+                disabled={isSubmitting || rolesLoading}
+                portal={true}
+                searchable={roleOptions.length > 5}
+                className="w-full text-sm"
+              />
+            )}
+          />
           {errors.roleId && (
             <p className="mt-1 text-xs text-red-500 font-medium">{errors.roleId.message}</p>
           )}

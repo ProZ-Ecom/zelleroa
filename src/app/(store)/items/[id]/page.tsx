@@ -98,7 +98,7 @@ export default async function ItemDetailPage({ params }: ItemDetailPageProps) {
             ? [
                 {
                   name: item.category.name,
-                  item: `/category/${item.category.slug || item.category.id}`,
+                  item: `/category/${item.category.id}`,
                 },
               ]
             : []),

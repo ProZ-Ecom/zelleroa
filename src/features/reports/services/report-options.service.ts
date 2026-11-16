@@ -69,7 +69,11 @@ export const reportOptionsService = {
       })),
       cashiers: staff.map((s) => ({
         value: s.uuid ?? String(s.id),
-        label: s.name ? `${s.name} (${s.email})` : s.email,
+        label: s.name
+          ? s.email
+            ? `${s.name} (${s.email})`
+            : s.name
+          : (s.email ?? "Staff"),
       })),
     };
   },
