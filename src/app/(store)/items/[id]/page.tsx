@@ -1,59 +1,61 @@
 import type { Metadata } from "next";
+import { cache } from "react";
 import { catalogService } from "@/features/customers/services/catalog.service";
 import { ItemDetailClient } from "./ItemDetailClient";
+import {
+  constructMetadata,
+  getEntitySeoMetaByUuid,
+  buildProductJsonLd,
+  buildBreadcrumbJsonLd,
+  safeJsonLd,
+} from "@/lib/seo";
 
 interface ItemDetailPageProps {
   params: Promise<{ id: string }>;
 }
 
-const SITE_URL = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
-const SITE_NAME = "Zellora";
-
-async function getItemForSeo(id: string) {
+const getItemForSeo = cache(async (id: string) => {
   try {
     return await catalogService.getItemByUuid(id);
   } catch {
     return null;
   }
-}
+});
 
 export async function generateMetadata({
   params,
 }: ItemDetailPageProps): Promise<Metadata> {
   const { id } = await params;
-  const item = await getItemForSeo(id);
+  const [item, seoMeta] = await Promise.all([
+    getItemForSeo(id),
+    getEntitySeoMetaByUuid("item", id),
+  ]);
 
   if (!item) {
-    return { title: `Item Not Found | ${SITE_NAME}` };
+    return constructMetadata({
+      title: "Product Not Found",
+      noIndex: true,
+    });
   }
 
-  const title = `${item.name}${item.brand ? ` by ${item.brand.name}` : ""} | ${SITE_NAME}`;
+  // Priority: 1. SEO Table -> 2. Actual Entity Information -> 3. Global Default
+  const title =
+    seoMeta?.meta_title ||
+    `${item.name}${item.brand ? ` by ${item.brand.name}` : ""}`;
   const description =
-    item.shortDescription?.slice(0, 160) ||
-    item.description?.slice(0, 160) ||
-    `Shop ${item.name} at ${SITE_NAME}.`;
-  const canonicalUrl = `${SITE_URL}/items/${id}`;
-  const image = item.image || undefined;
+    seoMeta?.meta_description ||
+    item.shortDescription ||
+    item.description ||
+    `Shop ${item.name} at Zellora.`;
+  const image = seoMeta?.og_image || item.image || null;
 
-  return {
+  return constructMetadata({
     title,
     description,
-    alternates: { canonical: canonicalUrl },
-    openGraph: {
-      title,
-      description,
-      url: canonicalUrl,
-      siteName: SITE_NAME,
-      type: "website",
-      images: image ? [{ url: image }] : undefined,
-    },
-    twitter: {
-      card: "summary_large_image",
-      title,
-      description,
-      images: image ? [image] : undefined,
-    },
-  };
+    image,
+    canonicalUrl: `/items/${id}`,
+    keywords: seoMeta?.meta_keywords || undefined,
+  });
 }
 
 export default async function ItemDetailPage({ params }: ItemDetailPageProps) {
@@ -64,37 +66,59 @@ export default async function ItemDetailPage({ params }: ItemDetailPageProps) {
   // described to crawlers as an aggregate offer over those rows.
   const sizes = item?.colors.flatMap((color) => color.unitPrices) ?? [];
 
-  const jsonLd = item
-    ? {
-        "@context": "https://schema.org",
-        "@type": "Product",
+  const productJsonLd = item
+    ? buildProductJsonLd({
         name: item.name,
         description: item.shortDescription || item.description || undefined,
         image: item.image ? [item.image] : undefined,
-        brand: item.brand ? { "@type": "Brand", name: item.brand.name } : undefined,
+        brand: item.brand?.name,
+        category: item.category?.name,
         sku: sizes[0]?.sku,
+        url: `/items/${id}`,
         offers:
           sizes.length > 0
             ? {
-                "@type": "AggregateOffer",
                 priceCurrency: "INR",
-                lowPrice: Math.min(...sizes.map((size) => size.sellingPrice)),
-                highPrice: Math.max(...sizes.map((size) => size.sellingPrice)),
+                lowPrice: Math.min(...sizes.map((s) => s.sellingPrice)),
+                highPrice: Math.max(...sizes.map((s) => s.sellingPrice)),
                 offerCount: sizes.length,
-                availability: sizes.some((size) => size.inStock)
-                  ? "https://schema.org/InStock"
-                  : "https://schema.org/OutOfStock",
+                availability: sizes.some((s) => s.inStock) ? "InStock" : "OutOfStock",
+                url: `/items/${id}`,
               }
             : undefined,
-      }
+      })
+    : null;
+
+  const breadcrumbsJsonLd = item
+    ? buildBreadcrumbJsonLd({
+        items: [
+          { name: "Home", item: "/" },
+          { name: "Products", item: "/products" },
+          ...(item.category
+            ? [
+                {
+                  name: item.category.name,
+                  item: `/category/${item.category.id}`,
+                },
+              ]
+            : []),
+          { name: item.name, item: `/items/${id}` },
+        ],
+      })
     : null;
 
   return (
     <>
-      {jsonLd && (
+      {productJsonLd && (
         <script
           type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+          dangerouslySetInnerHTML={{ __html: safeJsonLd(productJsonLd) }}
+        />
+      )}
+      {breadcrumbsJsonLd && (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: safeJsonLd(breadcrumbsJsonLd) }}
         />
       )}
       <ItemDetailClient itemId={id} />

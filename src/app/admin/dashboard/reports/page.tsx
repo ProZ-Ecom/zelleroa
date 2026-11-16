@@ -7,6 +7,7 @@ import {
   DollarSign,
   Package,
   ShoppingCart,
+  Store,
   Users,
   Warehouse,
 } from "lucide-react";
@@ -20,6 +21,19 @@ const reports = [
     icon: BarChart3,
     href: "/admin/dashboard/reports/sales",
     includes: ["Sales and orders over time", "By category, brand and channel", "Top products and customers"],
+  },
+  {
+    title: "POS & Counter Sales",
+    question: "How did store counters perform, and how are cash & registers balancing?",
+    icon: Store,
+    href: "/admin/dashboard/reports/pos",
+    includes: [
+      "Counter net sales, bills and average ticket",
+      "Cash vs UPI vs Card tender breakdown",
+      "Cashier performance & voided audits",
+      "Top counter selling products ranking",
+      "Shift opening/closing cash reconciliation",
+    ],
   },
   {
     title: "Orders",

@@ -8,6 +8,7 @@ import {
   ORDER_STATUS_OPTIONS,
   PageHeader,
   Panel,
+  ProductWithQuantity,
   SimpleTable,
   StatusBadge,
   dateOnly,
@@ -67,7 +68,17 @@ function AgentCommissionsContent() {
                 { header: "Order", cell: (r) => <span className="font-mono text-xs">{r.orderNumber}</span> },
                 { header: "Referral code", cell: (r) => <span className="font-mono text-xs">{r.referralCode ?? "—"}</span> },
                 { header: "Customer", cell: (r) => r.customerName },
-                { header: "Product", cell: (r) => `${r.productName} × ${r.quantity}` },
+                {
+                  header: "Product",
+                  cell: (r) => (
+                    <ProductWithQuantity
+                      productName={r.productName}
+                      quantity={r.quantity}
+                      originalQuantity={r.originalQuantity}
+                      returnedQuantity={r.returnedQuantity}
+                    />
+                  ),
+                },
                 { header: "Category", cell: (r) => r.categoryName ?? "—" },
                 { header: "Product amount", cell: (r) => money(r.productAmount) },
                 { header: "%", cell: (r) => pct(r.percentage) },

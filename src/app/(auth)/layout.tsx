@@ -1,5 +1,12 @@
+import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import AuthBanner from "@/components/auth/AuthBanner";
+import { constructMetadata } from "@/lib/seo";
+
+export const metadata: Metadata = constructMetadata({
+  title: "Account Authentication",
+  noIndex: true,
+});
 
 interface AuthLayoutProps {
   children: ReactNode;

@@ -1,61 +1,60 @@
 import type { Metadata } from "next";
+import { cache } from "react";
 import { redirect } from "next/navigation";
 import { catalogService } from "@/features/customers/services/catalog.service";
 import { styleDefaultItemId, itemHref } from "@/features/customers/utils/style-default-item";
 import { ProductDetailClient } from "./ProductDetailClient";
+import {
+  constructMetadata,
+  getEntitySeoMetaByUuid,
+} from "@/lib/seo";
 
 interface ProductDetailPageProps {
   params: Promise<{ slug: string }>;
 }
 
-const SITE_URL = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
-const SITE_NAME = "Zellora";
-
 /** `slug` is the Style UUID - the Style is what the storefront lists and links to. */
-async function getStyleForSeo(slug: string) {
+const getStyleForSeo = cache(async (slug: string) => {
   try {
     return await catalogService.getStyleByUuid(slug);
   } catch {
     return null;
   }
-}
+});
 
 export async function generateMetadata({
   params,
 }: ProductDetailPageProps): Promise<Metadata> {
   const { slug } = await params;
-  const style = await getStyleForSeo(slug);
+  const [style, seoMeta] = await Promise.all([
+    getStyleForSeo(slug),
+    getEntitySeoMetaByUuid("style", slug),
+  ]);
 
   if (!style) {
-    return { title: `Product Not Found | ${SITE_NAME}` };
+    return constructMetadata({
+      title: "Product Not Found",
+      noIndex: true,
+    });
   }
 
-  const title = `${style.name}${style.brand ? ` by ${style.brand.name}` : ""} | ${SITE_NAME}`;
+  // Priority: 1. SEO Table -> 2. Actual Entity Information -> 3. Global Default
+  const title =
+    seoMeta?.meta_title ||
+    `${style.name}${style.brand ? ` by ${style.brand.name}` : ""}`;
   const description =
-    (style.description || style.shortDescription)?.slice(0, 160) ||
-    `Shop ${style.name} at ${SITE_NAME}. ${style.category ? `Explore our ${style.category.name} collection.` : ""}`;
-  const canonicalUrl = `${SITE_URL}/products/${slug}`;
-  const image = style.image || undefined;
+    seoMeta?.meta_description ||
+    (style.description || style.shortDescription) ||
+    `Shop ${style.name} at Zellora. ${style.category ? `Explore our ${style.category.name} collection.` : ""}`;
+  const image = seoMeta?.og_image || style.image || null;
 
-  return {
+  return constructMetadata({
     title,
     description,
-    alternates: { canonical: canonicalUrl },
-    openGraph: {
-      title,
-      description,
-      url: canonicalUrl,
-      siteName: SITE_NAME,
-      type: "website",
-      images: image ? [{ url: image }] : undefined,
-    },
-    twitter: {
-      card: "summary_large_image",
-      title,
-      description,
-      images: image ? [image] : undefined,
-    },
-  };
+    image,
+    canonicalUrl: `/products/${slug}`,
+    keywords: seoMeta?.meta_keywords || undefined,
+  });
 }
 
 export default async function ProductDetailPage({ params }: ProductDetailPageProps) {

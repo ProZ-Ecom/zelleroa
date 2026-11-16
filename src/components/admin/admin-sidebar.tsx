@@ -44,6 +44,7 @@ import {
   ClipboardList,
   SlidersHorizontal,
   Store,
+  ShoppingBag,
   Undo2,
   IndianRupee,
 } from "lucide-react";
@@ -73,10 +74,22 @@ const sidebarItems: SidebarItem[] = [
     section: "Operations",
     children: [
       { label: "Orders", href: "/admin/dashboard/orders", icon: ShoppingCart },
+      { label: "POS Sales", href: "/admin/dashboard/orders/pos", icon: Store },
       { label: "Return Requests", href: "/admin/dashboard/orders/returns", icon: Undo2 },
       // { label: "Bulk Orders", href: "/admin/dashboard/bulk-orders", icon: PackagePlus },
       { label: "Customers", href: "/admin/dashboard/customers", icon: Users },
       { label: "Deliveries", href: "/admin/dashboard/delivery", icon: Truck },
+    ],
+  },
+  {
+    label: "Counter (POS)",
+    href: "/admin/dashboard/pos",
+    icon: Store,
+    section: "Operations",
+    children: [
+      { label: "Billing", href: "/admin/dashboard/pos", icon: Store },
+      // { label: "Purchases", href: "/admin/dashboard/pos/purchases", icon: ShoppingBag },
+      { label: "Shifts", href: "/admin/dashboard/pos/shifts", icon: Wallet },
     ],
   },
   {

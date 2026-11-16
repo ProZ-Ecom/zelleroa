@@ -81,6 +81,9 @@ export async function getAdminOrders(
   if (params?.paymentStatus) {
     body.paymentStatus = params.paymentStatus;
   }
+  if (params?.channel) {
+    body.channel = params.channel;
+  }
   if (params?.sortBy) {
     body.sortBy = params.sortBy;
   }
@@ -125,6 +128,9 @@ export async function getAdminOrdersCount(
   }
   if (params?.paymentStatus) {
     body.paymentStatus = params.paymentStatus;
+  }
+  if (params?.channel) {
+    body.channel = params.channel;
   }
 
   const response = await apiClient.post<AdminOrdersCountResponse>(

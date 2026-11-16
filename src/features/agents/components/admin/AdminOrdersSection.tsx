@@ -9,6 +9,7 @@ import {
   ORDER_SOURCE_OPTIONS,
   OrderSourceCell,
   Panel,
+  ProductWithQuantity,
   SimpleTable,
   StatusBadge,
   dateOnly,
@@ -66,7 +67,17 @@ export function AdminOrdersSection({ fixedAgent }: { fixedAgent?: string }) {
               { header: "Customer", cell: (r) => r.customerName },
               { header: "Order source", cell: (r) => <OrderSourceCell source={r.orderSource} orderedBy={r.orderedByName} /> },
               { header: "Date", cell: (r) => dateOnly(r.orderDate) },
-              { header: "Product", cell: (r) => `${r.productName} × ${r.quantity}` },
+              {
+                header: "Product",
+                cell: (r) => (
+                  <ProductWithQuantity
+                    productName={r.productName}
+                    quantity={r.quantity}
+                    originalQuantity={r.originalQuantity}
+                    returnedQuantity={r.returnedQuantity}
+                  />
+                ),
+              },
               { header: "Product amount", cell: (r) => money(r.productAmount) },
               { header: "Order status", cell: (r) => <StatusBadge status={r.orderStatus} /> },
               { header: "%", cell: (r) => pct(r.commissionPercentage) },

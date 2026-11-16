@@ -294,6 +294,7 @@ export interface AdminOrdersListParams {
   customerId?: string;
   status?: OrderStatus;
   paymentStatus?: PaymentStatus;
+  channel?: "all" | "online" | "pos";
   sortBy?:
     | "orderNumber"
     | "createdAt"
@@ -358,6 +359,13 @@ export interface AdminOrdersCountResponse {
   total: number;
   return_requests?: number;
   replacement_requests?: number;
+  todayOrders?: number;
+  totalRevenue?: number;
+  channelCounts?: {
+    online: number;
+    pos: number;
+    total: number;
+  };
 }
 
 

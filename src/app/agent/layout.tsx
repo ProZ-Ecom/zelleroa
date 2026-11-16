@@ -1,7 +1,14 @@
+import type { Metadata } from "next";
 import { AgentShell } from "@/features/agents/components/AgentNav";
 import { getAgentProfileDetails, requireAgentPage } from "@/features/agents/lib/page-context";
+import { constructMetadata } from "@/lib/seo";
 
 export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = constructMetadata({
+  title: "Sales Partner Portal",
+  noIndex: true,
+});
 
 export default async function AgentLayout({ children }: { children: React.ReactNode }) {
   const agent = await requireAgentPage();

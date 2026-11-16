@@ -31,9 +31,11 @@ export const commissionInclude = {
     select: {
       product_name_snapshot: true,
       quantity: true,
+      total_price: true,
       return_items: {
         where: { is_active: true },
         select: {
+          quantity: true,
           return_requests: {
             select: {
               status: true,
@@ -41,7 +43,6 @@ export const commissionInclude = {
           },
         },
         orderBy: { created_at: "desc" },
-        take: 1,
       },
       replacement_request_items: {
         where: { is_active: true },
@@ -251,7 +252,71 @@ export function resolveProductOrderStatus(c: CommissionWithRelations): string {
   return String(c.order?.order_status ?? c.order_status ?? "pending");
 }
 
+// Return statuses where the return was approved or completed and commission reduced
+const APPROVED_RETURN_STATUSES = new Set([
+  "approved",
+  "pickup_scheduled",
+  "picked_up",
+  "shipped_by_customer",
+  "received",
+  "refund_pending",
+  "refunded",
+  "closed",
+]);
+
+export function calculateItemQuantities(
+  orderItem?: {
+    quantity: number;
+    total_price?: Prisma.Decimal | number | string | null;
+    return_items?: Array<{ quantity: number; return_requests?: { status: string } | null }> | null;
+  } | null,
+  productAmount?: number | null
+): { quantity: number; originalQuantity: number; returnedQuantity: number } {
+  const originalQuantity = orderItem?.quantity ?? 1;
+  let returnedQuantity = 0;
+
+  if (orderItem?.return_items && Array.isArray(orderItem.return_items)) {
+    for (const ri of orderItem.return_items) {
+      const s = String(ri.return_requests?.status ?? "").toLowerCase();
+      if (APPROVED_RETURN_STATUSES.has(s)) {
+        returnedQuantity += Number(ri.quantity) || 0;
+      }
+    }
+  }
+
+  // Cross-check: If returnedQuantity is 0 but product_amount was reduced proportionally
+  if (
+    returnedQuantity === 0 &&
+    productAmount != null &&
+    orderItem?.total_price != null &&
+    originalQuantity > 0
+  ) {
+    const origTotal = Number(orderItem.total_price);
+    const unitPrice = origTotal / originalQuantity;
+    if (unitPrice > 0 && productAmount < origTotal) {
+      const kept = Math.round(productAmount / unitPrice);
+      if (kept >= 0 && kept < originalQuantity) {
+        returnedQuantity = originalQuantity - kept;
+      }
+    }
+  }
+
+  const effectiveReturned = Math.min(returnedQuantity, originalQuantity);
+  const netQuantity = Math.max(0, originalQuantity - effectiveReturned);
+
+  return {
+    quantity: netQuantity,
+    originalQuantity,
+    returnedQuantity: effectiveReturned,
+  };
+}
+
 export function formatCommissionRow(c: CommissionWithRelations): CommissionRow {
+  const { quantity, originalQuantity, returnedQuantity } = calculateItemQuantities(
+    c.order_item,
+    Number(c.product_amount)
+  );
+
   return {
     id: c.uuid,
     code: padCode("CMS", c.id),
@@ -264,7 +329,9 @@ export function formatCommissionRow(c: CommissionWithRelations): CommissionRow {
     agentCode: c.agent?.agent_profile?.agent_code ?? null,
     productName: c.order_item?.product_name_snapshot ?? "—",
     categoryName: c.category?.name ?? null,
-    quantity: c.order_item?.quantity ?? 1,
+    quantity,
+    originalQuantity,
+    returnedQuantity,
     productAmount: Number(c.product_amount),
     percentage: Number(c.commission_percentage),
     rateSource: c.rate_source,

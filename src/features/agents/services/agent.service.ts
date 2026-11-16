@@ -8,7 +8,7 @@ import { APP_URL } from "@/lib/constants";
 import { encryptField, maskAccountNumber } from "@/lib/security/field-crypto";
 import { allocateReferralCode } from "@/lib/referral/code";
 import { writeAudit } from "./commission-audit";
-import { customerSearchWhere, endOfDay, resolveAgentRef, startOfDay } from "./commission.queries";
+import { calculateItemQuantities, customerSearchWhere, endOfDay, resolveAgentRef, startOfDay } from "./commission.queries";
 import type { AuditActor } from "../constants";
 import type { AgentSummary, PaginatedResult } from "../types";
 import type { CreateAgentInput, PaymentDetailsInput, UpdateAgentInput } from "../validations/agent.schema";
@@ -635,6 +635,18 @@ export const agentService = {
           quantity: true,
           total_price: true,
           createdAt: true,
+          return_items: {
+            where: { is_active: true },
+            select: {
+              quantity: true,
+              return_requests: {
+                select: {
+                  status: true,
+                },
+              },
+            },
+            orderBy: { created_at: "desc" },
+          },
           order: {
             select: {
               uuid: true,
@@ -651,7 +663,7 @@ export const agentService = {
               agent: { select: { name: true, agent_profile: { select: { agent_code: true } } } },
             },
           },
-          commission: { select: { commission_percentage: true, commission_amount: true, status: true } },
+          commission: { select: { product_amount: true, commission_percentage: true, commission_amount: true, status: true } },
         },
         orderBy: { createdAt: "desc" },
         skip: (page - 1) * limit,
@@ -661,30 +673,40 @@ export const agentService = {
     ]);
 
     return {
-      data: rows.map((r) => ({
-        id: String(r.id),
-        orderId: r.order?.uuid ?? "",
-        orderNumber: r.order?.orderNumber ?? "—",
-        referralCode: r.order?.referral_code ?? null,
-        customerName: r.order?.is_manual_customer
-          ? r.order?.manual_customer_name || "Walk-in customer"
-          : (r.order?.user?.name ?? "—"),
-        customerContact: r.order?.is_manual_customer
-          ? (r.order?.manual_customer_phone ?? null)
-          : (r.order?.user?.email ?? r.order?.user?.phone ?? null),
-        orderSource: r.order?.order_source ?? "CUSTOMER_DIRECT",
-        orderedByName: r.order?.ordered_by?.name ?? null,
-        agentName: r.order?.agent?.name ?? "",
-        agentCode: r.order?.agent?.agent_profile?.agent_code ?? null,
-        orderDate: r.order?.createdAt ? r.order.createdAt.toISOString() : r.createdAt.toISOString(),
-        productName: r.product_name_snapshot,
-        quantity: r.quantity,
-        productAmount: Number(r.total_price),
-        orderStatus: r.order?.order_status ?? "pending",
-        commissionPercentage: r.commission ? Number(r.commission.commission_percentage) : null,
-        commissionAmount: r.commission ? Number(r.commission.commission_amount) : null,
-        commissionStatus: r.commission?.status ?? null,
-      })),
+      data: rows.map((r) => {
+        const commProductAmount = r.commission?.product_amount != null ? Number(r.commission.product_amount) : null;
+        const { quantity, originalQuantity, returnedQuantity } = calculateItemQuantities(
+          r,
+          commProductAmount
+        );
+
+        return {
+          id: String(r.id),
+          orderId: r.order?.uuid ?? "",
+          orderNumber: r.order?.orderNumber ?? "—",
+          referralCode: r.order?.referral_code ?? null,
+          customerName: r.order?.is_manual_customer
+            ? r.order?.manual_customer_name || "Walk-in customer"
+            : (r.order?.user?.name ?? "—"),
+          customerContact: r.order?.is_manual_customer
+            ? (r.order?.manual_customer_phone ?? null)
+            : (r.order?.user?.email ?? r.order?.user?.phone ?? null),
+          orderSource: r.order?.order_source ?? "CUSTOMER_DIRECT",
+          orderedByName: r.order?.ordered_by?.name ?? null,
+          agentName: r.order?.agent?.name ?? "",
+          agentCode: r.order?.agent?.agent_profile?.agent_code ?? null,
+          orderDate: r.order?.createdAt ? r.order.createdAt.toISOString() : r.createdAt.toISOString(),
+          productName: r.product_name_snapshot,
+          quantity,
+          originalQuantity,
+          returnedQuantity,
+          productAmount: commProductAmount ?? Number(r.total_price),
+          orderStatus: r.order?.order_status ?? "pending",
+          commissionPercentage: r.commission ? Number(r.commission.commission_percentage) : null,
+          commissionAmount: r.commission ? Number(r.commission.commission_amount) : null,
+          commissionStatus: r.commission?.status ?? null,
+        };
+      }),
       meta: { page, limit, total, totalPages: Math.max(1, Math.ceil(total / limit)) },
     };
   },
@@ -719,6 +741,8 @@ export interface AgentOrderLine {
   orderDate: string;
   productName: string;
   quantity: number;
+  originalQuantity?: number;
+  returnedQuantity?: number;
   productAmount: number;
   orderStatus: string;
   commissionPercentage: number | null;

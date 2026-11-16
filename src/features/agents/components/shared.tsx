@@ -115,6 +115,37 @@ export function StatusBadge({ status, className, title }: { status: string | nul
   );
 }
 
+export function ProductWithQuantity({
+  productName,
+  quantity,
+  originalQuantity,
+  returnedQuantity,
+  className,
+}: {
+  productName: string;
+  quantity: number;
+  originalQuantity?: number | null;
+  returnedQuantity?: number | null;
+  className?: string;
+}) {
+  const returned = returnedQuantity ?? 0;
+  const isReturned = returned > 0;
+  const orig = originalQuantity ?? (isReturned ? quantity + returned : quantity);
+
+  return (
+    <div className={cn("flex flex-col items-start gap-0.5 min-w-0", className)}>
+      <span className="font-medium text-neutral-900 leading-tight">
+        {productName} <span className="font-normal text-neutral-500">× {quantity}</span>
+      </span>
+      {isReturned && (
+        <span className="inline-flex items-center text-[10px] font-semibold text-amber-800 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200/90 whitespace-nowrap">
+          {returned} returned of {orig}
+        </span>
+      )}
+    </div>
+  );
+}
+
 const inr = new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", minimumFractionDigits: 2 });
 export const money = (n: number | null | undefined) => (n == null ? "—" : inr.format(n));
 export const pct = (n: number | null | undefined) => (n == null ? "—" : `${n}%`);

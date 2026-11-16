@@ -469,7 +469,7 @@ export function OrderDetailView({
                 <dl className="p-4 text-xs grid grid-cols-2 gap-x-3 gap-y-2">
                   <dt className="text-theme-text-muted">Order source</dt>
                   <dd className="font-semibold text-theme-text-primary text-right">
-                    {({ CUSTOMER_DIRECT: "Customer Direct", AGENT_PLACED_FOR_CUSTOMER: "Agent Placed", AGENT_OWN: "Agent Own" } as Record<string, string>)[order.referral.orderSource] ?? order.referral.orderSource}
+                    {({ CUSTOMER_DIRECT: "Customer Direct", AGENT_PLACED_FOR_CUSTOMER: "Agent Placed", AGENT_OWN: "Agent Own", POS: "Counter (POS)" } as Record<string, string>)[order.referral.orderSource] ?? order.referral.orderSource}
                   </dd>
                   <dt className="text-theme-text-muted">Ordered by</dt>
                   <dd className="font-semibold text-theme-text-primary text-right">{order.referral.orderedByName ?? "—"}</dd>

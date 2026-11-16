@@ -1,8 +1,19 @@
 import { db } from "@/lib/db/prisma";
+import { Prisma } from "@/generated/prisma";
 import { apiSuccess } from "@/lib/api/api-response";
 import { createApiHandler } from "@/lib/api/api-handler";
 
 const ALLOWED_RANGES = [7, 30, 90];
+
+function getChannelOrderFilter(channel: string): Prisma.OrderWhereInput {
+  if (channel === "pos") {
+    return { order_source: "POS" };
+  }
+  if (channel === "online") {
+    return { order_source: { not: "POS" } };
+  }
+  return {};
+}
 
 function growth(current: number, previous: number): number | null {
   if (previous === 0) return current === 0 ? 0 : null;
@@ -20,22 +31,23 @@ type Bounds = { gte: Date; lt: Date } | undefined;
  * Sales   = value of all orders that were not cancelled/returned.
  * Revenue = the part of that value actually collected (payment_status = paid).
  */
-async function metricsFor(bounds: Bounds) {
+async function metricsFor(bounds: Bounds, channelFilter: Prisma.OrderWhereInput = {}) {
   const created = bounds ? { createdAt: bounds } : {};
   const live = { order_status: { notIn: ["cancelled" as const, "returned" as const] } };
+  const orderWhere = { ...created, ...channelFilter };
   const [users, agents, orders, sales, revenue, cancelled, returned, pending] =
     await Promise.all([
       db.user.count({ where: { role: { name: "CUSTOMER" }, ...created } }),
       db.user.count({ where: { role: { slug: "agent" }, ...created } }),
-      db.order.count({ where: created }),
-      db.order.aggregate({ where: { ...created, ...live }, _sum: { totalAmount: true } }),
+      db.order.count({ where: orderWhere }),
+      db.order.aggregate({ where: { ...orderWhere, ...live }, _sum: { totalAmount: true } }),
       db.order.aggregate({
-        where: { ...created, ...live, payment_status: "paid" },
+        where: { ...orderWhere, ...live, payment_status: "paid" },
         _sum: { totalAmount: true },
       }),
-      db.order.count({ where: { ...created, order_status: "cancelled" } }),
-      db.order.count({ where: { ...created, order_status: "returned" } }),
-      db.order.count({ where: { ...created, order_status: "pending" } }),
+      db.order.count({ where: { ...orderWhere, order_status: "cancelled" } }),
+      db.order.count({ where: { ...orderWhere, order_status: "returned" } }),
+      db.order.count({ where: { ...orderWhere, order_status: "pending" } }),
     ]);
   return {
     users,
@@ -144,6 +156,12 @@ async function agentStats(periodStart: Date) {
 async function getStats(searchParams?: URLSearchParams) {
   const requested = Number(searchParams?.get("range"));
   const range = ALLOWED_RANGES.includes(requested) ? requested : 7;
+  const rawChannel = (searchParams?.get("channel") || "all").toLowerCase();
+  const channel = (["all", "online", "pos"].includes(rawChannel) ? rawChannel : "all") as
+    | "all"
+    | "online"
+    | "pos";
+  const channelFilter = getChannelOrderFilter(channel);
 
   const now = new Date();
   const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -163,13 +181,15 @@ async function getStats(searchParams?: URLSearchParams) {
 
   const [agents, overall, today, yesterday, lastWeek] = await Promise.all([
     agentStats(periodStart),
-    metricsFor(undefined),
-    metricsFor({ gte: todayStart, lt: tomorrowStart }),
-    metricsFor({ gte: yesterdayStart, lt: todayStart }),
-    metricsFor({ gte: lastWeekStart, lt: lastWeekEnd }),
+    metricsFor(undefined, channelFilter),
+    metricsFor({ gte: todayStart, lt: tomorrowStart }, channelFilter),
+    metricsFor({ gte: yesterdayStart, lt: todayStart }, channelFilter),
+    metricsFor({ gte: lastWeekStart, lt: lastWeekEnd }, channelFilter),
   ]);
 
   const notCancelled = { order_status: { not: "cancelled" as const } };
+  const whereOnline = { order_source: { not: "POS" as const } };
+  const wherePos = { order_source: "POS" as const };
 
   const [
     totalProducts,
@@ -192,23 +212,33 @@ async function getStats(searchParams?: URLSearchParams) {
     topCustomersRaw,
     openReturns,
     outOfStock,
+    onlineTotalOrders,
+    onlineTodayOrders,
+    onlineRevenueAgg,
+    onlineTodayRevenueAgg,
+    onlinePendingOrders,
+    posTotalOrders,
+    posTodayOrders,
+    posRevenueAgg,
+    posTodayRevenueAgg,
+    posPaymentsWithMethod,
   ] = await Promise.all([
     db.product.count(),
     db.productCategory.count(),
     db.user.count({ where: { role: { name: "CUSTOMER" } } }),
-    db.order.count(),
-    db.order.aggregate({ where: notCancelled, _sum: { totalAmount: true } }),
-    db.order.count({ where: { order_status: "pending" } }),
+    db.order.count({ where: channelFilter }),
+    db.order.aggregate({ where: { ...notCancelled, ...channelFilter }, _sum: { totalAmount: true } }),
+    db.order.count({ where: { order_status: "pending", ...channelFilter } }),
     db.$queryRaw<[{ count: bigint }]>`SELECT COUNT(*) as count FROM inventories WHERE quantity_available <= reorder_level`.then(
       (rows) => Number(rows[0]?.count ?? 0)
     ),
-    db.order.count({ where: { createdAt: { gte: todayStart } } }),
+    db.order.count({ where: { createdAt: { gte: todayStart }, ...channelFilter } }),
     db.order.findMany({
-      where: { createdAt: { gte: periodStart }, ...notCancelled },
+      where: { createdAt: { gte: periodStart }, ...notCancelled, ...channelFilter },
       select: { createdAt: true, totalAmount: true },
     }),
     db.order.findMany({
-      where: { createdAt: { gte: prevStart, lt: periodStart }, ...notCancelled },
+      where: { createdAt: { gte: prevStart, lt: periodStart }, ...notCancelled, ...channelFilter },
       select: { totalAmount: true },
     }),
     db.user.count({
@@ -219,16 +249,17 @@ async function getStats(searchParams?: URLSearchParams) {
     }),
     db.order.groupBy({
       by: ["order_status"],
-      where: { createdAt: { gte: periodStart } },
+      where: { createdAt: { gte: periodStart }, ...channelFilter },
       _count: { _all: true },
     }),
     db.order.groupBy({
       by: ["payment_status"],
-      where: { createdAt: { gte: periodStart }, ...notCancelled },
+      where: { createdAt: { gte: periodStart }, ...notCancelled, ...channelFilter },
       _count: { _all: true },
       _sum: { totalAmount: true },
     }),
     db.order.findMany({
+      where: channelFilter,
       orderBy: { createdAt: "desc" },
       take: 8,
       select: {
@@ -237,12 +268,13 @@ async function getStats(searchParams?: URLSearchParams) {
         createdAt: true,
         totalAmount: true,
         order_status: true,
+        order_source: true,
         user: { select: { name: true } },
       },
     }),
     db.orderItem.groupBy({
       by: ["product_name_snapshot"],
-      where: { order: { createdAt: { gte: periodStart }, ...notCancelled } },
+      where: { order: { createdAt: { gte: periodStart }, ...notCancelled, ...channelFilter } },
       _sum: { quantity: true, total_price: true },
       orderBy: { _sum: { quantity: "desc" } },
       take: 6,
@@ -259,7 +291,7 @@ async function getStats(searchParams?: URLSearchParams) {
       LIMIT 6`,
     db.order.groupBy({
       by: ["userId"],
-      where: { createdAt: { gte: periodStart }, ...notCancelled },
+      where: { createdAt: { gte: periodStart }, ...notCancelled, ...channelFilter },
       _sum: { totalAmount: true },
       _count: { _all: true },
       orderBy: { _sum: { totalAmount: "desc" } },
@@ -271,7 +303,70 @@ async function getStats(searchParams?: URLSearchParams) {
     db.$queryRaw<[{ count: bigint }]>`SELECT COUNT(*) as count FROM inventories WHERE quantity_available <= 0`.then(
       (rows) => Number(rows[0]?.count ?? 0)
     ),
+    // Channel Breakdown numbers
+    db.order.count({ where: whereOnline }),
+    db.order.count({ where: { ...whereOnline, createdAt: { gte: todayStart } } }),
+    db.order.aggregate({
+      where: { ...whereOnline, ...notCancelled, payment_status: "paid" },
+      _sum: { totalAmount: true },
+    }),
+    db.order.aggregate({
+      where: { ...whereOnline, ...notCancelled, payment_status: "paid", createdAt: { gte: todayStart } },
+      _sum: { totalAmount: true },
+    }),
+    db.order.count({ where: { ...whereOnline, order_status: "pending" } }),
+    db.order.count({ where: wherePos }),
+    db.order.count({ where: { ...wherePos, createdAt: { gte: todayStart } } }),
+    db.order.aggregate({
+      where: { ...wherePos, ...notCancelled },
+      _sum: { totalAmount: true },
+    }),
+    db.order.aggregate({
+      where: { ...wherePos, ...notCancelled, createdAt: { gte: todayStart } },
+      _sum: { totalAmount: true },
+    }),
+    db.order.findMany({
+      where: { ...wherePos, ...notCancelled },
+      select: {
+        totalAmount: true,
+        payments: {
+          select: {
+            payment_methods: { select: { code: true } },
+          },
+        },
+      },
+    }),
   ]);
+
+  let posCash = 0;
+  let posUpi = 0;
+  let posCard = 0;
+  for (const o of posPaymentsWithMethod) {
+    const amt = Number(o.totalAmount);
+    const code = o.payments[0]?.payment_methods?.code;
+    if (code === "POS_CASH") posCash += amt;
+    else if (code === "POS_UPI") posUpi += amt;
+    else if (code === "POS_CARD") posCard += amt;
+  }
+
+  const channelBreakdown = {
+    online: {
+      totalOrders: onlineTotalOrders,
+      todayOrders: onlineTodayOrders,
+      totalRevenue: Number(onlineRevenueAgg._sum.totalAmount ?? 0),
+      todayRevenue: Number(onlineTodayRevenueAgg._sum.totalAmount ?? 0),
+      pendingOrders: onlinePendingOrders,
+    },
+    pos: {
+      totalOrders: posTotalOrders,
+      todayOrders: posTodayOrders,
+      totalRevenue: Number(posRevenueAgg._sum.totalAmount ?? 0),
+      todayRevenue: Number(posTodayRevenueAgg._sum.totalAmount ?? 0),
+      cashSales: Math.round(posCash * 100) / 100,
+      upiSales: Math.round(posUpi * 100) / 100,
+      cardSales: Math.round(posCard * 100) / 100,
+    },
+  };
 
   const customerNames = topCustomersRaw.length
     ? await db.user.findMany({
@@ -312,6 +407,8 @@ async function getStats(searchParams?: URLSearchParams) {
 
   return apiSuccess({
     range,
+    activeChannel: channel,
+    channelBreakdown,
     agents,
     overall,
     today,
@@ -354,6 +451,7 @@ async function getStats(searchParams?: URLSearchParams) {
       date: o.createdAt.toISOString(),
       amount: Number(o.totalAmount),
       status: o.order_status,
+      source: o.order_source,
     })),
     topProducts: topProductsRaw.map((p) => ({
       id: p.product_name_snapshot,

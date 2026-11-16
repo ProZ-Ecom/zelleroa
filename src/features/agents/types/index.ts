@@ -44,6 +44,8 @@ export interface CommissionRow {
   productName: string;
   categoryName: string | null;
   quantity: number;
+  originalQuantity?: number;
+  returnedQuantity?: number;
   productAmount: number;
   percentage: number;
   rateSource: string;

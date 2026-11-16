@@ -30,6 +30,7 @@ import {
 import type { ColumnDef } from "@tanstack/react-table";
 import type { RoleListItem } from "@/features/roles/types";
 import { CanAct } from "@/features/access";
+import { Select, type SelectOption } from "@/components/ui/select";
 
 /** Human wording for `roles.scope` in the table and the form. */
 const SCOPE_LABELS: Record<string, string> = {
@@ -37,6 +38,12 @@ const SCOPE_LABELS: Record<string, string> = {
   AGENT: "Sales partner",
   CUSTOMER: "Customer",
 };
+
+const SCOPE_OPTIONS: SelectOption[] = [
+  { value: "ADMIN", label: "Admin panel (staff / back office)" },
+  { value: "AGENT", label: "Sales partner portal" },
+  { value: "CUSTOMER", label: "Customer account" },
+];
 
 export default function AdminRolesPage() {
   const [modalOpen, setModalOpen] = useState(false);
@@ -80,6 +87,8 @@ export default function AdminRolesPage() {
     register,
     handleSubmit,
     reset,
+    watch,
+    setValue,
     formState: { errors },
   } = useForm<CreateRoleSchemaInput>({
     resolver: zodResolver(createRoleSchema),
@@ -370,14 +379,19 @@ export default function AdminRolesPage() {
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Access area <span className="text-error-600">*</span>
             </label>
-            <select
-              {...register("scope")}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
-            >
-              <option value="ADMIN">Admin panel (staff / back office)</option>
-              <option value="AGENT">Sales partner portal</option>
-              <option value="CUSTOMER">Customer account</option>
-            </select>
+            <Select
+              value={watch("scope") || "ADMIN"}
+              onValueChange={(val) =>
+                setValue("scope", val as "ADMIN" | "AGENT" | "CUSTOMER", {
+                  shouldValidate: true,
+                  shouldDirty: true,
+                })
+              }
+              searchable={false}
+              portal={true}
+              options={SCOPE_OPTIONS}
+              placeholder="Select an access area"
+            />
             <p className="mt-1 text-xs text-muted-foreground">
               Decides which part of the site users with this role sign in to. What they can do
               inside it is set by the permissions below.

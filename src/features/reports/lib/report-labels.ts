@@ -8,9 +8,29 @@ export const ORDER_SOURCE_LABELS: Record<string, string> = {
   CUSTOMER_DIRECT: "Customer (direct)",
   AGENT_PLACED_FOR_CUSTOMER: "Sales partner placed",
   AGENT_OWN: "Sales partner own purchase",
+  POS: "Counter (POS)",
 };
 
 export const ORDER_SOURCE_OPTIONS = Object.entries(ORDER_SOURCE_LABELS).map(([value, label]) => ({ value, label }));
+
+export const POS_TENDER_LABELS: Record<string, string> = {
+  POS_CASH: "Cash",
+  POS_UPI: "UPI",
+  POS_CARD: "Card",
+};
+
+export const POS_TENDER_OPTIONS = [
+  { value: "", label: "All Tenders" },
+  { value: "POS_CASH", label: "Cash" },
+  { value: "POS_UPI", label: "UPI" },
+  { value: "POS_CARD", label: "Card" },
+];
+
+export const POS_STATUS_OPTIONS = [
+  { value: "", label: "All Bills" },
+  { value: "delivered", label: "Delivered (Completed)" },
+  { value: "cancelled", label: "Cancelled (Voided)" },
+];
 
 export const ORDER_STATUS_LABELS: Record<string, string> = {
   pending: "Pending",

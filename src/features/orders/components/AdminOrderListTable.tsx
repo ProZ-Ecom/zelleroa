@@ -62,11 +62,13 @@ import {
 interface AdminOrderListTableProps {
   status?: OrderStatus;
   emptyMessage?: string;
+  channel?: "all" | "online" | "pos";
 }
 
 export function AdminOrderListTable({
   status,
   emptyMessage = "No orders found matching your criteria.",
+  channel = "online",
 }: AdminOrderListTableProps) {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
@@ -102,6 +104,7 @@ export function AdminOrderListTable({
     search: search || undefined,
     status: status || undefined,
     paymentStatus: (paymentFilter || undefined) as PaymentStatus | undefined,
+    channel,
   });
 
   const { data: orderDetail, isLoading: detailLoading } =
@@ -188,6 +191,21 @@ export function AdminOrderListTable({
           <div className="text-[11px] text-neutral-400">
             {formatDateTime(row.original.placedAt || row.original.createdAt)}
           </div>
+          {row.original.orderSource === "AGENT_PLACED_FOR_CUSTOMER" && (
+            <span className="mt-0.5 inline-block rounded bg-blue-50 px-1.5 py-0.5 text-[10px] font-medium text-blue-700 border border-blue-100">
+              Sales Partner
+            </span>
+          )}
+          {row.original.orderSource === "AGENT_OWN" && (
+            <span className="mt-0.5 inline-block rounded bg-purple-50 px-1.5 py-0.5 text-[10px] font-medium text-purple-700 border border-purple-100">
+              Partner Own
+            </span>
+          )}
+          {row.original.orderSource === "POS" && (
+            <span className="mt-0.5 inline-block rounded bg-emerald-50 px-1.5 py-0.5 text-[10px] font-medium text-emerald-700 border border-emerald-100">
+              POS Counter
+            </span>
+          )}
         </div>
       ),
     },

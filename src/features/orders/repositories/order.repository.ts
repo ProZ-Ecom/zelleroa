@@ -1255,6 +1255,12 @@ export const orderRepository = {
       is_active: true,
     };
 
+    if (params.channel === "pos") {
+      where.order_source = "POS";
+    } else if (params.channel === "online" || !params.channel) {
+      where.order_source = { not: "POS" };
+    }
+
     if (params.customerId) {
       where.user = { uuid: params.customerId };
     }
@@ -1288,6 +1294,12 @@ export const orderRepository = {
       is_active: true,
     };
 
+    if (params.channel === "pos") {
+      baseWhere.order_source = "POS";
+    } else if (params.channel === "online" || !params.channel) {
+      baseWhere.order_source = { not: "POS" };
+    }
+
     if (params.customerId) {
       baseWhere.user = { uuid: params.customerId };
     }
@@ -1311,7 +1323,10 @@ export const orderRepository = {
       ? { ...baseWhere, order_status: params.status }
       : baseWhere;
 
-    const [grouped, returnRequestsCount, replacementRequestsCount] = await Promise.all([
+    const now = new Date();
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+    const [grouped, returnRequestsCount, replacementRequestsCount, channelGrouped, todayCount, revenueAgg] = await Promise.all([
       db.order.groupBy({
         by: ["order_status"],
         where: whereToUse,
@@ -1331,7 +1346,37 @@ export const orderRepository = {
       db.replacement_requests.count({
         where: { is_active: true },
       }),
+      db.order.groupBy({
+        by: ["order_source"],
+        where: { is_active: true },
+        _count: { id: true },
+      }),
+      db.order.count({
+        where: {
+          ...whereToUse,
+          createdAt: { gte: startOfToday },
+        },
+      }),
+      db.order.aggregate({
+        where: {
+          ...whereToUse,
+          payment_status: "paid",
+        },
+        _sum: {
+          totalAmount: true,
+        },
+      }),
     ]);
+
+    let onlineCount = 0;
+    let posCount = 0;
+    for (const cg of channelGrouped) {
+      if (cg.order_source === "POS") {
+        posCount += cg._count.id;
+      } else {
+        onlineCount += cg._count.id;
+      }
+    }
 
     const statusCounts: AdminOrdersCountResponse = {
       pending: 0,
@@ -1346,6 +1391,13 @@ export const orderRepository = {
       total: 0,
       return_requests: returnRequestsCount,
       replacement_requests: replacementRequestsCount,
+      todayOrders: todayCount,
+      totalRevenue: Number(revenueAgg._sum.totalAmount ?? 0),
+      channelCounts: {
+        online: onlineCount,
+        pos: posCount,
+        total: onlineCount + posCount,
+      },
     };
 
     for (const g of grouped) {
@@ -1355,7 +1407,10 @@ export const orderRepository = {
         status in statusCounts &&
         status !== "total" &&
         status !== "return_requests" &&
-        status !== "replacement_requests"
+        status !== "replacement_requests" &&
+        status !== "todayOrders" &&
+        status !== "totalRevenue" &&
+        status !== "channelCounts"
       ) {
         statusCounts[status] = g._count.id;
         statusCounts.total += g._count.id;
