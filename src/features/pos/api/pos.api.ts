@@ -3,6 +3,8 @@ import type {
   PosBillDto,
   PosCouponResult,
   PosCustomerLookupDto,
+  PosExchangeBillLookupDto,
+  PosExchangeReceiptDto,
   PosPaymentMode,
   PosProductOption,
   PosPurchaseListItem,
@@ -20,6 +22,7 @@ import type {
   PosShiftOpenInput,
   PosVoidInput,
 } from "../validations/pos.schema";
+import type { PosExchangeInput } from "../validations/pos-exchange.schema";
 
 type Params = Record<string, string | number | boolean | undefined | null>;
 
@@ -146,5 +149,17 @@ export async function getPurchases(params: PosPurchasesQueryInput) {
 export async function getPurchaseDetail(uuid: string) {
   const res = await apiClient.get<PosBillDto>(`/api/admin/pos/purchases/${uuid}`);
   return res.data as PosBillDto;
+}
+
+export async function lookupExchangeBills(query: string) {
+  const res = await apiClient.get<PosExchangeBillLookupDto[]>("/api/admin/pos/exchange/lookup", {
+    params: { query },
+  });
+  return res.data ?? [];
+}
+
+export async function executeExchange(data: PosExchangeInput) {
+  const res = await apiClient.post<PosExchangeReceiptDto>("/api/admin/pos/exchange", data);
+  return res.data as PosExchangeReceiptDto;
 }
 
