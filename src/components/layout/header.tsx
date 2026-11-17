@@ -218,7 +218,8 @@ export function Header({
   });
   useClickOutside([searchWrapRef], () => {
     setShowSearchDropdown(false);
-    if (!searchQuery.trim()) setIsSearchOpen(false);
+    setIsSearchOpen(false);
+    setSearchQuery("");
   });
   useClickOutside([accountDropdownRef], () => {
     setIsAccountDropdownOpen(false);
@@ -226,6 +227,9 @@ export function Header({
 
   React.useEffect(() => {
     setIsAccountDropdownOpen(false);
+    setIsSearchOpen(false);
+    setShowSearchDropdown(false);
+    setSearchQuery("");
   }, [pathname]);
 
   React.useEffect(() => {
@@ -280,14 +284,17 @@ export function Header({
     const trimmed = term.trim();
     if (!trimmed) return;
     addRecentSearch(trimmed);
-    setSearchQuery(trimmed);
     router.push(`/products?search=${encodeURIComponent(trimmed)}`);
+    setSearchQuery("");
     setIsSearchOpen(false);
+    setShowSearchDropdown(false);
   };
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    runSearch(searchQuery);
+    if (searchQuery.trim()) {
+      runSearch(searchQuery);
+    }
   };
 
   React.useEffect(() => {
@@ -420,24 +427,34 @@ export function Header({
                 }}
                 onFocus={() => setShowSearchDropdown(true)}
                 onKeyDown={(e) => {
-                  if (e.key === "Escape") setShowSearchDropdown(false);
+                  if (e.key === "Escape") {
+                    setShowSearchDropdown(false);
+                    setIsSearchOpen(false);
+                    setSearchQuery("");
+                  }
                 }}
                 autoComplete="off"
-                onBlur={() => {
-                  if (!searchQuery.trim()) setIsSearchOpen(false);
-                }}
                 placeholder="Search"
                 className={`h-9 pl-3 pr-9 rounded-full border border-theme-border bg-theme-surface-alt text-sm text-theme-text-primary placeholder:text-theme-text-subtle outline-none focus:border-theme-primary transition-all duration-200 overflow-hidden ${
-                  isSearchOpen ? "w-40 xl:w-56 opacity-100" : "w-0 px-0 border-transparent opacity-0"
+                  isSearchOpen ? "w-40 xl:w-56 opacity-100 pointer-events-auto" : "w-0 px-0 border-transparent opacity-0 pointer-events-none"
                 }`}
               />
               <button
-                type={isSearchOpen ? "submit" : "button"}
-                onClick={() => {
-                  if (!isSearchOpen) setIsSearchOpen(true);
+                type={isSearchOpen && searchQuery.trim() ? "submit" : "button"}
+                onClick={(e) => {
+                  if (!isSearchOpen) {
+                    e.preventDefault();
+                    setIsSearchOpen(true);
+                    setShowSearchDropdown(true);
+                    setTimeout(() => searchInputRef.current?.focus(), 50);
+                  } else if (!searchQuery.trim()) {
+                    e.preventDefault();
+                    setIsSearchOpen(false);
+                    setShowSearchDropdown(false);
+                  }
                 }}
                 aria-label="Search"
-                className={`flex items-center justify-center text-neutral-700 hover:text-theme-primary transition-colors ${
+                className={`flex items-center justify-center text-neutral-700 hover:text-theme-primary transition-colors cursor-pointer ${
                   isSearchOpen ? "absolute right-2.5" : "static"
                 }`}
               >
@@ -454,6 +471,12 @@ export function Header({
                   addRecentSearch(term);
                   setShowSearchDropdown(false);
                   setIsSearchOpen(false);
+                  setSearchQuery("");
+                }}
+                onClose={() => {
+                  setShowSearchDropdown(false);
+                  setIsSearchOpen(false);
+                  setSearchQuery("");
                 }}
                 onRemoveRecent={removeRecentSearch}
                 onClearRecent={clearRecentSearches}

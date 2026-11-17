@@ -27,6 +27,7 @@ import type {
   CustomerStyleDetailDto,
   CustomerStyleItemDto,
   CustomerItemDetailDto,
+  GlobalSearchResultDto,
 } from "../types/catalog.types";
 
 const brandSelect = { id: true, uuid: true, name: true } as const;
@@ -137,6 +138,7 @@ const unitPriceListArgs = {
 };
 
 type VariantUnitPriceForDto = {
+  id?: bigint;
   uuid: string;
   sku: string;
   base_price: Prisma.Decimal | number;
@@ -192,7 +194,7 @@ function toVariantListItemDto(
     const measurement = formatVariantMeasurement(up.product_units, up.unit_value ?? 0);
     const sizeLabel = up.attribute_value?.value ?? null;
     return {
-      id: up.uuid,
+      id: up.uuid && up.uuid !== "UUID()" ? up.uuid : (up.id !== undefined ? String(up.id) : up.uuid || ""),
       sku: up.sku,
       measurement,
       sizeId: up.attribute_value?.uuid ?? null,
@@ -442,6 +444,7 @@ export const catalogRepository = {
     if (params.search) {
       where.OR = [
         { name: { contains: params.search } },
+        { slug: { contains: params.search } },
         { description: { contains: params.search } },
       ];
     }
@@ -470,6 +473,7 @@ export const catalogRepository = {
     const data: CustomerBrandDto[] = brands.map((b) => ({
       id: b.uuid || String(b.id),
       name: b.name,
+      slug: b.slug,
       image: b.produt_brand_images[0]?.image_url ?? null,
     }));
 
@@ -526,6 +530,7 @@ export const catalogRepository = {
     if (params.search) {
       where.OR = [
         { name: { contains: params.search } },
+        { slug: { contains: params.search } },
         { description: { contains: params.search } },
       ];
     }
@@ -883,7 +888,13 @@ export const catalogRepository = {
     }
 
     if (params.search) {
-      where.name = { contains: params.search };
+      where.OR = [
+        { name: { contains: params.search } },
+        { short_description: { contains: params.search } },
+        { sku: { contains: params.search } },
+        { product: { name: { contains: params.search } } },
+        { brand: { name: { contains: params.search } } },
+      ];
     }
 
     if (params.gender) {
@@ -2149,5 +2160,58 @@ export const catalogRepository = {
     }
 
     return { data, meta: { page, limit, pageSize: limit, total, totalPages } };
+  },
+
+  /**
+   * Unified global search across customer styles/products, categories, and brands.
+   */
+  async globalSearch(params: {
+    query: string;
+    productLimit?: number;
+    categoryLimit?: number;
+    brandLimit?: number;
+  }): Promise<GlobalSearchResultDto> {
+    const productLimit = params.productLimit ?? 6;
+    const categoryLimit = params.categoryLimit ?? 4;
+    const brandLimit = params.brandLimit ?? 4;
+    const query = params.query.trim();
+
+    if (!query) {
+      return {
+        query: "",
+        products: [],
+        categories: [],
+        brands: [],
+        totalMatches: 0,
+      };
+    }
+
+    const [stylesResult, categoriesResult, brandsResult] = await Promise.all([
+      this.findCustomerStyleListItems({
+        search: query,
+        pageSize: productLimit,
+      }),
+      this.findCustomerCategories({
+        search: query,
+        pageSize: categoryLimit,
+      }),
+      this.findCustomerBrands({
+        search: query,
+        pageSize: brandLimit,
+      }),
+    ]);
+
+    const totalMatches =
+      stylesResult.data.length +
+      categoriesResult.data.length +
+      brandsResult.data.length;
+
+    return {
+      query,
+      products: stylesResult.data,
+      categories: categoriesResult.data,
+      brands: brandsResult.data,
+      totalMatches,
+    };
   },
 };

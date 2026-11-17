@@ -818,8 +818,9 @@ function AdminVariantDetailsContent() {
               });
               setIsEditModalOpen(false);
               refetchVariant();
-            } catch (err) {
+            } catch (err: any) {
               console.error("Failed to update variant", err);
+              toast.error(err?.message || "Failed to update variant");
             }
           }}
         />

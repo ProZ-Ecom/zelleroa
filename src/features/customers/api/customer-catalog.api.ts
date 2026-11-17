@@ -8,6 +8,7 @@ import type {
   CustomerVariantDetailDto,
   CustomerStyleDetailDto,
   CustomerItemDetailDto,
+  GlobalSearchResultDto,
 } from "../types/catalog.types";
 import type { CategoryListingDto, CategoryMenuDto } from "../types/catalog-listing.types";
 import type {
@@ -303,5 +304,25 @@ export const customerCatalogApi = {
       `/api/customer/banners${position ? `?position=${position}` : ""}`
     );
     return response.data ?? [];
+  },
+
+  /**
+   * Global search across products, categories, and brands
+   * GET /api/customer/search?q=
+   */
+  async globalSearch(
+    query: string,
+    limits?: { productLimit?: number; categoryLimit?: number; brandLimit?: number }
+  ): Promise<GlobalSearchResultDto> {
+    const params = new URLSearchParams();
+    params.set("q", query);
+    if (limits?.productLimit) params.set("productLimit", String(limits.productLimit));
+    if (limits?.categoryLimit) params.set("categoryLimit", String(limits.categoryLimit));
+    if (limits?.brandLimit) params.set("brandLimit", String(limits.brandLimit));
+
+    const response = await apiClient.get<GlobalSearchResultDto>(
+      `/api/customer/search?${params.toString()}`
+    );
+    return response.data ?? { query, products: [], categories: [], brands: [], totalMatches: 0 };
   },
 };

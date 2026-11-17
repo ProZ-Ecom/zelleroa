@@ -1727,7 +1727,8 @@ export default function AdminProductDetailsPage() {
                   setNewlyCreatedVariant((res as any).data);
                 }
               } catch (err: any) {
-                console.error("Failed to create Item", err);
+                console.error("Failed to create variant", err);
+                toast.error(err?.message || "Failed to create variant");
               }
             }}
           />
@@ -1853,7 +1854,8 @@ export default function AdminProductDetailsPage() {
                     });
                     setEditingVariant(null);
                   } catch (err: any) {
-                    console.error("Failed to update Item", err);
+                    console.error("Failed to update variant", err);
+                    toast.error(err?.message || "Failed to update variant");
                   }
                 }}
               />

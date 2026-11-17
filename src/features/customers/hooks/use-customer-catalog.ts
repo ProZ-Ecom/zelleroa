@@ -45,6 +45,10 @@ export const CUSTOMER_CATALOG_QUERY_KEYS = {
     [...CUSTOMER_CATALOG_QUERY_KEYS.all, "global-variants", params ?? {}] as const,
   banners: (position?: string) =>
     [...CUSTOMER_CATALOG_QUERY_KEYS.all, "banners", position ?? "all"] as const,
+  globalSearch: (
+    query: string,
+    limits?: { productLimit?: number; categoryLimit?: number; brandLimit?: number }
+  ) => [...CUSTOMER_CATALOG_QUERY_KEYS.all, "global-search", query, limits ?? {}] as const,
 };
 
 /**
@@ -323,5 +327,32 @@ export function useCustomerBanners(
     queryFn: () => customerCatalogApi.getBanners(position),
     staleTime: 1000 * 60 * 10,
     ...options,
+  });
+}
+
+/**
+ * Global search across customer products, categories, and brands
+ */
+export function useCustomerGlobalSearch(
+  query: string,
+  options?: {
+    enabled?: boolean;
+    productLimit?: number;
+    categoryLimit?: number;
+    brandLimit?: number;
+  }
+) {
+  const trimmed = query.trim();
+  const limits = {
+    productLimit: options?.productLimit,
+    categoryLimit: options?.categoryLimit,
+    brandLimit: options?.brandLimit,
+  };
+
+  return useQuery({
+    queryKey: CUSTOMER_CATALOG_QUERY_KEYS.globalSearch(trimmed, limits),
+    queryFn: () => customerCatalogApi.globalSearch(trimmed, limits),
+    enabled: (options?.enabled ?? true) && trimmed.length >= 2,
+    staleTime: 1000 * 30,
   });
 }
