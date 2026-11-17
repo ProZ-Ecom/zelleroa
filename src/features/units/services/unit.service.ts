@@ -170,7 +170,7 @@ export const unitService = {
 
     // Resolve & Validate Base Unit if baseUnitId is updated/provided
     if (data.baseUnitId !== undefined) {
-      if (data.baseUnitId === null) {
+      if (data.baseUnitId === null || data.baseUnitId === "") {
         updateData.base_unit_id = null;
       } else {
         if (data.baseUnitId === uuid) {
