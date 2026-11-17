@@ -159,3 +159,87 @@ export interface PosPurchasesResponse {
     totalPages: number;
   };
 }
+
+export type PosItemCondition = "RESTOCKABLE" | "DEFECTIVE";
+
+export const POS_EXCHANGE_REASONS = [
+  "Size Issue",
+  "Color Issue",
+  "Product Defect",
+  "Wrong Product",
+  "Quality Issue",
+  "Other",
+] as const;
+
+export type PosExchangeReason = (typeof POS_EXCHANGE_REASONS)[number];
+
+export interface PosExchangeEligibleItem {
+  orderItemId: number;
+  variantUnitPriceId: number;
+  sku: string;
+  productName: string;
+  variantName: string;
+  attributes: Array<{ name: string; value: string }>;
+  purchasedQuantity: number;
+  alreadyExchangedQuantity: number;
+  eligibleQuantity: number;
+  originalUnitPrice: number;
+  discountAmount: number;
+  effectiveUnitPrice: number;
+  totalPrice: number;
+}
+
+export interface PosExchangeBillLookupDto {
+  orderId: number;
+  orderUuid: string;
+  orderNumber: string;
+  invoiceNumber: string | null;
+  storeId: number;
+  storeName: string;
+  placedAt: string;
+  customerName: string | null;
+  customerPhone: string | null;
+  totalAmount: number;
+  paymentMode: PosPaymentMode | string;
+  items: PosExchangeEligibleItem[];
+}
+
+export interface PosExchangeReturnLineDto {
+  orderItemId: number;
+  sku: string;
+  description: string;
+  quantity: number;
+  unitPrice: number;
+  lineTotal: number;
+  condition: PosItemCondition;
+  reason: string;
+  reasonDetail?: string | null;
+}
+
+export interface PosExchangeReceiptDto {
+  exchangeUuid: string;
+  exchangeNumber: string;
+  originalOrderNumber: string;
+  originalInvoiceNumber: string | null;
+  originalPlacedAt: string;
+  exchangedAt: string;
+  store: PosStoreDto;
+  cashierName: string;
+  approvingManagerName?: string | null;
+  customerName: string | null;
+  customerPhone: string | null;
+  returnLines: PosExchangeReturnLineDto[];
+  newLines: PosBillLineDto[];
+  totalReturnedValue: number;
+  totalNewValue: number;
+  netPayable: number;
+  paymentMode: PosPaymentMode | null;
+  cashReceived: number | null;
+  changeDue: number | null;
+  paymentReference: string | null;
+  reason: string | null;
+  notes: string | null;
+  taxableValue?: number;
+  cgstAmount?: number;
+  sgstAmount?: number;
+}

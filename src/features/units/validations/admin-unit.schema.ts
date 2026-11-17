@@ -19,6 +19,7 @@ export const createAdminUnitSchema = z
     baseUnitId: z
       .string()
       .uuid("Invalid Base Unit UUID format")
+      .or(z.literal(""))
       .optional()
       .nullable(),
     conversionFactor: z

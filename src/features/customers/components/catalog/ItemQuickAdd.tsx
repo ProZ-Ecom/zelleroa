@@ -12,7 +12,6 @@ import { useAddToCart } from "@/features/cart/hooks/use-cart";
 import { formatPrice } from "@/lib/utils";
 import { useItemSelection } from "@/features/items/hooks/use-item-selection";
 import { ItemColorSelector } from "@/features/items/components/storefront/ItemColorSelector";
-import { ItemSizeSelector } from "@/features/items/components/storefront/ItemSizeSelector";
 import { ItemVariationSelectors } from "@/features/items/components/storefront/ItemVariationSelectors";
 import { customerCatalogApi } from "../../api/customer-catalog.api";
 import { CUSTOMER_CATALOG_QUERY_KEYS } from "../../hooks/use-customer-catalog";
@@ -105,21 +104,12 @@ function SelectionBody({
             onSelect={sel.selectColor}
           />
         )}
-        {sel.hasVariations ? (
+        {sel.hasVariations && (
           <ItemVariationSelectors
             attributes={sel.variationAttributes}
             selectedValues={sel.selectedValues}
             onSelect={sel.selectValue}
           />
-        ) : (
-          // Pack-size rows carry no variation values, so they are picked directly.
-          sel.sizes.length > 1 && (
-            <ItemSizeSelector
-              sizes={sel.sizes}
-              selectedSizeId={sel.selectedUnitPrice?.id ?? null}
-              onSelect={sel.selectUnitPrice}
-            />
-          )
         )}
 
         <div className="flex items-center justify-between gap-3">

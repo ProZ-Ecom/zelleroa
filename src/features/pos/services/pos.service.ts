@@ -38,14 +38,14 @@ function methodCodeToPosMode(code?: string | null): PosPaymentMode {
 }
 
 /** Who the signed-in cashier is, as a user id. */
-async function resolveStaffId(email?: string | null): Promise<bigint> {
+export async function resolveStaffId(email?: string | null): Promise<bigint> {
   if (!email) throw ApiError.unauthorized("Sign in again to use the counter");
   const user = await userRepository.findByEmail(email);
   if (!user) throw ApiError.unauthorized("Sign in again to use the counter");
   return BigInt(user.internalId || user.id);
 }
 
-const skuInclude = {
+export const skuInclude = {
   inventories: { select: { quantity_available: true, quantity_reserved: true } },
   product_units: { select: { name: true, code: true } },
   attribute_value: { select: { value: true, attribute: { select: { name: true } } } },
@@ -98,20 +98,20 @@ const skuInclude = {
   },
 } satisfies Prisma.VariantUnitPriceInclude;
 
-type SkuRow = Prisma.VariantUnitPriceGetPayload<{ include: typeof skuInclude }>;
+export type SkuRow = Prisma.VariantUnitPriceGetPayload<{ include: typeof skuInclude }>;
 
 /**
  * What the counter may sell right now: stock on hand minus what online carts
  * and unshipped orders are holding. The counter and the website share one pool,
  * so selling a reserved unit over the counter would oversell the web order.
  */
-function sellableOf(row: SkuRow): number {
+export function sellableOf(row: SkuRow): number {
   const available = row.inventories?.quantity_available ?? 0;
   const reserved = row.inventories?.quantity_reserved ?? 0;
   return Math.max(0, available - reserved);
 }
 
-function describe(row: SkuRow) {
+export function describe(row: SkuRow) {
   const variant = row.variant;
   const item = variant?.item;
   const style = item?.style;
@@ -151,7 +151,7 @@ function describe(row: SkuRow) {
   };
 }
 
-function assertSellable(row: SkuRow) {
+export function assertSellable(row: SkuRow) {
   const variant = row.variant;
   const item = variant?.item;
   const product = item?.style?.product;
@@ -176,7 +176,7 @@ function assertSellable(row: SkuRow) {
  * the place of supply is the counter's own state and the tax splits CGST+SGST.
  * IGST never applies here, which is why only those two are read.
  */
-function gstPercentOf(row: SkuRow): number {
+export function gstPercentOf(row: SkuRow): number {
   const slab = row.variant?.item?.style?.product?.product_hsn_codes?.product_gst_rates;
   if (!slab) return 0;
   return Number(slab.cgst_percent) + Number(slab.sgst_percent);

@@ -112,6 +112,12 @@ function ShopAllContent() {
     );
     setPage(1);
   }, [urlGender]);
+  // Search query in URL (e.g. /products?search=shoes). Follow URL changes when user searches again.
+  const urlSearch = searchParams.get("search") ?? "";
+  useEffect(() => {
+    setSearch(urlSearch);
+    setPage(1);
+  }, [urlSearch]);
   // Tag nav links arrive as `?tag=slug` (or `?tag=a,b`); a product matches when it has any of them.
   const urlTag = searchParams.get("tag") ?? "";
   const tagSlugs = useMemo(

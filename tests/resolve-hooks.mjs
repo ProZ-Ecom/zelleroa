@@ -6,7 +6,7 @@ import path from "node:path";
 const SRC = path.resolve(fileURLToPath(import.meta.url), "../../src");
 
 function tryFile(base) {
-  for (const ext of ["", ".ts", ".js", "/index.ts", "/index.js"]) {
+  for (const ext of ["", ".ts", ".tsx", ".js", ".jsx", "/index.ts", "/index.tsx", "/index.js"]) {
     const f = base + ext;
     if (existsSync(f) && statSync(f).isFile()) return f;
   }

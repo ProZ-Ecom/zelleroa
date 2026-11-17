@@ -864,19 +864,24 @@ export default function AdminVariantsPage() {
                 attributeValueIds: formData.attributeValueIds || [],
               };
 
-              const res = await createMutation.mutateAsync({
-                productUuid: formData.productId!,
-                data: payload,
-              });
-
-              if (res && res.data) {
-                setCreatedVariant({
-                  id: res.data.id,
-                  productId: res.data.productId,
-                  name: res.data.variantName || formData.variantName || "Variant",
-                  variantData: res.data,
+              try {
+                const res = await createMutation.mutateAsync({
+                  productUuid: formData.productId!,
+                  data: payload,
                 });
-                setCreateStep(2);
+
+                if (res && res.data) {
+                  setCreatedVariant({
+                    id: res.data.id,
+                    productId: res.data.productId,
+                    name: res.data.variantName || formData.variantName || "Variant",
+                    variantData: res.data,
+                  });
+                  setCreateStep(2);
+                }
+              } catch (err: any) {
+                console.error("Failed to create variant", err);
+                toast.error(err?.message || "Failed to create variant");
               }
             }}
           />

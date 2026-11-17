@@ -7,6 +7,7 @@ import {
   Loader2,
   Minus,
   Plus,
+  RefreshCw,
   ScanLine,
   ShoppingBag,
   Smartphone,
@@ -24,6 +25,7 @@ import { useCan } from "@/features/access";
 import * as api from "../api/pos.api";
 import { useCreateBill, useProductSearch } from "../hooks/use-pos";
 import { printReceipt } from "./PosReceipt";
+import { PosExchangeModal } from "./PosExchangeModal";
 import { PosRecentPurchasesDrawer } from "./PosRecentPurchasesDrawer";
 import type { PosBillDto, PosCouponResult, PosPaymentMode, PosProductOption, PosSessionDto, PosStoreDto } from "../types";
 
@@ -73,6 +75,7 @@ export function PosBillingScreen({
   const [adding, setAdding] = useState(false);
   const [clearConfirm, setClearConfirm] = useState(false);
   const [purchasesDrawerOpen, setPurchasesDrawerOpen] = useState(false);
+  const [exchangeModalOpen, setExchangeModalOpen] = useState(false);
   /** Briefly ringed so the cashier can see which line their SKU landed on. */
   const [justAdded, setJustAdded] = useState<number | null>(null);
 
@@ -80,6 +83,7 @@ export function PosBillingScreen({
   const cartEnd = useRef<HTMLDivElement>(null);
   const createBill = useCreateBill();
   const mayDiscount = useCan("POS_DISCOUNT");
+  const mayReturn = useCan("POS_RETURN");
 
   // A SKU is exact; anything else is treated as a name fragment and offered as
   // a list. Two characters is where a list stops being the whole catalogue.
@@ -263,17 +267,26 @@ export function PosBillingScreen({
   // suppressed while a dialog is open so typing in it is not hijacked.
   useEffect(() => {
     const handler = (event: KeyboardEvent) => {
-      if (payOpen || discountOpen || couponOpen || clearConfirm || purchasesDrawerOpen) {
-        if (event.key === "Escape" && purchasesDrawerOpen) {
-          event.preventDefault();
-          setPurchasesDrawerOpen(false);
-          focusSku();
+      if (payOpen || discountOpen || couponOpen || clearConfirm || purchasesDrawerOpen || exchangeModalOpen) {
+        if (event.key === "Escape") {
+          if (purchasesDrawerOpen) {
+            event.preventDefault();
+            setPurchasesDrawerOpen(false);
+            focusSku();
+          } else if (exchangeModalOpen) {
+            event.preventDefault();
+            setExchangeModalOpen(false);
+            focusSku();
+          }
         }
         return;
       }
       if (event.key === "F9") {
         event.preventDefault();
         if (lines.length > 0) setPayOpen(true);
+      } else if (event.key === "F8") {
+        event.preventDefault();
+        setExchangeModalOpen(true);
       } else if (event.key === "F2") {
         event.preventDefault();
         if (lines.length > 0) setCouponOpen(true);
@@ -292,7 +305,7 @@ export function PosBillingScreen({
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [payOpen, discountOpen, couponOpen, clearConfirm, purchasesDrawerOpen, lines.length, mayDiscount, focusSku]);
+  }, [payOpen, discountOpen, couponOpen, clearConfirm, purchasesDrawerOpen, exchangeModalOpen, lines.length, mayDiscount, focusSku]);
 
   const lookupPhone = async (phone: string) => {
     if (!/^\d{10}$/.test(phone)) {
@@ -350,6 +363,18 @@ export function PosBillingScreen({
             </p>
           </div>
           <div className="flex items-center gap-2 self-start sm:self-auto">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setExchangeModalOpen(true)}
+              className="gap-1.5 text-xs border-amber-200 text-amber-900 bg-amber-50/60 hover:bg-amber-100"
+            >
+              <RefreshCw className="h-3.5 w-3.5 text-amber-700" />
+              Return / Exchange
+              <kbd className="ml-1 rounded bg-amber-100/80 px-1.5 py-0.5 text-[10px] font-mono text-amber-800 border border-amber-300">
+                F8
+              </kbd>
+            </Button>
             <Button
               variant="outline"
               size="sm"
@@ -573,6 +598,7 @@ export function PosBillingScreen({
           <Hint keyName="F2">coupon</Hint>
           <Hint keyName="F3">purchases</Hint>
           <Hint keyName="F4">discount</Hint>
+          <Hint keyName="F8">exchange</Hint>
           <Hint keyName="F9">pay</Hint>
           <Hint keyName="Esc">clear bill</Hint>
         </div>
@@ -773,6 +799,16 @@ export function PosBillingScreen({
           setPurchasesDrawerOpen(false);
           focusSku();
         }}
+      />
+
+      <PosExchangeModal
+        open={exchangeModalOpen}
+        onClose={() => {
+          setExchangeModalOpen(false);
+          focusSku();
+        }}
+        store={store}
+        session={session}
       />
 
       {/* Mounted only while open, so each dialog starts from a clean slate

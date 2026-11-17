@@ -325,9 +325,7 @@ async function assertNoDuplicateAttributeCombination(
   );
 
   if (duplicate) {
-    throw ApiError.conflict(
-      "Another Color on this Item already has this exact combination of attributes"
-    );
+    throw ApiError.conflict("This color already exists.");
   }
 }
 
