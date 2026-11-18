@@ -15,26 +15,26 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
-import { useItemAttributeValues, useSetAttributeValuesForItem } from "@/features/attributes/hooks";
+import { useStyleAttributeValues, useSetAttributeValuesForStyle } from "@/features/attributes/hooks";
 import { AttributeValueQuickAdd } from "@/features/attributes/components/AttributeValueQuickAdd";
 import { useUnits } from "@/features/units/hooks";
 import {
   useVariants,
   useVariantImages,
-  useGenerateVariantsFromItem,
+  useGenerateVariantsFromStyle,
   useDeleteVariant,
 } from "@/features/variants/hooks";
 import { VariantImageUploader, VariantUnitPriceList } from "@/features/variants/components";
 import { toast } from "@/components/ui/Toast";
 import type { AdminUnitResponse } from "@/features/units/types";
-import type { ItemAttributeGroup } from "@/features/attributes/types";
+import type { StyleAttributeGroup } from "@/features/attributes/types";
 import type { AdminVariantResponse, GenerateVariantsResponse } from "@/features/variants/types";
 
-interface ItemColorsPanelProps {
+interface StyleVariantsPanelProps {
   productUuid: string;
-  itemUuid: string;
-  /** Item name, used in headings and the bulk price modal title. */
-  itemName?: string;
+  styleUuid: string;
+  /** Style name, used in headings and the bulk price modal title. */
+  styleName?: string;
   /** The product's category - drives the Size options in each color's size table. */
   categoryUuid?: string | null;
   /** Called after anything here creates or removes a color so parents can refetch. */
@@ -48,10 +48,10 @@ interface ItemColorsPanelProps {
 
 // Stable reference so the memos below don't recompute every render while the
 // query has no data yet.
-const EMPTY_GROUPS: ItemAttributeGroup[] = [];
+const EMPTY_GROUPS: StyleAttributeGroup[] = [];
 
 /**
- * The one place an admin manages an Item's colors.
+ * The one place an admin manages a Style's colors.
  *
  * It replaces what used to be three disconnected steps spread over two modals:
  * pick attribute values -> Save Selection -> Generate Variants -> hunt for a
@@ -60,20 +60,20 @@ const EMPTY_GROUPS: ItemAttributeGroup[] = [];
  * sizes and prices. Now: tick the colors, press one button, and every color
  * that exists sits right below with its images and size/price rows inline.
  */
-function ItemColorsPanel({
+function StyleVariantsPanel({
   productUuid,
-  itemUuid,
-  itemName,
+  styleUuid,
+  styleName,
   categoryUuid,
   onChanged,
   onBulkEditPrices,
-}: ItemColorsPanelProps) {
+}: StyleVariantsPanelProps) {
   const {
     data: groups = EMPTY_GROUPS,
     isLoading: isLoadingGroups,
     error: groupsError,
     refetch: refetchGroups,
-  } = useItemAttributeValues(productUuid, itemUuid);
+  } = useStyleAttributeValues(productUuid, styleUuid);
 
   const {
     data: variantsResponse,
@@ -82,15 +82,15 @@ function ItemColorsPanel({
   } = useVariants({ productIds: [productUuid], pageSize: 100 }, { enabled: !!productUuid });
 
   const variants = useMemo<AdminVariantResponse[]>(
-    () => (variantsResponse?.data ?? []).filter((variant) => variant.itemId === itemUuid),
-    [variantsResponse, itemUuid]
+    () => (variantsResponse?.data ?? []).filter((variant) => variant.styleId === styleUuid),
+    [variantsResponse, styleUuid]
   );
 
   const { data: unitsData } = useUnits({ pageSize: 100 });
   const units = useMemo<AdminUnitResponse[]>(() => unitsData?.data ?? [], [unitsData]);
 
-  const setValuesMutation = useSetAttributeValuesForItem();
-  const generateMutation = useGenerateVariantsFromItem();
+  const setValuesMutation = useSetAttributeValuesForStyle();
+  const generateMutation = useGenerateVariantsFromStyle();
   const deleteVariantMutation = useDeleteVariant();
 
   // null until the admin touches a chip: until then the panel simply shows
@@ -105,7 +105,7 @@ function ItemColorsPanel({
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
-  // What the server currently has saved for this item.
+  // What the server currently has saved for this style.
   const savedSelection = useMemo(() => {
     const next = new Set<string>();
     for (const group of groups) {
@@ -158,7 +158,7 @@ function ItemColorsPanel({
     [colorGroups, selected, createdValueNames]
   );
 
-  const toggle = (group: ItemAttributeGroup, valueId: string) => {
+  const toggle = (group: StyleAttributeGroup, valueId: string) => {
     setResult(null);
     setFormError(null);
     setDraftSelection((current) => {
@@ -178,7 +178,7 @@ function ItemColorsPanel({
   };
 
   /** Select every value of a pick-any group, or clear them all if already all selected. */
-  const toggleAll = (group: ItemAttributeGroup) => {
+  const toggleAll = (group: StyleAttributeGroup) => {
     setResult(null);
     setFormError(null);
     setDraftSelection((current) => {
@@ -194,7 +194,7 @@ function ItemColorsPanel({
 
   // A value created right here from the quick-add form is pre-selected, so the
   // admin doesn't have to hunt for the chip they just made.
-  const selectNewValue = (group: ItemAttributeGroup, valueId: string) => {
+  const selectNewValue = (group: StyleAttributeGroup, valueId: string) => {
     setResult(null);
     setDraftSelection((current) => {
       const next = new Set(current ?? savedSelection);
@@ -231,12 +231,12 @@ function ItemColorsPanel({
     try {
       await setValuesMutation.mutateAsync({
         productUuid,
-        itemUuid,
+        styleUuid,
         attributeValueIds: [...selected],
       });
       const response = await generateMutation.mutateAsync({
         productUuid,
-        itemUuid,
+        styleUuid,
         data: {
           unitId,
           activate: true,
@@ -308,7 +308,7 @@ function ItemColorsPanel({
     );
   }
 
-  const renderGroup = (group: ItemAttributeGroup) => (
+  const renderGroup = (group: StyleAttributeGroup) => (
     <div key={group.id}>
       <div className="mb-1.5 flex items-center justify-between gap-2">
         <label className="block text-xs font-semibold text-neutral-800">{group.name}</label>
@@ -403,11 +403,11 @@ function ItemColorsPanel({
 
   return (
     <div className="space-y-5">
-      {/* Step 1 - what this item comes in. */}
+      {/* Step 1 - what this Style comes in. */}
       <section className="rounded-xl border border-neutral-200 p-4">
         <div className="mb-3">
           <h3 className="text-sm font-bold text-neutral-900">
-            1. Which colors does {itemName ? `"${itemName}"` : "this item"} come in?
+            1. Which colors does {styleName ? `"${styleName}"` : "this style"} come in?
           </h3>
           <p className="mt-0.5 text-xs text-neutral-500">
             Tick the values, then press the button below. A
@@ -525,10 +525,10 @@ function ItemColorsPanel({
         <div className="flex flex-wrap items-center justify-between gap-2 border-b border-neutral-200 px-4 py-3">
           <div>
             <h3 className="text-sm font-bold text-neutral-900">
-              2. Colors on {itemName ? `"${itemName}"` : "this item"}
+              2. Variants on {styleName ? `"${styleName}"` : "this style"}
             </h3>
             <p className="mt-0.5 text-xs text-neutral-500">
-              Open a color to upload its images and set its sizes and stock. Every size sells at the Item&apos;s price unless you give that size its own.
+              Open a variant to upload its images and set its sizes and stock. Every size sells at the Item&apos;s price unless you give that size its own.
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -727,4 +727,4 @@ function ColorRow({
   );
 }
 
-export { ItemColorsPanel };
+export { StyleVariantsPanel };

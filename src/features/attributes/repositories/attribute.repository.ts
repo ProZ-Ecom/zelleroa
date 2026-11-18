@@ -228,18 +228,18 @@ export const attributeRepository = {
   },
 
   async countProductAttributeUsage(productId: bigint, attributeId: bigint) {
-    const [itemCount, variantCount, skuCount] = await Promise.all([
-      db.item.count({
+    const [styleCount, variantCount, skuCount] = await Promise.all([
+      db.style.count({
         where: {
-          style: { productId },
+          productId,
           isActive: true,
           deleted_at: null,
-          item_attribute_values: { some: { attribute_id: attributeId } },
+          style_attribute_values: { some: { attribute_id: attributeId } },
         },
       }),
       db.productVariant.count({
         where: {
-          item: { style: { productId } },
+          style: { productId },
           isActive: true,
           variant_attribute_values: { some: { attribute_id: attributeId } },
         },
@@ -250,25 +250,25 @@ export const attributeRepository = {
       db.variantUnitPrice.count({
         where: {
           deleted_at: null,
-          variant: { item: { style: { productId } } },
+          variant: { style: { productId } },
           vup_attribute_values: { some: { attribute_id: attributeId } },
         },
       }),
     ]);
-    return { itemCount, variantCount, skuCount };
+    return { styleCount, variantCount, skuCount };
   },
 
-  async setAttributeValuesForItem(
-    itemId: bigint,
+  async setAttributeValuesForStyle(
+    styleId: bigint,
     entries: { attributeId: bigint; attributeValueId: bigint }[]
   ) {
     await db.$transaction([
-      db.item_attribute_values.deleteMany({ where: { item_id: itemId } }),
+      db.style_attribute_values.deleteMany({ where: { style_id: styleId } }),
       ...(entries.length
         ? [
-            db.item_attribute_values.createMany({
+            db.style_attribute_values.createMany({
               data: entries.map((e) => ({
-                item_id: itemId,
+                style_id: styleId,
                 attribute_id: e.attributeId,
                 attribute_value_id: e.attributeValueId,
               })),
@@ -278,9 +278,9 @@ export const attributeRepository = {
     ]);
   },
 
-  async findAttributeValuesForItem(itemId: bigint) {
-    return db.item_attribute_values.findMany({
-      where: { item_id: itemId },
+  async findAttributeValuesForStyle(styleId: bigint) {
+    return db.style_attribute_values.findMany({
+      where: { style_id: styleId },
       include: { attribute_values: true, product_attributes: true },
     });
   },

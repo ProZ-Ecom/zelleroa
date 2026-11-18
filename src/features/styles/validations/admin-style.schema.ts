@@ -22,7 +22,10 @@ const newArrivalUntil = z
 
 export const createAdminStyleSchema = z
   .object({
-    brandId: brandUuid,
+    // Optional: a Style's brand only overrides the Product's. Left out, the
+    // service copies the Product's brand, so a brand is answered once - on the
+    // Product - instead of being asked again at every level.
+    brandId: brandUuid.optional(),
     name: z
       .string({ message: "Style name is required" })
       .trim()

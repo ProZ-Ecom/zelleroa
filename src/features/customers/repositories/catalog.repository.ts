@@ -22,11 +22,10 @@ import type {
   CustomerVariantDetailDto,
   CustomerVariantImageDto,
   CustomerVariantUnitPriceDto,
-  CustomerItemDto,
+  CustomerProductStyleDto,
   CustomerRelatedVariantDto,
   CustomerStyleDetailDto,
-  CustomerStyleItemDto,
-  CustomerItemDetailDto,
+  CustomerStyleViewDto,
 } from "../types/catalog.types";
 
 const brandSelect = { id: true, uuid: true, name: true } as const;
@@ -108,7 +107,7 @@ function computeSellingPrice(basePrice: number): number {
 // Unit prices are always loaded with this shape when we need to derive a
 // variant's display sku/price/measurement (the storefront still shows one
 // price per variant - the default unit price - since cart/wishlist/orders
-// key off the item-level variant, not a specific unit price).
+// key off the Color variant, not a specific unit price).
 const unitPriceListArgs = {
   where: { deleted_at: null, isActive: true },
   include: {
@@ -179,8 +178,8 @@ function toVariantListItemDto(
       attribute_values: { uuid: string | null; value: string };
     }> | null;
   },
-  itemUuid: string,
-  itemName: string
+  styleUuid: string,
+  styleName: string
 ): CustomerVariantListItemDto {
   const defaultUnitPrice = pickDefaultUnitPrice(variant.variant_unit_prices);
 
@@ -221,10 +220,10 @@ function toVariantListItemDto(
 
   return {
     id: variant.uuid || String(variant.id),
-    itemId: itemUuid,
-    itemName,
-    productId: itemUuid,
-    productName: itemName,
+    styleId: styleUuid,
+    styleName,
+    productId: styleUuid,
+    productName: styleName,
     variantName: variant.variant_name || "",
     measurement: formatVariantMeasurement(
       defaultUnitPrice?.product_units,
@@ -253,10 +252,9 @@ function toVariantListItemDto(
 }
 
 /**
- * Maps one Style row - with its admin-only Items pre-loaded - to the
- * customer-facing DTO. The Items are never exposed: their Color variants are
- * flattened into a single list here, tagging each with the Style's own
- * id/name so cards and the detail page group entirely by Style.
+ * Maps one Style row - with its Color variants pre-loaded - to the
+ * customer-facing DTO, tagging each Color with the Style's own id/name so
+ * cards and the detail page group entirely by Style.
  */
 function toStyleDto(
   style: {
@@ -273,14 +271,11 @@ function toStyleDto(
     veg_type: string;
     is_default: boolean;
     images?: Array<{ uuid: string | null; image_url: string; sort_order: number; is_primary: boolean }> | null;
-    items: Array<{
-      is_default: boolean;
-      variants: Array<Parameters<typeof toVariantListItemDto>[0]>;
-    }>;
+    variants: Array<Parameters<typeof toVariantListItemDto>[0]>;
   },
   productUuid: string,
   productName: string
-): CustomerItemDto {
+): CustomerProductStyleDto {
   const styleUuid = style.uuid || String(style.id);
   const images = (style.images || []).map((img, idx) => ({
     id: img.uuid || String(idx),
@@ -288,11 +283,6 @@ function toStyleDto(
     sortOrder: img.sort_order ?? idx,
     isPrimary: Boolean(img.is_primary),
   }));
-
-  // Flatten every admin Item's Color variants into one list, default Item
-  // first, so a customer never has to pick an Item to see all the Colors.
-  const orderedItems = [...style.items].sort((a, b) => Number(b.is_default) - Number(a.is_default));
-  const variants = orderedItems.flatMap((it) => it.variants);
 
   return {
     id: styleUuid,
@@ -306,21 +296,20 @@ function toStyleDto(
     isReadyToMix: Boolean(style.is_ready_to_mix),
     cookingRecipe: style.cooking_recipe,
     shelfLife: style.shelf_life,
-    vegType: (style.veg_type as CustomerItemDto["vegType"]) || "na",
+    vegType: (style.veg_type as CustomerProductStyleDto["vegType"]) || "na",
     isDefault: Boolean(style.is_default),
     images,
-    variants: variants.map((v) => toVariantListItemDto(v, styleUuid, style.name)),
+    variants: style.variants.map((v) => toVariantListItemDto(v, styleUuid, style.name)),
   };
 }
 
 /**
- * One Item under a Style, as the storefront sees it: its Colors, each Color's
- * own images/Sizes/prices/stock, and the price range and stock flags derived
- * from them. Shared by the Style detail page (which maps every Item through
- * it) and the standalone Item page.
+ * A Style as the storefront sees it: its Colors, each Color's own
+ * images/Sizes/prices/stock, and the price range and stock flags derived from
+ * them. Shared by the Style detail page and the listing's quick-add.
  */
-function toStyleItemDto(
-  item: {
+function toStyleViewDto(
+  style: {
     id: bigint;
     uuid: string | null;
     name: string;
@@ -331,62 +320,58 @@ function toStyleItemDto(
     out_of_stock: boolean;
     base_price: Prisma.Decimal | number;
     variants: Array<Parameters<typeof toVariantListItemDto>[0]>;
-    item_attribute_values?: Array<{
+    style_attribute_values?: Array<{
       product_attributes: { name: string };
       attribute_values: { uuid: string | null; value: string };
     }> | null;
   },
-  styleUuid: string,
   styleImages: CustomerVariantImageDto[]
-): CustomerStyleItemDto {
-  const itemUuid = item.uuid || String(item.id);
-  const colors = item.variants.map((v) => toVariantListItemDto(v, itemUuid, item.name));
+): CustomerStyleViewDto {
+  const styleUuid = style.uuid || String(style.id);
+  const colors = style.variants.map((v) => toVariantListItemDto(v, styleUuid, style.name));
 
   const prices = colors.flatMap((c) => c.unitPrices.map((up) => up.basePrice));
-  // The Item falls back to its default Color's gallery until a Color is
-  // picked; an Item with no Color rows at all falls back to the Style's.
+  // The Style falls back to its default Color's gallery until a Color is
+  // picked; a Style with no Color rows at all falls back to its own images.
   const fallbackImages = colors.find((c) => c.images.length > 0)?.images ?? styleImages;
 
   return {
-    id: itemUuid,
-    styleId: styleUuid,
-    name: item.name,
-    slug: item.slug,
-    shortDescription: item.short_description,
-    description: item.description,
-    isDefault: Boolean(item.is_default),
-    outOfStock: Boolean(item.out_of_stock),
+    id: styleUuid,
+    name: style.name,
+    slug: style.slug,
+    shortDescription: style.short_description,
+    description: style.description,
+    isDefault: Boolean(style.is_default),
+    outOfStock: Boolean(style.out_of_stock),
     image: fallbackImages[0]?.imageUrl ?? null,
     images: fallbackImages,
-    minPrice: prices.length > 0 ? Math.min(...prices) : Number(item.base_price),
-    maxPrice: prices.length > 0 ? Math.max(...prices) : Number(item.base_price),
+    minPrice: prices.length > 0 ? Math.min(...prices) : Number(style.base_price),
+    maxPrice: prices.length > 0 ? Math.max(...prices) : Number(style.base_price),
     hasSizes: colors.some((c) => c.unitPrices.some((up) => up.sizeId !== null)),
     inStock:
-      !item.out_of_stock &&
+      !style.out_of_stock &&
       colors.some((c) => !c.outOfStock && c.unitPrices.some((up) => up.inStock)),
     colors,
-    attributes: (item.item_attribute_values || [])
-      .filter((iav) => {
+    attributes: (style.style_attribute_values || [])
+      .filter((sav) => {
         // Color and Size are picked with their own selectors, so they never
         // belong in the generic extra-attributes list.
-        const name = iav.product_attributes.name.trim().toLowerCase();
+        const name = sav.product_attributes.name.trim().toLowerCase();
         return name !== "color" && name !== "colour" && name !== "size";
       })
-      .map((iav) => ({
-        attributeName: iav.product_attributes.name,
-        valueId: iav.attribute_values.uuid || "",
-        value: iav.attribute_values.value,
+      .map((sav) => ({
+        attributeName: sav.product_attributes.name,
+        valueId: sav.attribute_values.uuid || "",
+        value: sav.attribute_values.value,
       })),
   };
 }
 
 /**
- * The Color/Size tree every Item carries, loaded identically for the Style
- * detail page and the standalone Item page so both render the same thing.
- * Colors with no priced Size row at all are filtered out - there would be
- * nothing to sell under them.
+ * The Color/Size tree a Style carries. Colors with no priced Size row at all
+ * are filtered out - there would be nothing to sell under them.
  */
-const styleItemVariantsArgs = {
+const styleVariantsArgs = {
   where: {
     isActive: true,
     deleted_at: null,
@@ -411,13 +396,13 @@ const styleItemVariantsArgs = {
 };
 
 /**
- * Everything one Item needs on the storefront: its Colors (and their Sizes)
- * plus the Item's own extra attributes - Material, Fit, Pattern and the like,
- * which are properties of the Item itself rather than of any one Color.
+ * Everything one Style needs on the storefront: its Colors (and their Sizes)
+ * plus the Style's own extra attributes - Material, Fit, Pattern and the like,
+ * which are properties of the Style itself rather than of any one Color.
  */
-const styleItemIncludeArgs = {
-  variants: styleItemVariantsArgs,
-  item_attribute_values: {
+const styleViewIncludeArgs = {
+  variants: styleVariantsArgs,
+  style_attribute_values: {
     include: {
       product_attributes: { select: { name: true } },
       attribute_values: { select: { uuid: true, value: true } },
@@ -650,7 +635,7 @@ export const catalogRepository = {
       where.gender = params.gender === "unisex" ? "unisex" : { in: [params.gender, "unisex"] };
     }
 
-    // Variant-level filters (inStock, price range) - vegType lives on Item now.
+    // Variant-level filters (inStock, price range) - vegType lives on the Style.
     const variantWhere: Prisma.ProductVariantWhereInput = {
       isActive: true,
       deleted_at: null,
@@ -665,7 +650,7 @@ export const catalogRepository = {
         params.vegType === "non_veg" || params.vegType === "nonveg"
           ? ("nonveg" as const)
           : (params.vegType as "veg" | "vegan" | "na");
-      variantWhere.item = { style: { veg_type: mappedVegType } };
+      variantWhere.style = { veg_type: mappedVegType };
     }
 
     const minProductP = params.minPrice ? Math.max(params.minPrice, 0.01) : 0.01;
@@ -678,7 +663,7 @@ export const catalogRepository = {
       },
     };
 
-    where.styles = { some: { deleted_at: null, items: { some: { deleted_at: null, variants: { some: variantWhere } } } } };
+    where.styles = { some: { deleted_at: null, variants: { some: variantWhere } } };
 
     let orderBy: Prisma.ProductOrderByWithRelationInput = { createdAt: "desc" };
     if (params.sortBy === "name") {
@@ -703,30 +688,25 @@ export const catalogRepository = {
             where: { deleted_at: null },
             include: {
               brand: { select: brandSelect },
-              items: {
-                where: { deleted_at: null },
-                include: {
-                  variants: {
-                    where: {
-                      isActive: true,
+              variants: {
+                where: {
+                  isActive: true,
+                  deleted_at: null,
+                  variant_unit_prices: {
+                    some: {
                       deleted_at: null,
-                      variant_unit_prices: {
-                        some: {
-                          deleted_at: null,
-                          isActive: true,
-                          base_price: { gt: 0 },
-                        },
-                      },
-                    },
-                    include: {
-                      product_variant_images: {
-                        where: { is_active: true },
-                        orderBy: [{ is_primary: "desc" }, { sort_order: "asc" }],
-                        take: 1,
-                      },
-                      variant_unit_prices: unitPriceListArgs,
+                      isActive: true,
+                      base_price: { gt: 0 },
                     },
                   },
+                },
+                include: {
+                  product_variant_images: {
+                    where: { is_active: true },
+                    orderBy: [{ is_primary: "desc" }, { sort_order: "asc" }],
+                    take: 1,
+                  },
+                  variant_unit_prices: unitPriceListArgs,
                 },
               },
             },
@@ -736,9 +716,9 @@ export const catalogRepository = {
       db.product.count({ where }),
     ]);
 
-    // Map each product & calculate minPrice/maxPrice across every style's items' variants' unit prices
+    // Map each product & calculate minPrice/maxPrice across every style's variants' unit prices
     let items: CustomerProductListItemDto[] = products.map((p) => {
-      const allVariants = p.styles.flatMap((s) => s.items.flatMap((i) => i.variants));
+      const allVariants = p.styles.flatMap((s) => s.variants);
       const allPrices = allVariants.flatMap((v) =>
         (v.variant_unit_prices || []).map((up) => Number(up.base_price))
       );
@@ -752,7 +732,7 @@ export const catalogRepository = {
         imgUrl = allVariants[0].product_variant_images[0]?.image_url ?? null;
       }
 
-      const primaryItem = p.styles.find((s) => s.is_default) ?? p.styles[0] ?? null;
+      const primaryStyle = p.styles.find((s) => s.is_default) ?? p.styles[0] ?? null;
       const primaryVariant =
         allVariants.find((v) => v.is_default) ?? allVariants[0] ?? null;
 
@@ -773,14 +753,9 @@ export const catalogRepository = {
 
       const inStock = p.styles.some((s) =>
         !s.out_of_stock &&
-        s.items.some((i) =>
-          !i.out_of_stock &&
-          i.variants.some((v) =>
-            !v.out_of_stock &&
-            v.variant_unit_prices.some((up) =>
-              (up.inventories?.quantity_available ?? 0) > 0
-            )
-          )
+        s.variants.some((v) =>
+          !v.out_of_stock &&
+          v.variant_unit_prices.some((up) => (up.inventories?.quantity_available ?? 0) > 0)
         )
       );
 
@@ -788,8 +763,8 @@ export const catalogRepository = {
         id: p.uuid || String(p.id),
         name: p.name,
         description:
-          primaryItem?.short_description || primaryItem?.description || null,
-        brand: toBrandDto(primaryItem?.brand, p.brand),
+          primaryStyle?.short_description || primaryStyle?.description || null,
+        brand: toBrandDto(primaryStyle?.brand, p.brand),
         category: null,
         image: imgUrl,
         minPrice: minP,
@@ -896,19 +871,16 @@ export const catalogRepository = {
     const minP = params.minPrice ? Math.max(params.minPrice, 0.01) : 0.01;
     const maxP = params.maxPrice ?? Number.MAX_SAFE_INTEGER;
 
-    where.items = {
+    if (params.inStock !== undefined) {
+      where.out_of_stock = !params.inStock;
+    }
+
+    where.variants = {
       some: {
-        deleted_at: null,
         isActive: true,
-        ...(params.inStock !== undefined ? { out_of_stock: !params.inStock } : {}),
-        variants: {
-          some: {
-            isActive: true,
-            deleted_at: null,
-            variant_unit_prices: {
-              some: { deleted_at: null, isActive: true, base_price: { gte: minP, lte: maxP } },
-            },
-          },
+        deleted_at: null,
+        variant_unit_prices: {
+          some: { deleted_at: null, isActive: true, base_price: { gte: minP, lte: maxP } },
         },
       },
     };
@@ -943,24 +915,19 @@ export const catalogRepository = {
             orderBy: [{ is_primary: "desc" }, { sort_order: "asc" }],
             take: 1,
           },
-          items: {
-            where: { deleted_at: null, isActive: true },
+          variants: {
+            where: {
+              isActive: true,
+              deleted_at: null,
+              variant_unit_prices: { some: { deleted_at: null, isActive: true, base_price: { gt: 0 } } },
+            },
             include: {
-              variants: {
-                where: {
-                  isActive: true,
-                  deleted_at: null,
-                  variant_unit_prices: { some: { deleted_at: null, isActive: true, base_price: { gt: 0 } } },
-                },
-                include: {
-                  product_variant_images: {
-                    where: { is_active: true },
-                    orderBy: [{ is_primary: "desc" }, { sort_order: "asc" }],
-                    take: 1,
-                  },
-                  variant_unit_prices: unitPriceListArgs,
-                },
+              product_variant_images: {
+                where: { is_active: true },
+                orderBy: [{ is_primary: "desc" }, { sort_order: "asc" }],
+                take: 1,
               },
+              variant_unit_prices: unitPriceListArgs,
             },
           },
         },
@@ -969,7 +936,7 @@ export const catalogRepository = {
     ]);
 
     let data: CustomerProductListItemDto[] = styles.map((s) => {
-      const allVariants = s.items.flatMap((i) => i.variants);
+      const allVariants = s.variants;
       const colorNames = new Set(allVariants.map((v) => v.color_name).filter(Boolean));
       const allPrices = allVariants.flatMap((v) =>
         (v.variant_unit_prices || []).map((up) => Number(up.base_price))
@@ -984,13 +951,10 @@ export const catalogRepository = {
 
       const inStock =
         !s.out_of_stock &&
-        s.items.some((i) =>
-          !i.out_of_stock &&
-          i.variants.some((v) =>
-            !v.out_of_stock &&
-            v.variant_unit_prices.some((up) =>
-              (up.inventories?.quantity_available ?? 0) > 0
-            )
+        s.variants.some((v) =>
+          !v.out_of_stock &&
+          v.variant_unit_prices.some((up) =>
+            (up.inventories?.quantity_available ?? 0) > 0
           )
         );
 
@@ -1080,35 +1044,29 @@ export const catalogRepository = {
           where: { is_active: true },
           orderBy: [{ is_primary: "desc" }, { sort_order: "asc" }],
         },
-        items: {
-          where: { deleted_at: null, isActive: true },
-          include: {
-            variants: {
-              where: {
-                isActive: true,
+        variants: {
+          where: {
+            isActive: true,
+            deleted_at: null,
+            variant_unit_prices: {
+              some: {
                 deleted_at: null,
-                variant_unit_prices: {
-                  some: {
-                    deleted_at: null,
-                    isActive: true,
-                    base_price: { gt: 0 },
-                  },
-                },
+                isActive: true,
+                base_price: { gt: 0 },
               },
+            },
+          },
+          include: {
+            product_variant_images: {
+              where: { is_active: true },
+              orderBy: [{ is_primary: "desc" }, { sort_order: "asc" }],
+            },
+            variant_unit_prices: unitPriceListArgs,
+            variant_attribute_values: {
               include: {
-                product_variant_images: {
-                  where: { is_active: true },
-                  orderBy: [{ is_primary: "desc" }, { sort_order: "asc" }],
-                },
-                variant_unit_prices: unitPriceListArgs,
-                variant_attribute_values: {
-                  include: {
-                    product_attributes: { select: { name: true } },
-                    attribute_values: { select: { uuid: true, value: true } },
-                  },
-                },
+                product_attributes: { select: { name: true } },
+                attribute_values: { select: { uuid: true, value: true } },
               },
-              orderBy: { createdAt: "asc" },
             },
           },
           orderBy: [{ is_default: "desc" }, { createdAt: "asc" }],
@@ -1132,7 +1090,7 @@ export const catalogRepository = {
       }
     }
 
-    const allVariants = style.items.flatMap((i) => i.variants);
+    const allVariants = style.variants;
     let imgUrl: string | null = style.images[0]?.image_url ?? null;
     if (!imgUrl && allVariants.length > 0) {
       imgUrl = allVariants[0].product_variant_images[0]?.image_url ?? null;
@@ -1149,17 +1107,14 @@ export const catalogRepository = {
       category: categoryDto,
       image: imgUrl,
       gender: (style.product.gender as CustomerProductDetailDto["gender"]) ?? null,
-      items: [styleDto],
+      styles: [styleDto],
     };
   },
 
   /**
    * The storefront Style detail page, keyed by the Style UUID the listing card
-   * links to. Unlike `findCustomerProductByUuid` - which flattens every Item's
-   * Colors into one list - this keeps the real
-   * Style -> Item -> Color -> Size tree intact, because the shopper now picks
-   * an Item first and each Color carries its own images, sizes, prices and
-   * stock.
+   * links to: the Style's Colors, each Color's own Sizes/prices/stock, and
+   * enough Product context for the breadcrumb and the title.
    */
   async findCustomerStyleDetailByUuid(uuid: string): Promise<CustomerStyleDetailDto | null> {
     const style = await db.style.findFirst({
@@ -1180,11 +1135,7 @@ export const catalogRepository = {
           where: { is_active: true },
           orderBy: [{ is_primary: "desc" }, { sort_order: "asc" }],
         },
-        items: {
-          where: { deleted_at: null, isActive: true },
-          include: styleItemIncludeArgs,
-          orderBy: [{ is_default: "desc" }, { createdAt: "asc" }],
-        },
+        ...styleViewIncludeArgs,
       },
     });
 
@@ -1199,7 +1150,6 @@ export const catalogRepository = {
       if (cat) categoryDto = { id: cat.uuid || String(cat.id), name: cat.name };
     }
 
-    const styleUuid = style.uuid || String(style.id);
     const styleImages: CustomerVariantImageDto[] = style.images.map((img, idx) => ({
       id: img.uuid || String(idx),
       imageUrl: img.image_url,
@@ -1207,18 +1157,8 @@ export const catalogRepository = {
       isPrimary: Boolean(img.is_primary),
     }));
 
-    const items: CustomerStyleItemDto[] = style.items.map((item) =>
-      toStyleItemDto(item, styleUuid, styleImages)
-    );
-
-    const allPrices = items.flatMap((i) => [i.minPrice, i.maxPrice]).filter((p) => p > 0);
-
     return {
-      id: styleUuid,
-      name: style.name,
-      slug: style.slug,
-      shortDescription: style.short_description,
-      description: style.description,
+      ...toStyleViewDto(style, styleImages),
       ingredients: style.ingredients,
       isReadyToMix: Boolean(style.is_ready_to_mix),
       cookingRecipe: style.cooking_recipe,
@@ -1228,83 +1168,6 @@ export const catalogRepository = {
         id: style.product.uuid || String(style.product.id),
         name: style.product.name,
         gender: (style.product.gender as CustomerStyleDetailDto["product"]["gender"]) ?? null,
-      },
-      brand: toBrandDto(style.brand, style.product.brand),
-      category: categoryDto,
-      image: styleImages[0]?.imageUrl ?? items.find((i) => i.image)?.image ?? null,
-      images: styleImages,
-      minPrice: allPrices.length > 0 ? Math.min(...allPrices) : 0,
-      maxPrice: allPrices.length > 0 ? Math.max(...allPrices) : 0,
-      items,
-    };
-  },
-
-  /**
-   * The standalone Item detail page: one Item with its Colors, each Color's
-   * Sizes/prices/stock, and enough Style/Product context for the breadcrumb,
-   * the title and the "more from this style" link. Mirrors exactly what the
-   * Style detail page hands its selected Item, so both render the same view.
-   */
-  async findCustomerItemDetailByUuid(uuid: string): Promise<CustomerItemDetailDto | null> {
-    const item = await db.item.findFirst({
-      where: { uuid, isActive: true, deleted_at: null },
-      include: {
-        ...styleItemIncludeArgs,
-        style: {
-          include: {
-            brand: { select: brandSelect },
-            images: {
-              where: { is_active: true },
-              orderBy: [{ is_primary: "desc" }, { sort_order: "asc" }],
-            },
-            product: {
-              select: {
-                id: true,
-                uuid: true,
-                name: true,
-                gender: true,
-                categoryId: true,
-                brand: { select: brandSelect },
-              },
-            },
-          },
-        },
-      },
-    });
-
-    if (!item || !item.style || !item.style.isActive || item.style.deleted_at) {
-      return null;
-    }
-
-    const style = item.style;
-
-    let categoryDto: { id: string; name: string } | null = null;
-    if (style.product.categoryId) {
-      const cat = await db.productCategory.findFirst({
-        where: { id: style.product.categoryId },
-        select: { id: true, uuid: true, name: true },
-      });
-      if (cat) categoryDto = { id: cat.uuid || String(cat.id), name: cat.name };
-    }
-
-    const styleUuid = style.uuid || String(style.id);
-    const styleImages: CustomerVariantImageDto[] = style.images.map((img, idx) => ({
-      id: img.uuid || String(idx),
-      imageUrl: img.image_url,
-      sortOrder: img.sort_order ?? idx,
-      isPrimary: Boolean(img.is_primary),
-    }));
-
-    return {
-      ...toStyleItemDto(item, styleUuid, styleImages),
-      styleName: style.name,
-      styleSlug: style.slug,
-      styleDescription: style.description,
-      styleShortDescription: style.short_description,
-      product: {
-        id: style.product.uuid || String(style.product.id),
-        name: style.product.name,
-        gender: (style.product.gender as CustomerItemDetailDto["product"]["gender"]) ?? null,
       },
       brand: toBrandDto(style.brand, style.product.brand),
       category: categoryDto,
@@ -1350,20 +1213,15 @@ export const catalogRepository = {
           where: { deleted_at: null },
           include: {
             brand: { select: brandSelect },
-            items: {
-              where: { deleted_at: null },
+            variants: {
+              where: { isActive: true, deleted_at: null },
               include: {
-                variants: {
-                  where: { isActive: true, deleted_at: null },
-                  include: {
-                    product_variant_images: {
-                      where: { is_active: true },
-                      orderBy: [{ is_primary: "desc" }, { sort_order: "asc" }],
-                      take: 1,
-                    },
-                    variant_unit_prices: unitPriceListArgs,
-                  },
+                product_variant_images: {
+                  where: { is_active: true },
+                  orderBy: [{ is_primary: "desc" }, { sort_order: "asc" }],
+                  take: 1,
                 },
+                variant_unit_prices: unitPriceListArgs,
               },
             },
           },
@@ -1384,7 +1242,7 @@ export const catalogRepository = {
     const catMap = new Map(categories.map((c) => [c.id.toString(), c]));
 
     return related.map((p) => {
-      const allVariants = p.styles.flatMap((s) => s.items.flatMap((i) => i.variants));
+      const allVariants = p.styles.flatMap((s) => s.variants);
       const allPrices = allVariants.flatMap((v) =>
         (v.variant_unit_prices || []).map((up) => Number(up.base_price))
       );
@@ -1396,7 +1254,7 @@ export const catalogRepository = {
         imgUrl = allVariants[0].product_variant_images[0]?.image_url ?? null;
       }
 
-      const primaryItem = p.styles.find((s) => s.is_default) ?? p.styles[0] ?? null;
+      const primaryStyle = p.styles.find((s) => s.is_default) ?? p.styles[0] ?? null;
       const primaryVariant = allVariants.find((v) => v.is_default) ?? allVariants[0] ?? null;
       const variantWithPrices =
         allVariants.find((v) => (v.variant_unit_prices || []).length > 0) ?? primaryVariant;
@@ -1417,8 +1275,8 @@ export const catalogRepository = {
       return {
         id: p.uuid || String(p.id),
         name: p.name,
-        description: primaryItem?.short_description || primaryItem?.description || null,
-        brand: toBrandDto(primaryItem?.brand, p.brand),
+        description: primaryStyle?.short_description || primaryStyle?.description || null,
+        brand: toBrandDto(primaryStyle?.brand, p.brand),
         category: cat ? { id: cat.uuid || String(cat.id), name: cat.name } : null,
         image: imgUrl,
         minPrice: minP,
@@ -1450,7 +1308,7 @@ export const catalogRepository = {
     const pageSize = params.pageSize ?? 20;
 
     const where: Prisma.ProductVariantWhereInput = {
-      item: { style: { productId: product.id } },
+      style: { productId: product.id },
       isActive: true,
       deleted_at: null,
     };
@@ -1491,7 +1349,7 @@ export const catalogRepository = {
         orderBy,
         ...(isPriceSort ? {} : { skip: (page - 1) * pageSize, take: pageSize }),
         include: {
-          item: { select: { style: { select: { id: true, uuid: true, name: true } } } },
+          style: { select: { id: true, uuid: true, name: true } },
           product_variant_images: {
             where: { is_active: true },
             orderBy: [{ is_primary: "desc" }, { sort_order: "asc" }],
@@ -1504,7 +1362,7 @@ export const catalogRepository = {
     ]);
 
     let data: CustomerVariantListItemDto[] = variants.map((v) =>
-      toVariantListItemDto(v, v.item.style.uuid || String(v.item.style.id), v.item.style.name)
+      toVariantListItemDto(v, v.style.uuid || String(v.style.id), v.style.name)
     );
 
     if (isPriceSort) {
@@ -1534,13 +1392,11 @@ export const catalogRepository = {
         uuid: variantUuid,
         isActive: true,
         deleted_at: null,
-        item: {
-          style: {
-            product: {
-              uuid: productUuid,
-              isActive: true,
-              deleted_at: null,
-            },
+        style: {
+          product: {
+            uuid: productUuid,
+            isActive: true,
+            deleted_at: null,
           },
         },
         variant_unit_prices: {
@@ -1552,9 +1408,7 @@ export const catalogRepository = {
         },
       },
       include: {
-        item: {
-          select: { style: { select: { id: true, uuid: true, name: true } } },
-        },
+        style: { select: { id: true, uuid: true, name: true } },
         product_variant_images: {
           where: { is_active: true },
           orderBy: [{ is_primary: "desc" }, { sort_order: "asc" }],
@@ -1563,7 +1417,7 @@ export const catalogRepository = {
       },
     });
 
-    if (!variant || !variant.item) return null;
+    if (!variant || !variant.style) return null;
 
     const images: CustomerVariantImageDto[] = variant.product_variant_images.map((img) => ({
       id: img.uuid || String(img.id),
@@ -1574,8 +1428,8 @@ export const catalogRepository = {
 
     const listItem = toVariantListItemDto(
       variant,
-      variant.item.style.uuid || String(variant.item.style.id),
-      variant.item.style.name
+      variant.style.uuid || String(variant.style.id),
+      variant.style.name
     );
 
     return {
@@ -1591,16 +1445,12 @@ export const catalogRepository = {
     const where: Prisma.ProductVariantWhereInput = {
       isActive: true,
       deleted_at: null,
-      item: {
+      style: {
         isActive: true,
         deleted_at: null,
-        style: {
+        product: {
           isActive: true,
           deleted_at: null,
-          product: {
-            isActive: true,
-            deleted_at: null,
-          },
         },
       },
     };
@@ -1624,37 +1474,28 @@ export const catalogRepository = {
         : null,
     ]);
 
-    const itemStyleWhere = (): Prisma.StyleWhereInput =>
-      ((where.item as Prisma.ItemWhereInput)?.style as Prisma.StyleWhereInput) ?? {};
-    const itemStyleProductWhere = (): Prisma.ProductWhereInput =>
-      (itemStyleWhere().product as Prisma.ProductWhereInput) ?? {};
+    const styleWhere = (): Prisma.StyleWhereInput =>
+      (where.style as Prisma.StyleWhereInput) ?? {};
+    const styleProductWhere = (): Prisma.ProductWhereInput =>
+      (styleWhere().product as Prisma.ProductWhereInput) ?? {};
 
     if (matchingProducts) {
-      where.item = {
-        ...(where.item as Prisma.ItemWhereInput),
-        style: { ...itemStyleWhere(), productId: { in: matchingProducts.map((p) => p.id) } },
-      };
+      where.style = { ...styleWhere(), productId: { in: matchingProducts.map((p) => p.id) } };
     }
 
     if (matchingBrands) {
-      where.item = {
-        ...(where.item as Prisma.ItemWhereInput),
-        style: {
-          ...itemStyleWhere(),
-          ...styleBrandWhere(matchingBrands.map((b) => b.id)),
-        },
+      where.style = {
+        ...styleWhere(),
+        ...styleBrandWhere(matchingBrands.map((b) => b.id)),
       };
     }
 
     if (matchingCategories) {
-      where.item = {
-        ...(where.item as Prisma.ItemWhereInput),
-        style: {
-          ...itemStyleWhere(),
-          product: {
-            ...itemStyleProductWhere(),
-            categoryId: { in: matchingCategories },
-          },
+      where.style = {
+        ...styleWhere(),
+        product: {
+          ...styleProductWhere(),
+          categoryId: { in: matchingCategories },
         },
       };
     }
@@ -1662,14 +1503,11 @@ export const catalogRepository = {
     // Filter by audience - a men's/women's/kids' filter also includes unisex
     // products, since those are designed to fit anyone.
     if (params.gender) {
-      where.item = {
-        ...(where.item as Prisma.ItemWhereInput),
-        style: {
-          ...itemStyleWhere(),
-          product: {
-            ...itemStyleProductWhere(),
-            gender: params.gender === "unisex" ? "unisex" : { in: [params.gender, "unisex"] },
-          },
+      where.style = {
+        ...styleWhere(),
+        product: {
+          ...styleProductWhere(),
+          gender: params.gender === "unisex" ? "unisex" : { in: [params.gender, "unisex"] },
         },
       };
     }
@@ -1679,8 +1517,8 @@ export const catalogRepository = {
       where.OR = [
         { variant_name: { contains: params.search } },
         { variant_unit_prices: { some: { sku: { contains: params.search } } } },
-        { item: { style: { name: { contains: params.search } } } },
-        { item: { style: { product: { name: { contains: params.search } } } } },
+        { style: { name: { contains: params.search } } },
+        { style: { product: { name: { contains: params.search } } } },
       ];
     }
 
@@ -1709,13 +1547,13 @@ export const catalogRepository = {
     }
 
     // Dietary (veg / non_veg / vegan) filter - lives on Style now
-    const withItemVegType = (
+    const withStyleVegType = (
       vegTypeWhere: Prisma.StyleWhereInput["veg_type"]
     ): Prisma.ProductVariantWhereInput => ({
       ...baseFacetWhere,
-      item: {
-        ...(baseFacetWhere.item as Prisma.ItemWhereInput),
-        style: { veg_type: vegTypeWhere },
+      style: {
+        ...(baseFacetWhere.style as Prisma.StyleWhereInput),
+        veg_type: vegTypeWhere,
       },
     });
 
@@ -1730,10 +1568,7 @@ export const catalogRepository = {
       } else {
         vegTypeWhere = params.vegType as "veg" | "vegan" | "na";
       }
-      where.item = {
-        ...(where.item as Prisma.ItemWhereInput),
-        style: { ...itemStyleWhere(), veg_type: vegTypeWhere },
-      };
+      where.style = { ...styleWhere(), veg_type: vegTypeWhere };
     }
 
     // Sorting
@@ -1741,7 +1576,7 @@ export const catalogRepository = {
     if (params.sortBy === "variantName") {
       orderBy = { variant_name: params.sortOrder ?? "asc" };
     } else if (params.sortBy === "productName") {
-      orderBy = { item: { style: { name: params.sortOrder ?? "asc" } } };
+      orderBy = { style: { name: params.sortOrder ?? "asc" } };
     } else if (params.sortBy === "createdAt") {
       orderBy = { createdAt: params.sortOrder ?? "desc" };
     }
@@ -1762,9 +1597,7 @@ export const catalogRepository = {
         orderBy,
         ...(isPriceSort ? {} : { skip: (page - 1) * pageSize, take: pageSize }),
         include: {
-          item: {
-            select: { style: { select: { id: true, uuid: true, name: true } } },
-          },
+          style: { select: { id: true, uuid: true, name: true } },
           product_variant_images: {
             where: { is_active: true },
             orderBy: [{ is_primary: "desc" }, { sort_order: "asc" }],
@@ -1776,16 +1609,16 @@ export const catalogRepository = {
       db.productVariant.count({ where }),
       db.productVariant.count({ where: { ...baseFacetWhere, out_of_stock: false } }),
       db.productVariant.count({ where: { ...baseFacetWhere, out_of_stock: true } }),
-      db.productVariant.count({ where: withItemVegType({ in: ["veg", "na"] }) }),
-      db.productVariant.count({ where: withItemVegType("nonveg") }),
-      db.productVariant.count({ where: withItemVegType("vegan") }),
+      db.productVariant.count({ where: withStyleVegType({ in: ["veg", "na"] }) }),
+      db.productVariant.count({ where: withStyleVegType("nonveg") }),
+      db.productVariant.count({ where: withStyleVegType("vegan") }),
     ]);
 
     let data: CustomerVariantListItemDto[] = variants.map((v) =>
       toVariantListItemDto(
         v,
-        v.item?.style ? v.item.style.uuid || String(v.item.style.id) : "",
-        v.item?.style ? v.item.style.name : ""
+        v.style ? v.style.uuid || String(v.style.id) : "",
+        v.style ? v.style.name : ""
       )
     );
 
@@ -1854,21 +1687,17 @@ export const catalogRepository = {
         ...(isNumericId ? { id: BigInt(variantId) } : { uuid: variantId }),
         isActive: true,
         deleted_at: null,
-        item: { style: { product: { isActive: true, deleted_at: null } } },
+        style: { product: { isActive: true, deleted_at: null } },
       },
       select: {
         id: true,
-        item: {
-          select: {
-            style: { select: { product: { select: { id: true, categoryId: true, brandId: true } } } },
-          },
-        },
+        style: { select: { product: { select: { id: true, categoryId: true, brandId: true } } } },
       },
     });
 
-    if (!sourceVariant?.item?.style?.product) return null;
+    if (!sourceVariant?.style?.product) return null;
 
-    const sourceProduct = sourceVariant.item.style.product;
+    const sourceProduct = sourceVariant.style.product;
 
     const emptyResult = {
       data: [] as CustomerRelatedVariantDto[],
@@ -1914,16 +1743,14 @@ export const catalogRepository = {
     const candidateWhere: Prisma.ProductVariantWhereInput = {
       isActive: true,
       deleted_at: null,
-      item: {
+      style: {
         isActive: true,
         deleted_at: null,
-        style: {
-          product: {
-            isActive: true,
-            deleted_at: null,
-            id: { not: sourceProduct.id },
-            OR: relatedOr,
-          },
+        product: {
+          isActive: true,
+          deleted_at: null,
+          id: { not: sourceProduct.id },
+          OR: relatedOr,
         },
       },
       variant_unit_prices: {
@@ -1942,14 +1769,10 @@ export const catalogRepository = {
       orderBy: [{ is_default: "desc" }, { createdAt: "asc" }],
       select: {
         id: true,
-        item: {
+        style: {
           select: {
-            style: {
-              select: {
-                productId: true,
-                product: { select: { categoryId: true, brandId: true, createdAt: true } },
-              },
-            },
+            productId: true,
+            product: { select: { categoryId: true, brandId: true, createdAt: true } },
           },
         },
       },
@@ -1970,11 +1793,11 @@ export const catalogRepository = {
     const siblingIdSet = new Set(siblingCategoryIds.map((id) => id.toString()));
 
     for (const candidate of candidates) {
-      const productId = candidate.item.style.productId;
+      const productId = candidate.style.productId;
       const key = productId.toString();
       if (byProduct.has(key)) continue;
 
-      const categoryId = candidate.item.style.product?.categoryId ?? null;
+      const categoryId = candidate.style.product?.categoryId ?? null;
       let rank = 2;
       if (
         categoryId !== null &&
@@ -1990,7 +1813,7 @@ export const catalogRepository = {
         productId,
         variantId: candidate.id,
         rank,
-        createdAt: candidate.item.style.product?.createdAt ?? new Date(0),
+        createdAt: candidate.style.product?.createdAt ?? new Date(0),
       });
     }
 
@@ -2019,25 +1842,21 @@ export const catalogRepository = {
         uuid: true,
         variant_name: true,
         out_of_stock: true,
-        item: {
+        style: {
           select: {
-            style: {
+            brand: { select: brandSelect },
+            product: {
               select: {
+                id: true,
+                uuid: true,
+                name: true,
+                categoryId: true,
                 brand: { select: brandSelect },
-                product: {
-                  select: {
-                    id: true,
-                    uuid: true,
-                    name: true,
-                    categoryId: true,
-                    brand: { select: brandSelect },
-                    images: {
-                      where: { is_active: true },
-                      orderBy: [{ isPrimary: "desc" }, { sortOrder: "asc" }],
-                      take: 1,
-                      select: { image_url: true },
-                    },
-                  },
+                images: {
+                  where: { is_active: true },
+                  orderBy: [{ isPrimary: "desc" }, { sortOrder: "asc" }],
+                  take: 1,
+                  select: { image_url: true },
                 },
               },
             },
@@ -2072,7 +1891,7 @@ export const catalogRepository = {
     const pageCategoryIds = Array.from(
       new Map(
         variants
-          .map((v) => v.item?.style?.product?.categoryId)
+          .map((v) => v.style?.product?.categoryId)
           .filter((id): id is bigint => id !== null && id !== undefined)
           .map((id) => [id.toString(), id] as const)
       ).values()
@@ -2097,9 +1916,9 @@ export const catalogRepository = {
     // Walk pageSlice (not `variants`) so the ranked order is preserved.
     for (const entry of pageSlice) {
       const variant = variantMap.get(entry.variantId.toString());
-      if (!variant?.item?.style?.product) continue;
+      if (!variant?.style?.product) continue;
 
-      const product = variant.item.style.product;
+      const product = variant.style.product;
       const defaultUnitPrice = pickDefaultUnitPrice(variant.variant_unit_prices);
       const basePrice = defaultUnitPrice ? Number(defaultUnitPrice.base_price) : 0;
       const sellingPrice = computeSellingPrice(basePrice);
@@ -2142,7 +1961,7 @@ export const catalogRepository = {
           parentCategory && categoryRow
             ? { id: categoryRow.uuid || String(categoryRow.id), name: categoryRow.name }
             : null,
-        brand: toBrandDto(variant.item.style.brand, product.brand),
+        brand: toBrandDto(variant.style.brand, product.brand),
         inStock: !variant.out_of_stock && stockQuantity > 0,
         stockQuantity,
       });

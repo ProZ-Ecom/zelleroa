@@ -1,12 +1,13 @@
 import type { Metadata } from "next";
 import { cache } from "react";
-import { redirect } from "next/navigation";
 import { catalogService } from "@/features/customers/services/catalog.service";
-import { styleDefaultItemId, itemHref } from "@/features/customers/utils/style-default-item";
 import { StyleDetailClient } from "./StyleDetailClient";
 import {
   constructMetadata,
   getEntitySeoMetaByUuid,
+  buildProductJsonLd,
+  buildBreadcrumbJsonLd,
+  safeJsonLd,
 } from "@/lib/seo";
 
 interface StyleDetailPageProps {
@@ -32,7 +33,7 @@ export async function generateMetadata({
 
   if (!style) {
     return constructMetadata({
-      title: "Style Not Found",
+      title: "Product Not Found",
       noIndex: true,
     });
   }
@@ -61,10 +62,66 @@ export default async function StyleDetailPage({ params }: StyleDetailPageProps) 
   const { slug } = await params;
   const style = await getStyleForSeo(slug);
 
-  // A Style has no page of its own to pick Items on - it opens its default
-  // Item. Called outside any try/catch: `redirect` works by throwing.
-  const itemId = style ? styleDefaultItemId(style) : null;
-  if (itemId) redirect(itemHref(itemId));
+  // Every Colour's every Size is separately priced and stocked, so the Style is
+  // described to crawlers as an aggregate offer over those rows.
+  const sizes = style?.colors.flatMap((color) => color.unitPrices) ?? [];
 
-  return <StyleDetailClient slug={slug} />;
+  const productJsonLd = style
+    ? buildProductJsonLd({
+        name: style.name,
+        description: style.shortDescription || style.description || undefined,
+        image: style.image ? [style.image] : undefined,
+        brand: style.brand?.name,
+        category: style.category?.name,
+        sku: sizes[0]?.sku,
+        url: `/styles/${slug}`,
+        offers:
+          sizes.length > 0
+            ? {
+                priceCurrency: "INR",
+                lowPrice: Math.min(...sizes.map((s) => s.sellingPrice)),
+                highPrice: Math.max(...sizes.map((s) => s.sellingPrice)),
+                offerCount: sizes.length,
+                availability: sizes.some((s) => s.inStock) ? "InStock" : "OutOfStock",
+                url: `/styles/${slug}`,
+              }
+            : undefined,
+      })
+    : null;
+
+  const breadcrumbsJsonLd = style
+    ? buildBreadcrumbJsonLd({
+        items: [
+          { name: "Home", item: "/" },
+          { name: "Products", item: "/products" },
+          ...(style.category
+            ? [
+                {
+                  name: style.category.name,
+                  item: `/category/${style.category.id}`,
+                },
+              ]
+            : []),
+          { name: style.name, item: `/styles/${slug}` },
+        ],
+      })
+    : null;
+
+  return (
+    <>
+      {productJsonLd && (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: safeJsonLd(productJsonLd) }}
+        />
+      )}
+      {breadcrumbsJsonLd && (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: safeJsonLd(breadcrumbsJsonLd) }}
+        />
+      )}
+      <StyleDetailClient slug={slug} />
+    </>
+  );
 }

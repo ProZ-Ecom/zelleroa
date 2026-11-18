@@ -2,7 +2,7 @@ import crypto from "crypto";
 import { db } from "@/lib/db/prisma";
 import { ApiError } from "@/lib/api/api-error";
 import { variantRepository } from "../repositories/variant.repository";
-import { itemRepository } from "@/features/items/repositories/item.repository";
+import { styleRepository } from "@/features/styles/repositories/style.repository";
 import { userRepository } from "@/features/users/repositories/user.repository";
 import { unitRepository } from "@/features/units/repositories/unit.repository";
 import { attributeRepository } from "@/features/attributes/repositories/attribute.repository";
@@ -159,7 +159,7 @@ function formatAdminVariantResponse(
   variant: {
     id: bigint;
     uuid: string;
-    itemId: bigint;
+    styleId: bigint;
     variant_name?: string | null;
     slug?: string | null;
     color_name?: string | null;
@@ -170,18 +170,16 @@ function formatAdminVariantResponse(
     out_of_stock?: boolean;
     createdAt: Date;
     updatedAt: Date;
-    item?: {
+    style?: {
       uuid: string | null;
       name: string;
       slug?: string | null;
       base_price?: Prisma.Decimal | number | null;
-      style?: {
-        productId?: bigint;
-        product?: {
-          uuid: string | null;
-          name: string;
-          slug?: string | null;
-        } | null;
+      productId?: bigint;
+      product?: {
+        uuid: string | null;
+        name: string;
+        slug?: string | null;
       } | null;
     } | null;
     product_variant_images?: Array<{ image_url: string; is_primary: boolean }> | null;
@@ -191,13 +189,13 @@ function formatAdminVariantResponse(
       attribute_values: { uuid: string | null; value: string; price_adjustment?: Prisma.Decimal | number | null };
     }> | null;
   },
-  cachedItemUuid?: string,
-  cachedItemName?: string
+  cachedStyleUuid?: string,
+  cachedStyleName?: string
 ): AdminVariantResponse {
   const variantUuid = variant.uuid;
-  const itemUuid = cachedItemUuid ?? variant.item?.uuid ?? String(variant.itemId);
-  const itemName = cachedItemName || variant.item?.name || "";
-  const itemSlug = variant.item?.slug || "";
+  const styleUuid = cachedStyleUuid ?? variant.style?.uuid ?? String(variant.styleId);
+  const styleName = cachedStyleName || variant.style?.name || "";
+  const styleSlug = variant.style?.slug || "";
   const variantName = variant.variant_name || "";
 
   const primaryImgObj =
@@ -230,18 +228,18 @@ function formatAdminVariantResponse(
 
   return {
     id: variantUuid,
-    itemId: itemUuid,
-    itemName,
-    itemSlug,
-    productId: variant.item?.style?.product?.uuid || itemUuid,
-    productName: variant.item?.style?.product?.name || itemName,
-    productSlug: variant.item?.style?.product?.slug || itemSlug,
+    styleId: styleUuid,
+    styleName,
+    styleSlug,
+    productId: variant.style?.product?.uuid || styleUuid,
+    productName: variant.style?.product?.name || styleName,
+    productSlug: variant.style?.product?.slug || styleSlug,
     variantName,
     slug: variant.slug || "",
     colorName: variant.color_name ?? null,
     colorHex: variant.color_hex ?? null,
     priceAdjustment: Number(variant.price_adjustment ?? 0),
-    itemPrice: variant.item?.base_price != null ? Number(variant.item.base_price) : undefined,
+    stylePrice: variant.style?.base_price != null ? Number(variant.style.base_price) : undefined,
     isFeatured: Boolean(variant.is_featured),
     primaryImage,
     isActive: Boolean(variant.isActive),
@@ -298,13 +296,13 @@ async function resolveColorFromAttributeValueIds(
 
 /**
  * Rejects a variant whose attribute combination (e.g. Color=Red, Fabric=Cotton)
- * exactly matches another active Color variant of the same Item. A variant with
- * no attributes at all (Item has no Color/Fabric configured) is exempt - that's
- * the normal single-variant case, not a duplicate. Two different Items of the
+ * exactly matches another active Color variant of the same Style. A variant with
+ * no attributes at all (Style has no Color/Fabric configured) is exempt - that's
+ * the normal single-variant case, not a duplicate. Two different Styles of the
  * same Product may legitimately share a combination (e.g. both have "Red").
  */
 async function assertNoDuplicateAttributeCombination(
-  itemId: bigint,
+  styleId: bigint,
   attributeValueInternalIds: bigint[],
   excludeVariantId?: bigint
 ): Promise<void> {
@@ -313,8 +311,8 @@ async function assertNoDuplicateAttributeCombination(
   const sortedNew = [...attributeValueInternalIds].sort((a, b) =>
     a < b ? -1 : a > b ? 1 : 0
   );
-  const existingSets = await variantRepository.findAttributeSetsForItem(
-    itemId,
+  const existingSets = await variantRepository.findAttributeSetsForStyle(
+    styleId,
     excludeVariantId
   );
 
@@ -326,23 +324,23 @@ async function assertNoDuplicateAttributeCombination(
 
   if (duplicate) {
     throw ApiError.conflict(
-      "Another Color on this Item already has this exact combination of attributes"
+      "Another Color on this Style already has this exact combination of attributes"
     );
   }
 }
 
 export const variantService = {
   async createAdminVariant(
-    itemUuid: string,
+    styleUuid: string,
     data: CreateAdminVariantInput,
     adminEmail?: string
   ): Promise<AdminVariantResponse> {
     const adminId = await getAdminInternalId(adminEmail);
 
     // 1. Resolve & Validate Item
-    const item = await itemRepository.findByUuid(itemUuid);
-    if (!item || item.deleted_at !== null) {
-      throw ApiError.notFound("Item not found");
+    const style = await styleRepository.findByUuid(styleUuid);
+    if (!style || style.deleted_at !== null) {
+      throw ApiError.notFound("Style not found");
     }
 
     // 2. Validate Slug
@@ -356,14 +354,14 @@ export const variantService = {
     const newAttributeValueIds = data.attributeValueIds
       ? await resolveAttributeValueInternalIds(data.attributeValueIds)
       : [];
-    await assertNoDuplicateAttributeCombination(item.id, newAttributeValueIds);
+    await assertNoDuplicateAttributeCombination(style.id, newAttributeValueIds);
     const { colorName, colorHex } = await resolveColorFromAttributeValueIds(newAttributeValueIds);
 
     // 3. Create Variant (Color level only; unit/price/size combos are managed
     // separately via variantUnitPriceService)
     const variant = await variantRepository.create({
       uuid: crypto.randomUUID(),
-      itemId: item.id,
+      styleId: style.id,
       variant_name: data.variantName || colorName || "Default",
       slug: variantSlug,
       color_name: colorName,
@@ -383,8 +381,8 @@ export const variantService = {
     const withAttributes = await variantRepository.findByUuid(variant.uuid);
     return formatAdminVariantResponse(
       withAttributes || variant,
-      item.uuid || itemUuid,
-      item.name
+      style.uuid || styleUuid,
+      style.name
     );
   },
 
@@ -405,17 +403,17 @@ export const variantService = {
   },
 
   async getAdminVariants(
-    itemUuid: string,
+    styleUuid: string,
     params: GetAdminVariantsParams = {}
   ) {
-    const item = await itemRepository.findByUuid(itemUuid);
-    if (!item || item.deleted_at !== null) {
-      throw ApiError.notFound("Item not found");
+    const style = await styleRepository.findByUuid(styleUuid);
+    if (!style || style.deleted_at !== null) {
+      throw ApiError.notFound("Style not found");
     }
 
-    const result = await variantRepository.findAdminAllByItemId(item.id, params);
+    const result = await variantRepository.findAdminAllByStyleId(style.id, params);
     const data = result.data.map((v) =>
-      formatAdminVariantResponse(v, item.uuid || itemUuid, item.name)
+      formatAdminVariantResponse(v, style.uuid || styleUuid, style.name)
     );
 
     return {
@@ -425,20 +423,20 @@ export const variantService = {
   },
 
   async getAdminVariantByUuid(
-    itemUuid: string,
+    styleUuid: string,
     variantUuid: string
   ): Promise<AdminVariantResponse> {
-    const item = await itemRepository.findByUuid(itemUuid);
-    if (!item || item.deleted_at !== null) {
-      throw ApiError.notFound("Item not found");
+    const style = await styleRepository.findByUuid(styleUuid);
+    if (!style || style.deleted_at !== null) {
+      throw ApiError.notFound("Style not found");
     }
 
     const variant = await variantRepository.findByUuid(variantUuid);
-    if (!variant || variant.itemId !== item.id) {
-      throw ApiError.notFound("Variant not found for this item");
+    if (!variant || variant.styleId !== style.id) {
+      throw ApiError.notFound("Variant not found for this style");
     }
 
-    return formatAdminVariantResponse(variant, item.uuid || itemUuid, item.name);
+    return formatAdminVariantResponse(variant, style.uuid || styleUuid, style.name);
   },
 
   async getVariantByUuid(variantUuid: string): Promise<AdminVariantResponse> {
@@ -451,19 +449,19 @@ export const variantService = {
   },
 
   async updateAdminVariant(
-    itemUuid: string,
+    styleUuid: string,
     variantUuid: string,
     data: UpdateAdminVariantInput,
     adminEmail?: string
   ): Promise<AdminVariantResponse> {
-    const item = await itemRepository.findByUuid(itemUuid);
-    if (!item || item.deleted_at !== null) {
-      throw ApiError.notFound("Item not found");
+    const style = await styleRepository.findByUuid(styleUuid);
+    if (!style || style.deleted_at !== null) {
+      throw ApiError.notFound("Style not found");
     }
 
     const existing = await variantRepository.findByUuid(variantUuid);
-    if (!existing || existing.itemId !== item.id) {
-      throw ApiError.notFound("Variant not found for this item");
+    if (!existing || existing.styleId !== style.id) {
+      throw ApiError.notFound("Variant not found for this style");
     }
 
     const adminId = await getAdminInternalId(adminEmail);
@@ -479,7 +477,7 @@ export const variantService = {
       });
       if (activePriceCount === 0) {
         throw ApiError.badRequest(
-          "Cannot activate item without price details. Please add at least one unit price first."
+          "Cannot activate variant without price details. Please add at least one unit price first."
         );
       }
     }
@@ -499,7 +497,7 @@ export const variantService = {
     if (data.attributeValueIds !== undefined) {
       updateAttributeValueIds = await resolveAttributeValueInternalIds(data.attributeValueIds);
       await assertNoDuplicateAttributeCombination(
-        item.id,
+        style.id,
         updateAttributeValueIds,
         existing.id
       );
@@ -522,8 +520,8 @@ export const variantService = {
     const withAttributes = await variantRepository.findByUuid(variantUuid);
     return formatAdminVariantResponse(
       withAttributes || updated,
-      item.uuid || itemUuid,
-      item.name
+      style.uuid || styleUuid,
+      style.name
     );
   },
 
@@ -550,7 +548,7 @@ export const variantService = {
       });
       if (activePriceCount === 0) {
         throw ApiError.badRequest(
-          "Cannot activate item without price details. Please add at least one unit price first."
+          "Cannot activate variant without price details. Please add at least one unit price first."
         );
       }
     }
@@ -570,7 +568,7 @@ export const variantService = {
     if (data.attributeValueIds !== undefined) {
       updateAttributeValueIds = await resolveAttributeValueInternalIds(data.attributeValueIds);
       await assertNoDuplicateAttributeCombination(
-        existing.itemId,
+        existing.styleId,
         updateAttributeValueIds,
         existing.id
       );
@@ -595,18 +593,18 @@ export const variantService = {
   },
 
   async deleteAdminVariant(
-    itemUuid: string,
+    styleUuid: string,
     variantUuid: string,
     adminEmail?: string
   ) {
-    const item = await itemRepository.findByUuid(itemUuid);
-    if (!item || item.deleted_at !== null) {
-      throw ApiError.notFound("Item not found");
+    const style = await styleRepository.findByUuid(styleUuid);
+    if (!style || style.deleted_at !== null) {
+      throw ApiError.notFound("Style not found");
     }
 
     const existing = await variantRepository.findByUuid(variantUuid);
-    if (!existing || existing.itemId !== item.id) {
-      throw ApiError.notFound("Variant not found for this item");
+    if (!existing || existing.styleId !== style.id) {
+      throw ApiError.notFound("Variant not found for this style");
     }
 
     const adminId = await getAdminInternalId(adminEmail);
@@ -634,14 +632,14 @@ export const variantService = {
   },
 
   /**
-   * Item-driven entry point: builds the `options` (attributeId + valueIds per
-   * attribute) straight from item_attribute_values - the value pool the admin
-   * already selected on the Item's Attributes section - instead of requiring
+   * Style-driven entry point: builds the `options` (attributeId + valueIds per
+   * attribute) straight from style_attribute_values - the value pool the admin
+   * already selected on the Style's Attributes section - instead of requiring
    * them to be re-picked in a separate "generate" dialog. Price/stock/unit
    * defaults are still supplied by the caller, same as the direct path.
    */
-  async generateVariantsFromItemAttributeValues(
-    itemUuid: string,
+  async generateVariantsFromStyleAttributeValues(
+    styleUuid: string,
     params: {
       unitId: string;
       defaultPrice?: number;
@@ -649,15 +647,15 @@ export const variantService = {
     },
     adminEmail?: string
   ): Promise<GenerateVariantsResponse> {
-    const item = await itemRepository.findByUuid(itemUuid);
-    if (!item || item.deleted_at !== null) {
-      throw ApiError.notFound("Item not found");
+    const style = await styleRepository.findByUuid(styleUuid);
+    if (!style || style.deleted_at !== null) {
+      throw ApiError.notFound("Style not found");
     }
 
-    const selections = await attributeRepository.findAttributeValuesForItem(item.id);
+    const selections = await attributeRepository.findAttributeValuesForStyle(style.id);
     if (!selections.length) {
       throw ApiError.badRequest(
-        "Select at least one attribute value for this item before generating variants"
+        "Select at least one attribute value for this style before generating variants"
       );
     }
 
@@ -676,7 +674,7 @@ export const variantService = {
     );
 
     return variantService.generateVariants(
-      itemUuid,
+      styleUuid,
       {
         options,
         unitId: params.unitId,
@@ -688,10 +686,10 @@ export const variantService = {
   },
 
   /**
-   * Cartesian-generates this Item's variations, split by each attribute's configured
+   * Cartesian-generates this Style's variations, split by each attribute's configured
    * variation level: VARIANT values combine into ProductVariants (which carry the
    * images), and within each one the SKU values combine into VariantUnitPrices - the
-   * stock rows. INFO attributes take no part; they describe the Item rather than
+   * stock rows. INFO attributes take no part; they describe the Style rather than
    * varying it.
    *
    * A stock row is identified by its whole SKU combination, so Size x Neck x Sleeve
@@ -705,15 +703,15 @@ export const variantService = {
    * adjustment so that every level is backed by a ledger movement.
    */
   async generateVariants(
-    itemUuid: string,
+    styleUuid: string,
     data: GenerateVariantsInput,
     adminEmail?: string
   ): Promise<GenerateVariantsResponse> {
     const adminId = await getAdminInternalId(adminEmail);
 
-    const item = await itemRepository.findByUuid(itemUuid);
-    if (!item || item.deleted_at !== null) {
-      throw ApiError.notFound("Item not found");
+    const style = await styleRepository.findByUuid(styleUuid);
+    if (!style || style.deleted_at !== null) {
+      throw ApiError.notFound("Style not found");
     }
 
     const unit = await unitRepository.findByUuid(data.unitId);
@@ -731,7 +729,7 @@ export const variantService = {
       sortOrder: number;
     };
 
-    const levels = await variationLevelsForProduct(item.style.productId);
+    const levels = await variationLevelsForProduct(style.productId);
 
     const colorGroups: ResolvedValue[][] = [];
     const sizeGroups: ResolvedValue[][] = [];
@@ -768,8 +766,8 @@ export const variantService = {
         sortOrder: config?.sortOrder ?? 0,
       }));
 
-      // An Info attribute describes the item rather than varying it, so it takes no
-      // part in generation at all - its values live on item_attribute_values.
+      // An Info attribute describes the style rather than varying it, so it takes no
+      // part in generation at all - its values live on style_attribute_values.
       const level = config?.level ?? "SKU";
       if (level === "INFO") continue;
       if (level === "VARIANT") {
@@ -801,7 +799,7 @@ export const variantService = {
     }
 
     const existingVariants = await db.productVariant.findMany({
-      where: { itemId: item.id, deleted_at: null },
+      where: { styleId: style.id, deleted_at: null },
       select: {
         id: true,
         color_name: true,
@@ -824,8 +822,8 @@ export const variantService = {
       ])
     );
 
-    const itemSlug = item.slug || "item";
-    const itemBasePrice = Number(item.base_price ?? 0);
+    const styleSlug = style.slug || "style";
+    const styleBasePrice = Number(style.base_price ?? 0);
     const createdVariantIds = new Set<bigint>();
     let skipped = 0;
 
@@ -850,8 +848,8 @@ export const variantService = {
         } else {
           const variantName = colorCombo.length
             ? colorCombo.map((v) => v.value).join(" / ")
-            : item.name;
-          const slugBase = `${itemSlug}-${colorCombo.length ? colorCombo.map((v) => slugify(v.value)).join("-") : "default"
+            : style.name;
+          const slugBase = `${styleSlug}-${colorCombo.length ? colorCombo.map((v) => slugify(v.value)).join("-") : "default"
             }`.slice(0, 230);
           let variantSlug = slugBase;
           let slugSuffix = 1;
@@ -867,7 +865,7 @@ export const variantService = {
           const created = await tx.productVariant.create({
             data: {
               uuid: crypto.randomUUID(),
-              itemId: item.id,
+              styleId: style.id,
               variant_name: variantName,
               slug: variantSlug,
               color_name: colorEntry?.value ?? null,
@@ -917,13 +915,13 @@ export const variantService = {
           // first-sorting value of the combination.
           const sizeEntry = primarySkuValue(sizeCombo);
 
-          // Every new Color x Size starts at the Item's price - the one place
+          // Every new Color x Size starts at the Style's price - the one place
           // a price is entered. Sizes that cost more/less are changed on the
           // size table afterwards.
-          const basePrice = data.defaultPrice ?? itemBasePrice;
+          const basePrice = data.defaultPrice ?? styleBasePrice;
 
           const skuBase =
-            [skuPart(itemSlug), ...comboTogether.map((v) => skuPart(v.value))]
+            [skuPart(styleSlug), ...comboTogether.map((v) => skuPart(v.value))]
               .filter(Boolean)
               .join("-") || `ITEM-${variantId}`;
           let sku = skuBase;
@@ -996,7 +994,7 @@ export const variantService = {
     const variants = await Promise.all(
       [...createdVariantIds].map(async (id) => {
         const full = await variantRepository.findById(id);
-        return formatAdminVariantResponse(full!, item.uuid || itemUuid, item.name);
+        return formatAdminVariantResponse(full!, style.uuid || styleUuid, style.name);
       })
     );
 
@@ -1006,18 +1004,18 @@ export const variantService = {
   /**
    * Read-only dry run for generateVariants: resolves the same Variant/SKU cartesian
    * product and reports what a real run would add, WITHOUT writing anything. Also
-   * flags existing Colors/Sizes under this Item that fall outside the newly
+   * flags existing Colors/Sizes under this Style that fall outside the newly
    * selected attribute values, so the admin can see - and explicitly choose to
    * deactivate - combinations they've deselected, rather than those being silently
    * left behind or silently deleted. Existing rows are never touched here.
    */
   async previewGenerateVariants(
-    itemUuid: string,
+    styleUuid: string,
     options: GenerateVariantOptionInput[]
   ): Promise<PreviewGenerateVariantsResponse> {
-    const item = await itemRepository.findByUuid(itemUuid);
-    if (!item || item.deleted_at !== null) {
-      throw ApiError.notFound("Item not found");
+    const style = await styleRepository.findByUuid(styleUuid);
+    if (!style || style.deleted_at !== null) {
+      throw ApiError.notFound("Style not found");
     }
 
     type ResolvedValue = {
@@ -1027,7 +1025,7 @@ export const variantService = {
       value: string;
     };
 
-    const levels = await variationLevelsForProduct(item.style.productId);
+    const levels = await variationLevelsForProduct(style.productId);
 
     const colorGroups: ResolvedValue[][] = [];
     const sizeGroups: ResolvedValue[][] = [];
@@ -1082,7 +1080,7 @@ export const variantService = {
     );
 
     const existingVariants = await db.productVariant.findMany({
-      where: { itemId: item.id, deleted_at: null },
+      where: { styleId: style.id, deleted_at: null },
       select: {
         id: true,
         uuid: true,
@@ -1184,19 +1182,19 @@ export const variantService = {
    * previewGenerateVariants' toRemove list. Soft-deletes only (deleted_at +
    * isActive=false, same convention as every other delete in this feature) -
    * never a hard delete, since a variant/unit price can be referenced by past
-   * orders. Scoped to the given Item so a stray UUID from another Item can't be
+   * orders. Scoped to the given Style so a stray UUID from another Style can't be
    * deactivated by mistake.
    */
   async applyVariantRemovals(
-    itemUuid: string,
+    styleUuid: string,
     input: ApplyVariantRemovalsInput,
     adminEmail?: string
   ): Promise<{ deactivatedVariants: number; deactivatedUnitPrices: number }> {
     const adminId = await getAdminInternalId(adminEmail);
 
-    const item = await itemRepository.findByUuid(itemUuid);
-    if (!item || item.deleted_at !== null) {
-      throw ApiError.notFound("Item not found");
+    const style = await styleRepository.findByUuid(styleUuid);
+    if (!style || style.deleted_at !== null) {
+      throw ApiError.notFound("Style not found");
     }
 
     const variantUuids = input.variantUuids ?? [];
@@ -1208,7 +1206,7 @@ export const variantService = {
     await db.$transaction(async (tx) => {
       if (variantUuids.length > 0) {
         const result = await tx.productVariant.updateMany({
-          where: { uuid: { in: variantUuids }, itemId: item.id, deleted_at: null },
+          where: { uuid: { in: variantUuids }, styleId: style.id, deleted_at: null },
           data: { isActive: false, deleted_at: new Date(), updated_by: adminId },
         });
         deactivatedVariants = result.count;
@@ -1219,7 +1217,7 @@ export const variantService = {
           where: {
             uuid: { in: unitPriceUuids },
             deleted_at: null,
-            variant: { itemId: item.id },
+            variant: { styleId: style.id },
           },
           data: { isActive: false, deleted_at: new Date(), updated_by: adminId },
         });

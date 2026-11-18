@@ -39,7 +39,7 @@ const listingStyleSelect = {
   is_new_arrival: true,
   new_arrival_until: true,
   createdAt: true,
-  // The Item's own brand; `product.brand` is only the legacy fallback.
+  // The Style's own brand override; `product.brand` is the real default.
   brand: listingBrandSelect,
   product: {
     select: {
@@ -56,50 +56,37 @@ const listingStyleSelect = {
     take: 1,
     select: { image_url: true },
   },
-  items: {
-    where: { deleted_at: null, isActive: true },
+  out_of_stock: true,
+  style_attribute_values: { select: { attribute_id: true, attribute_value_id: true } },
+  variants: {
+    where: {
+      isActive: true,
+      deleted_at: null,
+      variant_unit_prices: { some: sellableUnitPriceWhere },
+    },
     orderBy: [{ is_default: "desc" as const }, { createdAt: "asc" as const }],
     select: {
       id: true,
-      uuid: true,
-      name: true,
-      short_description: true,
       is_default: true,
-      is_featured: true,
       out_of_stock: true,
-      createdAt: true,
-      item_attribute_values: { select: { attribute_id: true, attribute_value_id: true } },
-      variants: {
-        where: {
-          isActive: true,
-          deleted_at: null,
-          variant_unit_prices: { some: sellableUnitPriceWhere },
-        },
+      color_name: true,
+      color_hex: true,
+      product_variant_images: {
+        where: { is_active: true },
+        orderBy: [{ is_primary: "desc" as const }, { sort_order: "asc" as const }],
+        take: 1,
+        select: { image_url: true },
+      },
+      variant_attribute_values: { select: { attribute_id: true, attribute_value_id: true } },
+      variant_unit_prices: {
+        where: sellableUnitPriceWhere,
         orderBy: [{ is_default: "desc" as const }, { createdAt: "asc" as const }],
         select: {
-          id: true,
+          uuid: true,
+          base_price: true,
           is_default: true,
-          out_of_stock: true,
-          color_name: true,
-          color_hex: true,
-          product_variant_images: {
-            where: { is_active: true },
-            orderBy: [{ is_primary: "desc" as const }, { sort_order: "asc" as const }],
-            take: 1,
-            select: { image_url: true },
-          },
-          variant_attribute_values: { select: { attribute_id: true, attribute_value_id: true } },
-          variant_unit_prices: {
-            where: sellableUnitPriceWhere,
-            orderBy: [{ is_default: "desc" as const }, { createdAt: "asc" as const }],
-            select: {
-              uuid: true,
-              base_price: true,
-              is_default: true,
-              attribute_value_id: true,
-              inventories: { select: { quantity_available: true } },
-            },
-          },
+          attribute_value_id: true,
+          inventories: { select: { quantity_available: true } },
         },
       },
     },
@@ -180,7 +167,7 @@ export const catalogListingRepository = {
 
   /**
    * Every live Style under the given categories (all categories when null),
-   * with its full Item -> Colour -> Size tree. Filtering, faceting, sorting
+   * with its full Colour -> Size tree. Filtering, faceting, sorting
    * and pagination all need the whole candidate set, so it is loaded once per
    * request rather than re-queried per filter.
    */
@@ -198,17 +185,11 @@ export const catalogListingRepository = {
       isActive: true,
       deleted_at: null,
       product: productWhere,
-      items: {
+      variants: {
         some: {
-          deleted_at: null,
           isActive: true,
-          variants: {
-            some: {
-              isActive: true,
-              deleted_at: null,
-              variant_unit_prices: { some: sellableUnitPriceWhere },
-            },
-          },
+          deleted_at: null,
+          variant_unit_prices: { some: sellableUnitPriceWhere },
         },
       },
     };
@@ -217,7 +198,7 @@ export const catalogListingRepository = {
       where.OR = [
         { name: { contains: params.search } },
         { product: { name: { contains: params.search } } },
-        { items: { some: { deleted_at: null, isActive: true, name: { contains: params.search } } } },
+        { sku: { contains: params.search } },
       ];
     }
 
@@ -230,11 +211,11 @@ export const catalogListingRepository = {
 
   /**
    * Products under the given categories for the header menu, newest first,
-   * each with its live Items (across all its Styles). Only Items with a
-   * sellable Colour are included - the same rule the listing applies.
+   * each with its live Styles. Only Styles with a sellable Colour are
+   * included - the same rule the listing applies.
    */
   async findMenuProducts(params: { categoryIds: bigint[]; take: number; gender?: "men" | "women" | "kids" | "unisex" }) {
-    const sellableItemWhere = {
+    const sellableStyleWhere = {
       deleted_at: null,
       isActive: true,
       variants: {
@@ -244,7 +225,7 @@ export const catalogListingRepository = {
           variant_unit_prices: { some: sellableUnitPriceWhere },
         },
       },
-    } satisfies Prisma.ItemWhereInput;
+    } satisfies Prisma.StyleWhereInput;
 
     return db.product.findMany({
       where: {
@@ -257,7 +238,7 @@ export const catalogListingRepository = {
                 params.gender === "unisex" ? "unisex" : { in: [params.gender, "unisex"] },
             }
           : {}),
-        styles: { some: { isActive: true, deleted_at: null, items: { some: sellableItemWhere } } },
+        styles: { some: sellableStyleWhere },
       },
       orderBy: { createdAt: "desc" },
       take: params.take,
@@ -266,33 +247,27 @@ export const catalogListingRepository = {
         uuid: true,
         name: true,
         styles: {
-          where: { isActive: true, deleted_at: null },
+          where: sellableStyleWhere,
           orderBy: [{ is_default: "desc" }, { createdAt: "asc" }],
           select: {
+            uuid: true,
+            name: true,
             images: {
               where: { is_active: true },
               orderBy: [{ is_primary: "desc" }, { sort_order: "asc" }],
               take: 1,
               select: { image_url: true },
             },
-            items: {
-              where: sellableItemWhere,
+            variants: {
+              where: { isActive: true, deleted_at: null },
               orderBy: [{ is_default: "desc" }, { createdAt: "asc" }],
+              take: 1,
               select: {
-                uuid: true,
-                name: true,
-                variants: {
-                  where: { isActive: true, deleted_at: null },
-                  orderBy: [{ is_default: "desc" }, { createdAt: "asc" }],
+                product_variant_images: {
+                  where: { is_active: true },
+                  orderBy: [{ is_primary: "desc" }, { sort_order: "asc" }],
                   take: 1,
-                  select: {
-                    product_variant_images: {
-                      where: { is_active: true },
-                      orderBy: [{ is_primary: "desc" }, { sort_order: "asc" }],
-                      take: 1,
-                      select: { image_url: true },
-                    },
-                  },
+                  select: { image_url: true },
                 },
               },
             },
@@ -354,15 +329,15 @@ export const catalogListingRepository = {
     return result;
   },
 
-  /** Units sold per Item, excluding cancelled/returned orders. */
-  async findUnitsSold(itemIds: bigint[]): Promise<Map<string, number>> {
+  /** Units sold per Style, excluding cancelled/returned orders. */
+  async findUnitsSold(styleIds: bigint[]): Promise<Map<string, number>> {
     const result = new Map<string, number>();
-    if (itemIds.length === 0) return result;
+    if (styleIds.length === 0) return result;
 
     const rows = await db.orderItem.groupBy({
-      by: ["itemId"],
+      by: ["styleId"],
       where: {
-        itemId: { in: itemIds },
+        styleId: { in: styleIds },
         is_active: true,
         order: { order_status: { notIn: ["cancelled", "returned"] } },
       },
@@ -370,7 +345,7 @@ export const catalogListingRepository = {
     });
 
     for (const row of rows) {
-      if (row.itemId !== null) result.set(row.itemId.toString(), row._sum.quantity ?? 0);
+      result.set(row.styleId.toString(), row._sum.quantity ?? 0);
     }
     return result;
   },

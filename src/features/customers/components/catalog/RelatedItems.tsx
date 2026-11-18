@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useCategoryListing } from "../../hooks/use-customer-catalog";
-import { ItemCard } from "./ItemCard";
+import { StyleCard } from "./StyleCard";
 
 const FETCH_SIZE = 12;
 
@@ -44,7 +44,7 @@ export function RelatedItems({
       </h2>
       <div className="grid grid-cols-2 gap-3 sm:gap-5 md:grid-cols-3 lg:grid-cols-4">
         {items.map((item) => (
-          <ItemCard key={item.id} item={item} variant="grid" />
+          <StyleCard key={item.id} item={item} variant="grid" />
         ))}
       </div>
     </section>
