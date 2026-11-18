@@ -140,4 +140,21 @@ export const catalogService = {
     await catalogOffers.decorateVariants(result.data);
     return result;
   },
+
+  /**
+   * Unified global search across styles/products, categories, and brands.
+   * Products are decorated with active promotional offers.
+   */
+  async globalSearch(params: {
+    query: string;
+    productLimit?: number;
+    categoryLimit?: number;
+    brandLimit?: number;
+  }) {
+    const result = await catalogRepository.globalSearch(params);
+    if (result.products.length > 0) {
+      await catalogOffers.decorateProducts(result.products);
+    }
+    return result;
+  },
 };

@@ -111,3 +111,18 @@ export function usePurchaseDetail(uuid: string | null) {
   });
 }
 
+export function useExecuteExchange() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: api.executeExchange,
+    onSuccess: (res) => {
+      qc.invalidateQueries({ queryKey: [KEY] });
+      qc.invalidateQueries({ queryKey: ["inventory"] });
+      qc.invalidateQueries({ queryKey: adminOrderKeys.all });
+      qc.invalidateQueries({ queryKey: ["admin-orders", "count"] });
+      toast.success(`Exchange ${res.exchangeNumber} completed`);
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Exchange could not be completed"),
+  });
+}
+

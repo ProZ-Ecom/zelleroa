@@ -16,6 +16,7 @@ export default function SearchPage() {
     const trimmed = term.trim();
     if (!trimmed) return;
     add(trimmed);
+    setQuery("");
     router.push(`/products?search=${encodeURIComponent(trimmed)}`);
   };
 

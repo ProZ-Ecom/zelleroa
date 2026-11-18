@@ -190,3 +190,12 @@ export const recentlyViewedQuerySchema = z.object({
 });
 
 export type RecentlyViewedQueryInput = z.infer<typeof recentlyViewedQuerySchema>;
+
+export const customerGlobalSearchSchema = z.object({
+  q: z.string().trim().min(1, "Search query is required").max(100),
+  productLimit: z.coerce.number().int().positive().max(20).optional().default(6),
+  categoryLimit: z.coerce.number().int().positive().max(10).optional().default(4),
+  brandLimit: z.coerce.number().int().positive().max(10).optional().default(4),
+});
+
+export type CustomerGlobalSearchInput = z.infer<typeof customerGlobalSearchSchema>;

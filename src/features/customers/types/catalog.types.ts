@@ -4,6 +4,7 @@ import type { OfferBreakdown } from "@/features/offers/types";
 export interface CustomerBrandDto {
   id: string; // Brand UUID
   name: string;
+  slug?: string;
   image: string | null;
 }
 
@@ -291,4 +292,12 @@ export interface CustomerStyleDetailDto {
   minPrice: number;
   maxPrice: number;
   items: CustomerStyleItemDto[];
+}
+
+export interface GlobalSearchResultDto {
+  query: string;
+  products: CustomerProductListItemDto[];
+  categories: CustomerCategoryDto[];
+  brands: CustomerBrandDto[];
+  totalMatches: number;
 }

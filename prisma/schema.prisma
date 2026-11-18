@@ -319,6 +319,8 @@ model User {
   stock_adjustments_stock_adjustments_adjusted_byTousers              stock_adjustments[]        @relation("stock_adjustments_adjusted_byTousers")
   stock_reports_stock_reports_created_byTousers                       stock_reports[]            @relation("stock_reports_created_byTousers")
   stock_reports_stock_reports_updated_byTousers                       stock_reports[]            @relation("stock_reports_updated_byTousers")
+  pos_exchanges_as_cashier                                            pos_exchanges[]            @relation("pos_exchanges_cashier")
+  pos_exchanges_as_manager                                            pos_exchanges[]            @relation("pos_exchanges_manager")
   user_sessions_user_sessions_user_idTousers                          user_sessions[]            @relation("user_sessions_user_idTousers")
   user_sessions_user_sessions_created_byTousers                       user_sessions[]            @relation("user_sessions_created_byTousers")
   user_sessions_user_sessions_updated_byTousers                       user_sessions[]            @relation("user_sessions_updated_byTousers")
@@ -711,6 +713,7 @@ model VariantUnitPrice {
   purchase_order_items                        purchase_order_items[]
   purchase_receipt_items                      purchase_receipt_items[]
   purchase_return_items                       purchase_return_items[]
+  pos_exchange_return_items                   pos_exchange_return_items[]
 
   /// The sellable identity of a stock row. `unit_value` is in the key because the
   /// pack-size flow sells 250g/500g/1kg under one variant and one unit, distinguished
@@ -1143,6 +1146,8 @@ model Order {
   inventory_reservations         inventory_reservations[]
   store                          pos_stores?              @relation(fields: [store_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_orders_store")
   pos_session                    pos_sessions?            @relation(fields: [pos_session_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_orders_pos_session")
+  pos_exchanges_as_original      pos_exchanges[]          @relation("pos_exchanges_original_order")
+  pos_exchanges_as_new           pos_exchanges[]          @relation("pos_exchanges_new_order")
 
   @@index([store_id], map: "fk_orders_store")
   @@index([pos_session_id], map: "fk_orders_pos_session")
@@ -1201,6 +1206,7 @@ model OrderItem {
   variant_unit_price                  VariantUnitPrice?           @relation(fields: [variantUnitPriceId], references: [id], onDelete: Restrict, onUpdate: NoAction, map: "fk_orderitem_variant_unit_price")
   return_items                        return_items[]
   replacement_request_items           replacement_request_items[]
+  pos_exchange_return_items           pos_exchange_return_items[]
   commission                          commissions?
   reviews                             Review[]
 
@@ -1828,6 +1834,7 @@ model pos_stores {
   orders                             Order[]
   sessions                           pos_sessions[]
   counters                           pos_invoice_counters[]
+  pos_exchanges                      pos_exchanges[]
 
   @@index([created_by], map: "fk_pos_stores_created_by")
   @@index([updated_by], map: "fk_pos_stores_updated_by")
@@ -1862,6 +1869,7 @@ model pos_sessions {
   users_pos_sessions_created_byTousers User?              @relation("pos_sessions_created_byTousers", fields: [created_by], references: [id], onUpdate: NoAction, map: "fk_pos_sessions_created_by")
   users_pos_sessions_updated_byTousers User?              @relation("pos_sessions_updated_byTousers", fields: [updated_by], references: [id], onUpdate: NoAction, map: "fk_pos_sessions_updated_by")
   orders                               Order[]
+  pos_exchanges                        pos_exchanges[]
 
   @@index([store_id], map: "fk_pos_sessions_store")
   @@index([created_by], map: "fk_pos_sessions_created_by")
@@ -1888,6 +1896,71 @@ model pos_invoice_counters {
   store          pos_stores @relation(fields: [store_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_pos_counters_store")
 
   @@unique([store_id, series, financial_year], map: "uq_pos_counter_series")
+}
+
+model pos_exchanges {
+  id                   BigInt                      @id @default(autoincrement()) @db.UnsignedBigInt
+  uuid                 String                      @unique(map: "idx_pos_exchanges_uuid") @default("UUID()") @db.VarChar(255)
+  exchange_number      String                      @unique(map: "idx_pos_exchanges_number") @db.VarChar(100)
+  original_order_id    BigInt                      @db.UnsignedBigInt
+  new_order_id         BigInt?                     @db.UnsignedBigInt
+  store_id             BigInt                      @db.UnsignedBigInt
+  pos_session_id       BigInt                      @db.UnsignedBigInt
+  cashier_id           BigInt                      @db.UnsignedBigInt
+  approving_manager_id BigInt?                     @db.UnsignedBigInt
+  customer_id          BigInt?                     @db.UnsignedBigInt
+  customer_name        String?                     @db.VarChar(150)
+  customer_phone       String?                     @db.VarChar(20)
+  total_returned_value Decimal                     @db.Decimal(10, 2)
+  total_new_value      Decimal                     @db.Decimal(10, 2)
+  net_payable          Decimal                     @db.Decimal(10, 2)
+  payment_mode         String?                     @db.VarChar(30)
+  payment_reference    String?                     @db.VarChar(100)
+  status               String                      @default("completed") @db.VarChar(30)
+  reason               String?                     @db.VarChar(255)
+  notes                String?                     @db.Text
+  created_at           DateTime                    @default(now()) @db.Timestamp(0)
+  updated_at           DateTime                    @default(now()) @updatedAt @db.Timestamp(0)
+  created_by           BigInt?                     @db.UnsignedBigInt
+  updated_by           BigInt?                     @db.UnsignedBigInt
+
+  original_order       Order                       @relation("pos_exchanges_original_order", fields: [original_order_id], references: [id], onDelete: Restrict, onUpdate: NoAction, map: "fk_pos_exchanges_orig_order")
+  new_order            Order?                      @relation("pos_exchanges_new_order", fields: [new_order_id], references: [id], onDelete: SetNull, onUpdate: NoAction, map: "fk_pos_exchanges_new_order")
+  store                pos_stores                  @relation(fields: [store_id], references: [id], onDelete: Restrict, onUpdate: NoAction, map: "fk_pos_exchanges_store")
+  pos_session          pos_sessions                @relation(fields: [pos_session_id], references: [id], onDelete: Restrict, onUpdate: NoAction, map: "fk_pos_exchanges_session")
+  cashier              User                        @relation("pos_exchanges_cashier", fields: [cashier_id], references: [id], onDelete: Restrict, onUpdate: NoAction, map: "fk_pos_exchanges_cashier")
+  approving_manager    User?                       @relation("pos_exchanges_manager", fields: [approving_manager_id], references: [id], onDelete: SetNull, onUpdate: NoAction, map: "fk_pos_exchanges_manager")
+  return_items         pos_exchange_return_items[]
+
+  @@index([original_order_id], map: "idx_pos_exchanges_orig_order")
+  @@index([new_order_id], map: "idx_pos_exchanges_new_order")
+  @@index([store_id], map: "idx_pos_exchanges_store")
+  @@index([pos_session_id], map: "idx_pos_exchanges_session")
+  @@index([cashier_id], map: "idx_pos_exchanges_cashier")
+  @@index([approving_manager_id], map: "idx_pos_exchanges_manager")
+  @@index([customer_phone], map: "idx_pos_exchanges_phone")
+}
+
+model pos_exchange_return_items {
+  id                    BigInt             @id @default(autoincrement()) @db.UnsignedBigInt
+  exchange_id           BigInt             @db.UnsignedBigInt
+  order_item_id         BigInt             @db.UnsignedBigInt
+  variant_unit_price_id BigInt             @db.UnsignedBigInt
+  quantity              Int
+  unit_price            Decimal            @db.Decimal(10, 2)
+  total_price           Decimal            @db.Decimal(10, 2)
+  condition             pos_item_condition @default(RESTOCKABLE)
+  reason                String?            @db.VarChar(255)
+  reason_detail         String?            @db.VarChar(500)
+  created_at            DateTime           @default(now()) @db.Timestamp(0)
+
+  exchange              pos_exchanges      @relation(fields: [exchange_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_pos_exch_items_exchange")
+  order_item            OrderItem          @relation(fields: [order_item_id], references: [id], onDelete: Restrict, onUpdate: NoAction, map: "fk_pos_exch_items_order_item")
+  variant_unit_price    VariantUnitPrice   @relation(fields: [variant_unit_price_id], references: [id], onDelete: Restrict, onUpdate: NoAction, map: "fk_pos_exch_items_vup")
+
+  @@index([exchange_id], map: "idx_pos_exch_items_exchange")
+  @@index([order_item_id], map: "idx_pos_exch_items_order_item")
+  @@index([variant_unit_price_id], map: "idx_pos_exch_items_vup")
 }
 
 model bulk_order_enquiries {
@@ -3541,6 +3614,11 @@ enum pos_payment_mode {
   CASH
   UPI
   CARD
+}
+
+enum pos_item_condition {
+  RESTOCKABLE
+  DEFECTIVE
 }
 
 enum customer_agent_action {
