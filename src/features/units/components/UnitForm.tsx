@@ -49,42 +49,42 @@ export function UnitForm({
     defaultValues: {
       name: initialData?.name || "",
       code: initialData?.code || "",
-      type: initialData?.type || "weight",
+      type: initialData?.type || "count",
       baseUnitId: initialData?.baseUnitId || "",
       conversionFactor: initialData?.conversionFactor ?? 1,
       sortOrder: initialData?.sortOrder ?? 0,
     },
   });
 
-const selectedType = useWatch({
-  control: methods.control,
-  name: "type",
-});
+  const selectedType = useWatch({
+    control: methods.control,
+    name: "type",
+  });
 
-const filteredBaseUnits = baseUnits.filter(
-  (unit) => unit.type?.toLowerCase() === selectedType?.toLowerCase()
-);
+  const filteredBaseUnits = baseUnits.filter(
+    (unit) => unit.type?.toLowerCase() === selectedType?.toLowerCase()
+  );
 
 
-//     useEffect(() => {
-//   const currentBaseUnitId = methods.getValues("baseUnitId");
+  //     useEffect(() => {
+  //   const currentBaseUnitId = methods.getValues("baseUnitId");
 
-//   const isValidBaseUnit = baseUnits.some(
-//     (unit) =>
-//       unit.id === currentBaseUnitId &&
-//       unit.type === selectedType
-//   );
+  //   const isValidBaseUnit = baseUnits.some(
+  //     (unit) =>
+  //       unit.id === currentBaseUnitId &&
+  //       unit.type === selectedType
+  //   );
 
-//   if (!isValidBaseUnit) {
-//     methods.setValue("baseUnitId", null, {
-//       shouldValidate: true,
-//       shouldDirty: true,
-//     });
-//   }
-// }, [selectedType, baseUnits, methods]);
+  //   if (!isValidBaseUnit) {
+  //     methods.setValue("baseUnitId", null, {
+  //       shouldValidate: true,
+  //       shouldDirty: true,
+  //     });
+  //   }
+  // }, [selectedType, baseUnits, methods]);
 
   const typeOptions = [
-    
+
     { label: "Weight", value: "weight" },
     { label: "Volume", value: "volume" },
     { label: "Count", value: "count" },
@@ -114,14 +114,14 @@ const filteredBaseUnits = baseUnits.filter(
           <FormInput
             name="name"
             label="Unit Name"
-            placeholder="Kilogram"
+            placeholder="Piece (or Waist 32, Small)"
             required
           />
 
           <FormInput
             name="code"
             label="Unit Code"
-            placeholder="KG"
+            placeholder="pc (or 32, S)"
             required
           />
         </div>

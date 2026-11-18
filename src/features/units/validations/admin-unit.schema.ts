@@ -16,11 +16,10 @@ export const createAdminUnitSchema = z
       .min(1, "Unit code cannot be empty")
       .max(10, "Unit code cannot exceed 10 characters"),
     type: unitTypeEnum,
-    baseUnitId: z
-      .string()
-      .uuid("Invalid Base Unit UUID format")
-      .optional()
-      .nullable(),
+    baseUnitId: z.preprocess(
+      (val) => (val === "" || val === null || val === undefined ? null : val),
+      z.string().uuid("Invalid Base Unit UUID format").nullable().optional()
+    ),
     conversionFactor: z
       .number({ message: "Conversion factor is required" })
       .gt(0, "Conversion factor must be greater than 0")

@@ -651,198 +651,261 @@ export const catalogRepository = {
     }
 
     // Variant-level filters (inStock, price range) - vegType lives on Item now.
+    const minProductP = params.minPrice ? Math.max(params.minPrice, 0.01) : 0.01;
+    const maxProductP = params.maxPrice ?? Number.MAX_SAFE_INTEGER;
+
     const variantWhere: Prisma.ProductVariantWhereInput = {
       isActive: true,
       deleted_at: null,
-    };
-
-    if (params.inStock !== undefined) {
-      variantWhere.out_of_stock = !params.inStock;
-    }
-
-    if (params.vegType) {
-      const mappedVegType =
-        params.vegType === "non_veg" || params.vegType === "nonveg"
-          ? ("nonveg" as const)
-          : (params.vegType as "veg" | "vegan" | "na");
-      variantWhere.item = { style: { veg_type: mappedVegType } };
-    }
-
-    const minProductP = params.minPrice ? Math.max(params.minPrice, 0.01) : 0.01;
-    const maxProductP = params.maxPrice ?? Number.MAX_SAFE_INTEGER;
-    variantWhere.variant_unit_prices = {
-      some: {
-        deleted_at: null,
-        isActive: true,
-        base_price: { gte: minProductP, lte: maxProductP },
+      variant_unit_prices: {
+        some: {
+          deleted_at: null,
+          isActive: true,
+          base_price: { gte: minProductP, lte: maxProductP },
+          ...(params.inStock === true ? { inventories: { quantity_available: { gt: 0 } } } : {}),
+        },
       },
     };
 
-    where.styles = { some: { deleted_at: null, items: { some: { deleted_at: null, variants: { some: variantWhere } } } } };
+      if (params.inStock === true) {
+        variantWhere.out_of_stock = false;
+      }
 
-    let orderBy: Prisma.ProductOrderByWithRelationInput = { createdAt: "desc" };
-    if (params.sortBy === "name") {
-      orderBy = { name: params.sortOrder ?? "asc" };
-    } else if (params.sortBy === "createdAt") {
-      orderBy = { createdAt: params.sortOrder ?? "desc" };
-    }
+      if (params.vegType) {
+        const mappedVegType =
+          params.vegType === "non_veg" || params.vegType === "nonveg"
+            ? ("nonveg" as const)
+            : (params.vegType as "veg" | "vegan" | "na");
+        variantWhere.item = { style: { veg_type: mappedVegType } };
+      }
 
-    const [products, total] = await Promise.all([
-      db.product.findMany({
-        where,
-        orderBy: params.sortBy === "price" ? undefined : orderBy,
-        ...(params.sortBy === "price" ? {} : { skip: (page - 1) * pageSize, take: pageSize }),
-        include: {
-          brand: { select: brandSelect },
-          images: {
-            where: { is_active: true },
-            orderBy: [{ isPrimary: "desc" }, { sortOrder: "asc" }],
-            take: 1,
+      if (params.inStock === true) {
+        where.styles = {
+          some: {
+            deleted_at: null,
+            out_of_stock: false,
+            items: {
+              some: {
+                deleted_at: null,
+                out_of_stock: false,
+                variants: { some: variantWhere },
+              },
+            },
           },
+        };
+      } else {
+        where.styles = {
+          some: {
+            deleted_at: null,
+            items: {
+              some: {
+                deleted_at: null,
+                variants: { some: variantWhere },
+              },
+            },
+          },
+        };
+      }
+
+      if (params.inStock === false) {
+        const productOutOfStockCondition: Prisma.ProductWhereInput = {
           styles: {
-            where: { deleted_at: null },
-            include: {
-              brand: { select: brandSelect },
+            none: {
+              deleted_at: null,
+              out_of_stock: false,
               items: {
-                where: { deleted_at: null },
-                include: {
+                some: {
+                  deleted_at: null,
+                  out_of_stock: false,
                   variants: {
-                    where: {
+                    some: {
                       isActive: true,
                       deleted_at: null,
+                      out_of_stock: false,
                       variant_unit_prices: {
                         some: {
                           deleted_at: null,
                           isActive: true,
-                          base_price: { gt: 0 },
+                          inventories: { quantity_available: { gt: 0 } },
                         },
                       },
-                    },
-                    include: {
-                      product_variant_images: {
-                        where: { is_active: true },
-                        orderBy: [{ is_primary: "desc" }, { sort_order: "asc" }],
-                        take: 1,
-                      },
-                      variant_unit_prices: unitPriceListArgs,
                     },
                   },
                 },
               },
             },
           },
-        },
-      }),
-      db.product.count({ where }),
-    ]);
-
-    // Map each product & calculate minPrice/maxPrice across every style's items' variants' unit prices
-    let items: CustomerProductListItemDto[] = products.map((p) => {
-      const allVariants = p.styles.flatMap((s) => s.items.flatMap((i) => i.variants));
-      const allPrices = allVariants.flatMap((v) =>
-        (v.variant_unit_prices || []).map((up) => Number(up.base_price))
-      );
-
-      const minP = allPrices.length > 0 ? Math.min(...allPrices) : 0;
-      const maxP = allPrices.length > 0 ? Math.max(...allPrices) : 0;
-
-      // Resolve primary image from product.images or the first style's variant images
-      let imgUrl: string | null = p.images[0]?.image_url ?? null;
-      if (!imgUrl && allVariants.length > 0) {
-        imgUrl = allVariants[0].product_variant_images[0]?.image_url ?? null;
+        };
+        if (where.AND) {
+          where.AND = Array.isArray(where.AND) ? [...where.AND, productOutOfStockCondition] : [where.AND, productOutOfStockCondition];
+        } else {
+          where.AND = [productOutOfStockCondition];
+        }
       }
 
-      const primaryItem = p.styles.find((s) => s.is_default) ?? p.styles[0] ?? null;
-      const primaryVariant =
-        allVariants.find((v) => v.is_default) ?? allVariants[0] ?? null;
+      let orderBy: Prisma.ProductOrderByWithRelationInput = { createdAt: "desc" };
+      if (params.sortBy === "name") {
+        orderBy = { name: params.sortOrder ?? "asc" };
+      } else if (params.sortBy === "createdAt") {
+        orderBy = { createdAt: params.sortOrder ?? "desc" };
+      }
 
-      // Extract all active unit prices from the primary variant or variants with unit prices
-      const variantWithPrices =
-        allVariants.find((v) => (v.variant_unit_prices || []).length > 0) ?? primaryVariant;
+      const [products, total] = await Promise.all([
+        db.product.findMany({
+          where,
+          orderBy: params.sortBy === "price" ? undefined : orderBy,
+          ...(params.sortBy === "price" ? {} : { skip: (page - 1) * pageSize, take: pageSize }),
+          include: {
+            brand: { select: brandSelect },
+            images: {
+              where: { is_active: true },
+              orderBy: [{ isPrimary: "desc" }, { sortOrder: "asc" }],
+              take: 1,
+            },
+            styles: {
+              where: { deleted_at: null },
+              include: {
+                brand: { select: brandSelect },
+                items: {
+                  where: { deleted_at: null },
+                  include: {
+                    variants: {
+                      where: {
+                        isActive: true,
+                        deleted_at: null,
+                        variant_unit_prices: {
+                          some: {
+                            deleted_at: null,
+                            isActive: true,
+                            base_price: { gt: 0 },
+                          },
+                        },
+                      },
+                      include: {
+                        product_variant_images: {
+                          where: { is_active: true },
+                          orderBy: [{ is_primary: "desc" }, { sort_order: "asc" }],
+                          take: 1,
+                        },
+                        variant_unit_prices: unitPriceListArgs,
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        }),
+        db.product.count({ where }),
+      ]);
 
-      const unitPrices = (variantWithPrices?.variant_unit_prices || []).map((up) => {
-        const basePrice = Number(up.base_price);
-        const measurement = formatVariantMeasurement(up.product_units, up.unit_value ?? 0);
+      // Map each product & calculate minPrice/maxPrice across every style's items' variants' unit prices
+      let items: CustomerProductListItemDto[] = products.map((p) => {
+        const allVariants = p.styles.flatMap((s) => s.items.flatMap((i) => i.variants));
+        const allPrices = allVariants.flatMap((v) =>
+          (v.variant_unit_prices || []).map((up) => Number(up.base_price))
+        );
+
+        const minP = allPrices.length > 0 ? Math.min(...allPrices) : 0;
+        const maxP = allPrices.length > 0 ? Math.max(...allPrices) : 0;
+
+        // Resolve primary image from product.images or the first style's variant images
+        let imgUrl: string | null = p.images[0]?.image_url ?? null;
+        if (!imgUrl && allVariants.length > 0) {
+          imgUrl = allVariants[0].product_variant_images[0]?.image_url ?? null;
+        }
+
+        const primaryItem = p.styles.find((s) => s.is_default) ?? p.styles[0] ?? null;
+        const primaryVariant =
+          allVariants.find((v) => v.is_default) ?? allVariants[0] ?? null;
+
+        // Extract all active unit prices from the primary variant or variants with unit prices
+        const variantWithPrices =
+          allVariants.find((v) => (v.variant_unit_prices || []).length > 0) ?? primaryVariant;
+
+        const unitPrices = (variantWithPrices?.variant_unit_prices || []).map((up) => {
+          const basePrice = Number(up.base_price);
+          const measurement = formatVariantMeasurement(up.product_units, up.unit_value ?? 0);
+          return {
+            id: up.uuid,
+            label: formatMeasurementLabel(measurement) || "Standard",
+            basePrice,
+            sellingPrice: computeSellingPrice(basePrice),
+          };
+        });
+
+        const inStock = p.styles.some((s) =>
+          !s.out_of_stock &&
+          s.items.some((i) =>
+            !i.out_of_stock &&
+            i.variants.some((v) =>
+              !v.out_of_stock &&
+              v.variant_unit_prices.some((up) =>
+                (up.inventories?.quantity_available ?? 0) > 0
+              )
+            )
+          )
+        );
+
         return {
-          id: up.uuid,
-          label: formatMeasurementLabel(measurement) || "Standard",
-          basePrice,
-          sellingPrice: computeSellingPrice(basePrice),
+          id: p.uuid || String(p.id),
+          name: p.name,
+          description:
+            primaryItem?.short_description || primaryItem?.description || null,
+          brand: toBrandDto(primaryItem?.brand, p.brand),
+          category: null,
+          image: imgUrl,
+          minPrice: minP,
+          maxPrice: maxP,
+          unitPrices,
+          inStock,
+          outOfStock: !inStock,
         };
       });
 
-      const inStock = p.styles.some((s) =>
-        !s.out_of_stock &&
-        s.items.some((i) =>
-          !i.out_of_stock &&
-          i.variants.some((v) =>
-            !v.out_of_stock &&
-            v.variant_unit_prices.some((up) =>
-              (up.inventories?.quantity_available ?? 0) > 0
-            )
-          )
-        )
-      );
+      // Populate category UUID/name if categoryId exists
+      const categoryIds = products
+        .map((p) => p.categoryId)
+        .filter((id): id is bigint => id !== null && id !== undefined);
+
+      if (categoryIds.length > 0) {
+        const categories = await db.productCategory.findMany({
+          where: { id: { in: categoryIds } },
+          select: { id: true, uuid: true, name: true },
+        });
+        const catMap = new Map(categories.map((c) => [c.id.toString(), c]));
+
+        products.forEach((p, idx) => {
+          if (p.categoryId) {
+            const cat = catMap.get(p.categoryId.toString());
+            if (cat) {
+              items[idx].category = {
+                id: cat.uuid || String(cat.id),
+                name: cat.name,
+              };
+            }
+          }
+        });
+      }
+
+      // Handle price sorting in JavaScript if requested
+      if (params.sortBy === "price") {
+        const isAsc = params.sortOrder === "asc";
+        items.sort((a, b) => (isAsc ? a.minPrice - b.minPrice : b.minPrice - a.minPrice));
+        items = items.slice((page - 1) * pageSize, page * pageSize);
+      }
 
       return {
-        id: p.uuid || String(p.id),
-        name: p.name,
-        description:
-          primaryItem?.short_description || primaryItem?.description || null,
-        brand: toBrandDto(primaryItem?.brand, p.brand),
-        category: null,
-        image: imgUrl,
-        minPrice: minP,
-        maxPrice: maxP,
-        unitPrices,
-        inStock,
-        outOfStock: !inStock,
+        data: items,
+        meta: {
+          page,
+          limit: pageSize,
+          pageSize,
+          total,
+          totalPages: Math.ceil(total / pageSize),
+        },
       };
-    });
-
-    // Populate category UUID/name if categoryId exists
-    const categoryIds = products
-      .map((p) => p.categoryId)
-      .filter((id): id is bigint => id !== null && id !== undefined);
-
-    if (categoryIds.length > 0) {
-      const categories = await db.productCategory.findMany({
-        where: { id: { in: categoryIds } },
-        select: { id: true, uuid: true, name: true },
-      });
-      const catMap = new Map(categories.map((c) => [c.id.toString(), c]));
-
-      products.forEach((p, idx) => {
-        if (p.categoryId) {
-          const cat = catMap.get(p.categoryId.toString());
-          if (cat) {
-            items[idx].category = {
-              id: cat.uuid || String(cat.id),
-              name: cat.name,
-            };
-          }
-        }
-      });
-    }
-
-    // Handle price sorting in JavaScript if requested
-    if (params.sortBy === "price") {
-      const isAsc = params.sortOrder === "asc";
-      items.sort((a, b) => (isAsc ? a.minPrice - b.minPrice : b.minPrice - a.minPrice));
-      items = items.slice((page - 1) * pageSize, page * pageSize);
-    }
-
-    return {
-      data: items,
-      meta: {
-        page,
-        limit: pageSize,
-        pageSize,
-        total,
-        totalPages: Math.ceil(total / pageSize),
-      },
-    };
-  },
+    },
 
   /**
    * The storefront listing page shows one card per Style ("V Neck T-Shirt"),
@@ -850,204 +913,305 @@ export const catalogRepository = {
    * between them still renders as exactly one card here.
    */
   async findCustomerStyleListItems(params: CustomerProductListInput) {
-    const page = params.page ?? 1;
-    const pageSize = params.pageSize ?? 20;
+      const page = params.page ?? 1;
+      const pageSize = params.pageSize ?? 20;
 
-    const where: Prisma.StyleWhereInput = {
-      isActive: true,
-      deleted_at: null,
-      product: { isActive: true, deleted_at: null },
-    };
-    const productWhere = (): Prisma.ProductWhereInput =>
-      (where.product as Prisma.ProductWhereInput) ?? {};
-
-    if (params.productIds && params.productIds.length > 0) {
-      where.product = { ...productWhere(), uuid: { in: params.productIds } };
-    }
-
-    if (params.tagSlugs && params.tagSlugs.length > 0) {
-      where.product = { ...productWhere(), product_tag_maps: productTagMapsWhere(params.tagSlugs) };
-    }
-
-    if (params.brandIds && params.brandIds.length > 0) {
-      const matchingBrands = await db.productBrand.findMany({
-        where: { uuid: { in: params.brandIds }, isActive: true, deleted_at: null },
-        select: { id: true },
-      });
-      where.AND = [styleBrandWhere(matchingBrands.map((b) => b.id))];
-    }
-
-    if (params.categoryIds && params.categoryIds.length > 0) {
-      const categoryIds = await resolveCategoryAndDescendantIds(params.categoryIds);
-      where.product = { ...productWhere(), categoryId: { in: categoryIds } };
-    }
-
-    if (params.search) {
-      where.name = { contains: params.search };
-    }
-
-    if (params.gender) {
-      where.product = {
-        ...productWhere(),
-        gender: params.gender === "unisex" ? "unisex" : { in: [params.gender, "unisex"] },
-      };
-    }
-
-    const minP = params.minPrice ? Math.max(params.minPrice, 0.01) : 0.01;
-    const maxP = params.maxPrice ?? Number.MAX_SAFE_INTEGER;
-
-    where.items = {
-      some: {
-        deleted_at: null,
+      const where: Prisma.StyleWhereInput = {
         isActive: true,
-        ...(params.inStock !== undefined ? { out_of_stock: !params.inStock } : {}),
-        variants: {
-          some: {
-            isActive: true,
-            deleted_at: null,
-            variant_unit_prices: {
-              some: { deleted_at: null, isActive: true, base_price: { gte: minP, lte: maxP } },
+        deleted_at: null,
+        product: { isActive: true, deleted_at: null },
+      };
+      const productWhere = (): Prisma.ProductWhereInput =>
+        (where.product as Prisma.ProductWhereInput) ?? {};
+
+      if (params.productIds && params.productIds.length > 0) {
+        where.product = { ...productWhere(), uuid: { in: params.productIds } };
+      }
+
+      if (params.tagSlugs && params.tagSlugs.length > 0) {
+        where.product = { ...productWhere(), product_tag_maps: productTagMapsWhere(params.tagSlugs) };
+      }
+
+      if (params.brandIds && params.brandIds.length > 0) {
+        const matchingBrands = await db.productBrand.findMany({
+          where: { uuid: { in: params.brandIds }, isActive: true, deleted_at: null },
+          select: { id: true },
+        });
+        where.AND = [styleBrandWhere(matchingBrands.map((b) => b.id))];
+      }
+
+      if (params.categoryIds && params.categoryIds.length > 0) {
+        const categoryIds = await resolveCategoryAndDescendantIds(params.categoryIds);
+        where.product = { ...productWhere(), categoryId: { in: categoryIds } };
+      }
+
+      if (params.search) {
+        where.name = { contains: params.search };
+      }
+
+      if (params.gender) {
+        where.product = {
+          ...productWhere(),
+          gender: params.gender === "unisex" ? "unisex" : { in: [params.gender, "unisex"] },
+        };
+      }
+
+      const minP = params.minPrice ? Math.max(params.minPrice, 0.01) : 0.01;
+      const maxP = params.maxPrice ?? Number.MAX_SAFE_INTEGER;
+
+      where.items = {
+        some: {
+          deleted_at: null,
+          isActive: true,
+          variants: {
+            some: {
+              isActive: true,
+              deleted_at: null,
+              variant_unit_prices: {
+                some: { deleted_at: null, isActive: true, base_price: { gte: minP, lte: maxP } },
+              },
             },
           },
         },
-      },
-    };
+      };
 
-    let orderBy: Prisma.StyleOrderByWithRelationInput = { createdAt: "desc" };
-    if (params.sortBy === "name") {
-      orderBy = { name: params.sortOrder ?? "asc" };
-    } else if (params.sortBy === "createdAt") {
-      orderBy = { createdAt: params.sortOrder ?? "desc" };
-    }
+      // Base facet where: before inStock and vegType filters are applied
+      const baseFacetWhere: Prisma.StyleWhereInput = { ...where };
 
-    const isPriceSort = params.sortBy === "price";
-
-    const [styles, total] = await Promise.all([
-      db.style.findMany({
-        where,
-        orderBy: isPriceSort ? undefined : orderBy,
-        ...(isPriceSort ? {} : { skip: (page - 1) * pageSize, take: pageSize }),
-        include: {
-          product: {
-            select: {
-              id: true,
-              uuid: true,
-              name: true,
-              categoryId: true,
-              brand: { select: brandSelect },
-            },
-          },
-          brand: { select: brandSelect },
-          images: {
-            where: { is_active: true },
-            orderBy: [{ is_primary: "desc" }, { sort_order: "asc" }],
-            take: 1,
-          },
-          items: {
-            where: { deleted_at: null, isActive: true },
-            include: {
-              variants: {
-                where: {
-                  isActive: true,
-                  deleted_at: null,
-                  variant_unit_prices: { some: { deleted_at: null, isActive: true, base_price: { gt: 0 } } },
-                },
-                include: {
-                  product_variant_images: {
-                    where: { is_active: true },
-                    orderBy: [{ is_primary: "desc" }, { sort_order: "asc" }],
-                    take: 1,
+      const inStockCondition: Prisma.StyleWhereInput = {
+        out_of_stock: false,
+        items: {
+          some: {
+            deleted_at: null,
+            isActive: true,
+            out_of_stock: false,
+            variants: {
+              some: {
+                isActive: true,
+                deleted_at: null,
+                out_of_stock: false,
+                variant_unit_prices: {
+                  some: {
+                    deleted_at: null,
+                    isActive: true,
+                    base_price: { gte: minP, lte: maxP },
+                    inventories: {
+                      quantity_available: { gt: 0 },
+                    },
                   },
-                  variant_unit_prices: unitPriceListArgs,
                 },
               },
             },
           },
         },
-      }),
-      db.style.count({ where }),
-    ]);
+      };
 
-    let data: CustomerProductListItemDto[] = styles.map((s) => {
-      const allVariants = s.items.flatMap((i) => i.variants);
-      const colorNames = new Set(allVariants.map((v) => v.color_name).filter(Boolean));
-      const allPrices = allVariants.flatMap((v) =>
-        (v.variant_unit_prices || []).map((up) => Number(up.base_price))
-      );
-      const minPrice = allPrices.length > 0 ? Math.min(...allPrices) : 0;
-      const maxPrice = allPrices.length > 0 ? Math.max(...allPrices) : 0;
+      const outOfStockCondition: Prisma.StyleWhereInput = {
+        OR: [
+          { out_of_stock: true },
+          {
+            items: {
+              none: {
+                deleted_at: null,
+                isActive: true,
+                out_of_stock: false,
+                variants: {
+                  some: {
+                    isActive: true,
+                    deleted_at: null,
+                    out_of_stock: false,
+                    variant_unit_prices: {
+                      some: {
+                        deleted_at: null,
+                        isActive: true,
+                        inventories: {
+                          quantity_available: { gt: 0 },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        ],
+      };
 
-      let imgUrl: string | null = s.images[0]?.image_url ?? null;
-      if (!imgUrl && allVariants.length > 0) {
-        imgUrl = allVariants[0].product_variant_images[0]?.image_url ?? null;
+      if (params.inStock === true) {
+        where.out_of_stock = false;
+        where.items = inStockCondition.items;
+      } else if (params.inStock === false) {
+        if (where.AND) {
+          where.AND = Array.isArray(where.AND) ? [...where.AND, outOfStockCondition] : [where.AND, outOfStockCondition];
+        } else {
+          where.AND = [outOfStockCondition];
+        }
       }
 
-      const inStock =
-        !s.out_of_stock &&
-        s.items.some((i) =>
-          !i.out_of_stock &&
-          i.variants.some((v) =>
-            !v.out_of_stock &&
-            v.variant_unit_prices.some((up) =>
-              (up.inventories?.quantity_available ?? 0) > 0
-            )
-          )
+      if (params.vegType) {
+        const mappedVegType =
+          params.vegType === "non_veg" || params.vegType === "nonveg"
+            ? ("nonveg" as const)
+            : (params.vegType as "veg" | "vegan" | "na");
+        where.veg_type = mappedVegType === "veg" ? { in: ["veg", "na"] } : mappedVegType;
+      }
+
+      let orderBy: Prisma.StyleOrderByWithRelationInput = { createdAt: "desc" };
+      if (params.sortBy === "name") {
+        orderBy = { name: params.sortOrder ?? "asc" };
+      } else if (params.sortBy === "createdAt") {
+        orderBy = { createdAt: params.sortOrder ?? "desc" };
+      }
+
+      const isPriceSort = params.sortBy === "price";
+
+    const [styles, total, inStockCount, outOfStockCount, vegCount, nonVegCount, veganCount] = await Promise.all([
+        db.style.findMany({
+          where,
+          orderBy: isPriceSort ? undefined : orderBy,
+          ...(isPriceSort ? {} : { skip: (page - 1) * pageSize, take: pageSize }),
+          include: {
+            product: {
+              select: {
+                id: true,
+                uuid: true,
+                name: true,
+                categoryId: true,
+                brand: { select: brandSelect },
+              },
+            },
+            brand: { select: brandSelect },
+            images: {
+              where: { is_active: true },
+              orderBy: [{ is_primary: "desc" }, { sort_order: "asc" }],
+              take: 1,
+            },
+            items: {
+              where: { deleted_at: null, isActive: true },
+              include: {
+                variants: {
+                  where: {
+                    isActive: true,
+                    deleted_at: null,
+                    variant_unit_prices: { some: { deleted_at: null, isActive: true, base_price: { gt: 0 } } },
+                  },
+                  include: {
+                    product_variant_images: {
+                      where: { is_active: true },
+                      orderBy: [{ is_primary: "desc" }, { sort_order: "asc" }],
+                      take: 1,
+                    },
+                    variant_unit_prices: unitPriceListArgs,
+                  },
+                },
+              },
+            },
+          },
+        }),
+        db.style.count({ where }),
+        db.style.count({ where: { ...baseFacetWhere, ...inStockCondition } }),
+        db.style.count({
+          where: baseFacetWhere.AND
+            ? {
+              ...baseFacetWhere,
+              AND: Array.isArray(baseFacetWhere.AND)
+                ? [...baseFacetWhere.AND, outOfStockCondition]
+                : [baseFacetWhere.AND, outOfStockCondition],
+            }
+            : { ...baseFacetWhere, AND: [outOfStockCondition] },
+        }),
+        db.style.count({ where: { ...baseFacetWhere, veg_type: { in: ["veg", "na"] } } }),
+        db.style.count({ where: { ...baseFacetWhere, veg_type: "nonveg" } }),
+        db.style.count({ where: { ...baseFacetWhere, veg_type: "vegan" } }),
+      ]);
+
+      let data: CustomerProductListItemDto[] = styles.map((s) => {
+        const allVariants = s.items.flatMap((i) => i.variants);
+        const colorNames = new Set(allVariants.map((v) => v.color_name).filter(Boolean));
+        const allPrices = allVariants.flatMap((v) =>
+          (v.variant_unit_prices || []).map((up) => Number(up.base_price))
         );
+        const minPrice = allPrices.length > 0 ? Math.min(...allPrices) : 0;
+        const maxPrice = allPrices.length > 0 ? Math.max(...allPrices) : 0;
+
+        let imgUrl: string | null = s.images[0]?.image_url ?? null;
+        if (!imgUrl && allVariants.length > 0) {
+          imgUrl = allVariants[0].product_variant_images[0]?.image_url ?? null;
+        }
+
+        const inStock =
+          !s.out_of_stock &&
+          s.items.some((i) =>
+            !i.out_of_stock &&
+            i.variants.some((v) =>
+              !v.out_of_stock &&
+              v.variant_unit_prices.some((up) =>
+                (up.inventories?.quantity_available ?? 0) > 0
+              )
+            )
+          );
+
+        return {
+          id: s.uuid || String(s.id),
+          name: s.name,
+          description: s.short_description || s.description || null,
+          brand: toBrandDto(s.brand, s.product.brand),
+          category: null,
+          image: imgUrl,
+          minPrice,
+          maxPrice,
+          colorCount: colorNames.size,
+          inStock,
+          outOfStock: !inStock,
+        };
+      });
+
+      const categoryIds = styles
+        .map((s) => s.product.categoryId)
+        .filter((id): id is bigint => id !== null && id !== undefined);
+
+      if (categoryIds.length > 0) {
+        const categories = await db.productCategory.findMany({
+          where: { id: { in: categoryIds } },
+          select: { id: true, uuid: true, name: true },
+        });
+        const catMap = new Map(categories.map((c) => [c.id.toString(), c]));
+
+        styles.forEach((s, idx) => {
+          const catId = s.product.categoryId;
+          if (catId) {
+            const cat = catMap.get(catId.toString());
+            if (cat) {
+              data[idx].category = { id: cat.uuid || String(cat.id), name: cat.name };
+            }
+          }
+        });
+      }
+
+      if (isPriceSort) {
+        const isAsc = params.sortOrder !== "desc";
+        data.sort((a, b) => (isAsc ? a.minPrice - b.minPrice : b.minPrice - a.minPrice));
+        data = data.slice((page - 1) * pageSize, page * pageSize);
+      }
 
       return {
-        id: s.uuid || String(s.id),
-        name: s.name,
-        description: s.short_description || s.description || null,
-        brand: toBrandDto(s.brand, s.product.brand),
-        category: null,
-        image: imgUrl,
-        minPrice,
-        maxPrice,
-        colorCount: colorNames.size,
-        inStock,
-        outOfStock: !inStock,
+        data,
+        meta: {
+          page,
+          limit: pageSize,
+          pageSize,
+          total,
+          totalPages: Math.ceil(total / pageSize),
+          facets: {
+            inStockCount,
+            outOfStockCount,
+            vegCount,
+            nonVegCount,
+            veganCount,
+          },
+        },
       };
-    });
-
-    const categoryIds = styles
-      .map((s) => s.product.categoryId)
-      .filter((id): id is bigint => id !== null && id !== undefined);
-
-    if (categoryIds.length > 0) {
-      const categories = await db.productCategory.findMany({
-        where: { id: { in: categoryIds } },
-        select: { id: true, uuid: true, name: true },
-      });
-      const catMap = new Map(categories.map((c) => [c.id.toString(), c]));
-
-      styles.forEach((s, idx) => {
-        const catId = s.product.categoryId;
-        if (catId) {
-          const cat = catMap.get(catId.toString());
-          if (cat) {
-            data[idx].category = { id: cat.uuid || String(cat.id), name: cat.name };
-          }
-        }
-      });
-    }
-
-    if (isPriceSort) {
-      const isAsc = params.sortOrder !== "desc";
-      data.sort((a, b) => (isAsc ? a.minPrice - b.minPrice : b.minPrice - a.minPrice));
-      data = data.slice((page - 1) * pageSize, page * pageSize);
-    }
-
-    return {
-      data,
-      meta: {
-        page,
-        limit: pageSize,
-        pageSize,
-        total,
-        totalPages: Math.ceil(total / pageSize),
-      },
-    };
-  },
+    },
 
   /**
    * The customer-facing "product detail" page is keyed by a Style's UUID, not
@@ -1057,69 +1221,69 @@ export const catalogRepository = {
    * into one list here (see toStyleDto) so the page never needs an Item
    * picker.
    */
-  async findCustomerProductByUuid(uuid: string): Promise<CustomerProductDetailDto | null> {
-    const style = await db.style.findFirst({
-      where: {
-        uuid,
-        isActive: true,
-        deleted_at: null,
-      },
-      include: {
-        product: {
-          select: {
-            id: true,
-            uuid: true,
-            name: true,
-            gender: true,
-            categoryId: true,
-            brand: { select: brandSelect },
-          },
+  async findCustomerProductByUuid(uuid: string): Promise < CustomerProductDetailDto | null > {
+      const style = await db.style.findFirst({
+        where: {
+          uuid,
+          isActive: true,
+          deleted_at: null,
         },
-        brand: { select: brandSelect },
-        images: {
-          where: { is_active: true },
-          orderBy: [{ is_primary: "desc" }, { sort_order: "asc" }],
-        },
-        items: {
-          where: { deleted_at: null, isActive: true },
-          include: {
-            variants: {
-              where: {
-                isActive: true,
-                deleted_at: null,
-                variant_unit_prices: {
-                  some: {
-                    deleted_at: null,
-                    isActive: true,
-                    base_price: { gt: 0 },
-                  },
-                },
-              },
-              include: {
-                product_variant_images: {
-                  where: { is_active: true },
-                  orderBy: [{ is_primary: "desc" }, { sort_order: "asc" }],
-                },
-                variant_unit_prices: unitPriceListArgs,
-                variant_attribute_values: {
-                  include: {
-                    product_attributes: { select: { name: true } },
-                    attribute_values: { select: { uuid: true, value: true } },
-                  },
-                },
-              },
-              orderBy: { createdAt: "asc" },
+        include: {
+          product: {
+            select: {
+              id: true,
+              uuid: true,
+              name: true,
+              gender: true,
+              categoryId: true,
+              brand: { select: brandSelect },
             },
           },
-          orderBy: [{ is_default: "desc" }, { createdAt: "asc" }],
+          brand: { select: brandSelect },
+          images: {
+            where: { is_active: true },
+            orderBy: [{ is_primary: "desc" }, { sort_order: "asc" }],
+          },
+          items: {
+            where: { deleted_at: null, isActive: true },
+            include: {
+              variants: {
+                where: {
+                  isActive: true,
+                  deleted_at: null,
+                  variant_unit_prices: {
+                    some: {
+                      deleted_at: null,
+                      isActive: true,
+                      base_price: { gt: 0 },
+                    },
+                  },
+                },
+                include: {
+                  product_variant_images: {
+                    where: { is_active: true },
+                    orderBy: [{ is_primary: "desc" }, { sort_order: "asc" }],
+                  },
+                  variant_unit_prices: unitPriceListArgs,
+                  variant_attribute_values: {
+                    include: {
+                      product_attributes: { select: { name: true } },
+                      attribute_values: { select: { uuid: true, value: true } },
+                    },
+                  },
+                },
+                orderBy: { createdAt: "asc" },
+              },
+            },
+            orderBy: [{ is_default: "desc" }, { createdAt: "asc" }],
+          },
         },
-      },
-    });
+      });
 
-    if (!style) return null;
+      if(!style) return null;
 
-    let categoryDto: { id: string; name: string } | null = null;
-    if (style.product.categoryId) {
+      let categoryDto: { id: string; name: string } | null = null;
+      if(style.product.categoryId) {
       const cat = await db.productCategory.findFirst({
         where: { id: style.product.categoryId },
         select: { id: true, uuid: true, name: true },
@@ -1377,9 +1541,9 @@ export const catalogRepository = {
 
     const categories = categoryIds.length
       ? await db.productCategory.findMany({
-          where: { id: { in: categoryIds } },
-          select: { id: true, uuid: true, name: true },
-        })
+        where: { id: { in: categoryIds } },
+        select: { id: true, uuid: true, name: true },
+      })
       : [];
     const catMap = new Map(categories.map((c) => [c.id.toString(), c]));
 
@@ -1609,15 +1773,15 @@ export const catalogRepository = {
     const [matchingProducts, matchingBrands, matchingCategories] = await Promise.all([
       params.productIds && params.productIds.length > 0
         ? db.product.findMany({
-            where: { uuid: { in: params.productIds }, isActive: true, deleted_at: null },
-            select: { id: true },
-          })
+          where: { uuid: { in: params.productIds }, isActive: true, deleted_at: null },
+          select: { id: true },
+        })
         : null,
       params.brandIds && params.brandIds.length > 0
         ? db.productBrand.findMany({
-            where: { uuid: { in: params.brandIds }, isActive: true, deleted_at: null },
-            select: { id: true },
-          })
+          where: { uuid: { in: params.brandIds }, isActive: true, deleted_at: null },
+          select: { id: true },
+        })
         : null,
       params.categoryIds && params.categoryIds.length > 0
         ? resolveCategoryAndDescendantIds(params.categoryIds)
@@ -2080,14 +2244,14 @@ export const catalogRepository = {
 
     const pageCategories = pageCategoryIds.length
       ? await db.productCategory.findMany({
-          where: { id: { in: pageCategoryIds } },
-          select: {
-            id: true,
-            uuid: true,
-            name: true,
-            parent: { select: { id: true, uuid: true, name: true } },
-          },
-        })
+        where: { id: { in: pageCategoryIds } },
+        select: {
+          id: true,
+          uuid: true,
+          name: true,
+          parent: { select: { id: true, uuid: true, name: true } },
+        },
+      })
       : [];
     const categoryMap = new Map(pageCategories.map((c) => [c.id.toString(), c]));
     const variantMap = new Map(variants.map((v) => [v.id.toString(), v]));
