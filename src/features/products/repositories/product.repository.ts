@@ -316,24 +316,7 @@ export const productRepository = {
         },
       });
 
-      const items = await db.item.findMany({
-        where: { styleId: style.id, deleted_at: null },
-        select: { id: true },
-      });
-      const itemIds = items.map((i) => i.id);
-
-      if (itemIds.length > 0) {
-        await db.productVariant.updateMany({
-          where: { itemId: { in: itemIds }, deleted_at: null },
-          data: {
-            isActive: false,
-            deleted_at: now,
-            ...(adminId ? { updated_by: adminId } : {}),
-          },
-        });
-      }
-
-      await db.item.updateMany({
+      await db.productVariant.updateMany({
         where: { styleId: style.id, deleted_at: null },
         data: {
           isActive: false,

@@ -83,7 +83,7 @@ export const agentOrderService = {
       include: {
         variant: {
           include: {
-            item: { include: { style: { include: { product: true } } } },
+            style: { include: { product: true } },
             variant_attribute_values: {
               include: { product_attributes: { select: { name: true } }, attribute_values: { select: { value: true } } },
             },
@@ -103,14 +103,13 @@ export const agentOrderService = {
     const lines = [...wanted].map(([uuid, quantity]) => {
       const r = byUuid.get(uuid);
       const variant = r?.variant;
-      const item = variant?.item;
-      const style = item?.style;
+      const style = variant?.style;
       const product = style?.product;
       if (
         !r || !r.isActive || r.deleted_at ||
         !variant?.isActive || variant.deleted_at ||
-        !item?.isActive || item.deleted_at ||
-        !style || !product?.isActive || product.deleted_at
+        !style?.isActive || style.deleted_at ||
+        !product?.isActive || product.deleted_at
       ) {
         throw ApiError.badRequest("One of the selected products is no longer available");
       }
@@ -137,7 +136,6 @@ export const agentOrderService = {
         unitPrice: Number(r.base_price),
         productId: product.id,
         styleId: style.id,
-        itemId: item.id,
         variantId: variant.id,
         variantUnitPriceId: r.id,
         productName: product.name,
@@ -156,7 +154,6 @@ export const agentOrderService = {
       return {
         productId: l.productId,
         styleId: l.styleId,
-        itemId: l.itemId,
         variantId: l.variantId,
         variantUnitPriceId: l.variantUnitPriceId,
         productName: l.productName,

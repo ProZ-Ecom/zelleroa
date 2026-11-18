@@ -137,14 +137,7 @@ export const inventoryService = {
               select: {
                 id: true,
                 variant_name: true,
-                item: {
-                  select: {
-                    id: true,
-                    name: true,
-                    slug: true,
-                    style: { select: { product: { select: { id: true, name: true, slug: true } } } },
-                  },
-                },
+                style: { select: { id: true, name: true, slug: true, product: { select: { id: true, name: true, slug: true } } } },
               },
             },
           },
@@ -169,14 +162,7 @@ export const inventoryService = {
               select: {
                 id: true,
                 variant_name: true,
-                item: {
-                  select: {
-                    id: true,
-                    name: true,
-                    slug: true,
-                    style: { select: { product: { select: { id: true, name: true, slug: true } } } },
-                  },
-                },
+                style: { select: { id: true, name: true, slug: true, product: { select: { id: true, name: true, slug: true } } } },
               },
             },
           },

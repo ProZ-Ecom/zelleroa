@@ -18,59 +18,37 @@ import { customerCatalogApi } from "../../api/customer-catalog.api";
 import { CUSTOMER_CATALOG_QUERY_KEYS } from "../../hooks/use-customer-catalog";
 import type { CustomerStyleViewDto } from "../../types/catalog.types";
 
-/** Every Colour+Size row of the Item that can actually be bought. */
-function sellableRows(item: CustomerStyleViewDto) {
-  return item.colors
+/** Every Colour+Size row of the Style that can actually be bought. */
+function sellableRows(style: CustomerStyleViewDto) {
+  return style.colors
     .filter((color) => !color.outOfStock)
     .flatMap((color) => color.unitPrices.filter((up) => up.inStock).map((up) => ({ color, up })));
 }
 
 function SelectionDialog({
-  items,
+  style,
   title,
   onClose,
 }: {
-  items: CustomerStyleViewDto[];
+  style: CustomerStyleViewDto;
   title: string;
   onClose: () => void;
 }) {
-  const [itemId, setItemId] = useState(
-    (items.find((i) => sellableRows(i).length > 0) ?? items[0]).id
-  );
-  const item = items.find((i) => i.id === itemId) ?? items[0];
   return (
     <Modal open onClose={onClose} title={title} className="max-w-lg">
-      {items.length > 1 && (
-        <div className="mt-4 flex flex-wrap gap-2">
-          {items.map((i) => (
-            <button
-              key={i.id}
-              type="button"
-              onClick={() => setItemId(i.id)}
-              className={`rounded-full border px-3 py-1 text-xs font-semibold ${
-                i.id === item.id
-                  ? "border-theme-primary bg-theme-primary text-theme-primary-fg"
-                  : "border-theme-border"
-              }`}
-            >
-              {i.name}
-            </button>
-          ))}
-        </div>
-      )}
-      <SelectionBody key={item.id} item={item} onClose={onClose} />
+      <SelectionBody key={style.id} style={style} onClose={onClose} />
     </Modal>
   );
 }
 
 function SelectionBody({
-  item,
+  style,
   onClose,
 }: {
-  item: CustomerStyleViewDto;
+  style: CustomerStyleViewDto;
   onClose: () => void;
 }) {
-  const sel = useStyleSelection(item);
+  const sel = useStyleSelection(style);
   const addToCart = useAddToCart();
   const max = sel.purchasable?.stock ?? 0;
 
@@ -86,7 +64,7 @@ function SelectionBody({
       },
       {
         onSuccess: () => {
-          toast.success(`${item.name} added to cart`);
+          toast.success(`${style.name} added to cart`);
           onClose();
         },
         onError: (error) =>
@@ -168,20 +146,18 @@ function SelectionBody({
 }
 
 export interface StyleQuickAddProps {
-  itemId?: string;
-  styleId?: string;
+  styleId: string;
   name?: string;
   inStock?: boolean;
   outOfStock?: boolean;
 }
 
 /**
- * The Item/Style card's "Add to Cart". Fetches the Item on click: a single buyable
+ * The Style card's "Add to Cart". Fetches the Style on click: a single buyable
  * Colour+Size goes straight to the cart, anything else opens the picker.
  * When out of stock, displays a disabled "Out of Stock" button.
  */
 export function StyleQuickAdd({
-  itemId,
   styleId,
   name,
   inStock,
@@ -193,7 +169,7 @@ export function StyleQuickAdd({
   const queryClient = useQueryClient();
   const addToCart = useAddToCart();
   const [loading, setLoading] = useState(false);
-  const [dialog, setDialog] = useState<{ items: CustomerStyleViewDto[]; title: string } | null>(null);
+  const [dialog, setDialog] = useState<{ style: CustomerStyleViewDto; title: string } | null>(null);
 
   const propOutOfStock =
     outOfStock !== undefined ? outOfStock : inStock !== undefined ? !inStock : false;
@@ -208,26 +184,16 @@ export function StyleQuickAdd({
     }
     setLoading(true);
     try {
-      const items = styleId
-        ? (
-            await queryClient.fetchQuery({
-              queryKey: CUSTOMER_CATALOG_QUERY_KEYS.style(styleId),
-              queryFn: () => customerCatalogApi.getStyle(styleId),
-              staleTime: 1000 * 60 * 5,
-            })
-          ).items
-        : [
-            await queryClient.fetchQuery({
-              queryKey: CUSTOMER_CATALOG_QUERY_KEYS.item(itemId!),
-              queryFn: () => customerCatalogApi.getItem(itemId!),
-              staleTime: 1000 * 60 * 5,
-            }),
-          ];
-      const rows = items.flatMap(sellableRows);
-      const title = name ?? items[0]?.name ?? "";
+      const style = await queryClient.fetchQuery({
+        queryKey: CUSTOMER_CATALOG_QUERY_KEYS.style(styleId),
+        queryFn: () => customerCatalogApi.getStyle(styleId),
+        staleTime: 1000 * 60 * 5,
+      });
+      const rows = sellableRows(style);
+      const title = name ?? style.name;
       if (rows.length === 0) {
         setRuntimeOutOfStock(true);
-        toast.error("This item is out of stock");
+        toast.error("This product is out of stock");
       } else if (rows.length === 1) {
         const [{ color, up }] = rows;
         await addToCart.mutateAsync({
@@ -237,7 +203,7 @@ export function StyleQuickAdd({
         });
         toast.success(`${title} added to cart`);
       } else {
-        setDialog({ items, title });
+        setDialog({ style, title });
       }
     } catch {
       toast.error("Could not add this item to your cart");

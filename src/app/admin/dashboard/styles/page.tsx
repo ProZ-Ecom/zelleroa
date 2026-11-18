@@ -124,9 +124,9 @@ export default function AdminStylesPage() {
       cell: ({ row }) => <span className="text-[var(--color-neutral-700)]">{row.original.categoryName || "—"}</span>,
     },
     {
-      accessorKey: "itemCount",
-      header: "Items",
-      cell: ({ row }) => <span className="text-[var(--color-neutral-700)]">{row.original.itemCount}</span>,
+      accessorKey: "variantCount",
+      header: "Variants",
+      cell: ({ row }) => <span className="text-[var(--color-neutral-700)]">{row.original.variantCount}</span>,
     },
     {
       accessorKey: "colors",
@@ -336,7 +336,7 @@ export default function AdminStylesPage() {
                         accessor: (row) => (row.colors && row.colors.length > 0 ? row.colors.join(", ") : "—"),
                       },
                       { header: "Total Stock", accessor: (row) => row.totalStock ?? 0 },
-                      { header: "Items Count", accessor: (row) => row.itemCount ?? 0 },
+                      { header: "Variants Count", accessor: (row) => row.variantCount ?? 0 },
                       { header: "Base Price (₹)", accessor: (row) => row.basePrice ?? 0 },
                       { header: "Status", accessor: (row) => (row.isActive ? "Active" : "Inactive") },
                       {

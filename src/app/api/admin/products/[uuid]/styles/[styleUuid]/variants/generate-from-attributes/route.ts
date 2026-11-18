@@ -3,8 +3,8 @@ import { apiCreated } from "@/lib/api/api-response";
 import { ApiError } from "@/lib/api/api-error";
 import { variantService } from "@/features/variants/services/variant.service";
 import {
-  generateVariantsFromItemSchema,
-  type GenerateVariantsFromItemInput,
+  generateVariantsFromStyleSchema,
+  type GenerateVariantsFromStyleInput,
 } from "@/features/variants/validations/admin-variant.schema";
 
 export const POST = createApiHandler(
@@ -15,10 +15,10 @@ export const POST = createApiHandler(
         throw ApiError.badRequest("Style UUID is required");
       }
 
-      const body = context.body as GenerateVariantsFromItemInput;
+      const body = context.body as GenerateVariantsFromStyleInput;
       const adminEmail = context.session?.user?.email ?? undefined;
 
-      const result = await variantService.generateVariantsFromItemAttributeValues(
+      const result = await variantService.generateVariantsFromStyleAttributeValues(
         styleUuid,
         body,
         adminEmail
@@ -38,6 +38,6 @@ export const POST = createApiHandler(
     method: "POST",
     requireAuth: true,
     requiredRole: ["ADMIN"],
-    bodySchema: generateVariantsFromItemSchema,
+    bodySchema: generateVariantsFromStyleSchema,
   }
 );

@@ -153,7 +153,7 @@ export const purchaseImportService = {
         variant: {
           select: {
             color_name: true,
-            item: { select: { name: true, style: { select: { product: { select: { name: true } } } } } },
+            style: { select: { name: true, product: { select: { name: true } } } },
           },
         },
       },
@@ -214,9 +214,9 @@ export const purchaseImportService = {
       }
       seen.add(l.sku.toLowerCase());
 
-      const item = vup.variant?.item;
+      const style = vup.variant?.style;
       const productName =
-        [item?.style?.product?.name ?? item?.name, vup.variant?.color_name, vup.attribute_value?.value]
+        [style?.product?.name ?? style?.name, vup.variant?.color_name, vup.attribute_value?.value]
           .filter(Boolean)
           .join(" / ") || vup.sku;
 

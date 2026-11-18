@@ -120,7 +120,7 @@ export interface CategoryMenuStyleDto {
 export interface CategoryMenuProductDto {
   id: string; // Product UUID
   name: string;
-  items: CategoryMenuStyleDto[];
+  styles: CategoryMenuStyleDto[];
 }
 
 /** What the header shows when a category is hovered. */

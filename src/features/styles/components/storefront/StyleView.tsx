@@ -38,32 +38,32 @@ import { StyleVariationSelectors } from "./StyleVariationSelectors";
 import { StyleAttributeFacts } from "./StyleAttributeFacts";
 import { StylePriceBlock } from "./StylePriceBlock";
 
-interface ItemViewProps {
-  item: CustomerStyleViewDto;
+interface StyleViewProps {
+  style: CustomerStyleViewDto;
   /** Where to send an anonymous shopper back to after signing in. */
   returnUrl: string;
-  /** Rendered above the title, e.g. the Style or Product name. */
+  /** Rendered above the title, e.g. the Product name. */
   eyebrow?: string | null;
-  /** The Item's brand; omitted when it has none. */
+  /** The Style's brand; omitted when it has none. */
   brandName?: string | null;
   className?: string;
 }
 
 /**
- * One Item, as the shopper sees it.
+ * One Style, as the shopper sees it.
  *
  * The whole view is driven by the selected Colour:
  *
  *   Colour -> images -> available Sizes -> stock -> price
  *
  * so switching Colour swaps the gallery, the Size chips, the stock state and
- * the price together. What goes in the cart is never the Item itself but the
+ * the price together. What goes in the cart is never the Style itself but the
  * exact Colour+Size row selected here.
  *
- * Everything shown belongs to this one Item - there is no way to switch to a
- * sibling Item from here; the shopper goes back to the listing for that.
+ * Everything shown belongs to this one Style - there is no way to switch to a
+ * sibling Style from here; the shopper goes back to the listing for that.
  */
-export function StyleView({ item, returnUrl, eyebrow, brandName, className }: ItemViewProps) {
+export function StyleView({ style, returnUrl, eyebrow, brandName, className }: StyleViewProps) {
   const router = useRouter();
   const session = useSignedIn();
 
@@ -84,7 +84,7 @@ export function StyleView({ item, returnUrl, eyebrow, brandName, className }: It
     quantity,
     setQuantity,
     missingSelection,
-  } = useStyleSelection(item);
+  } = useStyleSelection(style);
 
   const addToCart = useAddToCart();
   const { data: wishlist } = useWishlist({ enabled: !!session });
@@ -102,8 +102,8 @@ export function StyleView({ item, returnUrl, eyebrow, brandName, className }: It
     id: image.id,
     url: getImageUrl(image.imageUrl),
     altText: selectedColor?.colorName
-      ? `${item.name} - ${selectedColor.colorName}`
-      : item.name,
+      ? `${style.name} - ${selectedColor.colorName}`
+      : style.name,
   }));
 
   const isInWishlist =
@@ -127,7 +127,7 @@ export function StyleView({ item, returnUrl, eyebrow, brandName, className }: It
     }
     if (!purchasable) {
       toast.error(
-        hasVariations ? "This combination is out of stock" : "This item is out of stock"
+        hasVariations ? "This combination is out of stock" : "This product is out of stock"
       );
       return;
     }
@@ -139,9 +139,9 @@ export function StyleView({ item, returnUrl, eyebrow, brandName, className }: It
         quantity,
       },
       {
-        onSuccess: () => toast.success(`${item.name} added to cart`),
+        onSuccess: () => toast.success(`${style.name} added to cart`),
         onError: (error) =>
-          toast.error(error?.message || "Could not add this item to your cart"),
+          toast.error(error?.message || "Could not add this product to your cart"),
       }
     );
   };
@@ -170,7 +170,7 @@ export function StyleView({ item, returnUrl, eyebrow, brandName, className }: It
     const url = `${window.location.origin}${returnUrl}`;
     try {
       if (navigator.share) {
-        await navigator.share({ title: item.name, url });
+        await navigator.share({ title: style.name, url });
         return;
       }
       await navigator.clipboard.writeText(url);
@@ -178,11 +178,11 @@ export function StyleView({ item, returnUrl, eyebrow, brandName, className }: It
     } catch (error) {
       // Dismissing the native share sheet rejects with AbortError - not a failure.
       if (error instanceof DOMException && error.name === "AbortError") return;
-      toast.error("Could not share this item");
+      toast.error("Could not share this product");
     }
   };
 
-  const description = item.description?.trim();
+  const description = style.description?.trim();
   const wishlistPending = addToWishlist.isPending || removeFromWishlist.isPending;
   const maxQuantity = purchasable?.stock ?? 0;
 
@@ -194,9 +194,9 @@ export function StyleView({ item, returnUrl, eyebrow, brandName, className }: It
         <div className="lg:sticky lg:top-24 lg:col-span-6">
           <div className="overflow-hidden rounded-3xl border border-theme-border bg-theme-surface shadow-md">
             <ProductGallery
-              key={selectedColor?.id ?? item.id}
+              key={selectedColor?.id ?? style.id}
               images={galleryImages}
-              productName={item.name}
+              productName={style.name}
               isInStock={inStock}
               isVeg={false}
               showQualitySeal={false}
@@ -228,7 +228,7 @@ export function StyleView({ item, returnUrl, eyebrow, brandName, className }: It
                 type="button"
                 variant="outline"
                 onClick={handleShare}
-                aria-label="Share this item"
+                aria-label="Share this product"
                 className="h-12 w-12 shrink-0 rounded-full bg-white/90 shadow-sm backdrop-blur-xs"
               >
                 <Share2 className="size-7" />
@@ -254,12 +254,12 @@ export function StyleView({ item, returnUrl, eyebrow, brandName, className }: It
               </p>
             )}
             <h1 className="text-xl font-bold leading-tight tracking-tight text-theme-text-primary sm:text-2xl">
-              {item.name}
+              {style.name}
             </h1>
 
             {reviewCount > 0 && (
               <a
-                href="#item-reviews"
+                href="#style-reviews"
                 className="inline-flex items-center gap-2 rounded-full text-sm text-theme-text-subtle transition-colors hover:text-theme-primary"
               >
                 <ReviewRatingStars rating={averageRating} size="sm" showScore />
@@ -270,9 +270,9 @@ export function StyleView({ item, returnUrl, eyebrow, brandName, className }: It
             )}
 
             {/* 3. Short description */}
-            {item.shortDescription && (
+            {style.shortDescription && (
               <p className="pt-1 text-sm leading-relaxed text-theme-text-subtle">
-                {item.shortDescription}
+                {style.shortDescription}
               </p>
             )}
           </div>
@@ -280,8 +280,8 @@ export function StyleView({ item, returnUrl, eyebrow, brandName, className }: It
           {/* 7. Amount - this exact combination, with any offer applied */}
           <StylePriceBlock
             size={selectedUnitPrice}
-            minPrice={item.minPrice}
-            maxPrice={item.maxPrice}
+            minPrice={style.minPrice}
+            maxPrice={style.maxPrice}
             className="py-3"
           />
 
@@ -396,7 +396,7 @@ export function StyleView({ item, returnUrl, eyebrow, brandName, className }: It
           {/* 6. Extra attributes - below the buy buttons so they don't push
               Add to cart down the page. */}
           <StyleAttributeFacts
-            item={item}
+            style={style}
             selectedColor={selectedColor}
             selectedSize={selectedUnitPrice}
           />
@@ -449,11 +449,11 @@ export function StyleView({ item, returnUrl, eyebrow, brandName, className }: It
       </section>
 
       {/* 10. Reviews and ratings, for the Colour on screen */}
-      <section id="item-reviews" className="scroll-mt-24">
+      <section id="style-reviews" className="scroll-mt-24">
         <ProductReviewsSection
           variantId={selectedColor?.id}
           variantName={selectedColor?.colorName ?? selectedColor?.variantName}
-          productName={item.name}
+          productName={style.name}
           selectedUnitPriceId={selectedUnitPrice?.id ?? null}
           packSizes={sizes}
         />

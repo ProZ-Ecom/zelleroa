@@ -7,7 +7,6 @@ import type {
   CustomerVariantDetailDto,
   CustomerVariantListItemDto,
   CustomerStyleDetailDto,
-  CustomerStyleDetailDto,
 } from "../types/catalog.types";
 
 /**

@@ -19,11 +19,11 @@ import { CUSTOMER_CATALOG_QUERY_KEYS } from "../../hooks/use-customer-catalog";
 const STALE_TIME = 1000 * 60 * 5;
 
 /**
- * The Item card's heart. The wishlist stores Colour+Size rows, so the heart is
- * filled when any row of this Item is saved; clicking saves the Item's default
- * row, or clears every saved row of it when it is already filled.
+ * The Style card's heart. The wishlist stores Colour+Size rows, so the heart is
+ * filled when any row of this Style is saved; clicking saves the Style's
+ * default row, or clears every saved row of it when it is already filled.
  */
-export function StyleWishlistButton({ itemId, className }: { itemId: string; className?: string }) {
+export function StyleWishlistButton({ styleId, className }: { styleId: string; className?: string }) {
   const router = useRouter();
   const pathname = usePathname();
   const { data: session } = useSession();
@@ -34,19 +34,19 @@ export function StyleWishlistButton({ itemId, className }: { itemId: string; cla
   const [busy, setBusy] = useState(false);
 
   const hasSavedRows = (wishlist?.items.length ?? 0) > 0;
-  // Only needed to know which saved rows belong to this Item, so skip the
+  // Only needed to know which saved rows belong to this Style, so skip the
   // fetch entirely for shoppers with an empty wishlist.
-  const { data: item } = useQuery({
-    queryKey: CUSTOMER_CATALOG_QUERY_KEYS.item(itemId),
-    queryFn: () => customerCatalogApi.getItem(itemId),
+  const { data: style } = useQuery({
+    queryKey: CUSTOMER_CATALOG_QUERY_KEYS.style(styleId),
+    queryFn: () => customerCatalogApi.getStyle(styleId),
     staleTime: STALE_TIME,
     enabled: !!session && hasSavedRows,
   });
 
   const savedRowIds = new Set(wishlist?.items.map((entry) => entry.variantUnitPriceId));
-  const itemRowIds = item?.colors.flatMap((color) => color.unitPrices.map((up) => up.id)) ?? [];
-  const savedItemRowIds = itemRowIds.filter((id) => savedRowIds.has(id));
-  const isSaved = savedItemRowIds.length > 0;
+  const styleRowIds = style?.colors.flatMap((color) => color.unitPrices.map((up) => up.id)) ?? [];
+  const savedStyleRowIds = styleRowIds.filter((id) => savedRowIds.has(id));
+  const isSaved = savedStyleRowIds.length > 0;
 
   const handleClick = async () => {
     if (!session) {
@@ -57,8 +57,8 @@ export function StyleWishlistButton({ itemId, className }: { itemId: string; cla
     setBusy(true);
     try {
       const current = await queryClient.fetchQuery({
-        queryKey: CUSTOMER_CATALOG_QUERY_KEYS.item(itemId),
-        queryFn: () => customerCatalogApi.getItem(itemId),
+        queryKey: CUSTOMER_CATALOG_QUERY_KEYS.style(styleId),
+        queryFn: () => customerCatalogApi.getStyle(styleId),
         staleTime: STALE_TIME,
       });
       const rowIds = current.colors.flatMap((color) => color.unitPrices.map((up) => up.id));

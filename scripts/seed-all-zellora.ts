@@ -89,15 +89,14 @@ async function main() {
     "inventory_reservations",
     "inventories",
 
-    // 7. Variants, Items, Styles & Prices
+    // 7. Variants, Styles & Prices
     "variant_price_history",
     "variant_unit_price_attribute_values",
     "variant_attribute_values",
-    "item_attribute_values",
+    "style_attribute_values",
     "variant_unit_prices",
     "product_variant_images",
     "product_variants",
-    "items",
     "style_images",
     "styles",
 
@@ -1659,28 +1658,11 @@ async function main() {
       });
     }
 
-    // 4. Create Item (Sub-variant / Fit)
-    const item = await prisma.item.create({
-      data: {
-        uuid: crypto.randomUUID(),
-        styleId: style.id,
-        name: itemDef.name,
-        slug: `${itemDef.slug}-item`,
-        sku: `ITM-${itemDef.slug.slice(0, 15).toUpperCase()}`,
-        short_description: itemDef.shortDescription,
-        description: itemDef.description,
-        base_price: itemDef.basePrice,
-        is_default: true,
-        isActive: true,
-        out_of_stock: false,
-      },
-    });
-
-    // 5. Create ProductVariant (Color)
+    // 4. Create ProductVariant (Color)
     const variant = await prisma.productVariant.create({
       data: {
         uuid: crypto.randomUUID(),
-        itemId: item.id,
+        styleId: style.id,
         variant_name: itemDef.colorName,
         slug: `${itemDef.slug}-${itemDef.colorName.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`,
         color_name: itemDef.colorName,
@@ -1856,7 +1838,7 @@ async function main() {
   for (const ord of sampleOrderConfigs) {
     const style = seededStyles[ord.styleIdx];
     const product = seededProducts.find((p) => p.id === style.productId) || seededProducts[0];
-    const variant = seededVariants.find((v) => v.itemId !== undefined) || seededVariants[0];
+    const variant = seededVariants.find((v) => v.styleId === style.id) || seededVariants[0];
     const unitPrice = seededUnitPrices.find((up) => up.variant_id === variant.id && up.is_default) || seededUnitPrices[0];
 
     const createdOrder = await prisma.order.create({

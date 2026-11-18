@@ -92,12 +92,13 @@ export function StyleCard(props: StyleCardProps | CompactStyleCardProps) {
 
   const isOut = item.stockStatus === "out_of_stock";
   const extraColours = item.colors.length - MAX_SWATCHES;
-  const displayName = toTitleCase(item.productName || item.name);
+  // The card is a Style, so it leads with the Style's own name.
+  const displayName = toTitleCase(item.name || item.productName);
   const subtitle = item.brand?.name ?? item.category?.name ?? "Zellora";
 
   return (
     <div className="group relative flex flex-col overflow-hidden rounded-xl border border-theme-border bg-theme-surface shadow-2xs transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md">
-      <StyleWishlistButton itemId={item.id} className="absolute right-2 top-2 z-10" />
+      <StyleWishlistButton styleId={item.id} className="absolute right-2 top-2 z-10" />
       <Link
         href={styleHref(item.id)}
         onClick={onClick}
@@ -198,7 +199,7 @@ export function StyleCard(props: StyleCardProps | CompactStyleCardProps) {
         </div>
       </Link>
       <div className="px-2.5 pb-2.5 sm:px-3 sm:pb-3">
-        <StyleQuickAdd itemId={item.id} name={displayName} inStock={!isOut} outOfStock={isOut} />
+        <StyleQuickAdd styleId={item.id} name={displayName} inStock={!isOut} outOfStock={isOut} />
       </div>
     </div>
   );

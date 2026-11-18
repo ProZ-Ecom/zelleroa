@@ -18,7 +18,7 @@ export const GET = createApiHandler(
         categoryKey,
         gender,
         productLimit: 6,
-        itemLimit: 4,
+        styleLimit: 4,
       });
       return apiSuccess(menu, "Category menu fetched successfully");
     },
