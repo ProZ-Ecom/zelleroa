@@ -285,38 +285,40 @@ export default function AdminCategoriesPage() {
           />
 
           <div className="mt-6 flex-1 min-h-0 flex flex-col">
-            <div className="flex flex-wrap items-center gap-2 mb-4">
-              <button
-                type="button"
-                onClick={() => { setLevelFilter("root"); setPage(1); }}
-                className={`px-3.5 py-1.5 text-xs font-semibold rounded-xl transition-all cursor-pointer ${levelFilter === "root"
-                    ? "bg-stone-900 text-[#D4AF37] shadow-sm"
-                    : "bg-white text-stone-600 hover:bg-stone-100 border border-stone-200"
-                  }`}
-              >
-                Main Departments ({rootCategories.length})
-              </button>
-              <button
-                type="button"
-                onClick={() => { setLevelFilter("sub"); setPage(1); }}
-                className={`px-3.5 py-1.5 text-xs font-semibold rounded-xl transition-all cursor-pointer ${levelFilter === "sub"
-                    ? "bg-stone-900 text-[#D4AF37] shadow-sm"
-                    : "bg-white text-stone-600 hover:bg-stone-100 border border-stone-200"
-                  }`}
-              >
-                Subcategories ({subCategories.length})
-              </button>
-              <button
-                type="button"
-                onClick={() => { setLevelFilter("all"); setPage(1); }}
-                className={`px-3.5 py-1.5 text-xs font-semibold rounded-xl transition-all cursor-pointer ${levelFilter === "all"
-                    ? "bg-stone-900 text-[#D4AF37] shadow-sm"
-                    : "bg-white text-stone-600 hover:bg-stone-100 border border-stone-200"
-                  }`}
-              >
-                All Categories ({allCategories.length})
-              </button>
-            </div>
+            {subCategories.length > 0 && (
+              <div className="flex flex-wrap items-center gap-2 mb-4">
+                <button
+                  type="button"
+                  onClick={() => { setLevelFilter("root"); setPage(1); }}
+                  className={`px-3.5 py-1.5 text-xs font-semibold rounded-xl transition-all cursor-pointer ${levelFilter === "root"
+                      ? "bg-stone-900 text-[#D4AF37] shadow-sm"
+                      : "bg-white text-stone-600 hover:bg-stone-100 border border-stone-200"
+                    }`}
+                >
+                  Main Departments ({rootCategories.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setLevelFilter("sub"); setPage(1); }}
+                  className={`px-3.5 py-1.5 text-xs font-semibold rounded-xl transition-all cursor-pointer ${levelFilter === "sub"
+                      ? "bg-stone-900 text-[#D4AF37] shadow-sm"
+                      : "bg-white text-stone-600 hover:bg-stone-100 border border-stone-200"
+                    }`}
+                >
+                  Subcategories ({subCategories.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setLevelFilter("all"); setPage(1); }}
+                  className={`px-3.5 py-1.5 text-xs font-semibold rounded-xl transition-all cursor-pointer ${levelFilter === "all"
+                      ? "bg-stone-900 text-[#D4AF37] shadow-sm"
+                      : "bg-white text-stone-600 hover:bg-stone-100 border border-stone-200"
+                    }`}
+                >
+                  All Categories ({allCategories.length})
+                </button>
+              </div>
+            )}
 
             <DataTable
               columns={columns}

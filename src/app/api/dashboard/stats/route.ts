@@ -124,12 +124,12 @@ async function agentStats(periodStart: Date) {
   const agentIds = agentOrders.map((a) => a.agent_id!);
   const [users, profiles] = agentIds.length
     ? await Promise.all([
-        db.user.findMany({ where: { id: { in: agentIds } }, select: { id: true, uuid: true, name: true } }),
-        db.agent_profiles.findMany({
-          where: { user_id: { in: agentIds } },
-          select: { user_id: true, agent_code: true },
-        }),
-      ])
+      db.user.findMany({ where: { id: { in: agentIds } }, select: { id: true, uuid: true, name: true } }),
+      db.agent_profiles.findMany({
+        where: { user_id: { in: agentIds } },
+        select: { user_id: true, agent_code: true },
+      }),
+    ])
     : [[], []];
 
   return {

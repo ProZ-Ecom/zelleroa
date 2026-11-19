@@ -672,172 +672,42 @@ async function main() {
       slug: "women",
       description: "Designer women's fashion, ethnic couture, dresses, footwear, bags, and luxury accessories.",
       image: "https://images.unsplash.com/photo-1496747611176-843222e1e57c?auto=format&fit=crop&w=800&q=80",
-      children: [
-        {
-          name: "Clothing",
-          slug: "women-clothing",
-          image: "https://images.unsplash.com/photo-1595777457583-95e059d581b8?w=800&auto=format&fit=crop&q=80",
-          description: "Elevated women's apparel from dresses to handloom ethnic wear.",
-          children: [
-            { name: "Dresses", slug: "women-dresses", image: "https://images.unsplash.com/photo-1595777457583-95e059d581b8?w=800&auto=format&fit=crop&q=80" },
-            { name: "Tops", slug: "women-tops", image: "https://images.unsplash.com/photo-1503342217505-b0a15ec3261c?w=800&auto=format&fit=crop&q=80" },
-            { name: "T-Shirts", slug: "women-t-shirts", image: "https://images.unsplash.com/photo-1521572267360-ee0c2909d518?w=800&auto=format&fit=crop&q=80" },
-            { name: "Shirts", slug: "women-shirts", image: "https://images.unsplash.com/photo-1598033129183-c4f50c736f10?w=800&auto=format&fit=crop&q=80" },
-            { name: "Jeans", slug: "women-jeans", image: "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?w=800&auto=format&fit=crop&q=80" },
-            { name: "Trousers", slug: "women-trousers", image: "https://images.unsplash.com/photo-1594633312681-425c7b97ccd1?w=800&auto=format&fit=crop&q=80" },
-            { name: "Skirts", slug: "women-skirts", image: "https://images.unsplash.com/photo-1583496661160-fb5886a0aaaa?w=800&auto=format&fit=crop&q=80" },
-            { name: "Kurtis", slug: "women-kurtis", image: "https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=800&auto=format&fit=crop&q=80" },
-            { name: "Ethnic Wear", slug: "women-ethnic-wear", image: "https://images.unsplash.com/photo-1617627143750-d86bc21e42bb?w=800&auto=format&fit=crop&q=80" },
-            { name: "Sarees", slug: "women-sarees", image: "https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=800&auto=format&fit=crop&q=80" },
-            { name: "Co-ords", slug: "women-co-ords", image: "https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=800&auto=format&fit=crop&q=80" },
-          ],
-        },
-        {
-          name: "Footwear",
-          slug: "women-footwear",
-          image: "https://images.unsplash.com/photo-1543163521-1bf539c55dd2?w=800&auto=format&fit=crop&q=80",
-          children: [
-            { name: "Heels", slug: "women-heels", image: "https://images.unsplash.com/photo-1543163521-1bf539c55dd2?w=800&auto=format&fit=crop&q=80" },
-            { name: "Flats", slug: "women-flats", image: "https://images.unsplash.com/photo-1560343090-f0409e92791a?w=800&auto=format&fit=crop&q=80" },
-            { name: "Sneakers", slug: "women-sneakers", image: "https://images.unsplash.com/photo-1595950653106-6c9ebd614d3a?w=800&auto=format&fit=crop&q=80" },
-            { name: "Sandals", slug: "women-sandals", image: "https://images.unsplash.com/photo-1603808033192-082d6919d3e1?w=800&auto=format&fit=crop&q=80" },
-          ],
-        },
-        {
-          name: "Bags",
-          slug: "women-bags",
-          image: "https://images.unsplash.com/photo-1584917865442-de89df76afd3?w=800&auto=format&fit=crop&q=80",
-          children: [
-            { name: "Handbags", slug: "women-handbags", image: "https://images.unsplash.com/photo-1584917865442-de89df76afd3?w=800&auto=format&fit=crop&q=80" },
-            { name: "Shoulder Bags", slug: "women-shoulder-bags", image: "https://images.unsplash.com/photo-1548036328-c9fa89d128fa?w=800&auto=format&fit=crop&q=80" },
-            { name: "Sling Bags", slug: "women-sling-bags", image: "https://images.unsplash.com/photo-1590874103328-eac38a683ce7?w=800&auto=format&fit=crop&q=80" },
-            { name: "Tote Bags", slug: "women-tote-bags", image: "https://images.unsplash.com/photo-1591561954557-26941169b49e?w=800&auto=format&fit=crop&q=80" },
-          ],
-        },
-        {
-          name: "Accessories",
-          slug: "women-accessories",
-          image: "https://images.unsplash.com/photo-1535632066927-ab7c9ab60908?w=800&auto=format&fit=crop&q=80",
-          children: [
-            { name: "Jewellery", slug: "women-jewellery", image: "https://images.unsplash.com/photo-1599643478518-a784e5dc4c8f?w=800&auto=format&fit=crop&q=80" },
-            { name: "Sunglasses", slug: "women-sunglasses", image: "https://images.unsplash.com/photo-1511499767150-a48a237f0083?w=800&auto=format&fit=crop&q=80" },
-            { name: "Watches", slug: "women-watches", image: "https://images.unsplash.com/photo-1524805444758-089113d48a6d?w=800&auto=format&fit=crop&q=80" },
-            { name: "Scarves", slug: "women-scarves", image: "https://images.unsplash.com/photo-1601924994987-69e26d50dc26?w=800&auto=format&fit=crop&q=80" },
-          ],
-        },
-      ],
     },
     {
       name: "Men",
       slug: "men",
       description: "Refined men's tailoring, linen shirts, casual luxury, and timepieces.",
       image: "https://images.unsplash.com/photo-1617137968427-85924c800a22?auto=format&fit=crop&w=800&q=80",
-      children: [
-        {
-          name: "Clothing",
-          slug: "men-clothing",
-          image: "https://images.unsplash.com/photo-1602810318383-e386cc2a3ccf?w=800&auto=format&fit=crop&q=80",
-          children: [
-            { name: "Shirts", slug: "men-shirts", image: "https://images.unsplash.com/photo-1602810318383-e386cc2a3ccf?w=800&auto=format&fit=crop&q=80" },
-            { name: "T-Shirts", slug: "men-t-shirts", image: "https://images.unsplash.com/photo-1521572267360-ee0c2909d518?w=800&auto=format&fit=crop&q=80" },
-            { name: "Jeans", slug: "men-jeans", image: "https://images.unsplash.com/photo-1542272604-780c96856592?w=800&auto=format&fit=crop&q=80" },
-            { name: "Trousers", slug: "men-trousers", image: "https://images.unsplash.com/photo-1624378439575-d8705ad7ae80?w=800&auto=format&fit=crop&q=80" },
-            { name: "Chinos", slug: "men-chinos", image: "https://images.unsplash.com/photo-1473966968600-fa801b869a1a?w=800&auto=format&fit=crop&q=80" },
-            { name: "Suits & Blazers", slug: "men-suits-blazers", image: "https://images.unsplash.com/photo-1507679799987-c73779587ccf?w=800&auto=format&fit=crop&q=80" },
-          ],
-        },
-        {
-          name: "Footwear",
-          slug: "men-footwear",
-          image: "https://images.unsplash.com/photo-1614252235316-8c857d38b5f4?w=800&auto=format&fit=crop&q=80",
-          children: [
-            { name: "Loafers", slug: "men-loafers", image: "https://images.unsplash.com/photo-1614252235316-8c857d38b5f4?w=800&auto=format&fit=crop&q=80" },
-            { name: "Sneakers", slug: "men-sneakers", image: "https://images.unsplash.com/photo-1525966222134-fcfa99b8ae77?w=800&auto=format&fit=crop&q=80" },
-            { name: "Formal Shoes", slug: "men-formal-shoes", image: "https://images.unsplash.com/photo-1533867617858-e7b97e060509?w=800&auto=format&fit=crop&q=80" },
-          ],
-        },
-        {
-          name: "Accessories",
-          slug: "men-accessories",
-          image: "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800&auto=format&fit=crop&q=80",
-          children: [
-            { name: "Watches", slug: "men-watches", image: "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800&auto=format&fit=crop&q=80" },
-            { name: "Belts", slug: "men-belts", image: "https://images.unsplash.com/photo-1624222247344-550fb60583dc?w=800&auto=format&fit=crop&q=80" },
-            { name: "Wallets", slug: "men-wallets", image: "https://images.unsplash.com/photo-1627123424574-724758594e93?w=800&auto=format&fit=crop&q=80" },
-            { name: "Sunglasses", slug: "men-sunglasses", image: "https://images.unsplash.com/photo-1511499767150-a48a237f0083?w=800&auto=format&fit=crop&q=80" },
-          ],
-        },
-      ],
     },
     {
       name: "Kids",
       slug: "kids",
-      description: "Adorable, comfortable, and festive outfits for boys, girls, and infants.",
+      description: "Designer couture, festive wear, and adorable premium clothing for boys, girls, and infants.",
       image: "https://images.unsplash.com/photo-1503944583220-79d8926ad5e2?auto=format&fit=crop&w=800&q=80",
-      children: [
-        {
-          name: "Boys Clothing",
-          slug: "kids-boys",
-          image: "https://images.unsplash.com/photo-1519457431-44ccd64a579b?auto=format&fit=crop&w=800&q=80",
-        },
-        {
-          name: "Girls Clothing",
-          slug: "kids-girls",
-          image: "https://images.unsplash.com/photo-1622290291468-a28f7a7dc6a8?auto=format&fit=crop&w=800&q=80",
-        },
-        {
-          name: "Infants & Baby",
-          slug: "kids-baby",
-          image: "https://images.unsplash.com/photo-1522771930-78848d9293e8?auto=format&fit=crop&w=800&q=80",
-        },
-      ],
     },
     {
       name: "Luxury Watches",
       slug: "luxury-watches",
       description: "Sapphire glass automatics, minimalist rose gold chronographs, and precision dials.",
-      image: "https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&w=800&q=80",
-      children: [
-        { name: "Automatic Watches", slug: "watches-automatic", image: "https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?w=800&auto=format&fit=crop&q=80" },
-        { name: "Chronographs", slug: "watches-chronographs", image: "https://images.unsplash.com/photo-1524805444758-089113d48a6d?w=800&auto=format&fit=crop&q=80" },
-        { name: "Minimalist Watches", slug: "watches-minimalist", image: "https://images.unsplash.com/photo-1508685096489-7aacd43bd3b1?w=800&auto=format&fit=crop&q=80" },
-      ],
+      image: "https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?auto=format&fit=crop&w=800&q=80",
     },
     {
       name: "Bags & Leather",
       slug: "bags-leather",
       description: "Full-grain leather totes, lambskin crossbody bags, and travel duffles.",
       image: "https://images.unsplash.com/photo-1548036328-c9fa89d128fa?auto=format&fit=crop&w=800&q=80",
-      children: [
-        { name: "Leather Totes", slug: "bags-totes", image: "https://images.unsplash.com/photo-1591561954557-26941169b49e?w=800&auto=format&fit=crop&q=80" },
-        { name: "Crossbody Bags", slug: "bags-crossbody", image: "https://images.unsplash.com/photo-1548036328-c9fa89d128fa?w=800&auto=format&fit=crop&q=80" },
-        { name: "Travel Duffles", slug: "bags-duffles", image: "https://images.unsplash.com/photo-1553062407-98eeb64c6a62?w=800&auto=format&fit=crop&q=80" },
-        { name: "Wallets & Clutches", slug: "bags-wallets", image: "https://images.unsplash.com/photo-1627123424574-724758594e93?w=800&auto=format&fit=crop&q=80" },
-      ],
     },
     {
       name: "Fine Jewellery",
       slug: "fine-jewellery",
       description: "18K gold-plated earrings, Baroque pearl drops, and diamond constellation necklaces.",
       image: "https://images.unsplash.com/photo-1599643478518-a784e5dc4c8f?auto=format&fit=crop&w=800&q=80",
-      children: [
-        { name: "Earrings", slug: "jewellery-earrings", image: "https://images.unsplash.com/photo-1535632066927-ab7c9ab60908?w=800&auto=format&fit=crop&q=80" },
-        { name: "Necklaces & Pendants", slug: "jewellery-necklaces", image: "https://images.unsplash.com/photo-1599643478518-a784e5dc4c8f?w=800&auto=format&fit=crop&q=80" },
-        { name: "Bracelets & Bangles", slug: "jewellery-bracelets", image: "https://images.unsplash.com/photo-1611591475819-0f2c41935c1a?w=800&auto=format&fit=crop&q=80" },
-        { name: "Rings", slug: "jewellery-rings", image: "https://images.unsplash.com/photo-1605100804763-247f67b3557e?w=800&auto=format&fit=crop&q=80" },
-      ],
     },
     {
       name: "Electronics",
       slug: "electronics",
       description: "Flagship smartphones, true wireless earbuds, active noise-cancelling headphones, and smartwatches.",
       image: "https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?auto=format&fit=crop&w=800&q=80",
-      children: [
-        { name: "Smartphones", slug: "electronics-smartphones" },
-        { name: "AirPods & Wireless Earbuds", slug: "electronics-earbuds" },
-        { name: "Headphones", slug: "electronics-headphones" },
-        { name: "Smartwatches", slug: "electronics-smartwatches" },
-      ],
     },
   ];
 
@@ -968,7 +838,7 @@ async function main() {
       badgeLabel: "FESTIVE EDIT",
       priceText: "Up to 30% Off",
       imageUrl: "https://images.unsplash.com/photo-1610030469983-98e550d6193c?auto=format&fit=crop&w=1600&q=80",
-      linkUrl: "/products?category=women-ethnic-wear",
+      linkUrl: "/products?category=women",
       sortOrder: 1,
     },
     {
@@ -1085,9 +955,9 @@ async function main() {
     {
       name: "Emerald Silk Satin Maxi Dress",
       slug: "emerald-silk-satin-maxi-dress",
-      productName: "Silk Evening Gowns & Maxi Dresses",
-      productSlug: "silk-evening-gowns-maxi-dresses",
-      categorySlug: "women-dresses",
+      productName: "Dresses & Gowns",
+      productSlug: "women-dresses",
+      categorySlug: "women",
       brand: brandCouture,
       gender: "women",
       primaryImage: "https://images.unsplash.com/photo-1595777457583-95e059d581b8?w=800&auto=format&fit=crop&q=80",
@@ -1111,9 +981,9 @@ async function main() {
     {
       name: "Midnight Velvet Off-Shoulder Evening Gown",
       slug: "midnight-velvet-evening-gown",
-      productName: "Velvet Cocktail & Evening Gowns",
-      productSlug: "velvet-cocktail-evening-gowns",
-      categorySlug: "women-dresses",
+      productName: "Dresses & Gowns",
+      productSlug: "women-dresses",
+      categorySlug: "women",
       brand: brandCouture,
       gender: "women",
       primaryImage: "https://images.unsplash.com/photo-1566174053879-31528523f8ae?w=800&auto=format&fit=crop&q=80",
@@ -1135,9 +1005,9 @@ async function main() {
     {
       name: "Blush Rose Pleated Georgette Cocktail Dress",
       slug: "blush-rose-pleated-cocktail-dress",
-      productName: "Pleated Midi & Cocktail Dresses",
-      productSlug: "pleated-midi-cocktail-dresses",
-      categorySlug: "women-dresses",
+      productName: "Dresses & Gowns",
+      productSlug: "women-dresses",
+      categorySlug: "women",
       brand: brandCouture,
       gender: "women",
       primaryImage: "https://images.unsplash.com/photo-1572804013309-59a88b7e92f1?w=800&auto=format&fit=crop&q=80",
@@ -1157,9 +1027,9 @@ async function main() {
     {
       name: "Floral Tiered Chiffon Sundress",
       slug: "floral-tiered-chiffon-sundress",
-      productName: "Chiffon Sundresses",
-      productSlug: "chiffon-sundresses",
-      categorySlug: "women-dresses",
+      productName: "Dresses & Gowns",
+      productSlug: "women-dresses",
+      categorySlug: "women",
       brand: brandCouture,
       gender: "women",
       primaryImage: "https://images.unsplash.com/photo-1515372039744-b8f02a3ae446?w=800&auto=format&fit=crop&q=80",
@@ -1181,9 +1051,9 @@ async function main() {
     {
       name: "Chanderi Silk Embroidered Anarkali Set",
       slug: "chanderi-silk-embroidered-anarkali-set",
-      productName: "Festive Anarkali Sets",
-      productSlug: "festive-anarkali-sets",
-      categorySlug: "women-ethnic-wear",
+      productName: "Kurtis & Ethnic Wear",
+      productSlug: "women-ethnic-wear",
+      categorySlug: "women",
       brand: brandCouture,
       gender: "women",
       primaryImage: "https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=800&auto=format&fit=crop&q=80",
@@ -1206,9 +1076,9 @@ async function main() {
     {
       name: "Handloom Cotton Straight Kurti with Trousers",
       slug: "handloom-cotton-straight-kurti",
-      productName: "Handloom Daily Kurtis",
-      productSlug: "handloom-daily-kurtis",
-      categorySlug: "women-kurtis",
+      productName: "Kurtis & Ethnic Wear",
+      productSlug: "women-ethnic-wear",
+      categorySlug: "women",
       brand: brandCouture,
       gender: "women",
       primaryImage: "https://images.unsplash.com/photo-1583391733956-3750e0ff4e8b?w=800&auto=format&fit=crop&q=80",
@@ -1228,9 +1098,9 @@ async function main() {
     {
       name: "Royal Indigo Ajrakh Block-Print Kurta",
       slug: "royal-indigo-ajrakh-print-kurta",
-      productName: "Ajrakh Artisanal Kurtas",
-      productSlug: "ajrakh-artisanal-kurtas",
-      categorySlug: "women-kurtis",
+      productName: "Kurtis & Ethnic Wear",
+      productSlug: "women-ethnic-wear",
+      categorySlug: "women",
       brand: brandCouture,
       gender: "women",
       primaryImage: "https://images.unsplash.com/photo-1617627143750-d86bc21e42bb?w=800&auto=format&fit=crop&q=80",
@@ -1252,9 +1122,9 @@ async function main() {
     {
       name: "Pure French Linen Relaxed Shirt",
       slug: "pure-french-linen-relaxed-shirt",
-      productName: "Pure Linen Shirts",
-      productSlug: "pure-linen-shirts",
-      categorySlug: "men-shirts",
+      productName: "Shirts",
+      productSlug: "men-shirts",
+      categorySlug: "men",
       brand: brandMen,
       gender: "men",
       primaryImage: "https://images.unsplash.com/photo-1602810318383-e386cc2a3ccf?w=800&auto=format&fit=crop&q=80",
@@ -1276,9 +1146,9 @@ async function main() {
     {
       name: "Oxford Classic Slim-Fit Cotton Shirt",
       slug: "oxford-classic-slim-fit-cotton-shirt",
-      productName: "Classic Oxford Shirts",
-      productSlug: "classic-oxford-shirts",
-      categorySlug: "men-shirts",
+      productName: "Shirts",
+      productSlug: "men-shirts",
+      categorySlug: "men",
       brand: brandMen,
       gender: "men",
       primaryImage: "https://images.unsplash.com/photo-1596755094514-f87e34085b2c?w=800&auto=format&fit=crop&q=80",
@@ -1298,9 +1168,9 @@ async function main() {
     {
       name: "Textured Cuban Collar Resort Shirt",
       slug: "textured-cuban-collar-resort-shirt",
-      productName: "Cuban Collar Resort Shirts",
-      productSlug: "cuban-collar-resort-shirts",
-      categorySlug: "men-shirts",
+      productName: "Shirts",
+      productSlug: "men-shirts",
+      categorySlug: "men",
       brand: brandMen,
       gender: "men",
       primaryImage: "https://images.unsplash.com/photo-1598033129183-c4f50c736f10?w=800&auto=format&fit=crop&q=80",
@@ -1321,9 +1191,9 @@ async function main() {
     {
       name: "Tailored Italian Stretch Cotton Chinos",
       slug: "tailored-italian-stretch-cotton-chinos",
-      productName: "Italian Chinos & Trousers",
-      productSlug: "italian-chinos-trousers",
-      categorySlug: "men-chinos",
+      productName: "Trousers & Jeans",
+      productSlug: "men-trousers-jeans",
+      categorySlug: "men",
       brand: brandMen,
       gender: "men",
       primaryImage: "https://images.unsplash.com/photo-1624378439575-d8705ad7ae80?w=800&auto=format&fit=crop&q=80",
@@ -1343,9 +1213,9 @@ async function main() {
     {
       name: "Vintage Indigo Selvedge Denim Jeans",
       slug: "vintage-indigo-selvedge-denim-jeans",
-      productName: "Selvedge Denim Jeans",
-      productSlug: "selvedge-denim-jeans",
-      categorySlug: "men-jeans",
+      productName: "Trousers & Jeans",
+      productSlug: "men-trousers-jeans",
+      categorySlug: "men",
       brand: brandMen,
       gender: "men",
       primaryImage: "https://images.unsplash.com/photo-1542272454315-4c01d7abdf4a?w=800&auto=format&fit=crop&q=80",
@@ -1369,9 +1239,9 @@ async function main() {
     {
       name: "AeroChrono Classic Tachymeter Watch",
       slug: "aerochrono-classic-tachymeter-watch",
-      productName: "Analog Chronograph Watches",
-      productSlug: "analog-chronograph-watches",
-      categorySlug: "watches-chronographs",
+      productName: "Luxury Timepieces",
+      productSlug: "luxury-timepieces",
+      categorySlug: "luxury-watches",
       brand: brandChrono,
       gender: "unisex",
       primaryImage: "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800&auto=format&fit=crop&q=80",
@@ -1390,9 +1260,9 @@ async function main() {
     {
       name: "Aura Rose Gold Minimalist Women's Watch",
       slug: "aura-rose-gold-minimalist-watch",
-      productName: "Minimalist Mesh Strap Watches",
-      productSlug: "minimalist-mesh-strap-watches",
-      categorySlug: "watches-minimalist",
+      productName: "Luxury Timepieces",
+      productSlug: "luxury-timepieces",
+      categorySlug: "luxury-watches",
       brand: brandChrono,
       gender: "women",
       primaryImage: "https://images.unsplash.com/photo-1524805444758-089113d48a6d?w=800&auto=format&fit=crop&q=80",
@@ -1409,9 +1279,9 @@ async function main() {
     {
       name: "Heritage Automatic Skeleton Leather Watch",
       slug: "heritage-automatic-skeleton-leather-watch",
-      productName: "Automatic Skeleton Watches",
-      productSlug: "automatic-skeleton-watches",
-      categorySlug: "watches-automatic",
+      productName: "Luxury Timepieces",
+      productSlug: "luxury-timepieces",
+      categorySlug: "luxury-watches",
       brand: brandChrono,
       gender: "men",
       primaryImage: "https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?w=800&auto=format&fit=crop&q=80",
@@ -1430,9 +1300,9 @@ async function main() {
     {
       name: "Sienna Full-Grain Leather Everyday Tote",
       slug: "sienna-full-grain-leather-tote",
-      productName: "Leather Handbags & Totes",
-      productSlug: "leather-handbags-totes",
-      categorySlug: "bags-totes",
+      productName: "Handbags & Leather Totes",
+      productSlug: "handbags-leather-totes",
+      categorySlug: "bags-leather",
       brand: brandAtelier,
       gender: "unisex",
       primaryImage: "https://images.unsplash.com/photo-1548036328-c9fa89d128fa?w=800&auto=format&fit=crop&q=80",
@@ -1451,9 +1321,9 @@ async function main() {
     {
       name: "Capri Quilted Crossbody Chain Bag",
       slug: "capri-quilted-crossbody-chain-bag",
-      productName: "Quilted Crossbody Bags",
-      productSlug: "quilted-crossbody-bags",
-      categorySlug: "bags-crossbody",
+      productName: "Handbags & Leather Totes",
+      productSlug: "handbags-leather-totes",
+      categorySlug: "bags-leather",
       brand: brandAtelier,
       gender: "women",
       primaryImage: "https://images.unsplash.com/photo-1584917865442-de89df76afd3?w=800&auto=format&fit=crop&q=80",
@@ -1472,9 +1342,9 @@ async function main() {
     {
       name: "Verona Pointed Toe Stiletto Heels",
       slug: "verona-pointed-toe-stiletto-heels",
-      productName: "Designer Stiletto Heels",
-      productSlug: "designer-stiletto-heels",
-      categorySlug: "women-heels",
+      productName: "Women Footwear",
+      productSlug: "women-footwear",
+      categorySlug: "women",
       brand: brandFootwear,
       gender: "women",
       primaryImage: "https://images.unsplash.com/photo-1543163521-1bf539c55dd2?w=800&auto=format&fit=crop&q=80",
@@ -1493,9 +1363,9 @@ async function main() {
     {
       name: "Amalfi Handcrafted Calfskin Penny Loafers",
       slug: "amalfi-calfskin-penny-loafers",
-      productName: "Calfskin Penny Loafers",
-      productSlug: "calfskin-penny-loafers",
-      categorySlug: "men-loafers",
+      productName: "Men Footwear",
+      productSlug: "men-footwear",
+      categorySlug: "men",
       brand: brandFootwear,
       gender: "men",
       primaryImage: "https://images.unsplash.com/photo-1614252235316-8c857d38b5f4?w=800&auto=format&fit=crop&q=80",
@@ -1516,9 +1386,9 @@ async function main() {
     {
       name: "18K Gold Plated Baroque Pearl Drop Earrings",
       slug: "baroque-pearl-drop-earrings",
-      productName: "Baroque Pearl Earrings",
-      productSlug: "baroque-pearl-earrings",
-      categorySlug: "jewellery-earrings",
+      productName: "Fine Jewellery Pieces",
+      productSlug: "fine-jewellery-pieces",
+      categorySlug: "fine-jewellery",
       brand: brandJewels,
       gender: "women",
       primaryImage: "https://images.unsplash.com/photo-1535632066927-ab7c9ab60908?w=800&auto=format&fit=crop&q=80",
@@ -1535,9 +1405,9 @@ async function main() {
     {
       name: "Celestial Diamond Pavé Constellation Necklace",
       slug: "celestial-diamond-pave-constellation-necklace",
-      productName: "Constellation Necklaces",
-      productSlug: "constellation-necklaces",
-      categorySlug: "jewellery-necklaces",
+      productName: "Fine Jewellery Pieces",
+      productSlug: "fine-jewellery-pieces",
+      categorySlug: "fine-jewellery",
       brand: brandJewels,
       gender: "women",
       primaryImage: "https://images.unsplash.com/photo-1599643478518-a784e5dc4c8f?w=800&auto=format&fit=crop&q=80",
@@ -1556,9 +1426,9 @@ async function main() {
     {
       name: "Boys Tailored Linen Nehru Jacket & Kurta Set",
       slug: "boys-tailored-linen-kurta-set",
-      productName: "Boys Festive Kurta Sets",
-      productSlug: "boys-festive-kurta-sets",
-      categorySlug: "kids-boys",
+      productName: "Boys Wear",
+      productSlug: "kids-boys-wear",
+      categorySlug: "kids",
       brand: brandKids,
       gender: "kids",
       primaryImage: "https://images.unsplash.com/photo-1519457431-44ccd64a579b?auto=format&fit=crop&w=800&q=80",
@@ -1577,9 +1447,9 @@ async function main() {
     {
       name: "Boys Classic Check Cotton Oxford Shirt",
       slug: "boys-classic-check-oxford-shirt",
-      productName: "Boys Casual Shirts",
-      productSlug: "boys-casual-shirts",
-      categorySlug: "kids-boys",
+      productName: "Boys Wear",
+      productSlug: "kids-boys-wear",
+      categorySlug: "kids",
       brand: brandKids,
       gender: "kids",
       primaryImage: "https://images.unsplash.com/photo-1503919545889-aef636e10ad4?auto=format&fit=crop&w=800&q=80",
@@ -1598,9 +1468,9 @@ async function main() {
     {
       name: "Girls Tiered Floral Chiffon Party Dress",
       slug: "girls-tiered-floral-party-dress",
-      productName: "Girls Occasion Dresses",
-      productSlug: "girls-occasion-dresses",
-      categorySlug: "kids-girls",
+      productName: "Girls Wear",
+      productSlug: "kids-girls-wear",
+      categorySlug: "kids",
       brand: brandKids,
       gender: "kids",
       primaryImage: "https://images.unsplash.com/photo-1622290291468-a28f7a7dc6a8?auto=format&fit=crop&w=800&q=80",
@@ -1619,9 +1489,9 @@ async function main() {
     {
       name: "Girls Embroidered Cotton Anarkali Frock",
       slug: "girls-embroidered-cotton-anarkali-frock",
-      productName: "Girls Ethnic Wear",
-      productSlug: "girls-ethnic-wear",
-      categorySlug: "kids-girls",
+      productName: "Girls Wear",
+      productSlug: "kids-girls-wear",
+      categorySlug: "kids",
       brand: brandKids,
       gender: "kids",
       primaryImage: "https://images.unsplash.com/photo-1518831959646-742c3a14ebf7?auto=format&fit=crop&w=800&q=80",
@@ -1640,9 +1510,9 @@ async function main() {
     {
       name: "Organic Cotton Ribbed Baby Romper & Hat Set",
       slug: "organic-cotton-baby-romper-set",
-      productName: "Infant Cotton Rompers",
-      productSlug: "infant-cotton-rompers",
-      categorySlug: "kids-baby",
+      productName: "Infants & Baby",
+      productSlug: "kids-baby-wear",
+      categorySlug: "kids",
       brand: brandKids,
       gender: "kids",
       primaryImage: "https://images.unsplash.com/photo-1522771930-78848d9293e8?auto=format&fit=crop&w=800&q=80",
@@ -1659,9 +1529,9 @@ async function main() {
     {
       name: "Pastel Animal Print Kimono Onesie",
       slug: "pastel-animal-print-kimono-onesie",
-      productName: "Baby Sleepsuits & Onesies",
-      productSlug: "baby-sleepsuits-onesies",
-      categorySlug: "kids-baby",
+      productName: "Infants & Baby",
+      productSlug: "kids-baby-wear",
+      categorySlug: "kids",
       brand: brandKids,
       gender: "kids",
       primaryImage: "https://images.unsplash.com/photo-1515488042361-ee00e0ddd4e4?auto=format&fit=crop&w=800&q=80",
@@ -1682,9 +1552,9 @@ async function main() {
     {
       name: "Apple iPhone 16 Pro Max 5G",
       slug: "apple-iphone-16-pro-max-5g",
-      productName: "iPhone 16 Pro Max",
-      productSlug: "apple-iphone-16-pro-max",
-      categorySlug: "electronics-smartphones",
+      productName: "Mobiles",
+      productSlug: "mobiles",
+      categorySlug: "electronics",
       brand: brandApple,
       gender: "unisex",
       primaryImage: "https://images.unsplash.com/photo-1695048133142-1a20484d2569?w=800&auto=format&fit=crop&q=80",
@@ -1733,9 +1603,9 @@ async function main() {
     {
       name: "Samsung Galaxy S24 Ultra AI Smartphone",
       slug: "samsung-galaxy-s24-ultra-5g",
-      productName: "Samsung Galaxy S24 Ultra",
-      productSlug: "samsung-galaxy-s24-ultra",
-      categorySlug: "electronics-smartphones",
+      productName: "Mobiles",
+      productSlug: "mobiles",
+      categorySlug: "electronics",
       brand: brandSamsung,
       gender: "unisex",
       primaryImage: "https://images.unsplash.com/photo-1610945415295-d9bbf067e59c?w=800&auto=format&fit=crop&q=80",
@@ -1774,9 +1644,9 @@ async function main() {
     {
       name: "OnePlus 12 5G Flagship Smartphone",
       slug: "oneplus-12-5g-smartphone",
-      productName: "OnePlus 12 5G",
-      productSlug: "oneplus-12-5g",
-      categorySlug: "electronics-smartphones",
+      productName: "Mobiles",
+      productSlug: "mobiles",
+      categorySlug: "electronics",
       brand: brandOnePlus,
       gender: "unisex",
       primaryImage: "https://images.unsplash.com/photo-1592750475338-74b7b21085ab?w=800&auto=format&fit=crop&q=80",
@@ -1817,9 +1687,9 @@ async function main() {
     {
       name: "OnePlus Nord Buds 4 Pro True Wireless Earbuds",
       slug: "oneplus-nord-buds-4-pro",
-      productName: "OnePlus Nord Buds 4 Pro",
-      productSlug: "oneplus-nord-buds-4-pro",
-      categorySlug: "electronics-earbuds",
+      productName: "AirPods & Wireless Earbuds",
+      productSlug: "airpods-earbuds",
+      categorySlug: "electronics",
       brand: brandOnePlus,
       gender: "unisex",
       primaryImage: "https://images.unsplash.com/photo-1590658268037-6bf12165a8df?w=800&auto=format&fit=crop&q=80",
@@ -1856,9 +1726,9 @@ async function main() {
     {
       name: "boAt Airdopes Alpha Gen 2 Wireless Earbuds",
       slug: "boat-airdopes-alpha-gen-2",
-      productName: "boAt Airdopes Alpha Gen 2",
-      productSlug: "boat-airdopes-alpha-gen-2",
-      categorySlug: "electronics-earbuds",
+      productName: "AirPods & Wireless Earbuds",
+      productSlug: "airpods-earbuds",
+      categorySlug: "electronics",
       brand: brandBoat,
       gender: "unisex",
       primaryImage: "https://images.unsplash.com/photo-1574920162043-b872873f19c8?w=800&auto=format&fit=crop&q=80",
@@ -1903,9 +1773,9 @@ async function main() {
     {
       name: "Apple AirPods Pro (2nd Generation) with MagSafe Case (USB-C)",
       slug: "apple-airpods-pro-2nd-gen-usb-c",
-      productName: "AirPods Pro (2nd Gen)",
-      productSlug: "apple-airpods-pro-2nd-gen",
-      categorySlug: "electronics-earbuds",
+      productName: "AirPods & Wireless Earbuds",
+      productSlug: "airpods-earbuds",
+      categorySlug: "electronics",
       brand: brandApple,
       gender: "unisex",
       primaryImage: "https://images.unsplash.com/photo-1600294037681-c80b4cb5b434?w=800&auto=format&fit=crop&q=80",
@@ -1925,9 +1795,9 @@ async function main() {
     {
       name: "Apple AirPods 4 with Active Noise Cancellation",
       slug: "apple-airpods-4-active-noise-cancellation",
-      productName: "AirPods 4 with ANC",
-      productSlug: "apple-airpods-4-anc",
-      categorySlug: "electronics-earbuds",
+      productName: "AirPods & Wireless Earbuds",
+      productSlug: "airpods-earbuds",
+      categorySlug: "electronics",
       brand: brandApple,
       gender: "unisex",
       primaryImage: "https://images.unsplash.com/photo-1572569511254-d8f925fe2cbb?w=800&auto=format&fit=crop&q=80",
@@ -1950,9 +1820,9 @@ async function main() {
     {
       name: "Apple AirPods Max Wireless Over-Ear Headphones (USB-C)",
       slug: "apple-airpods-max-usb-c-wireless",
-      productName: "AirPods Max",
-      productSlug: "apple-airpods-max",
-      categorySlug: "electronics-headphones",
+      productName: "Headphones",
+      productSlug: "headphones",
+      categorySlug: "electronics",
       brand: brandApple,
       gender: "unisex",
       primaryImage: "https://images.unsplash.com/photo-1628202926206-c63a34b1618f?w=800&auto=format&fit=crop&q=80",
@@ -1989,9 +1859,9 @@ async function main() {
     {
       name: "Sony WH-1000XM5 Wireless Noise Cancelling Headphones",
       slug: "sony-wh-1000xm5-wireless-anc",
-      productName: "Sony WH-1000XM5",
-      productSlug: "sony-wh-1000xm5",
-      categorySlug: "electronics-headphones",
+      productName: "Headphones",
+      productSlug: "headphones",
+      categorySlug: "electronics",
       brand: brandSony,
       gender: "unisex",
       primaryImage: "https://images.unsplash.com/photo-1546435770-a3e426bf472b?w=800&auto=format&fit=crop&q=80",
@@ -2032,9 +1902,9 @@ async function main() {
     {
       name: "Apple Watch Series 10 GPS + Cellular",
       slug: "apple-watch-series-10-cellular",
-      productName: "Apple Watch Series 10",
-      productSlug: "apple-watch-series-10",
-      categorySlug: "electronics-smartwatches",
+      productName: "Smartwatches",
+      productSlug: "smartwatches",
+      categorySlug: "electronics",
       brand: brandApple,
       gender: "unisex",
       primaryImage: "https://images.unsplash.com/photo-1508685096489-7aacd43bd3b1?w=800&auto=format&fit=crop&q=80",
@@ -2069,9 +1939,9 @@ async function main() {
     {
       name: "Samsung Galaxy Watch 7 Bluetooth 44mm",
       slug: "samsung-galaxy-watch-7-44mm",
-      productName: "Samsung Galaxy Watch 7",
-      productSlug: "samsung-galaxy-watch-7",
-      categorySlug: "electronics-smartwatches",
+      productName: "Smartwatches",
+      productSlug: "smartwatches",
+      categorySlug: "electronics",
       brand: brandSamsung,
       gender: "unisex",
       primaryImage: "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800&auto=format&fit=crop&q=80",
@@ -2115,8 +1985,37 @@ async function main() {
   const seededVariants: any[] = [];
   const seededUnitPrices: any[] = [];
 
+  const PRODUCT_HERO_IMAGES: Record<string, string> = {
+    // Electronics
+    "mobiles": "https://images.unsplash.com/photo-1695048133142-1a20484d2569?w=800&auto=format&fit=crop&q=80",
+    "airpods-earbuds": "https://images.unsplash.com/photo-1590658268037-6bf12165a8df?w=800&auto=format&fit=crop&q=80",
+    "headphones": "https://images.unsplash.com/photo-1546435770-a3e426bf472b?w=800&auto=format&fit=crop&q=80",
+    "smartwatches": "https://images.unsplash.com/photo-1508685096489-7aacd43bd3b1?w=800&auto=format&fit=crop&q=80",
+    // Women
+    "women-dresses": "https://images.unsplash.com/photo-1595777457583-95e059d581b8?w=800&auto=format&fit=crop&q=80",
+    "women-ethnic-wear": "https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=800&auto=format&fit=crop&q=80",
+    "women-footwear": "https://images.unsplash.com/photo-1543163521-1bf539c55dd2?w=800&auto=format&fit=crop&q=80",
+    // Men
+    "men-shirts": "https://images.unsplash.com/photo-1602810318383-e386cc2a3ccf?w=800&auto=format&fit=crop&q=80",
+    "men-trousers-jeans": "https://images.unsplash.com/photo-1542272454315-4c01d7abdf4a?w=800&auto=format&fit=crop&q=80",
+    "men-footwear": "https://images.unsplash.com/photo-1614252235316-8c857d38b5f4?w=800&auto=format&fit=crop&q=80",
+    // Kids
+    "kids-boys-wear": "https://images.unsplash.com/photo-1519457431-44ccd64a579b?auto=format&fit=crop&q=80",
+    "kids-girls-wear": "https://images.unsplash.com/photo-1622290291468-a28f7a7dc6a8?auto=format&fit=crop&q=80",
+    "kids-baby-wear": "https://images.unsplash.com/photo-1522771930-78848d9293e8?auto=format&fit=crop&q=80",
+    // Luxury Watches
+    "luxury-timepieces": "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800&auto=format&fit=crop&q=80",
+    // Bags & Leather
+    "handbags-leather-totes": "https://images.unsplash.com/photo-1548036328-c9fa89d128fa?w=800&auto=format&fit=crop&q=80",
+    // Fine Jewellery
+    "fine-jewellery-pieces": "https://images.unsplash.com/photo-1535632066927-ab7c9ab60908?w=800&auto=format&fit=crop&q=80",
+  };
+
   for (const itemDef of STYLES_CATALOG) {
-    const category = categoryMap.get(itemDef.categorySlug) || categoryMap.get("women-dresses") || Array.from(categoryMap.values())[0];
+    const category = categoryMap.get(itemDef.categorySlug);
+    if (!category) {
+      throw new Error(`Category not found for slug: "${itemDef.categorySlug}"`);
+    }
 
     // 1. Create or Find Parent Product
     let product = await prisma.product.findFirst({ where: { slug: itemDef.productSlug } });
@@ -2127,7 +2026,7 @@ async function main() {
           name: itemDef.productName,
           slug: itemDef.productSlug,
           categoryId: category.id,
-          gender: (itemDef.gender as any) || "women",
+          gender: (itemDef.gender as any) || "unisex",
           brandId: itemDef.brand.id,
           isActive: true,
           status: true,
@@ -2135,6 +2034,19 @@ async function main() {
       });
       totalProducts++;
       seededProducts.push(product);
+
+      // Create ProductImage so the Product list table has an image thumbnail!
+      const productImage = PRODUCT_HERO_IMAGES[itemDef.productSlug] || itemDef.primaryImage;
+      await prisma.productImage.create({
+        data: {
+          productId: product.id,
+          image_url: productImage,
+          altText: itemDef.productName,
+          isPrimary: true,
+          sortOrder: 0,
+          is_active: true,
+        },
+      });
     }
 
     // 2. Create Style
@@ -2537,7 +2449,7 @@ async function main() {
   console.log("\n=================================================");
   console.log("🎉 ZELLORA MASTER DATABASE SEEDED SUCCESSFULLY!");
   console.log("=================================================");
-  console.log(`📦 Categories:        ${categoryMap.size} (Full 11-root hierarchy)`);
+  console.log(`📦 Categories:        ${categoryMap.size} (7 Root Departments)`);
   console.log(`🏷️ Products:          ${totalProducts}`);
   console.log(`✨ Styles:            ${totalStyles}`);
   console.log(`🎨 Color Variants:    ${totalVariants}`);
