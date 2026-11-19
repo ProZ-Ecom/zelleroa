@@ -2,34 +2,37 @@
 
 import * as React from "react";
 import { useCategoryListing } from "../../hooks/use-customer-catalog";
-import { ItemCard } from "./ItemCard";
+import { StyleCard } from "./StyleCard";
 
 const FETCH_SIZE = 12;
 
 interface RelatedItemsProps {
-  /** The Item being viewed - never listed among its own related items. */
-  itemId: string;
+  /** The Style or Item being viewed - never listed among its own related items. */
+  styleId?: string;
+  itemId?: string;
   /** Category UUID (or slug) the related items are drawn from. */
   categoryId: string | null | undefined;
   title?: string;
   limit?: number;
 }
 
-/** Other Items from the same category - "You may also like" on the Item page. */
+/** Other Items from the same category - "You may also like" on the Item/Style page. */
 export function RelatedItems({
+  styleId,
   itemId,
   categoryId,
   title = "You May Also Like",
   limit = 8,
 }: RelatedItemsProps) {
+  const currentId = styleId ?? itemId ?? "";
   const listing = useCategoryListing(categoryId ?? "", "", FETCH_SIZE);
 
   const items = React.useMemo(
     () =>
       (listing.data?.pages[0]?.data.items ?? [])
-        .filter((item) => item.id !== itemId)
+        .filter((item) => item.id !== currentId)
         .slice(0, limit),
-    [listing.data, itemId, limit]
+    [listing.data, currentId, limit]
   );
 
   if (!categoryId || listing.isLoading || items.length === 0) return null;
@@ -44,7 +47,7 @@ export function RelatedItems({
       </h2>
       <div className="grid grid-cols-2 gap-3 sm:gap-5 md:grid-cols-3 lg:grid-cols-4">
         {items.map((item) => (
-          <ItemCard key={item.id} item={item} variant="grid" />
+          <StyleCard key={item.id} item={item} variant="grid" />
         ))}
       </div>
     </section>

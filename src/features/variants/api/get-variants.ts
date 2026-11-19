@@ -142,10 +142,10 @@ export async function getAdminVariant(
 export async function createAdminVariant(
   productUuid: string,
   data: Record<string, unknown>,
-  itemUuid?: string
+  styleUuid?: string
 ) {
-  const path = itemUuid
-    ? `/api/admin/products/${productUuid}/items/${itemUuid}/variants`
+  const path = styleUuid
+    ? `/api/admin/products/${productUuid}/styles/${styleUuid}/variants`
     : `/api/admin/products/${productUuid}/variants`;
   return apiClient.post<AdminVariantResponse>(path, data);
 }
@@ -164,23 +164,23 @@ export async function updateAdminVariant(
 export async function generateAdminVariants(
   productUuid: string,
   data: GenerateVariantsRequest,
-  itemUuid?: string
+  styleUuid?: string
 ) {
-  const path = itemUuid
-    ? `/api/admin/products/${productUuid}/items/${itemUuid}/variants/generate`
+  const path = styleUuid
+    ? `/api/admin/products/${productUuid}/styles/${styleUuid}/variants/generate`
     : `/api/admin/products/${productUuid}/variants/generate`;
   return apiClient.post<GenerateVariantsResponse>(path, data);
 }
 
-/** Item-driven generation: attribute values come from the Item's already-saved
- * item_attribute_values instead of being re-picked here. */
-export async function generateAdminVariantsFromItem(
+/** Style-driven generation: attribute values come from the Style's already-saved
+ * style_attribute_values instead of being re-picked here. */
+export async function generateAdminVariantsFromStyle(
   productUuid: string,
-  itemUuid: string,
-  data: { unitId: string; defaultPrice?: number; activate?: boolean }
+  styleUuid: string,
+  data: { unitId: string; defaultPrice?: number; initialStock?: number; activate?: boolean }
 ) {
   return apiClient.post<GenerateVariantsResponse>(
-    `/api/admin/products/${productUuid}/items/${itemUuid}/variants/generate-from-attributes`,
+    `/api/admin/products/${productUuid}/styles/${styleUuid}/variants/generate-from-attributes`,
     data
   );
 }

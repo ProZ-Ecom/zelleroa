@@ -15,7 +15,7 @@ export {
   useCreateVariant,
   useUpdateVariant,
   useGenerateVariants,
-  useGenerateVariantsFromItem,
+  useGenerateVariantsFromStyle,
   useBulkEditVariants,
   useDeleteVariant,
   useCreateVariantImages,

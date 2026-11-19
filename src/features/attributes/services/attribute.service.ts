@@ -3,7 +3,7 @@ import { ApiError } from "@/lib/api/api-error";
 import { attributeRepository } from "../repositories/attribute.repository";
 import { userRepository } from "@/features/users/repositories/user.repository";
 import { productRepository } from "@/features/products/repositories/product.repository";
-import { itemRepository } from "@/features/items/repositories/item.repository";
+import { styleRepository } from "@/features/styles/repositories/style.repository";
 import { db } from "@/lib/db/prisma";
 import type {
   AttributeListItem,
@@ -275,7 +275,7 @@ export const attributeService = {
 
   /**
    * The Product's configured attributes WITH their values (e.g. Color: Black,
-   * White) - powers the single-variant "Add/Edit Item" form and the bulk
+   * White) - powers the single-variant "Add/Edit Variant" form and the bulk
    * "Generate Variants" form, so attribute selection is driven purely by what
    * the Product has configured (no category involved).
    */
@@ -341,7 +341,7 @@ export const attributeService = {
   /**
    * Full-replace the set of attributes configured on a Product, each with the level
    * it varies at. Two changes can strand existing data and so need `force: true`:
-   * unchecking an attribute Items/Variants already use, and moving one off the SKU
+   * unchecking an attribute Styles/Variants already use, and moving one off the SKU
    * axis while stock rows still identify themselves by it. Either way this throws
    * with the counts, so the admin UI can confirm instead of silently dropping data.
    */
@@ -413,7 +413,7 @@ export const attributeService = {
           return {
             attributeId: config.product_attributes.uuid || String(config.attribute_id),
             attributeName: config.product_attributes.name,
-            itemCount: counts.itemCount,
+            styleCount: counts.styleCount,
             variantCount: counts.variantCount,
             skuCount: counts.skuCount,
             change,
@@ -423,11 +423,11 @@ export const attributeService = {
         })
       );
       const inUse = usage.filter(
-        (u) => u.itemCount > 0 || u.variantCount > 0 || u.skuCount > 0
+        (u) => u.styleCount > 0 || u.variantCount > 0 || u.skuCount > 0
       );
       if (inUse.length) {
         throw ApiError.conflict(
-          "Some attributes being changed are already used by items, variants or stock rows",
+          "Some attributes being changed are already used by styles, variants or stock rows",
           { usage: inUse }
         );
       }
@@ -447,23 +447,23 @@ export const attributeService = {
   },
 
   /**
-   * The Item's currently selected attribute values, grouped by the Product's
+   * The Style's currently selected attribute values, grouped by the Product's
    * configured attributes - only attributes configured on the parent Product
    * are ever offered, enforced here server-side (not just in the UI).
    */
-  async getAttributeValuesForItem(itemUuid: string, productUuid?: string) {
-    const item = await itemRepository.findByUuid(itemUuid);
-    if (!item) {
-      throw ApiError.notFound("Item not found");
+  async getAttributeValuesForStyle(styleUuid: string, productUuid?: string) {
+    const style = await styleRepository.findByUuid(styleUuid);
+    if (!style) {
+      throw ApiError.notFound("Style not found");
     }
 
-    const productId = item.style.productId;
-    if (productUuid && item.style.product?.uuid !== productUuid) {
-      throw ApiError.notFound("Item not found for this product");
+    const productId = style.productId;
+    if (productUuid && style.product?.uuid !== productUuid) {
+      throw ApiError.notFound("Style not found for this product");
     }
     const [configs, selected] = await Promise.all([
       attributeRepository.findAttributeConfigsForProduct(productId),
-      attributeRepository.findAttributeValuesForItem(item.id),
+      attributeRepository.findAttributeValuesForStyle(style.id),
     ]);
 
     const selectedValueIdsByAttribute = new Map<string, Set<string>>();
@@ -495,22 +495,22 @@ export const attributeService = {
   },
 
   /**
-   * Full-replace the Item's selected attribute values. Only values belonging
+   * Full-replace the Style's selected attribute values. Only values belonging
    * to attributes configured on the parent Product are accepted.
    */
-  async setAttributeValuesForItem(
-    itemUuid: string,
+  async setAttributeValuesForStyle(
+    styleUuid: string,
     attributeValueIds: string[],
     productUuid?: string
   ) {
-    const item = await itemRepository.findByUuid(itemUuid);
-    if (!item) {
-      throw ApiError.notFound("Item not found");
+    const style = await styleRepository.findByUuid(styleUuid);
+    if (!style) {
+      throw ApiError.notFound("Style not found");
     }
 
-    const productId = item.style.productId;
-    if (productUuid && item.style.product?.uuid !== productUuid) {
-      throw ApiError.notFound("Item not found for this product");
+    const productId = style.productId;
+    if (productUuid && style.product?.uuid !== productUuid) {
+      throw ApiError.notFound("Style not found for this product");
     }
     const configs = await attributeRepository.findAttributeConfigsForProduct(productId);
     const allowedValueMap = new Map<string, { attributeId: bigint }>();
@@ -537,7 +537,7 @@ export const attributeService = {
     });
 
     // Single-selection attributes (Multiple Selection = OFF in the Attribute
-    // Master) may only ever hold one value per Item - enforce it server-side,
+    // Master) may only ever hold one value per Style - enforce it server-side,
     // not just in the UI.
     const countByAttributeId = new Map<string, number>();
     for (const entry of entries) {
@@ -558,14 +558,14 @@ export const attributeService = {
     });
     const internalIdByUuid = new Map(values.map((v) => [v.uuid, v.id]));
 
-    await attributeRepository.setAttributeValuesForItem(
-      item.id,
+    await attributeRepository.setAttributeValuesForStyle(
+      style.id,
       entries.map((e) => ({
         attributeId: e.attributeId,
         attributeValueId: internalIdByUuid.get(e.valueUuid) ?? BigInt(e.valueUuid),
       }))
     );
 
-    return attributeService.getAttributeValuesForItem(itemUuid, productUuid);
+    return attributeService.getAttributeValuesForStyle(styleUuid, productUuid);
   },
 };

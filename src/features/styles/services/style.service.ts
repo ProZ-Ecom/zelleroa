@@ -1,11 +1,9 @@
 import crypto from "crypto";
 import { ApiError } from "@/lib/api/api-error";
-import { db } from "@/lib/db/prisma";
 import { styleRepository } from "../repositories/style.repository";
 import { productRepository } from "@/features/products/repositories/product.repository";
 import { brandRepository } from "@/features/brands/repositories/brand.repository";
 import { userRepository } from "@/features/users/repositories/user.repository";
-import { itemRepository } from "@/features/items/repositories/item.repository";
 import type { Prisma } from "@/generated/prisma";
 import type { AdminStyleResponse, GetAdminStylesParams } from "../types";
 import type { CreateAdminStyleInput, UpdateAdminStyleInput } from "../validations/admin-style.schema";
@@ -52,13 +50,11 @@ function formatAdminStyleResponse(item: {
   } | null;
   brand?: { uuid: string | null; name: string } | null;
   images?: Array<{ image_url: string; is_primary: boolean }> | null;
-  _count?: { items: number };
-  items?: Array<{
-    variants?: Array<{
-      color_name: string | null;
-      variant_unit_prices?: Array<{
-        inventories?: { quantity_available: number } | null;
-      }>;
+  _count?: { variants: number };
+  variants?: Array<{
+    color_name: string | null;
+    variant_unit_prices?: Array<{
+      inventories?: { quantity_available: number } | null;
     }>;
   }>;
   categoryName?: string | null;
@@ -68,14 +64,12 @@ function formatAdminStyleResponse(item: {
   const colorNames = new Set<string>();
   let totalStock = 0;
 
-  for (const it of item.items ?? []) {
-    for (const v of it.variants ?? []) {
-      if (v.color_name && v.color_name.trim()) {
-        colorNames.add(v.color_name.trim());
-      }
-      for (const vup of v.variant_unit_prices ?? []) {
-        totalStock += vup.inventories?.quantity_available ?? 0;
-      }
+  for (const v of item.variants ?? []) {
+    if (v.color_name && v.color_name.trim()) {
+      colorNames.add(v.color_name.trim());
+    }
+    for (const vup of v.variant_unit_prices ?? []) {
+      totalStock += vup.inventories?.quantity_available ?? 0;
     }
   }
 
@@ -106,7 +100,7 @@ function formatAdminStyleResponse(item: {
     isActive: Boolean(item.isActive),
     outOfStock: Boolean(item.out_of_stock),
     primaryImage: primaryImgObj ? primaryImgObj.image_url : null,
-    itemCount: item._count?.items ?? 0,
+    variantCount: item._count?.variants ?? 0,
     totalStock,
     colors: Array.from(colorNames),
     createdAt: item.createdAt,
@@ -149,7 +143,11 @@ export const styleService = {
       throw ApiError.conflict(`An active style with slug '${data.slug}' already exists`);
     }
 
-    const brandId = await resolveActiveBrandId(data.brandId);
+    // A Style's brand is an override; blank means "same as the Product", so the
+    // admin answers brand once on the Product instead of at every level.
+    const brandId = data.brandId
+      ? await resolveActiveBrandId(data.brandId)
+      : product.brandId ?? null;
 
     const existingCount = await styleRepository.countActiveByProductId(product.id);
     const isDefault = data.isDefault ?? existingCount === 0;
@@ -173,47 +171,11 @@ export const styleService = {
       is_new_arrival: data.isNewArrival ?? false,
       new_arrival_until: data.isNewArrival && data.newArrivalUntil ? new Date(data.newArrivalUntil) : null,
       is_default: isDefault,
-      isActive: data.isActive ?? false,
+      isActive: data.isActive !== undefined ? data.isActive : true,
       out_of_stock: data.outOfStock ?? false,
       created_by: adminId,
       updated_by: adminId,
     });
-
-    // Auto-create default Item (Model) under this Style so it can accept variants immediately
-    try {
-      let defaultItemSlug = `${styleSlug}-item`.substring(0, 220);
-      const existingItemSlug = await db.item.findFirst({ where: { slug: defaultItemSlug } });
-      if (existingItemSlug) {
-        defaultItemSlug = `${styleSlug}-${Date.now().toString(36)}`.substring(0, 220);
-      }
-
-      let defaultItemSku = created.sku ? `${created.sku}-DEF` : null;
-      if (defaultItemSku) {
-        const existingSku = await db.item.findFirst({ where: { sku: defaultItemSku } });
-        if (existingSku) {
-          defaultItemSku = null;
-        }
-      }
-
-      await itemRepository.create({
-        uuid: crypto.randomUUID(),
-        styleId: created.id,
-        name: created.name,
-        slug: defaultItemSlug,
-        sku: defaultItemSku,
-        short_description: created.short_description,
-        description: created.description,
-        base_price: created.base_price ?? 0,
-        is_featured: created.is_featured ?? false,
-        is_default: true,
-        isActive: created.isActive ?? true,
-        out_of_stock: created.out_of_stock ?? false,
-        created_by: adminId,
-        updated_by: adminId,
-      });
-    } catch (itemErr) {
-      console.error("Failed to auto-create initial item for style:", itemErr);
-    }
 
     return formatAdminStyleResponse(created);
   },
@@ -317,11 +279,11 @@ export const styleService = {
   },
 
   /**
-   * Resolves a Product UUID to its default (or first) active Item's UUID -
+   * Resolves a Product UUID to its default (or first) active Style's UUID -
    * lets routes that were written against the old flat Product->Variant shape
-   * (before the Item level existed) keep working unchanged for the common
-   * case of one Item per Product, without every caller having to pick an Item
-   * explicitly.
+   * keep working unchanged for the common case of one Style per Product,
+   * without every caller having to pick a Style explicitly. Creates the
+   * default Style on demand when the Product has none yet.
    */
   async resolveDefaultStyleUuid(productUuid: string): Promise<string> {
     const product = await productRepository.findByUuid(productUuid);
@@ -330,74 +292,48 @@ export const styleService = {
     }
 
     const result = await styleRepository.findAllByProductId(product.id, { pageSize: 1 });
-    let defaultItem =
+    let defaultStyle =
       result.data.find((i) => i.is_default) ?? result.data[0] ?? null;
-    if (!defaultItem) {
-      let brandId = product.brandId;
-      if (!brandId) {
-        const anyBrand = await brandRepository.findAll({ limit: 1 });
-        if (anyBrand.data[0]?.uuid) {
-          brandId = await resolveActiveBrandId(anyBrand.data[0].uuid);
-        }
+    if (!defaultStyle) {
+      // The Style's brand simply mirrors the Product's, and stays null when the
+      // Product has none - Style.brandId is only an override. This used to grab
+      // the first brand in the database instead, which silently branded the
+      // Style as something unrelated, and refused to create it when there was
+      // no brand at all.
+      const brandId = product.brandId ?? null;
+
+      let defaultSlug = `${product.slug}-style`.substring(0, 220);
+      const existingSlug = await styleRepository.findBySlug(defaultSlug);
+      if (existingSlug) {
+        defaultSlug = `${product.slug}-${Date.now().toString(36)}`.substring(0, 220);
       }
 
-      if (brandId) {
-        let defaultSlug = `${product.slug}-style`.substring(0, 220);
-        const existingSlug = await styleRepository.findBySlug(defaultSlug);
-        if (existingSlug) {
-          defaultSlug = `${product.slug}-${Date.now().toString(36)}`.substring(0, 220);
-        }
-
-        defaultItem = await styleRepository.create({
-          uuid: crypto.randomUUID(),
-          productId: product.id,
-          brandId,
-          name: product.name,
-          slug: defaultSlug,
-          sku: null,
-          short_description: null,
-          description: null,
-          ingredients: null,
-          is_ready_to_mix: false,
-          cooking_recipe: null,
-          shelf_life: null,
-          veg_type: "na",
-          base_price: 0,
-          is_featured: false,
-          is_new_arrival: false,
-          new_arrival_until: null,
-          is_default: true,
-          isActive: true,
-          out_of_stock: false,
-          created_by: product.created_by,
-          updated_by: product.updated_by,
-        });
-
-        try {
-          await itemRepository.create({
-            uuid: crypto.randomUUID(),
-            styleId: defaultItem.id,
-            name: defaultItem.name,
-            slug: `${defaultSlug}-item`.substring(0, 220),
-            sku: null,
-            short_description: null,
-            description: null,
-            base_price: 0,
-            is_featured: false,
-            is_default: true,
-            isActive: true,
-            out_of_stock: false,
-            created_by: product.created_by,
-            updated_by: product.updated_by,
-          });
-        } catch (e) {
-          console.error("Failed to auto-create item for style:", e);
-        }
-      } else {
-        throw ApiError.notFound("This product has no styles yet");
-      }
+      defaultStyle = await styleRepository.create({
+        uuid: crypto.randomUUID(),
+        productId: product.id,
+        brandId,
+        name: product.name,
+        slug: defaultSlug,
+        sku: null,
+        short_description: null,
+        description: null,
+        ingredients: null,
+        is_ready_to_mix: false,
+        cooking_recipe: null,
+        shelf_life: null,
+        veg_type: "na",
+        base_price: 0,
+        is_featured: false,
+        is_new_arrival: false,
+        new_arrival_until: null,
+        is_default: true,
+        isActive: true,
+        out_of_stock: false,
+        created_by: product.created_by,
+        updated_by: product.updated_by,
+      });
     }
-    return defaultItem.uuid;
+    return defaultStyle.uuid;
   },
 
   async deleteAdminStyle(productUuid: string, styleUuid: string, adminEmail?: string) {

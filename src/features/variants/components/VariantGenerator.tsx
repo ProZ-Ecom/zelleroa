@@ -15,7 +15,7 @@ interface VariantGeneratorProps {
   productUuid: string;
   onGenerated?: (result: GenerateVariantsResponse) => void;
   /** Which Item to generate Colors/Sizes under; defaults to the Product's default Item when omitted. */
-  itemUuid?: string;
+  styleUuid?: string;
 }
 
 /**
@@ -25,7 +25,7 @@ interface VariantGeneratorProps {
  * single-item wizard six times. Options come from the Product's own
  * configured attributes (Catalog > Products > Attributes), never a category.
  */
-function VariantGenerator({ productUuid, onGenerated, itemUuid }: VariantGeneratorProps) {
+function VariantGenerator({ productUuid, onGenerated, styleUuid }: VariantGeneratorProps) {
   const { data: productAttributes = [], isLoading: isLoadingAttributes } =
     useConfiguredAttributesForProduct(productUuid);
   const { data: unitsData } = useUnits({ pageSize: 100 });
@@ -103,7 +103,7 @@ function VariantGenerator({ productUuid, onGenerated, itemUuid }: VariantGenerat
     try {
       const response = await generateMutation.mutateAsync({
         productUuid,
-        itemUuid,
+        styleUuid,
         data: {
           options: varyingOptions.map((o) => ({
             attributeId: o.attribute.id,

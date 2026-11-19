@@ -67,7 +67,7 @@ export interface ProductAttributeConfigOption {
 }
 
 /** One attribute value under an Item, with whether it's currently selected. */
-export interface ItemAttributeValueOption {
+export interface StyleAttributeValueOption {
   id: string; // AttributeValue UUID
   value: string;
   colorHex?: string | null;
@@ -75,25 +75,25 @@ export interface ItemAttributeValueOption {
   selected: boolean;
 }
 
-/** One Product-configured attribute rendered on the Item form, with its
- * values flagged for whether this specific Item currently has them selected. */
-export interface ItemAttributeGroup {
+/** One Product-configured attribute rendered on the Style's variants panel,
+ * with its values flagged for whether this Style currently has them selected. */
+export interface StyleAttributeGroup {
   id: string; // Attribute UUID
   name: string;
   slug: string;
   type: AttributeType;
   isRequired: boolean;
-  /** Whether an Item can pick several of this attribute's values (OFF means
+  /** Whether a Style can pick several of this attribute's values (OFF means
    * exactly one value may be selected, driven by the Attribute Master's
    * "Multiple Selection" setting). */
   multipleSelection: boolean;
-  values: ItemAttributeValueOption[];
+  values: StyleAttributeValueOption[];
 }
 
 export interface ProductAttributeUsage {
   attributeId: string;
   attributeName: string;
-  itemCount: number;
+  styleCount: number;
   variantCount: number;
   /** Stock rows whose identity includes this attribute. */
   skuCount: number;

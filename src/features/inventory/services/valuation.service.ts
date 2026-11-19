@@ -90,10 +90,7 @@ export const valuationService = {
         deleted_at: null,
         variant: {
           deleted_at: null,
-          item: {
-            deleted_at: null,
-            style: { deleted_at: null, product: await productFilter(params) },
-          },
+          style: { deleted_at: null, product: await productFilter(params) },
         },
       },
       select: {
@@ -103,10 +100,8 @@ export const valuationService = {
         inventories: { select: { quantity_available: true } },
         variant: {
           select: {
-            item: {
-              select: {
-                style: {
-                  select: {
+              style: {
+                select: {
                     product: {
                       select: { categoryId: true, brand: { select: { slug: true, name: true } } },
                     },
@@ -115,9 +110,7 @@ export const valuationService = {
               },
             },
           },
-        },
-      },
-    });
+        });
 
     const blank = (): ValuationRow => ({
       key: "",
@@ -135,7 +128,7 @@ export const valuationService = {
     const totals = blank();
 
     for (const row of rows) {
-      const id = groupIdOf(groupBy, row.variant?.item?.style?.product ?? null, names);
+      const id = groupIdOf(groupBy, (row.variant as any)?.style?.product ?? null, names);
       const bucket = bucketOf(buckets, id, blank);
       const stock = row.inventories?.quantity_available ?? 0;
       const cost = unitCost(row);

@@ -32,30 +32,31 @@ const stockLabelSelect = {
       id: true,
       variant_name: true,
       color_name: true,
-      item: {
-        select: {
-          id: true,
-          name: true,
-          style: { select: { product: { select: { id: true, name: true } } } },
+        style: {
+          select: {
+            id: true,
+            name: true,
+            product: { select: { id: true, name: true } },
+          },
         },
       },
     },
-  },
-} satisfies Prisma.VariantUnitPriceSelect;
+  } satisfies Prisma.VariantUnitPriceSelect;
 
-type VupLabelRow = Prisma.VariantUnitPriceGetPayload<{ select: typeof stockLabelSelect }>;
+  type VupLabelRow = Prisma.VariantUnitPriceGetPayload<{ select: typeof stockLabelSelect }>;
 
-function labelOf(vup: VupLabelRow) {
-  const item = vup.variant?.item;
-  return {
-    variantUnitPriceId: Number(vup.id),
-    productName: item?.style?.product?.name ?? item?.name ?? "Unknown product",
-    itemName: item?.name ?? null,
-    colorName: vup.variant?.color_name ?? null,
-    sizeName: vup.attribute_value?.value ?? null,
-    sku: vup.sku,
-  };
-}
+    function labelOf(vup: any) {
+      const style = vup.variant?.style;
+      const item = vup.variant?.item;
+      return {
+        variantUnitPriceId: Number(vup.id),
+        productName: style?.product?.name ?? item?.style?.product?.name ?? style?.name ?? item?.name ?? "Unknown product",
+        itemName: style?.name ?? item?.name ?? null,
+        colorName: vup.variant?.color_name ?? null,
+        sizeName: vup.attribute_value?.value ?? null,
+        sku: vup.sku,
+      };
+    }
 
 /** Per-row reorder level wins when set, otherwise the store-wide threshold applies. */
 function statusOf(available: number, reorderLevel: number, threshold: number): StockStatus {
@@ -75,7 +76,7 @@ async function readThreshold(): Promise<number> {
 // totals, and an item with no style resolves to no product at all.
 const liveChain = {
   deleted_at: null,
-  item: { deleted_at: null, style: { deleted_at: null, product: { deleted_at: null } } },
+  style: { deleted_at: null, product: { deleted_at: null } },
 } satisfies Prisma.ProductVariantWhereInput;
 
 const sellableVup: Prisma.VariantUnitPriceWhereInput = {
@@ -271,16 +272,16 @@ export const stockService = {
       variant: {
         ...liveChain,
         ...(color ? { color_name: { contains: color } } : {}),
-        item: { deleted_at: null, style: { deleted_at: null, product } },
+        style: { deleted_at: null, product },
       },
       ...(search
         ? {
-            OR: [
-              { sku: { contains: search } },
-              { variant: { item: { name: { contains: search } } } },
-              { variant: { item: { style: { product: { name: { contains: search } } } } } },
-            ],
-          }
+          OR: [
+            { sku: { contains: search } },
+            { variant: { style: { name: { contains: search } } } },
+            { variant: { style: { product: { name: { contains: search } } } } },
+          ],
+        }
         : {}),
     };
 
@@ -338,26 +339,26 @@ export const stockService = {
       ...(variantUnitPriceId ? { variant_unit_price_id: BigInt(variantUnitPriceId) } : {}),
       ...(from || to
         ? {
-            createdAt: {
-              ...(from ? { gte: new Date(`${from}T00:00:00`) } : {}),
-              ...(to ? { lte: new Date(`${to}T23:59:59`) } : {}),
-            },
-          }
+          createdAt: {
+            ...(from ? { gte: new Date(`${from}T00:00:00`) } : {}),
+            ...(to ? { lte: new Date(`${to}T23:59:59`) } : {}),
+          },
+        }
         : {}),
       ...(search
         ? {
-            OR: [
-              { reference_number: { contains: search } },
-              { note: { contains: search } },
-              { variant_unit_price: { sku: { contains: search } } },
-              {
-                variant_unit_price: {
-                  variant: { item: { style: { product: { name: { contains: search } } } } },
-                },
+          OR: [
+            { reference_number: { contains: search } },
+            { note: { contains: search } },
+            { variant_unit_price: { sku: { contains: search } } },
+            {
+              variant_unit_price: {
+                variant: { style: { product: { name: { contains: search } } } },
               },
-              { variant_unit_price: { variant: { item: { name: { contains: search } } } } },
-            ],
-          }
+            },
+            { variant_unit_price: { variant: { style: { name: { contains: search } } } } },
+          ],
+        }
         : {}),
     };
 

@@ -82,9 +82,9 @@ const brandRequired = {
   brandId: z.string({ message: "Brand is required" }).min(1, "Brand is required"),
 };
 
-function pickSchema(showPrice: boolean, showBrand: boolean) {
+function pickSchema(showPrice: boolean, showBrand: boolean, requireBrand: boolean) {
   const base = showPrice ? pricedItemEntityFormSchema : itemEntityFormSchema;
-  return showBrand ? base.extend(brandRequired) : base;
+  return showBrand && requireBrand ? base.extend(brandRequired) : base;
 }
 
 export interface ItemEntityFormProps {
@@ -106,12 +106,24 @@ export interface ItemEntityFormProps {
    */
   showPrice?: boolean;
   /**
+   * Overrides the help text under Price. A Style's price is only a fallback -
+   * what a customer actually pays lives on the SKU rows - so it must not be
+   * described as "what customers pay" the way an Item's price is.
+   */
+  priceDescription?: string;
+  /**
    * Active brands to pick from. Passing this shows a required Brand field -
    * every sellable Item belongs to one Brand. Omitted for the sub-variant form.
    */
   brandOptions?: SelectOption[];
   /** Help text under the Brand field, e.g. when no active brands exist yet. */
   brandDescription?: string;
+  /**
+   * Whether the Brand field must be filled. A Style's brand is only an
+   * override - left blank it inherits the Product's - so the Product is the
+   * one place a brand has to be answered.
+   */
+  brandRequired?: boolean;
   /** What the admin calls this level in labels - "Item" or "Type". */
   entityLabel?: string;
   /**
@@ -157,7 +169,7 @@ function buildDefaults(
     isNewArrival: initialData?.isNewArrival ?? false,
     newArrivalUntil: initialData?.newArrivalUntil ?? "",
     isDefault: initialData?.isDefault ?? false,
-    isActive: initialData?.isActive ?? false,
+    isActive: initialData?.isActive ?? true,
     outOfStock: initialData?.outOfStock ?? false,
   };
 }
@@ -173,6 +185,8 @@ function ItemEntityForm({
   codePlaceholder = "e.g. v-neck-t-shirt",
   defaultItemDescription = "Auto-selected on the product page",
   showPrice = true,
+  priceDescription,
+  brandRequired: requireBrand = true,
   brandOptions,
   brandDescription,
   entityLabel = "Item",
@@ -192,7 +206,7 @@ function ItemEntityForm({
   }, [brandOptions, createdBrands]);
 
   const methods = useForm<ItemEntityFormValues>({
-    resolver: zodResolver(pickSchema(showPrice, showBrand) as any) as any,
+    resolver: zodResolver(pickSchema(showPrice, showBrand, requireBrand) as any) as any,
     mode: "onChange",
     reValidateMode: "onChange",
     defaultValues: buildDefaults(initialData, showPrice),
@@ -260,7 +274,7 @@ function ItemEntityForm({
             options={allBrandOptions}
             description={brandDescription}
             searchable
-            required
+            required={requireBrand}
             labelAction={
               <button
                 type="button"
@@ -282,7 +296,10 @@ function ItemEntityForm({
               label="Price (₹)"
               placeholder="0"
               onFocus={(e) => e.target.select()}
-              description={`What customers pay for every color and size of this ${entityLower}. Only sizes that cost more or less need their own price later.`}
+              description={
+                priceDescription ??
+                `What customers pay for every color and size of this ${entityLower}. Only sizes that cost more or less need their own price later.`
+              }
               required
             />
           )}
@@ -361,8 +378,8 @@ function ItemEntityForm({
 
         <FormCheckbox
           name="isActive"
-          label="Status: Active"
-          description={`Inactive ${entityLower}s are hidden from customers`}
+          label={`Active on Storefront (${entityLabel})`}
+          description={`Active ${entityLower}s are immediately visible to customers on the storefront. Untick to hide.`}
         />
 
         <div className="flex justify-end pt-2">

@@ -36,16 +36,11 @@ const unitPriceTargetSelect = {
       uuid: true,
       variant_name: true,
       out_of_stock: true,
-      item: {
-        select: {
-          id: true,
-          uuid: true,
-          name: true,
-          style: {
-            select: {
-              id: true,
-              uuid: true,
-              name: true,
+        style: {
+          select: {
+            id: true,
+            uuid: true,
+            name: true,
               productId: true,
               product: {
                 select: {
@@ -59,34 +54,32 @@ const unitPriceTargetSelect = {
           },
         },
       },
-    },
-  },
-} satisfies Prisma.VariantUnitPriceSelect;
+    } satisfies Prisma.VariantUnitPriceSelect;
 
-const offerInclude = {
-  offer_products: {
-    include: {
-      products: {
-        select: { id: true, uuid: true, name: true, categoryId: true },
+    const offerInclude = {
+      offer_products: {
+        include: {
+          products: {
+            select: { id: true, uuid: true, name: true, categoryId: true },
+          },
+        },
       },
-    },
-  },
-  offer_items: {
-    include: { variant_unit_price: { select: unitPriceTargetSelect } },
-  },
-} satisfies Prisma.OfferInclude;
+      offer_items: {
+        include: { variant_unit_price: { select: unitPriceTargetSelect } },
+      },
+    } satisfies Prisma.OfferInclude;
 
-type OfferRow = Prisma.OfferGetPayload<{ include: typeof offerInclude }>;
-type UnitPriceTargetRow = Prisma.VariantUnitPriceGetPayload<{
-  select: typeof unitPriceTargetSelect;
-}>;
+    type OfferRow = Prisma.OfferGetPayload<{ include: typeof offerInclude }>;
+    type UnitPriceTargetRow = Prisma.VariantUnitPriceGetPayload<{
+      select: typeof unitPriceTargetSelect;
+    }>;
 
-function stockOf(row: UnitPriceTargetRow): { inStock: boolean; quantity: number } {
+    function stockOf(row: UnitPriceTargetRow): { inStock: boolean; quantity: number } {
   const available = row.inventories
     ? Math.max(
-        0,
-        row.inventories.quantity_available - row.inventories.quantity_reserved
-      )
+      0,
+      row.inventories.quantity_available - row.inventories.quantity_reserved
+    )
     : 0;
   return {
     inStock: available > 0 && !row.variant?.out_of_stock,
@@ -97,7 +90,7 @@ function stockOf(row: UnitPriceTargetRow): { inStock: boolean; quantity: number 
 export function toOfferItemTarget(row: UnitPriceTargetRow): OfferItemTarget {
   const measurement = formatVariantMeasurement(row.product_units, row.unit_value ?? 0);
   const variantName = row.variant?.variant_name || "";
-  const productName = row.variant?.item?.style?.product?.name || "";
+  const productName = (row.variant as any)?.style?.product?.name || (row.variant as any)?.item?.style?.product?.name || "";
   const packLabel = formatMeasurementLabel(measurement);
   const stock = stockOf(row);
 
@@ -107,7 +100,7 @@ export function toOfferItemTarget(row: UnitPriceTargetRow): OfferItemTarget {
     label: [productName, variantName, packLabel].filter(Boolean).join(" - "),
     measurement,
     basePrice: Number(row.base_price),
-    productId: row.variant?.item?.style?.product?.uuid || "",
+    productId: (row.variant as any)?.style?.product?.uuid || (row.variant as any)?.item?.style?.product?.uuid || "",
     productName,
     variantId: row.variant?.uuid || "",
     variantName,
@@ -253,7 +246,7 @@ function buildOfferWhere(params: OfferWhereParams, now: Date): Prisma.OfferWhere
         {
           offer_items: {
             some: {
-              variant_unit_price: { variant: { item: { style: { product: { uuid: params.productId } } } } },
+              variant_unit_price: { variant: { style: { product: { uuid: params.productId } } } },
             },
           },
         },
@@ -270,7 +263,7 @@ function buildOfferWhere(params: OfferWhereParams, now: Date): Prisma.OfferWhere
         { offer_products: { some: { products: { categoryId } } } },
         {
           offer_items: {
-            some: { variant_unit_price: { variant: { item: { style: { product: { categoryId } } } } } },
+            some: { variant_unit_price: { variant: { style: { product: { categoryId } } } } },
           },
         },
       ],
@@ -650,7 +643,7 @@ export const offerRepository = {
         deleted_at: null,
         variant: {
           deleted_at: null,
-          item: { deleted_at: null, style: { deleted_at: null, product: { deleted_at: null } } },
+          style: { deleted_at: null, product: { deleted_at: null } },
         },
       },
       select: { id: true, uuid: true },
@@ -685,8 +678,6 @@ export const offerRepository = {
         isActive: true,
         variant: {
           deleted_at: null,
-          item: {
-            deleted_at: null,
             style: {
               productId: { in: productIds },
               deleted_at: null,
@@ -694,9 +685,8 @@ export const offerRepository = {
             },
           },
         },
-      },
-      select: { uuid: true, sku: true, base_price: true },
-    });
+        select: { uuid: true, sku: true, base_price: true },
+      });
     return rows.map((r) => ({
       id: r.uuid,
       sku: r.sku,
@@ -749,39 +739,35 @@ export const offerRepository = {
         variant: {
           deleted_at: null,
           isActive: true,
-          item: {
-            deleted_at: null,
-            isActive: true,
             style: {
               deleted_at: null,
               isActive: true,
-              product: {
-                deleted_at: null,
-                isActive: true,
-                ...(params.productId ? { uuid: params.productId } : {}),
-                ...(categoryInternalId != null ? { categoryId: categoryInternalId } : {}),
+                product: {
+                  deleted_at: null,
+                  isActive: true,
+                  ...(params.productId ? { uuid: params.productId } : {}),
+                  ...(categoryInternalId != null ? { categoryId: categoryInternalId } : {}),
+                },
               },
             },
-          },
-        },
-        ...(params.search
-          ? {
-              OR: [
-                { sku: { contains: params.search } },
-                { variant: { variant_name: { contains: params.search } } },
-                {
-                  variant: {
-                    item: { style: { product: { name: { contains: params.search } } } },
+            ...(params.search
+              ? {
+                OR: [
+                  { sku: { contains: params.search } },
+                  { variant: { variant_name: { contains: params.search } } },
+                  {
+                    variant: {
+                      style: { product: { name: { contains: params.search } } },
+                    },
                   },
-                },
-              ],
-            }
-          : {}),
-      },
-      select: unitPriceTargetSelect,
-      orderBy: [{ variant_id: "asc" }, { unit_value: "asc" }],
-      take: params.limit,
-    });
+                ],
+              }
+              : {}),
+          },
+          select: unitPriceTargetSelect,
+          orderBy: [{ variant_id: "asc" }, { unit_value: "asc" }],
+          take: params.limit,
+        });
 
     return rows.map(toOfferItemTarget);
   },
@@ -818,7 +804,7 @@ export const offerRepository = {
       select: {
         id: true,
         uuid: true,
-        variant: { select: { item: { select: { style: { select: { productId: true } } } } } },
+        variant: { select: { style: { select: { productId: true } } } },
       },
     });
     if (items.length === 0) return result;
@@ -827,7 +813,7 @@ export const offerRepository = {
 
     const itemIds = items.map((i) => i.id);
     const productIds = [
-      ...new Set(items.map((i) => i.variant?.item?.style?.productId).filter(Boolean) as bigint[]),
+      ...new Set(items.map((i) => (i.variant as any)?.style?.productId).filter(Boolean) as bigint[]),
     ];
 
     const [itemOffers, productOffers] = await Promise.all([
@@ -844,16 +830,16 @@ export const offerRepository = {
       }),
       productIds.length > 0
         ? db.offer_products.findMany({
-            where: {
-              product_id: { in: productIds },
-              is_active: true,
-              offers: { ...liveOfferWhere(now), level: "product" },
-            },
-            select: {
-              product_id: true,
-              offers: { select: applicableOfferSelect },
-            },
-          })
+          where: {
+            product_id: { in: productIds },
+            is_active: true,
+            offers: { ...liveOfferWhere(now), level: "product" },
+          },
+          select: {
+            product_id: true,
+            offers: { select: applicableOfferSelect },
+          },
+        })
         : Promise.resolve([]),
     ]);
 
@@ -874,7 +860,7 @@ export const offerRepository = {
     }
 
     for (const item of items) {
-      const productId = item.variant?.item?.style?.productId;
+      const productId = (item.variant as any)?.style?.productId;
       result.set(item.uuid, [
         ...(offersByItemId.get(String(item.id)) ?? []),
         ...(productId ? offersByProductId.get(String(productId)) ?? [] : []),
@@ -895,7 +881,7 @@ export const offerRepository = {
         uuid: true,
         base_price: true,
         variant: {
-          select: { item: { select: { style: { select: { product: { select: { uuid: true } } } } } } },
+          select: { style: { select: { product: { select: { uuid: true } } } } },
         },
       },
     });
@@ -905,7 +891,7 @@ export const offerRepository = {
         r.uuid,
         {
           unitPrice: Number(r.base_price),
-          productId: r.variant?.item?.style?.product?.uuid ?? "",
+          productId: (r.variant as any)?.style?.product?.uuid ?? "",
         },
       ])
     );

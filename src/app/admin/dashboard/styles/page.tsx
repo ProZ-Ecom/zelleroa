@@ -124,9 +124,9 @@ export default function AdminStylesPage() {
       cell: ({ row }) => <span className="text-[var(--color-neutral-700)]">{row.original.categoryName || "—"}</span>,
     },
     {
-      accessorKey: "itemCount",
-      header: "Items",
-      cell: ({ row }) => <span className="text-[var(--color-neutral-700)]">{row.original.itemCount}</span>,
+      accessorKey: "variantCount",
+      header: "Variants",
+      cell: ({ row }) => <span className="text-[var(--color-neutral-700)]">{row.original.variantCount ?? 0}</span>,
     },
     {
       accessorKey: "colors",
@@ -148,11 +148,10 @@ export default function AdminStylesPage() {
       header: "Total Stock",
       cell: ({ row }) => (
         <span
-          className={`font-semibold text-sm ${
-            (row.original.totalStock ?? 0) > 0
+          className={`font-semibold text-sm ${(row.original.totalStock ?? 0) > 0
               ? "text-emerald-700"
               : "text-neutral-500"
-          }`}
+            }`}
         >
           {row.original.totalStock ?? 0}
         </span>
@@ -163,11 +162,10 @@ export default function AdminStylesPage() {
       header: "Status",
       cell: ({ row }) => (
         <span
-          className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-bold ${
-            row.original.isActive
+          className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-bold ${row.original.isActive
               ? "bg-emerald-50 text-emerald-700"
               : "bg-neutral-100 text-neutral-500"
-          }`}
+            }`}
         >
           {row.original.isActive ? "Active" : "Inactive"}
         </span>
@@ -188,7 +186,7 @@ export default function AdminStylesPage() {
       cell: ({ row }) => (
         <div className="flex items-center justify-center gap-1.5">
           <Link href={`/admin/dashboard/styles/${row.original.id}`}>
-            <Button variant="ghost" size="icon" title="View Model">
+            <Button variant="ghost" size="icon" title="View Style">
               <Eye className="h-4 w-4 text-[var(--color-neutral-500)]" />
             </Button>
           </Link>
@@ -197,7 +195,7 @@ export default function AdminStylesPage() {
               variant="ghost"
               size="icon"
               onClick={() => setEditingStyle(row.original)}
-              title="Edit Model"
+              title="Edit Style"
             >
               <Pencil className="h-4 w-4 text-[var(--color-neutral-500)]" />
             </Button>
@@ -207,7 +205,7 @@ export default function AdminStylesPage() {
               variant="ghost"
               size="icon"
               onClick={() => setDeletingStyle(row.original)}
-              title="Delete Model"
+              title="Delete Style"
             >
               <Trash2 className="h-4 w-4 text-[var(--color-error-600)]" />
             </Button>
@@ -229,8 +227,8 @@ export default function AdminStylesPage() {
       return (
         <div className="flex flex-1 min-h-0 flex-col">
           <AdminPageHeader
-            title="Model Management"
-            description="Manage models under products."
+            title="Style Management"
+            description="Manage styles under products."
           />
           <AdminContent>
             <div className="flex flex-col items-center justify-center py-24 gap-4 text-center">
@@ -253,7 +251,7 @@ export default function AdminStylesPage() {
                 Access Denied
               </h2>
               <p className="text-sm text-neutral-500 max-w-sm">
-                You don&apos;t have permission to view models. Please contact your administrator.
+                You don&apos;t have permission to view styles. Please contact your administrator.
               </p>
             </div>
           </AdminContent>
@@ -261,7 +259,7 @@ export default function AdminStylesPage() {
       );
     }
 
-    return <ErrorState message="Failed to load models" onRetry={() => refetch()} />;
+    return <ErrorState message="Failed to load styles" onRetry={() => refetch()} />;
   }
 
   if (isLoading && !data) {
@@ -271,8 +269,8 @@ export default function AdminStylesPage() {
   return (
     <div className="flex flex-1 min-h-0 flex-col">
       <AdminPageHeader
-        title="Model Management"
-        description="Manage models under products."
+        title="Models (Styles)"
+        description="Manage models and styles under products."
       />
 
       <AdminContent className="flex-1 min-h-0">
@@ -323,10 +321,10 @@ export default function AdminStylesPage() {
                 onClick={() =>
                   exportDataToCsv(
                     styles,
-                    "models",
+                    "styles",
                     [
-                      { header: "Model Name", accessor: (row) => row.name },
-                      { header: "Model Code", accessor: (row) => row.slug },
+                      { header: "Style Name", accessor: (row) => row.name },
+                      { header: "Style Code", accessor: (row) => row.slug },
                       { header: "SKU", accessor: (row) => row.sku || "—" },
                       { header: "Product", accessor: (row) => row.productName || "—" },
                       { header: "Brand", accessor: (row) => row.brandName || "—" },
@@ -336,7 +334,7 @@ export default function AdminStylesPage() {
                         accessor: (row) => (row.colors && row.colors.length > 0 ? row.colors.join(", ") : "—"),
                       },
                       { header: "Total Stock", accessor: (row) => row.totalStock ?? 0 },
-                      { header: "Items Count", accessor: (row) => row.itemCount ?? 0 },
+                      { header: "Variants Count", accessor: (row) => row.variantCount ?? 0 },
                       { header: "Base Price (₹)", accessor: (row) => row.basePrice ?? 0 },
                       { header: "Status", accessor: (row) => (row.isActive ? "Active" : "Inactive") },
                       {
@@ -356,7 +354,7 @@ export default function AdminStylesPage() {
                   className="h-11 rounded-xl bg-stone-900 hover:bg-stone-800 text-[#D4AF37] border border-[#D4AF37]/30 shadow-xs px-5 text-sm font-semibold transition-colors"
                 >
                   <Plus className="mr-2 h-4 w-4 text-[#D4AF37]" />
-                  Add Model
+                  Add Style
                 </Button>
               </CanAct>
             </div>
@@ -390,8 +388,8 @@ export default function AdminStylesPage() {
           setAddProductUuid("");
           setIsProductSelectOpen(false);
         }}
-        title="Add Model"
-        description="Create a new Model under a Product"
+        title="Add Style"
+        description="Create a new Style under a Product"
         size="lg"
         className={cn(
           "transition-all duration-300 ease-out",
@@ -427,7 +425,7 @@ export default function AdminStylesPage() {
           {addProductUuid && (
             <StyleForm
               isLoading={createStyleMutation.isPending}
-              submitLabel="Create Model"
+              submitLabel="Create Style"
               onSubmit={async (formData: StyleFormValues) => {
                 try {
                   await createStyleMutation.mutateAsync({
@@ -455,10 +453,10 @@ export default function AdminStylesPage() {
                   });
                   setIsAddOpen(false);
                   setAddProductUuid("");
-                  toast.success("Model created", `"${formData.name}" was added.`);
+                  toast.success("Style created", `"${formData.name}" was added.`);
                   refetch();
                 } catch (err: any) {
-                  toast.error("Failed to create model", err?.message || "Please try again.");
+                  toast.error("Failed to create style", err?.message || "Please try again.");
                 }
               }}
             />
@@ -470,7 +468,7 @@ export default function AdminStylesPage() {
       <FormModal
         open={Boolean(editingStyle)}
         onClose={() => setEditingStyle(null)}
-        title="Edit Model"
+        title="Edit Style"
         description={`Update information for ${editingStyle?.name || ""}`}
         size="lg"
       >
@@ -523,10 +521,10 @@ export default function AdminStylesPage() {
                   },
                 });
                 setEditingStyle(null);
-                toast.success("Model updated", `"${formData.name}" was saved.`);
+                toast.success("Style updated", `"${formData.name}" was saved.`);
                 refetch();
               } catch (err: any) {
-                toast.error("Failed to update model", err?.message || "Please try again.");
+                toast.error("Failed to update style", err?.message || "Please try again.");
               }
             }}
           />
@@ -546,13 +544,13 @@ export default function AdminStylesPage() {
               productUuid: target.productId,
               styleUuid: target.id,
             });
-            toast.success("Model deleted", `"${target.name}" was removed.`);
+            toast.success("Style deleted", `"${target.name}" was removed.`);
             refetch();
           } catch (err: any) {
-            toast.error("Failed to delete model", err?.message || "Please try again.");
+            toast.error("Failed to delete style", err?.message || "Please try again.");
           }
         }}
-        title="Delete Model"
+        title="Delete Style"
         description={`Are you sure you want to delete "${deletingStyle?.name}"? Its Colors and Sizes will no longer be manageable. This action cannot be undone.`}
         confirmText="Delete"
         variant="destructive"

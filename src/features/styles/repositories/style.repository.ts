@@ -30,29 +30,21 @@ export const styleInclude = Prisma.validator<Prisma.StyleInclude>()({
     orderBy: [{ is_primary: "desc" }, { sort_order: "asc" }],
   },
   _count: {
-    select: { items: { where: { deleted_at: null } } },
+    select: { variants: { where: { deleted_at: null } } },
   },
-  items: {
+  variants: {
     where: { deleted_at: null },
     select: {
       id: true,
-      name: true,
-      slug: true,
-      base_price: true,
-      variants: {
+      color_name: true,
+      variant_name: true,
+      variant_unit_prices: {
         where: { deleted_at: null },
         select: {
           id: true,
-          color_name: true,
-          variant_unit_prices: {
-            where: { deleted_at: null },
+          inventories: {
             select: {
-              id: true,
-              inventories: {
-                select: {
-                  quantity_available: true,
-                },
-              },
+              quantity_available: true,
             },
           },
         },
@@ -196,16 +188,21 @@ export const styleRepository = {
     const existing = await this.findByUuid(uuid);
     if (!existing) return null;
 
-    // Soft-delete and retire all items under this style so unique slugs/skus are freed
-    const items = await db.item.findMany({ where: { styleId: existing.id } });
-    for (const it of items) {
-      await db.item.update({
-        where: { id: it.id },
+    // Soft-delete and retire every Color variant under this Style so their
+    // unique slugs are freed for a future Style that reuses the same names.
+    const variants = await db.productVariant.findMany({
+      where: { styleId: existing.id, deleted_at: null },
+      select: { id: true, slug: true },
+    });
+    for (const variant of variants) {
+      await db.productVariant.update({
+        where: { id: variant.id },
         data: {
           isActive: false,
-          deleted_at: it.deleted_at ?? new Date(),
-          slug: retireUniqueValue(it.slug, it.id, 220),
-          ...(it.sku ? { sku: retireUniqueValue(it.sku, it.id, 100) } : {}),
+          deleted_at: new Date(),
+          ...(variant.slug
+            ? { slug: retireUniqueValue(variant.slug, variant.id, 255) }
+            : {}),
           ...(adminId ? { updated_by: adminId } : {}),
         },
       });

@@ -30,15 +30,6 @@ export const cartItemInclude = Prisma.validator<Prisma.CartItemInclude>()({
       },
     },
   },
-  item: {
-    select: {
-      id: true,
-      uuid: true,
-      name: true,
-      isActive: true,
-      deleted_at: true,
-    },
-  },
   // The Style the line was bought under - the unit the storefront lists and
   // links to, so the cart can name it and link back to its detail page.
   style: {
@@ -230,7 +221,6 @@ export const cartRepository = {
             cartId: cart.id,
             productId: params.productId,
             styleId: params.styleId,
-            itemId: params.itemId ?? null,
             variantId: params.variantId,
             variantUnitPriceId: params.variantUnitPriceId ?? null,
             quantity: params.quantity,
