@@ -16,8 +16,6 @@
     "db:seed:basic": "node --experimental-strip-types prisma/seed.ts",
     "db:permissions:sync": "node --experimental-strip-types scripts/sync-permissions.ts",
     "db:check:pos": "node --experimental-strip-types scripts/check-pos-ready.ts",
-    "db:seed:orders": "node --experimental-strip-types scripts/seed-test-orders.ts",
-    "db:seed:categories": "node --experimental-strip-types scripts/seed-zellora-categories.ts",
     "db:studio": "prisma studio",
     "db:clear-data": "node --experimental-strip-types scripts/clear-store-data.ts",
     "db:backfill-referral-codes": "node --experimental-strip-types --import ./tests/register.mjs scripts/backfill-referral-codes.ts",

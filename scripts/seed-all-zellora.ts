@@ -532,12 +532,56 @@ async function main() {
       uuid: crypto.randomUUID(),
       name: "Apple",
       slug: "apple",
-      description: "Pioneering personal audio with AirPods Pro, AirPods 4, and AirPods Max featuring spatial audio and industry-leading noise cancellation.",
+      description: "Pioneering personal tech with iPhone 16 Pro, AirPods Pro, AirPods Max, and Apple Watch.",
       isActive: true,
       status: true,
     },
   });
-  console.log(`✓ Created 9 Zellora brands (including Apple)\n`);
+
+  const brandOnePlus = await prisma.productBrand.create({
+    data: {
+      uuid: crypto.randomUUID(),
+      name: "OnePlus",
+      slug: "oneplus",
+      description: "Never Settle - Flagship smartphones, Nord Buds, and premium audio technology.",
+      isActive: true,
+      status: true,
+    },
+  });
+
+  const brandBoat = await prisma.productBrand.create({
+    data: {
+      uuid: crypto.randomUUID(),
+      name: "boAt",
+      slug: "boat",
+      description: "India's #1 wearable audio brand - Plug into Nirvana with high-bass true wireless earbuds.",
+      isActive: true,
+      status: true,
+    },
+  });
+
+  const brandSamsung = await prisma.productBrand.create({
+    data: {
+      uuid: crypto.randomUUID(),
+      name: "Samsung",
+      slug: "samsung",
+      description: "Galaxy AI smartphones, Galaxy Watch, and industry-defining AMOLED mobile innovation.",
+      isActive: true,
+      status: true,
+    },
+  });
+
+  const brandSony = await prisma.productBrand.create({
+    data: {
+      uuid: crypto.randomUUID(),
+      name: "Sony",
+      slug: "sony",
+      description: "Industry-leading active noise cancellation, high-resolution audio, and master acoustic engineering.",
+      isActive: true,
+      status: true,
+    },
+  });
+  console.log(`✓ Created 13 Zellora & Electronics brands (Apple, OnePlus, boAt, Samsung, Sony)\n`);
 
   // 6. ATTRIBUTES & ATTRIBUTE VALUES
   console.log("6. SEEDING PRODUCT ATTRIBUTES & VALUES...");
@@ -583,6 +627,17 @@ async function main() {
   const valTan = await createAttrVal(attrColor.id, "Sienna Tan", "#C19A6B");
   const valMustard = await createAttrVal(attrColor.id, "Mustard Gold", "#FFDB58");
   const valBlush = await createAttrVal(attrColor.id, "Blush Pink", "#FFB6C1");
+  const valStarryBlack = await createAttrVal(attrColor.id, "Starry Black", "#1A1A1A");
+  const valSoftJade = await createAttrVal(attrColor.id, "Soft Jade", "#9BBBA8");
+  const valJetBlack = await createAttrVal(attrColor.id, "Jet Black", "#0A0A0A");
+  const valSwedishWhite = await createAttrVal(attrColor.id, "Swedish White", "#F5F5F5");
+  const valDarkMarine = await createAttrVal(attrColor.id, "Dark Marine", "#183059");
+  const valSpaceGrey = await createAttrVal(attrColor.id, "Space Grey", "#4B4846");
+  const valSilver = await createAttrVal(attrColor.id, "Silver", "#E3E4E5");
+  const valNaturalTitanium = await createAttrVal(attrColor.id, "Natural Titanium", "#9E988F");
+  const valDesertTitanium = await createAttrVal(attrColor.id, "Desert Titanium", "#C4A482");
+  const valTitaniumGray = await createAttrVal(attrColor.id, "Titanium Gray", "#616161");
+  const valFlowyEmerald = await createAttrVal(attrColor.id, "Flowy Emerald", "#2E5A44");
 
   const valXS = await createAttrVal(attrSize.id, "XS");
   const valS = await createAttrVal(attrSize.id, "S");
@@ -773,15 +828,15 @@ async function main() {
       ],
     },
     {
-      name: "Mobiles & Tech",
-      slug: "mobiles-tech",
-      description: "Flagship smartphones, lifestyle wearables, designer phone cases, and mobile essentials.",
+      name: "Electronics",
+      slug: "electronics",
+      description: "Flagship smartphones, true wireless earbuds, active noise-cancelling headphones, and smartwatches.",
       image: "https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?auto=format&fit=crop&w=800&q=80",
       children: [
-        { name: "Smartphones", slug: "mobiles-smartphones" },
-        { name: "Foldables", slug: "mobiles-foldables" },
-        { name: "Cases & Accessories", slug: "mobiles-accessories" },
-        { name: "AirPods & Wireless Audio", slug: "mobiles-audio" },
+        { name: "Smartphones", slug: "electronics-smartphones" },
+        { name: "AirPods & Wireless Earbuds", slug: "electronics-earbuds" },
+        { name: "Headphones", slug: "electronics-headphones" },
+        { name: "Smartwatches", slug: "electronics-smartwatches" },
       ],
     },
   ];
@@ -972,7 +1027,7 @@ async function main() {
     { label: "Watches", categorySlug: "luxury-watches", sortOrder: 3 },
     { label: "Bags & Leather", categorySlug: "bags-leather", sortOrder: 4 },
     { label: "Jewellery", categorySlug: "fine-jewellery", sortOrder: 5 },
-    { label: "Mobiles", categorySlug: "mobiles-tech", sortOrder: 6 },
+    { label: "Electronics", categorySlug: "electronics", sortOrder: 6 },
     { label: "Sale", link: "/products?sortBy=discount", sortOrder: 7 },
   ];
 
@@ -1621,80 +1676,258 @@ async function main() {
       ],
     },
 
-    // --- Category: Mobiles & Tech ---
+    // ==========================================
+    // --- Category: Electronics - Smartphones ---
+    // ==========================================
     {
-      name: "Zellora Nova Pro 5G Flagship Smartphone",
-      slug: "zellora-nova-pro-5g-smartphone",
-      productName: "Flagship 5G Smartphones",
-      productSlug: "flagship-5g-smartphones",
-      categorySlug: "mobiles-smartphones",
-      brand: brandTech,
+      name: "Apple iPhone 16 Pro Max 5G",
+      slug: "apple-iphone-16-pro-max-5g",
+      productName: "iPhone 16 Pro Max",
+      productSlug: "apple-iphone-16-pro-max",
+      categorySlug: "electronics-smartphones",
+      brand: brandApple,
       gender: "unisex",
-      primaryImage: "https://images.unsplash.com/photo-1592750475338-74b7b21085ab?w=800&auto=format&fit=crop&q=80",
+      primaryImage: "https://images.unsplash.com/photo-1695048133142-1a20484d2569?w=800&auto=format&fit=crop&q=80",
       galleryImages: [
+        "https://images.unsplash.com/photo-1592750475338-74b7b21085ab?w=800&auto=format&fit=crop&q=80",
         "https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?w=800&auto=format&fit=crop&q=80",
       ],
-      shortDescription: "Aerospace-grade titanium frame with 6.7-inch OLED 120Hz display and 50MP triple studio camera.",
-      description: "Precision engineered with an aerospace-grade titanium frame, 6.7-inch Super Retina 120Hz LTPO display, and an advanced 50MP triple optical studio camera system. Powered for next-generation performance and all-day battery life.",
-      basePrice: 59999,
-      colorName: "Natural Titanium",
-      colorHex: "#8B8D8E",
+      shortDescription: "Grade 5 titanium design, A18 Pro chip, 48MP Fusion camera system with 5x Telephoto, and Camera Control.",
+      description: "Forged in Grade 5 titanium with an all-new refined microblasted texture. Powered by the groundbreaking A18 Pro chip, the iPhone 16 Pro Max introduces Camera Control for instant photo and video access, next-generation 48MP Fusion camera with 5x Telephoto optical zoom, 4K 120 fps Dolby Vision recording, and unprecedented battery life.",
+      basePrice: 144900,
+      variants: [
+        {
+          colorName: "Desert Titanium",
+          colorHex: "#C4A482",
+          primaryImage: "https://images.unsplash.com/photo-1695048133142-1a20484d2569?w=800&auto=format&fit=crop&q=80",
+          sizes: [
+            { unit: unit256GB, unitValue: 256, price: 144900, sku: "APP-IP16PM-DT-256", isDefault: true },
+            { unit: unit512GB, unitValue: 512, price: 164900, sku: "APP-IP16PM-DT-512", isDefault: false },
+          ],
+        },
+        {
+          colorName: "Natural Titanium",
+          colorHex: "#9E988F",
+          primaryImage: "https://images.unsplash.com/photo-1592750475338-74b7b21085ab?w=800&auto=format&fit=crop&q=80",
+          sizes: [
+            { unit: unit256GB, unitValue: 256, price: 144900, sku: "APP-IP16PM-NT-256", isDefault: false },
+            { unit: unit512GB, unitValue: 512, price: 164900, sku: "APP-IP16PM-NT-512", isDefault: false },
+          ],
+        },
+        {
+          colorName: "Black Titanium",
+          colorHex: "#2B2B2B",
+          primaryImage: "https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?w=800&auto=format&fit=crop&q=80",
+          sizes: [
+            { unit: unit256GB, unitValue: 256, price: 144900, sku: "APP-IP16PM-BT-256", isDefault: false },
+            { unit: unit512GB, unitValue: 512, price: 164900, sku: "APP-IP16PM-BT-512", isDefault: false },
+          ],
+        },
+      ],
+      colorName: "Desert Titanium",
+      colorHex: "#C4A482",
       sizes: [
-        { unit: unit128GB, unitValue: 128, price: 59999, sku: "ZEL-MOB-01-128", isDefault: false },
-        { unit: unit256GB, unitValue: 256, price: 64999, sku: "ZEL-MOB-01-256", isDefault: true },
-        { unit: unit512GB, unitValue: 512, price: 74999, sku: "ZEL-MOB-01-512", isDefault: false },
+        { unit: unit256GB, unitValue: 256, price: 144900, sku: "APP-IP16PM-DT-256", isDefault: true },
       ],
     },
     {
-      name: "Zellora Fold Slim 5G Luxury Edition",
-      slug: "zellora-fold-slim-5g-luxury-edition",
-      productName: "Foldable Luxury Smartphones",
-      productSlug: "foldable-luxury-smartphones",
-      categorySlug: "mobiles-foldables",
-      brand: brandTech,
+      name: "Samsung Galaxy S24 Ultra AI Smartphone",
+      slug: "samsung-galaxy-s24-ultra-5g",
+      productName: "Samsung Galaxy S24 Ultra",
+      productSlug: "samsung-galaxy-s24-ultra",
+      categorySlug: "electronics-smartphones",
+      brand: brandSamsung,
       gender: "unisex",
-      primaryImage: "https://images.unsplash.com/photo-1580910051074-3eb694886505?w=800&auto=format&fit=crop&q=80",
-      galleryImages: [],
-      shortDescription: "Ultra-thin zero-gap teardrop hinge foldable with 7.9-inch internal cinematic screen.",
-      description: "The pinnacle of mobile fashion and engineering. Zero-gap fluid teardrop hinge, ultra-thin folding glass, and vegan leather back panel. Seamless multitasking with flagship processor and dual stereo speakers.",
-      basePrice: 89999,
-      colorName: "Classic Black",
-      colorHex: "#111111",
+      primaryImage: "https://images.unsplash.com/photo-1610945415295-d9bbf067e59c?w=800&auto=format&fit=crop&q=80",
+      galleryImages: [
+        "https://images.unsplash.com/photo-1580910051074-3eb694886505?w=800&auto=format&fit=crop&q=80",
+      ],
+      shortDescription: "Galaxy AI integrated with 200MP Quad Telephoto camera, titanium frame, and built-in S Pen.",
+      description: "Meet Galaxy S24 Ultra with Galaxy AI built-in. Featuring a durable titanium shield, flat 6.8-inch Dynamic AMOLED 2X display, 200MP high-resolution camera with ProVisual engine, Live Translate, and embedded S Pen for pinpoint precision.",
+      basePrice: 129999,
+      variants: [
+        {
+          colorName: "Titanium Gray",
+          colorHex: "#616161",
+          primaryImage: "https://images.unsplash.com/photo-1610945415295-d9bbf067e59c?w=800&auto=format&fit=crop&q=80",
+          sizes: [
+            { unit: unit256GB, unitValue: 256, price: 129999, sku: "SAM-S24U-GRY-256", isDefault: true },
+            { unit: unit512GB, unitValue: 512, price: 139999, sku: "SAM-S24U-GRY-512", isDefault: false },
+          ],
+        },
+        {
+          colorName: "Titanium Black",
+          colorHex: "#212121",
+          primaryImage: "https://images.unsplash.com/photo-1580910051074-3eb694886505?w=800&auto=format&fit=crop&q=80",
+          sizes: [
+            { unit: unit256GB, unitValue: 256, price: 129999, sku: "SAM-S24U-BLK-256", isDefault: false },
+            { unit: unit512GB, unitValue: 512, price: 139999, sku: "SAM-S24U-BLK-512", isDefault: false },
+          ],
+        },
+      ],
+      colorName: "Titanium Gray",
+      colorHex: "#616161",
       sizes: [
-        { unit: unit256GB, unitValue: 256, price: 89999, sku: "ZEL-MOB-02-256", isDefault: true },
-        { unit: unit512GB, unitValue: 512, price: 99999, sku: "ZEL-MOB-02-512", isDefault: false },
+        { unit: unit256GB, unitValue: 256, price: 129999, sku: "SAM-S24U-GRY-256", isDefault: true },
       ],
     },
-    // --- Category: Mobiles & Tech (AirPods & Audio) ---
+    {
+      name: "OnePlus 12 5G Flagship Smartphone",
+      slug: "oneplus-12-5g-smartphone",
+      productName: "OnePlus 12 5G",
+      productSlug: "oneplus-12-5g",
+      categorySlug: "electronics-smartphones",
+      brand: brandOnePlus,
+      gender: "unisex",
+      primaryImage: "https://images.unsplash.com/photo-1592750475338-74b7b21085ab?w=800&auto=format&fit=crop&q=80",
+      galleryImages: [],
+      shortDescription: "Snapdragon 8 Gen 3 with 4th Gen Hasselblad Camera System and 100W SUPERVOOC charging.",
+      description: "Driven by ultra-flagship hardware including Snapdragon 8 Gen 3 and up to 16GB LPDDR5X RAM. Enjoy a breathtaking 2K 120Hz ProXDR display, 4th Gen Hasselblad Camera with 64MP 3X periscope zoom, and super-fast 100W charging.",
+      basePrice: 64999,
+      variants: [
+        {
+          colorName: "Flowy Emerald",
+          colorHex: "#2E5A44",
+          primaryImage: "https://images.unsplash.com/photo-1592750475338-74b7b21085ab?w=800&auto=format&fit=crop&q=80",
+          sizes: [
+            { unit: unit256GB, unitValue: 256, price: 64999, sku: "1P-12-EMR-256", isDefault: true },
+            { unit: unit512GB, unitValue: 512, price: 69999, sku: "1P-12-EMR-512", isDefault: false },
+          ],
+        },
+        {
+          colorName: "Silky Black",
+          colorHex: "#1F1F1F",
+          primaryImage: "https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?w=800&auto=format&fit=crop&q=80",
+          sizes: [
+            { unit: unit256GB, unitValue: 256, price: 64999, sku: "1P-12-BLK-256", isDefault: false },
+            { unit: unit512GB, unitValue: 512, price: 69999, sku: "1P-12-BLK-512", isDefault: false },
+          ],
+        },
+      ],
+      colorName: "Flowy Emerald",
+      colorHex: "#2E5A44",
+      sizes: [
+        { unit: unit256GB, unitValue: 256, price: 64999, sku: "1P-12-EMR-256", isDefault: true },
+      ],
+    },
+
+    // ========================================================
+    // --- Category: Electronics - AirPods & Wireless Earbuds ---
+    // ========================================================
+    {
+      name: "OnePlus Nord Buds 4 Pro True Wireless Earbuds",
+      slug: "oneplus-nord-buds-4-pro",
+      productName: "OnePlus Nord Buds 4 Pro",
+      productSlug: "oneplus-nord-buds-4-pro",
+      categorySlug: "electronics-earbuds",
+      brand: brandOnePlus,
+      gender: "unisex",
+      primaryImage: "https://images.unsplash.com/photo-1590658268037-6bf12165a8df?w=800&auto=format&fit=crop&q=80",
+      galleryImages: [
+        "https://images.unsplash.com/photo-1631867675167-90a456a90863?w=800&auto=format&fit=crop&q=80",
+      ],
+      shortDescription: "43dB Hybrid Active Noise Cancellation with 12.4mm Titanized diaphragm and 43 hours playback.",
+      description: "OnePlus Nord Buds 4 Pro deliver punchy bass and crystal clear trebles powered by 12.4mm titanized dynamic drivers. Featuring up to 43dB hybrid active noise cancellation, dual-mic AI clear call noise reduction, ultra-low 47ms gaming latency, and fast charging (10 mins for 11 hours playback). Dual pairing Bluetooth 5.4 ensures seamless switching between your devices.",
+      basePrice: 3299,
+      variants: [
+        {
+          colorName: "Starry Black",
+          colorHex: "#1A1A1A",
+          primaryImage: "https://images.unsplash.com/photo-1590658268037-6bf12165a8df?w=800&auto=format&fit=crop&q=80",
+          sizes: [
+            { unit: unitPiece, unitValue: 1, price: 3299, sku: "1P-NORD-B4P-BLK", isDefault: true },
+          ],
+        },
+        {
+          colorName: "Soft Jade",
+          colorHex: "#9BBBA8",
+          primaryImage: "https://images.unsplash.com/photo-1631867675167-90a456a90863?w=800&auto=format&fit=crop&q=80",
+          sizes: [
+            { unit: unitPiece, unitValue: 1, price: 3299, sku: "1P-NORD-B4P-JAD", isDefault: false },
+          ],
+        },
+      ],
+      colorName: "Starry Black",
+      colorHex: "#1A1A1A",
+      sizes: [
+        { unit: unitPiece, unitValue: 1, price: 3299, sku: "1P-NORD-B4P-BLK", isDefault: true },
+      ],
+    },
+    {
+      name: "boAt Airdopes Alpha Gen 2 Wireless Earbuds",
+      slug: "boat-airdopes-alpha-gen-2",
+      productName: "boAt Airdopes Alpha Gen 2",
+      productSlug: "boat-airdopes-alpha-gen-2",
+      categorySlug: "electronics-earbuds",
+      brand: brandBoat,
+      gender: "unisex",
+      primaryImage: "https://images.unsplash.com/photo-1574920162043-b872873f19c8?w=800&auto=format&fit=crop&q=80",
+      galleryImages: [
+        "https://images.unsplash.com/photo-1600294037681-c80b4cb5b434?w=800&auto=format&fit=crop&q=80",
+      ],
+      shortDescription: "35 Hours Total Playback, 13mm Signature Drivers, ASAP Charge, and BEAST Mode 50ms latency.",
+      description: "Plug into Nirvana with boAt Airdopes Alpha Gen 2. Featuring custom-tuned 13mm drivers for signature deep bass, ENx technology for clear voice calls, and up to 35 hours of mammoth playtime. With ASAP Charge technology, a quick 10-minute charge delivers 60 minutes of uninterrupted tunes. IPX5 water resistance keeps them safe from sweat and splashes.",
+      basePrice: 1199,
+      variants: [
+        {
+          colorName: "Jet Black",
+          colorHex: "#0A0A0A",
+          primaryImage: "https://images.unsplash.com/photo-1574920162043-b872873f19c8?w=800&auto=format&fit=crop&q=80",
+          sizes: [
+            { unit: unitPiece, unitValue: 1, price: 1199, sku: "BOAT-AD-A2-BLK", isDefault: true },
+          ],
+        },
+        {
+          colorName: "Swedish White",
+          colorHex: "#F5F5F5",
+          primaryImage: "https://images.unsplash.com/photo-1600294037681-c80b4cb5b434?w=800&auto=format&fit=crop&q=80",
+          sizes: [
+            { unit: unitPiece, unitValue: 1, price: 1199, sku: "BOAT-AD-A2-WHT", isDefault: false },
+          ],
+        },
+        {
+          colorName: "Dark Marine",
+          colorHex: "#183059",
+          primaryImage: "https://images.unsplash.com/photo-1590658268037-6bf12165a8df?w=800&auto=format&fit=crop&q=80",
+          sizes: [
+            { unit: unitPiece, unitValue: 1, price: 1199, sku: "BOAT-AD-A2-BLU", isDefault: false },
+          ],
+        },
+      ],
+      colorName: "Jet Black",
+      colorHex: "#0A0A0A",
+      sizes: [
+        { unit: unitPiece, unitValue: 1, price: 1199, sku: "BOAT-AD-A2-BLK", isDefault: true },
+      ],
+    },
     {
       name: "Apple AirPods Pro (2nd Generation) with MagSafe Case (USB-C)",
       slug: "apple-airpods-pro-2nd-gen-usb-c",
-      productName: "AirPods Pro",
-      productSlug: "apple-airpods-pro",
-      categorySlug: "mobiles-audio",
+      productName: "AirPods Pro (2nd Gen)",
+      productSlug: "apple-airpods-pro-2nd-gen",
+      categorySlug: "electronics-earbuds",
       brand: brandApple,
       gender: "unisex",
       primaryImage: "https://images.unsplash.com/photo-1600294037681-c80b4cb5b434?w=800&auto=format&fit=crop&q=80",
       galleryImages: [
         "https://images.unsplash.com/photo-1588423771073-b8903fbb85b5?w=800&auto=format&fit=crop&q=80",
         "https://images.unsplash.com/photo-1572569511254-d8f925fe2cbb?w=800&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1606841837239-c5a1a4a07af7?w=800&auto=format&fit=crop&q=80",
       ],
       shortDescription: "Up to 2x more Active Noise Cancellation, Adaptive Audio, and USB-C MagSafe Charging Case with built-in speaker.",
-      description: "Rebuilt from the sound up. AirPods Pro (2nd generation) with MagSafe Case (USB-C) feature up to 2x more Active Noise Cancellation than the previous generation, with Transparency mode to hear the world around you, all-new Adaptive Audio that dynamically tailors noise control to your environment, and Conversation Awareness to help lower media volume and enhance the voices in front of you when speaking to others. Powered by the Apple-designed H2 headphone chip for smarter noise cancellation and deeply immersive sound. Features dust, sweat, and water resistance (IP54) for both earbuds and case.",
+      description: "Rebuilt from the sound up. AirPods Pro (2nd generation) with MagSafe Case (USB-C) feature up to 2x more Active Noise Cancellation than the previous generation, with Transparency mode to hear the world around you, all-new Adaptive Audio that dynamically tailors noise control to your environment, and Conversation Awareness to help lower media volume and enhance the voices in front of you when speaking to others. Powered by the Apple-designed H2 headphone chip for smarter noise cancellation and deeply immersive sound.",
       basePrice: 24900,
       colorName: "Glossy White",
       colorHex: "#FFFFFF",
       sizes: [
-        { unit: unitOneSize, unitValue: 1, price: 24900, sku: "APP-AIRPODS-PRO2-USBC", isDefault: true },
+        { unit: unitPiece, unitValue: 1, price: 24900, sku: "APP-AIRPODS-PRO2-USBC", isDefault: true },
       ],
     },
     {
       name: "Apple AirPods 4 with Active Noise Cancellation",
       slug: "apple-airpods-4-active-noise-cancellation",
-      productName: "AirPods 4",
-      productSlug: "apple-airpods-4",
-      categorySlug: "mobiles-audio",
+      productName: "AirPods 4 with ANC",
+      productSlug: "apple-airpods-4-anc",
+      categorySlug: "electronics-earbuds",
       brand: brandApple,
       gender: "unisex",
       primaryImage: "https://images.unsplash.com/photo-1572569511254-d8f925fe2cbb?w=800&auto=format&fit=crop&q=80",
@@ -1702,20 +1935,24 @@ async function main() {
         "https://images.unsplash.com/photo-1600294037681-c80b4cb5b434?w=800&auto=format&fit=crop&q=80",
       ],
       shortDescription: "Open-ear fit with Active Noise Cancellation, Voice Isolation, and the most compact wireless charging case.",
-      description: "AirPods 4 with Active Noise Cancellation deliver a completely transformed audio experience in an iconic open-ear design. The powerful H2 chip enables Active Noise Cancellation and Adaptive Audio, while Voice Isolation helps you be heard clearly in noisy environments. With Personalized Spatial Audio that tracks your head movements, sound envelops you from every direction. The sleek USB-C charging case includes a built-in speaker for Find My alerts.",
+      description: "AirPods 4 with Active Noise Cancellation deliver a completely transformed audio experience in an iconic open-ear design. The powerful H2 chip enables Active Noise Cancellation and Adaptive Audio, while Voice Isolation helps you be heard clearly in noisy environments. With Personalized Spatial Audio that tracks your head movements, sound envelops you from every direction.",
       basePrice: 17900,
       colorName: "Classic White",
       colorHex: "#FFFFFF",
       sizes: [
-        { unit: unitOneSize, unitValue: 1, price: 17900, sku: "APP-AIRPODS-4-ANC", isDefault: true },
+        { unit: unitPiece, unitValue: 1, price: 17900, sku: "APP-AIRPODS-4-ANC", isDefault: true },
       ],
     },
+
+    // ==========================================
+    // --- Category: Electronics - Headphones ---
+    // ==========================================
     {
       name: "Apple AirPods Max Wireless Over-Ear Headphones (USB-C)",
       slug: "apple-airpods-max-usb-c-wireless",
       productName: "AirPods Max",
       productSlug: "apple-airpods-max",
-      categorySlug: "mobiles-audio",
+      categorySlug: "electronics-headphones",
       brand: brandApple,
       gender: "unisex",
       primaryImage: "https://images.unsplash.com/photo-1628202926206-c63a34b1618f?w=800&auto=format&fit=crop&q=80",
@@ -1731,7 +1968,7 @@ async function main() {
           colorHex: "#4B4846",
           primaryImage: "https://images.unsplash.com/photo-1628202926206-c63a34b1618f?w=800&auto=format&fit=crop&q=80",
           sizes: [
-            { unit: unitOneSize, unitValue: 1, price: 59900, sku: "APP-AIRPODS-MAX-GRY", isDefault: true },
+            { unit: unitPiece, unitValue: 1, price: 59900, sku: "APP-AIRPODS-MAX-GRY", isDefault: true },
           ],
         },
         {
@@ -1739,14 +1976,131 @@ async function main() {
           colorHex: "#E3E4E5",
           primaryImage: "https://images.unsplash.com/photo-1613040809024-b4ef7ba99bc3?w=800&auto=format&fit=crop&q=80",
           sizes: [
-            { unit: unitOneSize, unitValue: 1, price: 59900, sku: "APP-AIRPODS-MAX-SLV", isDefault: false },
+            { unit: unitPiece, unitValue: 1, price: 59900, sku: "APP-AIRPODS-MAX-SLV", isDefault: false },
           ],
         },
       ],
       colorName: "Space Grey",
       colorHex: "#4B4846",
       sizes: [
-        { unit: unitOneSize, unitValue: 1, price: 59900, sku: "APP-AIRPODS-MAX-GRY", isDefault: true },
+        { unit: unitPiece, unitValue: 1, price: 59900, sku: "APP-AIRPODS-MAX-GRY", isDefault: true },
+      ],
+    },
+    {
+      name: "Sony WH-1000XM5 Wireless Noise Cancelling Headphones",
+      slug: "sony-wh-1000xm5-wireless-anc",
+      productName: "Sony WH-1000XM5",
+      productSlug: "sony-wh-1000xm5",
+      categorySlug: "electronics-headphones",
+      brand: brandSony,
+      gender: "unisex",
+      primaryImage: "https://images.unsplash.com/photo-1546435770-a3e426bf472b?w=800&auto=format&fit=crop&q=80",
+      galleryImages: [
+        "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=800&auto=format&fit=crop&q=80",
+      ],
+      shortDescription: "Industry-leading noise cancellation with 8 microphones, Auto NC Optimizer, and 30-hour battery life.",
+      description: "With two processors and eight microphones, the Sony WH-1000XM5 delivers unprecedented noise cancellation and exceptional call quality. The specially designed 30mm driver unit with a light and rigid dome using carbon fiber composite material improves high-frequency sensitivity for more natural sound quality. Crystal clear hands-free calling with 4 beamforming microphones and AI noise reduction.",
+      basePrice: 29990,
+      variants: [
+        {
+          colorName: "Midnight Black",
+          colorHex: "#141414",
+          primaryImage: "https://images.unsplash.com/photo-1546435770-a3e426bf472b?w=800&auto=format&fit=crop&q=80",
+          sizes: [
+            { unit: unitPiece, unitValue: 1, price: 29990, sku: "SONY-WH5-BLK", isDefault: true },
+          ],
+        },
+        {
+          colorName: "Platinum Silver",
+          colorHex: "#D1CEC7",
+          primaryImage: "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=800&auto=format&fit=crop&q=80",
+          sizes: [
+            { unit: unitPiece, unitValue: 1, price: 29990, sku: "SONY-WH5-SLV", isDefault: false },
+          ],
+        },
+      ],
+      colorName: "Midnight Black",
+      colorHex: "#141414",
+      sizes: [
+        { unit: unitPiece, unitValue: 1, price: 29990, sku: "SONY-WH5-BLK", isDefault: true },
+      ],
+    },
+
+    // ============================================
+    // --- Category: Electronics - Smartwatches ---
+    // ============================================
+    {
+      name: "Apple Watch Series 10 GPS + Cellular",
+      slug: "apple-watch-series-10-cellular",
+      productName: "Apple Watch Series 10",
+      productSlug: "apple-watch-series-10",
+      categorySlug: "electronics-smartwatches",
+      brand: brandApple,
+      gender: "unisex",
+      primaryImage: "https://images.unsplash.com/photo-1508685096489-7aacd43bd3b1?w=800&auto=format&fit=crop&q=80",
+      galleryImages: [],
+      shortDescription: "Thinnest Apple Watch ever with our biggest display, sleep apnea notifications, and fast charging.",
+      description: "Apple Watch Series 10 is a major milestone. Featuring the biggest, most advanced display in Apple Watch history with wide-angle OLED technology, sleek ultra-thin aluminum case, advanced sleep and heart health insights, depth and water temperature sensors, and the fastest charging ever.",
+      basePrice: 46900,
+      variants: [
+        {
+          colorName: "Jet Black",
+          colorHex: "#000000",
+          primaryImage: "https://images.unsplash.com/photo-1508685096489-7aacd43bd3b1?w=800&auto=format&fit=crop&q=80",
+          sizes: [
+            { unit: unitPiece, unitValue: 1, price: 46900, sku: "APP-W10-BLK", isDefault: true },
+          ],
+        },
+        {
+          colorName: "Rose Gold",
+          colorHex: "#B76E79",
+          primaryImage: "https://images.unsplash.com/photo-1508685096489-7aacd43bd3b1?w=800&auto=format&fit=crop&q=80",
+          sizes: [
+            { unit: unitPiece, unitValue: 1, price: 46900, sku: "APP-W10-GLD", isDefault: false },
+          ],
+        },
+      ],
+      colorName: "Jet Black",
+      colorHex: "#000000",
+      sizes: [
+        { unit: unitPiece, unitValue: 1, price: 46900, sku: "APP-W10-BLK", isDefault: true },
+      ],
+    },
+    {
+      name: "Samsung Galaxy Watch 7 Bluetooth 44mm",
+      slug: "samsung-galaxy-watch-7-44mm",
+      productName: "Samsung Galaxy Watch 7",
+      productSlug: "samsung-galaxy-watch-7",
+      categorySlug: "electronics-smartwatches",
+      brand: brandSamsung,
+      gender: "unisex",
+      primaryImage: "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800&auto=format&fit=crop&q=80",
+      galleryImages: [],
+      shortDescription: "3nm processor, Energy Score with Galaxy AI, Dual-frequency GPS, and BioActive sensor.",
+      description: "Elevate your everyday wellness with Galaxy Watch 7. Powered by a new 3nm processor for smooth responsiveness, BioActive Sensor for advanced health monitoring, Energy Score with Galaxy AI, and Dual-frequency GPS for precision tracking.",
+      basePrice: 29999,
+      variants: [
+        {
+          colorName: "Green",
+          colorHex: "#4A5D4E",
+          primaryImage: "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800&auto=format&fit=crop&q=80",
+          sizes: [
+            { unit: unitPiece, unitValue: 1, price: 29999, sku: "SAM-GW7-GRN", isDefault: true },
+          ],
+        },
+        {
+          colorName: "Silver",
+          colorHex: "#D3D3D3",
+          primaryImage: "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800&auto=format&fit=crop&q=80",
+          sizes: [
+            { unit: unitPiece, unitValue: 1, price: 29999, sku: "SAM-GW7-SLV", isDefault: false },
+          ],
+        },
+      ],
+      colorName: "Green",
+      colorHex: "#4A5D4E",
+      sizes: [
+        { unit: unitPiece, unitValue: 1, price: 29999, sku: "SAM-GW7-GRN", isDefault: true },
       ],
     },
   ];
@@ -1791,7 +2145,7 @@ async function main() {
         brandId: itemDef.brand.id,
         name: itemDef.name,
         slug: itemDef.slug,
-        sku: `STY-${itemDef.slug.slice(0, 15).toUpperCase()}`,
+        sku: `STY-${totalStyles + 1}-${itemDef.slug.slice(0, 20).toUpperCase()}`,
         short_description: itemDef.shortDescription,
         description: itemDef.description,
         base_price: itemDef.basePrice,
@@ -1831,17 +2185,17 @@ async function main() {
       });
     }
 
-    const variantsToCreate = (itemDef as any).variants ?? [
-      {
-        colorName: itemDef.colorName,
-        colorHex: itemDef.colorHex,
-        primaryImage: itemDef.primaryImage,
-        sizes: itemDef.sizes,
-      },
+        const variantsToCreate = (itemDef as any).variants ?? [
+          {
+            colorName: itemDef.colorName,
+            colorHex: itemDef.colorHex,
+            primaryImage: itemDef.primaryImage,
+            sizes: itemDef.sizes,
+          },
     ];
 
-    for (let vIdx = 0; vIdx < variantsToCreate.length; vIdx++) {
-      const vDef = variantsToCreate[vIdx];
+        for(let vIdx = 0; vIdx<variantsToCreate.length; vIdx++) {
+          const vDef = variantsToCreate[vIdx];
       // 4. Create ProductVariant (Color)
       const variant = await prisma.productVariant.create({
         data: {
@@ -2131,15 +2485,35 @@ async function main() {
       rating: 5,
     },
     {
-      styleIdx: 15,
-      title: "Dainty and sparkling",
-      comment: "The constellation necklace is so delicate and catches the light beautifully. Great clasp and quality 18K gold finish that has not tarnished at all.",
+      styleSlug: "apple-airpods-pro-2nd-gen-usb-c",
+      title: "Best ANC earbuds on the market",
+      comment: "The noise cancellation is shockingly good on flights and daily commutes. Adaptive audio seamlessly switches between transparency and full cancellation. USB-C case is very convenient.",
+      rating: 5,
+    },
+    {
+      styleSlug: "oneplus-nord-buds-4-pro",
+      title: "Unbeatable value for money",
+      comment: "Bass response is super punchy without muddying the vocals. 43dB ANC punches way above its price point. Battery life easily lasts 3-4 days on normal use.",
+      rating: 5,
+    },
+    {
+      styleSlug: "apple-iphone-16-pro-max-5g",
+      title: "Battery life monster and incredible cameras",
+      comment: "The Desert Titanium color looks so premium. 5x telephoto optical zoom is tack sharp, and the new camera control button is surprisingly intuitive for quick captures.",
+      rating: 5,
+    },
+    {
+      styleSlug: "sony-wh-1000xm5-wireless-anc",
+      title: "Absolute silence and plush comfort",
+      comment: "Wore these for an 8-hour flight with zero ear fatigue. The noise cancellation creates complete silence, and LDAC audio clarity is sublime.",
       rating: 5,
     },
   ];
 
   for (const rev of reviewsData) {
-    const style = seededStyles[rev.styleIdx];
+    const style = (rev as any).styleSlug
+      ? seededStyles.find((s) => s.slug === (rev as any).styleSlug) || seededStyles[0]
+      : seededStyles[(rev as any).styleIdx] || seededStyles[0];
     const product = seededProducts.find((p) => p.id === style.productId) || seededProducts[0];
     try {
       await prisma.review.create({
