@@ -4,6 +4,7 @@ import Link from "next/link";
 import { ProductImage } from "@/components/common/ProductImage";
 import { StyleQuickAdd } from "./StyleQuickAdd";
 import { formatPrice } from "@/lib/utils";
+import { styleHref } from "../../utils/style-href";
 import type { CustomerProductListItemDto } from "../../types/catalog.types";
 
 export interface CustomerStyleCardProps {
@@ -22,7 +23,7 @@ export function CustomerStyleCard({ style }: CustomerStyleCardProps) {
 
   return (
     <div className="group flex flex-col overflow-hidden rounded-xl border border-theme-border bg-theme-surface shadow-2xs transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md">
-      <Link href={`/products/${style.id}`} className="flex flex-1 flex-col">
+      <Link href={styleHref(style.id)} className="flex flex-1 flex-col">
         <div className="relative aspect-[5/4] w-full overflow-hidden bg-theme-surface-alt">
           <ProductImage
             src={style.image}

@@ -24,6 +24,17 @@ export const wishlistItemInclude = Prisma.validator<Prisma.WishlistItemInclude>(
       },
     },
   },
+  style: {
+    select: {
+      id: true,
+      uuid: true,
+      name: true,
+      slug: true,
+      isActive: true,
+      deleted_at: true,
+      out_of_stock: true,
+    },
+  },
   variant_unit_price: {
     select: {
       id: true,
@@ -33,6 +44,12 @@ export const wishlistItemInclude = Prisma.validator<Prisma.WishlistItemInclude>(
       unit_value: true,
       isActive: true,
       deleted_at: true,
+      inventories: {
+        select: {
+          quantity_available: true,
+          quantity_reserved: true,
+        },
+      },
       product_units: {
         select: {
           id: true,
@@ -49,6 +66,18 @@ export const wishlistItemInclude = Prisma.validator<Prisma.WishlistItemInclude>(
           variant_name: true,
           isActive: true,
           deleted_at: true,
+          out_of_stock: true,
+          style: {
+            select: {
+              id: true,
+              uuid: true,
+              name: true,
+              slug: true,
+              isActive: true,
+              deleted_at: true,
+              out_of_stock: true,
+            },
+          },
           product_variant_images: {
             where: { is_active: true },
             orderBy: [{ is_primary: "desc" }, { sort_order: "asc" }],
@@ -69,6 +98,9 @@ export function formatWishlistItem(
   const product = item.product;
   if (!unitPrice || !variant || !product) return null;
 
+  const style = item.style || variant.style;
+  const styleName = style?.name || null;
+
   // Selling price is computed on the frontend from basePrice minus any
   // active offer/discount; salePrice is mirrored here for backward-compat
   // consumers only.
@@ -86,19 +118,40 @@ export function formatWishlistItem(
     unitPrice.unit_value ?? 0
   );
 
-  const isAvailable =
+  const isRecordActive =
     Boolean(unitPrice.isActive) &&
     unitPrice.deleted_at === null &&
     Boolean(variant.isActive) &&
     variant.deleted_at === null &&
     Boolean(product.isActive) &&
-    product.deleted_at === null;
+    product.deleted_at === null &&
+    (!style || (Boolean(style.isActive) && style.deleted_at === null));
+
+  const inv = unitPrice.inventories;
+  const stockAvailable = inv
+    ? Math.max(0, (inv.quantity_available ?? 0) - (inv.quantity_reserved ?? 0))
+    : 0;
+
+  const isOutOfStock =
+    Boolean(variant.out_of_stock) ||
+    Boolean(style?.out_of_stock) ||
+    stockAvailable <= 0;
+
+  const isAvailable = isRecordActive && !isOutOfStock;
 
   return {
     id: item.uuid || String(item.id),
     variantId: variant.uuid || String(variant.id),
     variantUnitPriceId: unitPrice.uuid || String(unitPrice.id),
     variantName: variant.variant_name,
+    styleName,
+    style: style
+      ? {
+          id: style.uuid || String(style.id),
+          name: style.name,
+          slug: style.slug,
+        }
+      : null,
     sku: unitPrice.sku ?? "",
     price: livePrice,
     basePrice,

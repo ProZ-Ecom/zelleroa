@@ -6,6 +6,7 @@ import Link from "next/link";
 import { Clock, Folder, Loader2, Tag, X } from "lucide-react";
 import { useCustomerGlobalSearch } from "@/features/customers/hooks/use-customer-catalog";
 import { categoryHref } from "@/features/customers/utils/catalog-listing-query";
+import { styleHref } from "@/features/customers/utils/style-href";
 import { formatCurrency } from "@/lib/utils/format-currency";
 
 const DEBOUNCE_MS = 300;
@@ -203,7 +204,7 @@ export function SearchDropdown({
                       products.map((product: any) => (
                         <Link
                           key={product.id}
-                          href={`/products/${product.id}`}
+                          href={styleHref(product.id)}
                           onClick={() => {
                             onProductOpen(trimmed);
                             onClose?.();

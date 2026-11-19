@@ -13,6 +13,7 @@ import {
   AlertCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { CartItem } from "@/features/cart/components/CartItem";
 import { CartSummary } from "@/features/cart/components/CartSummary";
 import { CartEmpty } from "@/features/cart/components/CartEmpty";
@@ -76,6 +77,7 @@ export default function CartPage() {
   const { status } = useSession();
   const router = useRouter();
   const [isCheckingOut, setIsCheckingOut] = useState(false);
+  const [isClearModalOpen, setIsClearModalOpen] = useState(false);
 
   const {
     data: cart,
@@ -163,9 +165,7 @@ export default function CartPage() {
   };
 
   const handleClearCart = () => {
-    if (confirm("Are you sure you want to clear all items in your cart?")) {
-      clearCartMutation.mutate();
-    }
+    setIsClearModalOpen(true);
   };
 
   const handleCheckout = () => {
@@ -268,6 +268,22 @@ export default function CartPage() {
           </div>
         </div>
       </div>
+
+      <ConfirmDialog
+        open={isClearModalOpen}
+        onClose={() => setIsClearModalOpen(false)}
+        onConfirm={async () => {
+          await clearCartMutation.mutateAsync();
+          setIsClearModalOpen(false);
+        }}
+        title="Clear Shopping Cart"
+        description="Are you sure you want to remove all items from your cart? This action cannot be undone."
+        confirmText="Clear Cart"
+        cancelText="Cancel"
+        variant="destructive"
+        icon={<Trash2 className="h-6 w-6 text-red-600" />}
+        isLoading={clearCartMutation.isPending}
+      />
     </div>
   );
 }

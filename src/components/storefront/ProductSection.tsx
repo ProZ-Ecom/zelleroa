@@ -6,6 +6,7 @@ import { SnackCard } from "./cards/SnackCard";
 import { ProductCardSkeleton } from "./cards/ProductCardSkeleton";
 import { useCustomerStyles } from "@/features/customers/hooks/use-customer-catalog";
 import { formatStylePriceRange, mapStyleToStorefrontProduct } from "@/lib/storefront";
+import { styleHref } from "@/features/customers/utils/style-href";
 
 export interface ProductSectionProps {
   selectedCategoryId?: string | null;
@@ -67,6 +68,7 @@ export function ProductSection({ selectedCategoryId }: ProductSectionProps) {
             visibleStyles.map((style) => (
               <SnackCard
                 key={style.id}
+                href={styleHref(style.id)}
                 product={mapStyleToStorefrontProduct(style)}
                 subtitle={style.category?.name}
                 priceRangeText={formatStylePriceRange(style)}

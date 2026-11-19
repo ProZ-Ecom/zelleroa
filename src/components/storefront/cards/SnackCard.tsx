@@ -7,6 +7,7 @@ import { formatPrice } from "@/lib/utils";
 import { ProductImage } from "@/components/common/ProductImage";
 import { ProductRating } from "@/features/products/components/ProductRating";
 import { usePublicProductReviews } from "@/features/reviews/hooks/use-public-reviews";
+import { styleHref } from "@/features/customers/utils/style-href";
 import type { StorefrontProduct } from "@/constants/storefront";
 
 export interface SnackCardVariant {
@@ -93,7 +94,7 @@ export function SnackCard({
   const resolvedId = id || product?.productId || product?.id || "";
   const resolvedName = name || product?.name || "Fashion Item";
   const resolvedImage = image || product?.image || "";
-  const resolvedHref = href || (resolvedId ? `/products/${resolvedId}` : "#");
+  const resolvedHref = href || (resolvedId ? styleHref(resolvedId) : "#");
 
   const { data: reviewsData } = usePublicProductReviews(resolvedId, {
     enabled: showRating && !!resolvedId,
