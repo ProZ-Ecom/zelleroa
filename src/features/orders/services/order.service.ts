@@ -92,7 +92,6 @@ export const orderService = {
           include: {
             product: true,
             style: true,
-            item: true,
             variant_unit_price: {
               include: {
                 variant: {
@@ -127,7 +126,6 @@ export const orderService = {
     const orderItemsData: Array<{
       productId: bigint;
       styleId: bigint;
-      itemId: bigint | null;
       variantId: bigint;
       variantUnitPriceId: bigint;
       productName: string;
@@ -230,7 +228,6 @@ export const orderService = {
         attributes,
         productId: item.productId,
         styleId: item.styleId,
-        itemId: item.itemId,
         variantId: variant.id,
         variantUnitPriceId: item.variantUnitPriceId!,
         productName: item.product.name,

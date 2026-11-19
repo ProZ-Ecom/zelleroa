@@ -48,8 +48,8 @@ export const catalogService = {
     return result;
   },
 
-  // Storefront listing is Style-based: one card per Style, never per Item or
-  // per Color, no matter how many Items/Colors that Style has.
+  // Storefront listing is Style-based: one card per Style, never per Color,
+  // no matter how many Colors that Style has.
   async getStyles(params: CustomerProductListInput) {
     const result = await catalogRepository.findCustomerStyleListItems(params);
     await catalogOffers.decorateProducts(result.data);
@@ -57,8 +57,8 @@ export const catalogService = {
   },
 
   /**
-   * The Style detail page: the Style plus every Item under it, each Item with
-   * its Colors, and each Color with its own images, Sizes, prices and stock.
+   * The Style detail page: the Style with its Colors, and each Color with its
+   * own images, Sizes, prices and stock.
    */
   async getStyleByUuid(uuid: string) {
     const style = await catalogRepository.findCustomerStyleDetailByUuid(uuid);
@@ -66,18 +66,6 @@ export const catalogService = {
       throw ApiError.notFound("Style not found");
     }
     return catalogOffers.decorateStyleDetail(style);
-  },
-
-  /**
-   * One Item on its own page - the same Color/Size tree the Style detail page
-   * shows for a selected Item, fetched directly by Item UUID.
-   */
-  async getItemByUuid(uuid: string) {
-    const item = await catalogRepository.findCustomerItemDetailByUuid(uuid);
-    if (!item) {
-      throw ApiError.notFound("Item not found");
-    }
-    return catalogOffers.decorateItemDetail(item);
   },
 
   async getProductByUuid(uuid: string) {

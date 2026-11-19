@@ -12,11 +12,10 @@ type Tx = Prisma.TransactionClient;
 export interface PosBillLine {
   productId: bigint;
   styleId: bigint;
-  itemId: bigint | null;
   variantId: bigint;
   variantUnitPriceId: bigint;
   productName: string;
-  itemName: string;
+  styleName: string;
   variantName: string;
   attributes: Array<{ name: string; value: string }>;
   sku: string;
@@ -192,11 +191,10 @@ export const posRepository = {
           orderId: order.id,
           productId: line.productId,
           styleId: line.styleId,
-          itemId: line.itemId,
           variantId: line.variantId,
           variantUnitPriceId: line.variantUnitPriceId,
           product_name_snapshot: line.productName,
-          item_name_snapshot: line.itemName,
+          item_name_snapshot: line.styleName,
           variant_snapshot: line.variantName,
           attributes_snapshot: line.attributes,
           sku_snapshot: line.sku,

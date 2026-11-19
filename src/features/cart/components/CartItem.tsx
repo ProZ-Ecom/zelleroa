@@ -71,7 +71,7 @@ function CartItem({
       ? item.product.name
       : "Fashion Item";
 
-  const itemName = typeof item.itemName === "string" ? item.itemName : "";
+  const styleName = typeof item.styleName === "string" ? item.styleName : "";
 
   // The exact combination this line sells - stored per cart row, so Red/M and
   // Red/L show as separate lines with their own colour, size and price.
@@ -191,9 +191,9 @@ function CartItem({
             )}
           </div>
 
-          {itemName && itemName !== productName && (
+          {styleName && styleName !== productName && (
             <p className="mt-0.5 text-xs font-semibold text-theme-text-subtle line-clamp-1">
-              {itemName}
+              {styleName}
             </p>
           )}
 

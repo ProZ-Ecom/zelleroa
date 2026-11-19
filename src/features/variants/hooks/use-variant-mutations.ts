@@ -8,7 +8,7 @@ import {
   deleteAdminVariant,
   bulkEditVariants,
   generateAdminVariants,
-  generateAdminVariantsFromItem,
+  generateAdminVariantsFromStyle,
 } from "../api/get-variants";
 import type { BulkEditVariantsInput, GenerateVariantsRequest } from "../types";
 
@@ -19,13 +19,13 @@ export function useCreateVariant() {
     mutationFn: ({
       productUuid,
       data,
-      itemUuid,
+      styleUuid,
     }: {
       productUuid: string;
       data: Record<string, unknown>;
       /** Which Item (Product's style) the new Color variant belongs to; defaults to the Product's default Item when omitted. */
-      itemUuid?: string;
-    }) => createAdminVariant(productUuid, data, itemUuid),
+      styleUuid?: string;
+    }) => createAdminVariant(productUuid, data, styleUuid),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: variantKeys.all });
     },
@@ -71,31 +71,31 @@ export function useGenerateVariants() {
     mutationFn: ({
       productUuid,
       data,
-      itemUuid,
+      styleUuid,
     }: {
       productUuid: string;
       data: GenerateVariantsRequest;
-      itemUuid?: string;
-    }) => generateAdminVariants(productUuid, data, itemUuid),
+      styleUuid?: string;
+    }) => generateAdminVariants(productUuid, data, styleUuid),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: variantKeys.all });
     },
   });
 }
 
-export function useGenerateVariantsFromItem() {
+export function useGenerateVariantsFromStyle() {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: ({
       productUuid,
-      itemUuid,
+      styleUuid,
       data,
     }: {
       productUuid: string;
-      itemUuid: string;
-      data: { unitId: string; defaultPrice?: number; activate?: boolean };
-    }) => generateAdminVariantsFromItem(productUuid, itemUuid, data),
+      styleUuid: string;
+      data: { unitId: string; defaultPrice?: number; initialStock?: number; activate?: boolean };
+    }) => generateAdminVariantsFromStyle(productUuid, styleUuid, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: variantKeys.all });
     },

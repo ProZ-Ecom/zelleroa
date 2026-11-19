@@ -396,9 +396,9 @@ export const reviewService = {
         sku: defaultSku,
         slug: variant.slug,
         product: {
-          id: variant.item.style.product.uuid || String(variant.item.style.product.id),
-          name: variant.item.style.product.name,
-          slug: variant.item.style.product.slug,
+          id: variant.style.product.uuid || String(variant.style.product.id),
+          name: variant.style.product.name,
+          slug: variant.style.product.slug,
         },
       },
       reviews: publicReviews,

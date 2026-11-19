@@ -5,9 +5,9 @@ import Link from "next/link";
 import { ChevronRight } from "lucide-react";
 import type { CategoryTreeNode } from "@/features/categories/types";
 import { categoryHref, withGenderParam, withNavParam } from "@/features/customers/utils/catalog-listing-query";
-import { itemHref } from "@/features/customers/utils/style-default-item";
+import { styleHref } from "@/features/customers/utils/style-href";
 import { useCategoryMenu, useCategoryMenus } from "@/features/customers/hooks/use-customer-catalog";
-import { ItemCard } from "@/features/customers/components/catalog/ItemCard";
+import { StyleCard } from "@/features/customers/components/catalog/StyleCard";
 import { toTitleCase } from "@/lib/utils";
 
 /** A CategoryTreeNode, or a synthetic grouping of several categories under one label. */
@@ -169,7 +169,7 @@ export function MegaMenuPanel({
                           {columnProducts.slice(0, 5).map((product) => (
                             <li key={product.id}>
                               <Link
-                                href={product.items[0] ? itemHref(product.items[0].id) : categoryHref(level2)}
+                                href={product.styles[0] ? styleHref(product.styles[0].id) : categoryHref(level2)}
                                 onClick={onNavigate}
                                 className="text-sm text-neutral-600 hover:text-theme-primary whitespace-nowrap capitalize"
                               >
@@ -229,9 +229,9 @@ export function MegaMenuPanel({
               <div className="grid grid-cols-3 gap-x-6 gap-y-5">
                 {products.map((product) => (
                   <div key={product.id} className="w-44">
-                    {product.items[0] ? (
+                    {product.styles[0] ? (
                       <Link
-                        href={itemHref(product.items[0].id)}
+                        href={styleHref(product.styles[0].id)}
                         onClick={onNavigate}
                         className="mb-2 block truncate text-sm font-semibold text-neutral-900 hover:text-theme-primary capitalize"
                         title={toTitleCase(product.name)}
@@ -244,9 +244,9 @@ export function MegaMenuPanel({
                       </p>
                     )}
                     <ul className="space-y-1.5">
-                      {product.items.map((item) => (
-                        <li key={item.id}>
-                          <ItemCard item={item} variant="compact" onClick={onNavigate} />
+                      {product.styles.map((style) => (
+                        <li key={style.id}>
+                          <StyleCard item={style} variant="compact" onClick={onNavigate} />
                         </li>
                       ))}
                     </ul>

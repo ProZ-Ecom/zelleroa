@@ -71,9 +71,7 @@ import type { AdminVariantResponse } from "@/features/variants/types";
 import { useStyles, useCreateStyle, useUpdateStyle, useDeleteStyle } from "@/features/styles/hooks";
 import { StyleForm, StyleCard, type StyleFormValues } from "@/features/styles/components";
 import type { AdminStyleResponse } from "@/features/styles/types";
-import { useItems, useCreateItem, useUpdateItem, useDeleteItem } from "@/features/items/hooks";
-import { ItemForm, ItemColorsPanel, type ItemFormValues } from "@/features/items/components";
-import type { AdminItemResponse } from "@/features/items/types";
+import { StyleVariantsPanel } from "@/features/styles/components";
 
 type VariantFilter = "active" | "inactive";
 
@@ -193,129 +191,14 @@ export default function AdminProductDetailsPage() {
   const updateStyleMutation = useUpdateStyle();
   const deleteStyleMutation = useDeleteStyle();
 
-  // 2c. Items under the selected Style - the admin-only "Regular Fit / Slim
-  // Fit / Oversized" sub-variants. Never shown to customers; only used here
-  // to scope which Colors/Sizes show below.
-  const { data: itemsResponse, isLoading: isLoadingItems } = useItems(
-    productUuid || null,
-    selectedStyleUuid || null,
-    { pageSize: 100 }
-  );
-  const items = React.useMemo<AdminItemResponse[]>(
-    () => {
-      const allItems = itemsResponse?.data ?? [];
-      if (allItems.length > 1 && product?.name) {
-        const productNameLower = product.name.trim().toLowerCase();
-        const hasCustomModel = allItems.some(
-          (i) => i.name.trim().toLowerCase() !== productNameLower
-        );
-        if (hasCustomModel) {
-          return allItems.filter(
-            (i) =>
-              !(
-                i.name.trim().toLowerCase() === productNameLower &&
-                (i.slug.toLowerCase().includes("default-item") || !i.basePrice)
-              )
-          );
-        }
-      }
-      return allItems;
-    },
-    [itemsResponse, product?.name]
-  );
-
-  const [selectedItemUuid, setSelectedItemUuid] = React.useState<string | null>(null);
-  React.useEffect(() => {
-    if (selectedItemUuid && items.some((i) => i.id === selectedItemUuid)) return;
-    const fallback = items.find((i) => i.isDefault) ?? items[0] ?? null;
-    setSelectedItemUuid(fallback?.id ?? null);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [items]);
-
-  const [isAddItemOpen, setIsAddItemOpen] = React.useState(false);
-  const [isPickBrandOpen, setIsPickBrandOpen] = React.useState(false);
-  const [pickedBrandId, setPickedBrandId] = React.useState("");
-  const [isAddBrandOpen, setIsAddBrandOpen] = React.useState(false);
-  const [createdBrandOptions, setCreatedBrandOptions] = React.useState<
-    { value: string; label: string; slug?: string }[]
-  >([]);
-  const [newlyCreatedItem, setNewlyCreatedItem] = React.useState<AdminItemResponse | null>(null);
-  const [editingItem, setEditingItem] = React.useState<AdminItemResponse | null>(null);
-  const [deletingItem, setDeletingItem] = React.useState<AdminItemResponse | null>(null);
-  const [isPreparingItemForm, setIsPreparingItemForm] = React.useState(false);
-
-  const createItemMutation = useCreateItem();
-  const updateItemMutation = useUpdateItem();
-  const deleteItemMutation = useDeleteItem();
-
-  // Items always need a parent Style in the database. Most products only
-  // ever need one, so "Add Sub-variant" silently creates a hidden default Style
-  // the first time it's needed - the admin only ever sees "Item".
-  // Creates the hidden default Style (Items always need a parent Style) and
-  // opens the Add Type form. `brandId` is the Product's brand when set, or
-  // whatever the admin picked in the "Select Brand" step below.
-  const createHiddenStyleAndOpenItemForm = async (brandId: string) => {
-    setIsPreparingItemForm(true);
-    try {
-      const res = await createStyleMutation.mutateAsync({
-        productUuid: canonicalProductId,
-        data: {
-          brandId,
-          name: product.name,
-          slug: `${product.slug}-default`,
-          sku: null,
-          shortDescription: null,
-          description: null,
-          ingredients: null,
-          isReadyToMix: false,
-          cookingRecipe: null,
-          shelfLife: null,
-          vegType: "na",
-          basePrice: 0,
-          isFeatured: false,
-          isDefault: true,
-          isActive: true,
-        },
-      });
-      const created = (res as any)?.data as AdminStyleResponse | undefined;
-      if (created) {
-        setSelectedStyleUuid(created.id);
-        setIsAddItemOpen(true);
-      }
-    } catch (err: any) {
-      console.error("Failed to prepare product for Items", err);
-      toast.error("Failed to add item", err?.message || "Please try again.");
-    } finally {
-      setIsPreparingItemForm(false);
-    }
-  };
-
-  const handleAddItemClick = async () => {
-    if (selectedStyleUuid) {
-      setIsAddItemOpen(true);
-      return;
-    }
-    // The hidden Style still needs a Brand; use the Product's if set,
-    // otherwise ask the admin to pick one right here.
-    if (false && !product.brandId) {
-      setPickedBrandId("");
-      setIsPickBrandOpen(true);
-      return;
-    }
-    setIsAddStyleOpen(true);
-  };
-
-  // The Colors/Sizes section below is scoped to whichever Item is selected
-  // above - with only one Item under the Style (the common case) this is
-  // every variant belonging to that Style, exactly as before.
-  const itemIds = React.useMemo(() => new Set(items.map((i) => i.id)), [items]);
+  // The Colors/Sizes section below is scoped to whichever Style is selected
+  // above - with one Style under the Product (the common case) that is every
+  // variant of the Product.
+  const styleIds = React.useMemo(() => new Set(styles.map((s) => s.id)), [styles]);
   const variants = React.useMemo<AdminVariantResponse[]>(() => {
-    if (items.length <= 1) {
-      return allVariants.filter((v) => itemIds.has(v.itemId));
-    }
-    if (!selectedItemUuid) return allVariants.filter((v) => itemIds.has(v.itemId));
-    return allVariants.filter((v) => v.itemId === selectedItemUuid);
-  }, [allVariants, items.length, itemIds, selectedItemUuid]);
+    if (!selectedStyleUuid) return allVariants.filter((v) => styleIds.has(v.styleId));
+    return allVariants.filter((v) => v.styleId === selectedStyleUuid);
+  }, [allVariants, styleIds, selectedStyleUuid]);
 
   // Reference queries for modal form dropdowns (lazy-loaded when modals open)
   const [isEditProductOpen, setIsEditProductOpen] = React.useState(false);
@@ -368,7 +251,7 @@ export default function AdminProductDetailsPage() {
   );
   const { data: brandsData } = useBrands(
     { limit: 100 },
-    { enabled: isEditProductOpen || isAddItemOpen || Boolean(editingItem) || isPickBrandOpen }
+    { enabled: isEditProductOpen }
   );
   const { data: hsnData } = useHsnCodes(
     { pageSize: 100 },
@@ -415,7 +298,7 @@ export default function AdminProductDetailsPage() {
     (typeof product?.hsnCode === "string" ? product.hsnCode : null);
 
   const currentTabCount =
-    items.length > 1 ? variants.length : (variantsResponse?.meta?.total ?? variants.length);
+    styles.length > 1 ? variants.length : (variantsResponse?.meta?.total ?? variants.length);
 
   // Selection helpers
   const selectedIds = React.useMemo(
@@ -453,8 +336,8 @@ export default function AdminProductDetailsPage() {
     }
 
     const headers = [
-      "Item ID",
-      "Item Name",
+      "Variant ID",
+      "Variant Name",
       "Default SKU",
       "Default Pack Size",
       "Default Price",
@@ -493,7 +376,7 @@ export default function AdminProductDetailsPage() {
       });
       setVariantToDeactivate(null);
     } catch (err: any) {
-      console.error("Failed to make item inactive", err);
+      console.error("Failed to make variant inactive", err);
     } finally {
       setIsStatusUpdating(false);
     }
@@ -510,7 +393,7 @@ export default function AdminProductDetailsPage() {
       });
       setVariantToActivate(null);
     } catch (err: any) {
-      console.error("Failed to activate item", err);
+      console.error("Failed to activate variant", err);
     } finally {
       setIsStatusUpdating(false);
     }
@@ -581,36 +464,6 @@ export default function AdminProductDetailsPage() {
     [brandsData]
   );
 
-  // Brand lives on the parent Item (style), not the Model, so a brand picked in
-  // the Model form is saved onto the selected Item.
-  const syncSelectedStyleBrand = async (brandId?: string) => {
-    const style = styles.find((s) => s.id === selectedStyleUuid);
-    if (!style || !brandId || style.brandId === brandId) return;
-    await updateStyleMutation.mutateAsync({
-      productUuid: canonicalProductId,
-      styleUuid: style.id,
-      data: {
-        brandId,
-        name: style.name,
-        slug: style.slug,
-        sku: style.sku || null,
-        shortDescription: style.shortDescription || null,
-        description: style.description || null,
-        ingredients: style.ingredients || null,
-        isReadyToMix: style.isReadyToMix ?? false,
-        cookingRecipe: style.cookingRecipe || null,
-        shelfLife: style.shelfLife || null,
-        vegType: style.vegType || "na",
-        basePrice: style.basePrice ?? 0,
-        isFeatured: style.isFeatured,
-        isDefault: style.isDefault,
-        isActive: style.isActive,
-      },
-    });
-  };
-
-  const selectedStyleBrandId =
-    styles.find((s) => s.id === selectedStyleUuid)?.brandId || product?.brandId || "";
   const hsnOptions = React.useMemo(
     () =>
       (hsnData?.data ?? []).map((h: any) => ({
@@ -807,8 +660,8 @@ export default function AdminProductDetailsPage() {
         </section> */}
 
       {/* Section 3.4: Product Attributes - which attributes (Color, Size,
-            Material...) apply to this product. Items below only ever offer
-            value-selection for whatever is checked here. */}
+            Material...) apply to this product. The Style's variants panel below
+            only ever offers value-selection for whatever is checked here. */}
       <section className="bg-white border border-cream-border rounded-lg overflow-hidden">
         <div className="p-3.5 sm:p-4 border-b border-cream-border flex items-center gap-2.5">
           <h2 className="text-base font-bold text-neutral-900 tracking-tight">Attributes</h2>
@@ -818,21 +671,20 @@ export default function AdminProductDetailsPage() {
         </div>
       </section>
 
-      {/* Section 3.5: Product Styles - only shown once a product actually has
-            more than one Style to manage (e.g. "V Neck T-Shirt" vs "Solo
-            T-Shirt"). Single-style products (the common case) skip this
-            entirely - Items below are added directly via a hidden default
-            Style, created on demand by "Add Sub-variant". */}
-      {styles.length > 1 && (
+      {/* Section 3.5: Styles - the first step. A Style (e.g. "V Neck T-Shirt"
+            vs "Solo T-Shirt") owns its own description, images, Variants and
+            Sizes; the panel below is scoped to whichever Style is selected
+            here. */}
+      {(
         <section className="bg-white border border-cream-border rounded-lg overflow-hidden">
           <div className="p-3.5 sm:p-4 border-b border-cream-border flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div className="flex items-center gap-2.5">
-              <h2 className="text-base font-bold text-neutral-900 tracking-tight">Product Styles</h2>
+              <h2 className="text-base font-bold text-neutral-900 tracking-tight">Step 1 &middot; Styles</h2>
               <span className="px-2.5 py-0.5 rounded-full bg-cream-200 border border-cream-border text-xs font-bold text-neutral-500">
                 {styles.length}
               </span>
               <span className="text-xs text-neutral-400 hidden sm:inline">
-                Each Item (e.g. &ldquo;V Neck&rdquo;, &ldquo;Solo&rdquo;) gets its own Models, Colors &amp; Sizes below.
+                Each Style (e.g. &ldquo;V Neck&rdquo;, &ldquo;Solo&rdquo;) gets its own Variants &amp; Sizes below.
               </span>
             </div>
             <button
@@ -841,13 +693,41 @@ export default function AdminProductDetailsPage() {
               className="px-3.5 py-1.5 rounded-md border border-secondary-700 bg-secondary-600 hover:bg-secondary-700 text-cream-white text-xs font-bold transition-colors flex items-center gap-1.5 cursor-pointer self-start sm:self-auto"
             >
               <Plus className="w-3.5 h-3.5" />
-              <span>Add Item</span>
+              <span>Add Style</span>
             </button>
+          </div>
+
+          <div className="px-4 pt-3 space-y-2">
+            <p className="text-xs text-neutral-500">
+              Setup order: <strong>1 Style</strong> &rarr; <strong>2 Variant</strong> &rarr;{" "}
+              <strong>3 Size &amp; Price</strong>
+            </p>
+            {!isLoadingStyles && styles.length === 0 && (
+              <p className="text-xs rounded-md border border-amber-300 bg-amber-50 text-amber-800 px-3 py-2">
+                Not visible on the store yet: add a Style, then a Variant with a priced Size.
+              </p>
+            )}
           </div>
 
           <div className="p-4">
             {isLoadingStyles ? (
               <AdminTableSkeleton bare rows={1} columns={4} />
+            ) : styles.length === 0 ? (
+              <div className="text-center py-10 px-4">
+                <Layers className="mx-auto h-8 w-8 text-neutral-300" />
+                <h3 className="mt-2 text-sm font-semibold text-neutral-900">No Styles yet</h3>
+                <p className="mt-1 text-xs text-neutral-500 max-w-sm mx-auto">
+                  Add at least one Style before creating Variants and Sizes for this product.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setIsAddStyleOpen(true)}
+                  className="mt-4 inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-secondary-600 text-cream-white text-xs font-semibold cursor-pointer"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Add first Style</span>
+                </button>
+              </div>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
                 {styles.map((style) => (
@@ -866,218 +746,25 @@ export default function AdminProductDetailsPage() {
         </section>
       )}
 
-      {/* Section 3.6: Items - admin-only sub-variant (e.g. "Regular Fit",
-            "Slim Fit", "Oversized"). Never shown to customers; only used to
-            scope which Colors/Sizes show below. Clicking "Add Sub-variant" with no
-            Style yet creates a hidden default Style automatically. */}
-      <section className="bg-white border border-cream-border rounded-lg overflow-hidden">
-        <div className="p-3.5 sm:p-4 border-b border-cream-border flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div className="flex items-center gap-2.5">
-            <h2 className="text-base font-bold text-neutral-900 tracking-tight">Step 1 &middot; Models</h2>
-            <span className="px-2.5 py-0.5 rounded-full bg-cream-200 border border-cream-border text-xs font-bold text-neutral-500">
-              {items.length}
-            </span>
-            <span className="text-xs text-neutral-400 hidden sm:inline">
-              Admin-only Models (e.g. Regular/Slim/Oversized Fit) - never shown to customers.
-            </span>
-          </div>
-          <button
-            type="button"
-            onClick={handleAddItemClick}
-            disabled={isPreparingItemForm}
-            className="px-3.5 py-1.5 rounded-md border border-secondary-700 bg-secondary-600 hover:bg-secondary-700 text-cream-white text-xs font-bold transition-colors flex items-center gap-1.5 cursor-pointer self-start sm:self-auto disabled:opacity-60 disabled:cursor-not-allowed"
-          >
-            <Plus className="w-3.5 h-3.5" />
-            <span>{isPreparingItemForm ? "Preparing..." : "Add Model"}</span>
-          </button>
-        </div>
-
-        <div className="px-4 pt-3 space-y-2">
-          <p className="text-xs text-neutral-500">
-            Setup order: <strong>1 Model</strong> &rarr; <strong>2 Color</strong> &rarr; <strong>3 Size &amp; Price</strong>
-          </p>
-          {!isLoadingItems && items.length === 0 && (
-            <p className="text-xs rounded-md border border-amber-300 bg-amber-50 text-amber-800 px-3 py-2">
-              Not visible on the store yet: add a Model, then a Color with a priced Size.
-            </p>
-          )}
-        </div>
-
-        <div className="p-4">
-          {isLoadingItems && selectedStyleUuid ? (
-            <AdminTableSkeleton bare rows={1} columns={4} />
-          ) : items.length === 0 ? (
-            <div className="text-center py-10 px-4">
-              <Layers className="mx-auto h-8 w-8 text-neutral-300" />
-              <h3 className="mt-2 text-sm font-semibold text-neutral-900">No Models yet</h3>
-              <p className="mt-1 text-xs text-neutral-500 max-w-sm mx-auto">
-                Add at least one Model before creating Colors and Sizes for this product.
-              </p>
-              <button
-                type="button"
-                onClick={handleAddItemClick}
-                disabled={isPreparingItemForm}
-                className="mt-4 inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-secondary-600 text-cream-white text-xs font-semibold cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
-              >
-                <Plus className="w-3.5 h-3.5" />
-                <span>{isPreparingItemForm ? "Preparing..." : "Add first Model"}</span>
-              </button>
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-sm border-collapse">
-                <thead className="text-[11px] font-bold tracking-wider text-neutral-400 uppercase">
-                  <tr>
-                    <th className="px-3.5 py-2.5 min-w-[200px] border-b border-cream-border">Type</th>
-                    <th className="px-3.5 py-2.5 min-w-[220px] border-b border-cream-border">Attributes</th>
-                    <th className="px-3.5 py-2.5 min-w-[110px] text-right border-b border-cream-border">Price</th>
-                    <th className="px-3.5 py-2.5 min-w-[95px] text-center border-b border-cream-border">Status</th>
-                    <th className="sticky right-0 z-20 bg-white px-3.5 py-2.5 min-w-[90px] text-center border-b border-cream-border shadow-[-4px_0_6px_-2px_rgba(0,0,0,0.05)]">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-cream-border-subtle">
-                  {items.map((item) => {
-                    const isSelected = item.id === selectedItemUuid;
-                    return (
-                      <tr
-                        key={item.id}
-                        onClick={() => setSelectedItemUuid(item.id)}
-                        className={`group cursor-pointer transition-colors ${isSelected ? "bg-secondary-50" : "hover:bg-cream-50"
-                          }`}
-                      >
-                        <td className="px-3.5 py-2.5 min-w-[200px]">
-                          <div className="flex items-center gap-1.5">
-                            <span className="font-semibold text-neutral-900">{item.name}</span>
-                            {item.isDefault && (
-                              <span title="Default Model">
-                                <Star className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
-                              </span>
-                            )}
-                          </div>
-                          <span className="font-mono text-[11px] text-neutral-400">{item.slug}</span>
-                        </td>
-                        <td className="px-3.5 py-2.5 min-w-[220px] text-neutral-700">
-                          {item.selectedAttributes && item.selectedAttributes.length > 0 ? (
-                            <div className="space-y-1.5">
-                              {item.selectedAttributes.map((group) => (
-                                <div
-                                  key={group.id}
-                                  className="flex flex-wrap items-center gap-1.5"
-                                >
-                                  <span className="text-[10px] font-semibold text-neutral-500 w-14 shrink-0 uppercase">
-                                    {group.name}
-                                  </span>
-                                  <div className="flex flex-wrap gap-1">
-                                    {group.values.map((value) => (
-                                      <span
-                                        key={value.id}
-                                        className="inline-flex items-center gap-1 rounded-full bg-secondary-50 text-secondary-700 border border-secondary-200 px-2 py-0.5 text-[11px] font-semibold"
-                                      >
-                                        {group.type === "color" &&
-                                          (value.imageUrl ? (
-                                            <img
-                                              src={value.imageUrl}
-                                              alt=""
-                                              className="h-3 w-3 rounded-full border border-white/60 object-cover"
-                                            />
-                                          ) : (
-                                            value.colorHex && (
-                                              <span
-                                                className="h-3 w-3 rounded-full border border-white/60"
-                                                style={{ backgroundColor: value.colorHex }}
-                                              />
-                                            )
-                                          ))}
-                                        {value.value}
-                                      </span>
-                                    ))}
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          ) : (
-                            <span className="text-neutral-400">—</span>
-                          )}
-                        </td>
-                        <td className="px-3.5 py-2.5 min-w-[110px] text-right tabular-nums text-neutral-900 font-semibold">
-                          {item.basePrice > 0 ? `₹${item.basePrice.toFixed(0)}` : "—"}
-                        </td>
-                        <td className="px-3.5 py-2.5 min-w-[95px] text-center">
-                          <span
-                            className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold ${item.isActive
-                              ? "bg-success-50 text-success-700 border border-success-200"
-                              : "bg-cream-200 text-neutral-500 border border-cream-border"
-                              }`}
-                          >
-                            <span
-                              className={`w-1.5 h-1.5 rounded-full ${item.isActive ? "bg-success-600" : "bg-neutral-400"
-                                }`}
-                            />
-                            {item.isActive ? "Active" : "Inactive"}
-                          </span>
-                        </td>
-                        <td
-                          className={`sticky right-0 z-10 px-3.5 py-2.5 min-w-[90px] shadow-[-4px_0_6px_-2px_rgba(0,0,0,0.05)] transition-colors ${isSelected ? "bg-secondary-50" : "bg-white group-hover:bg-cream-50"
-                            }`}
-                        >
-                          <div className="flex items-center justify-center gap-1">
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="icon-sm"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setEditingItem(item);
-                              }}
-                              aria-label="Edit model"
-                              title="Edit model"
-                            >
-                              <Pencil className="w-3.5 h-3.5" />
-                            </Button>
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="icon-sm"
-                              className="text-red-500 hover:text-red-600 border-red-200 hover:bg-red-50"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setDeletingItem(item);
-                              }}
-                              aria-label="Delete model"
-                              title="Delete model"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </Button>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-      </section>
-
-      {/* Section 3.7: Attribute values for the selected Item - which Color/Size/etc.
-            values (from the attributes configured on the product above) this specific
-            Item comes in, plus the trigger to generate its Colors/Sizes from that selection. */}
-      {selectedItemUuid && (
+      {/* Section 3.6: Attribute values for the selected Style - which
+            Color/Size/etc. values (from the attributes configured on the product
+            above) this Style comes in, plus the trigger to generate its
+            Colors/Sizes from that selection. */}
+      {selectedStyleUuid && (
         <section className="bg-white border border-cream-border rounded-lg overflow-hidden">
           <div className="p-3.5 sm:p-4 border-b border-cream-border flex items-center gap-2.5">
             <h2 className="text-base font-bold text-neutral-900 tracking-tight">
-              Step 2 &amp; 3 &middot; Colors, Sizes &amp; Prices
+              Step 2 &amp; 3 &middot; Variants, Sizes &amp; Prices
             </h2>
             <span className="text-xs text-neutral-400 hidden sm:inline">
-              For &ldquo;{items.find((i) => i.id === selectedItemUuid)?.name || "this model"}&rdquo;
+              For &ldquo;{styles.find((s) => s.id === selectedStyleUuid)?.name || "this style"}&rdquo;
             </span>
           </div>
           <div className="p-4">
-            <ItemColorsPanel
+            <StyleVariantsPanel
               productUuid={canonicalProductId}
-              itemUuid={selectedItemUuid}
-              itemName={items.find((i) => i.id === selectedItemUuid)?.name}
+              styleUuid={selectedStyleUuid}
+              styleName={styles.find((s) => s.id === selectedStyleUuid)?.name}
               categoryUuid={product?.categoryId ?? null}
               onChanged={() => refetchVariants()}
             />
@@ -1300,7 +987,7 @@ export default function AdminProductDetailsPage() {
                     />
                   </th>
 
-                  <th className="px-4 py-2.5 min-w-[200px] border-b border-cream-border">Item</th>
+                  <th className="px-4 py-2.5 min-w-[200px] border-b border-cream-border">Variant</th>
                   <th className="px-4 py-2.5 min-w-[120px] border-b border-cream-border">SKU</th>
                   <th className="px-4 py-2.5 min-w-[150px] border-b border-cream-border">Sizes</th>
                   <th className="px-4 py-2.5 min-w-[140px] border-b border-cream-border">Color</th>
@@ -1542,7 +1229,7 @@ export default function AdminProductDetailsPage() {
                       <span>View Variant</span>
                     </Link>
 
-                    {/* 2. Price Change — same Units & Pricing flow as the Edit Item modal */}
+                    {/* 2. Price Change — same Units & Pricing flow as the Edit Variant modal */}
                     <button
                       type="button"
                       onClick={() => {
@@ -1713,7 +1400,7 @@ export default function AdminProductDetailsPage() {
               try {
                 const res = await createVariantMutation.mutateAsync({
                   productUuid: canonicalProductId,
-                  itemUuid: items.length > 1 ? selectedItemUuid || undefined : undefined,
+                  styleUuid: styles.length > 1 ? selectedStyleUuid || undefined : undefined,
                   data: {
                     variantName: formData.variantName,
                     slug: formData.slug,
@@ -1921,7 +1608,7 @@ export default function AdminProductDetailsPage() {
               variantUuid: target.id,
             });
           } catch (err: any) {
-            console.error("Failed to delete item", err);
+            console.error("Failed to delete variant", err);
           }
         }}
         title="Delete Variant"
@@ -1937,7 +1624,7 @@ export default function AdminProductDetailsPage() {
         open={Boolean(managingImagesVariant)}
         onClose={() => setManagingImagesVariant(null)}
         title={`Manage Images: ${managingImagesVariant?.variantName || ""}`}
-        description="Upload and crop product item images (500 × 500 px)"
+        description="Upload and crop product images (500 × 500 px)"
         size="lg"
       >
         {managingImagesVariant && (
@@ -1963,13 +1650,13 @@ export default function AdminProductDetailsPage() {
       <FormModal
         open={isAddStyleOpen}
         onClose={() => setIsAddStyleOpen(false)}
-        title="Add Model"
-        description={`Create a new model for ${product.name} (e.g. "V Neck", "Solo")`}
+        title="Add Style"
+        description={`Create a new style for ${product.name} (e.g. "V Neck", "Solo")`}
         size="lg"
       >
         <StyleForm
           isLoading={createStyleMutation.isPending}
-          submitLabel="Create Model"
+          submitLabel="Create Style"
           onSubmit={async (formData: StyleFormValues) => {
             try {
               const res = await createStyleMutation.mutateAsync({
@@ -2000,10 +1687,10 @@ export default function AdminProductDetailsPage() {
                 setSelectedStyleUuid(created.id);
               }
               setIsAddStyleOpen(false);
-              toast.success("Model created", `"${formData.name}" is ready for Colors & Sizes.`);
+              toast.success("Style created", `"${formData.name}" is ready for Variants & Sizes.`);
             } catch (err: any) {
               console.error("Failed to create style", err);
-              toast.error("Failed to create model", err?.message || "Please try again.");
+              toast.error("Failed to create style", err?.message || "Please try again.");
             }
           }}
         />
@@ -2013,7 +1700,7 @@ export default function AdminProductDetailsPage() {
       <FormModal
         open={Boolean(editingStyle)}
         onClose={() => setEditingStyle(null)}
-        title="Edit Model"
+        title="Edit Style"
         description={`Update information for ${editingStyle?.name || ""}`}
         size="lg"
       >
@@ -2098,241 +1785,14 @@ export default function AdminProductDetailsPage() {
             toast.error("Failed to delete item", err?.message || "Please try again.");
           }
         }}
-        title="Delete Item"
-        description={`Are you sure you want to delete the item "${deletingStyle?.name}"? Its Models, Colors and Sizes will no longer be manageable. This action cannot be undone.`}
+        title="Delete Style"
+        description={`Are you sure you want to delete the style "${deletingStyle?.name}"? Its Variants and Sizes will no longer be manageable. This action cannot be undone.`}
         confirmText="Delete"
         cancelText="Cancel"
         variant="destructive"
         isLoading={deleteStyleMutation.isPending}
       />
 
-      {/* 14b. Select Brand Modal - shown instead of a blocking toast when the
-           Product has no Brand yet and the admin clicks "Add Model". The
-           chosen Brand is used only for the hidden default Style. */}
-      <FormModal
-        open={isPickBrandOpen}
-        onClose={() => setIsPickBrandOpen(false)}
-        title="Select Brand"
-        description={`This product has no Brand yet. Pick one to continue adding items to "${product.name}".`}
-        size="sm"
-        bodyClassName="overflow-visible min-h-[220px]"
-      >
-        <div className="space-y-4">
-          <Select
-            options={[
-              ...brandOptions,
-              ...createdBrandOptions.filter((c) => !brandOptions.some((b) => b.value === c.value)),
-            ]}
-            value={pickedBrandId}
-            onValueChange={setPickedBrandId}
-            placeholder="Select a brand"
-            searchable
-          />
-          <button
-            type="button"
-            onClick={() => setIsAddBrandOpen(true)}
-            className="text-xs font-semibold text-[var(--color-primary-500)] hover:text-[var(--color-primary-600)] cursor-pointer"
-          >
-            + Add brand
-          </button>
-          <div className="flex justify-end gap-2">
-            <Button
-              type="button"
-              onClick={() => setIsPickBrandOpen(false)}
-              className="h-10 rounded-xl bg-neutral-100 text-neutral-800 border border-neutral-300 hover:bg-neutral-200 px-5 text-sm font-semibold cursor-pointer"
-            >
-              Cancel
-            </Button>
-            <Button
-              type="button"
-              disabled={!pickedBrandId || isPreparingItemForm}
-              onClick={async () => {
-                setIsPickBrandOpen(false);
-                await createHiddenStyleAndOpenItemForm(pickedBrandId);
-              }}
-              className="h-10 rounded-xl bg-primary-600 text-white hover:bg-primary-700 px-5 text-sm font-semibold cursor-pointer disabled:opacity-50"
-            >
-              {isPreparingItemForm ? "Preparing..." : "Continue"}
-            </Button>
-          </div>
-        </div>
-      </FormModal>
-
-      <QuickAddBrandModal
-        open={isAddBrandOpen}
-        onClose={() => setIsAddBrandOpen(false)}
-        onCreated={(brand) => {
-          setCreatedBrandOptions((prev) => [...prev, brand]);
-          setPickedBrandId(brand.value);
-        }}
-      />
-
-      {/* 15. Add Item Modal (admin-only sub-variant under the selected Style).
-           Two steps like the "Add Variant" flow: create the Item,
-           then immediately pick which attribute values (Color, Size, etc.)
-           it comes in, right here, instead of hunting for it below later. */}
-      <FormModal
-        open={isAddItemOpen}
-        onClose={() => {
-          setIsAddItemOpen(false);
-          setNewlyCreatedItem(null);
-        }}
-        title={newlyCreatedItem ? "Choose Attribute Values" : "Add Model"}
-        description={
-          newlyCreatedItem
-            ? `Pick which Color/Size/etc. values "${newlyCreatedItem.name}" comes in`
-            : `Create a new Model under "${styles.find((s) => s.id === selectedStyleUuid)?.name || "this item"}" (e.g. "Regular Fit", "Slim Fit")`
-        }
-        size="lg"
-      >
-        {!newlyCreatedItem ? (
-          selectedStyleUuid && (
-            <ItemForm
-              brandOptions={brandOptions}
-              isLoading={createItemMutation.isPending}
-              submitLabel="Next: Attribute Values"
-              onSubmit={async (formData: ItemFormValues) => {
-                try {
-                  await syncSelectedStyleBrand(formData.brandId);
-                  const res = await createItemMutation.mutateAsync({
-                    productUuid: canonicalProductId,
-                    styleUuid: selectedStyleUuid,
-                    data: {
-                      name: formData.name,
-                      slug: formData.slug,
-                      sku: formData.sku || null,
-                      shortDescription: formData.shortDescription || null,
-                      description: formData.description || null,
-                      basePrice: formData.basePrice ?? 0,
-                      isFeatured: formData.isFeatured,
-                      isDefault: formData.isDefault ?? false,
-                      isActive: formData.isActive,
-                    },
-                  });
-                  const created = (res as any)?.data as AdminItemResponse | undefined;
-                  if (created) {
-                    setSelectedItemUuid(created.id);
-                    setNewlyCreatedItem(created);
-                  }
-                } catch (err: any) {
-                  console.error("Failed to create item", err);
-                  toast.error("Failed to create model", err?.message || "Please try again.");
-                }
-              }}
-            />
-          )
-        ) : (
-          <div className="space-y-4">
-            <ItemColorsPanel
-              productUuid={canonicalProductId}
-              itemUuid={newlyCreatedItem.id}
-              itemName={newlyCreatedItem.name}
-              categoryUuid={product?.categoryId ?? null}
-              onChanged={() => refetchVariants()}
-            />
-            <div className="flex justify-end">
-              <Button
-                type="button"
-                onClick={() => {
-                  setIsAddItemOpen(false);
-                  setNewlyCreatedItem(null);
-                }}
-                className="h-10 rounded-xl bg-neutral-100 text-neutral-800 border border-neutral-300 hover:bg-neutral-200 px-5 text-sm font-semibold cursor-pointer"
-              >
-                Done
-              </Button>
-            </div>
-          </div>
-        )}
-      </FormModal>
-
-      {/* 16. Edit Item Modal */}
-      <FormModal
-        open={Boolean(editingItem)}
-        onClose={() => setEditingItem(null)}
-        title="Edit Model"
-        description={`Update information for ${editingItem?.name || ""}`}
-        size="lg"
-      >
-        {editingItem && (
-          <ItemForm
-            isEditing
-            brandOptions={brandOptions}
-            initialData={{
-              brandId: selectedStyleBrandId,
-              name: editingItem.name,
-              slug: editingItem.slug,
-              sku: editingItem.sku || "",
-              shortDescription: editingItem.shortDescription || "",
-              description: editingItem.description || "",
-              basePrice: editingItem.basePrice ?? 0,
-              isFeatured: editingItem.isFeatured,
-              isDefault: editingItem.isDefault,
-              isActive: editingItem.isActive,
-            }}
-            isLoading={updateItemMutation.isPending}
-            submitLabel="Save Changes"
-            onSubmit={async (formData: ItemFormValues) => {
-              if (!editingItem || !selectedStyleUuid) return;
-              try {
-                await syncSelectedStyleBrand(formData.brandId);
-                await updateItemMutation.mutateAsync({
-                  productUuid: canonicalProductId,
-                  styleUuid: selectedStyleUuid,
-                  itemUuid: editingItem.id,
-                  data: {
-                    name: formData.name,
-                    slug: formData.slug,
-                    sku: formData.sku || null,
-                    shortDescription: formData.shortDescription || null,
-                    description: formData.description || null,
-                    basePrice: formData.basePrice ?? 0,
-                    isFeatured: formData.isFeatured,
-                    isDefault: formData.isDefault ?? false,
-                    isActive: formData.isActive,
-                  },
-                });
-                setEditingItem(null);
-                toast.success("Model updated", `"${formData.name}" was saved.`);
-              } catch (err: any) {
-                console.error("Failed to update item", err);
-                toast.error("Failed to update model", err?.message || "Please try again.");
-              }
-            }}
-          />
-        )}
-      </FormModal>
-
-      {/* 17. Delete Item Confirmation Dialog */}
-      <ConfirmDialog
-        open={!!deletingItem}
-        onClose={() => setDeletingItem(null)}
-        onConfirm={async () => {
-          if (!deletingItem || !selectedStyleUuid) return;
-          const target = deletingItem;
-          setDeletingItem(null);
-          try {
-            await deleteItemMutation.mutateAsync({
-              productUuid: canonicalProductId,
-              styleUuid: selectedStyleUuid,
-              itemUuid: target.id,
-            });
-            if (selectedItemUuid === target.id) {
-              setSelectedItemUuid(null);
-            }
-            toast.success("Model deleted", `"${target.name}" was removed.`);
-          } catch (err: any) {
-            console.error("Failed to delete item", err);
-            toast.error("Failed to delete model", err?.message || "Please try again.");
-          }
-        }}
-        title="Delete Model"
-        description={`Are you sure you want to delete the Model "${deletingItem?.name}"? Its Colors and Sizes will no longer be manageable. This action cannot be undone.`}
-        confirmText="Delete"
-        cancelText="Cancel"
-        variant="destructive"
-        isLoading={deleteItemMutation.isPending}
-      />
     </div>
   );
 }

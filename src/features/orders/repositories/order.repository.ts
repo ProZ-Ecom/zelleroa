@@ -793,7 +793,6 @@ export const orderRepository = {
     items: Array<{
       productId: bigint;
       styleId: bigint;
-      itemId: bigint | null;
       variantId: bigint;
       variantUnitPriceId: bigint;
       productName: string;
@@ -981,7 +980,6 @@ export const orderRepository = {
           orderId: createdOrder.id,
           productId: item.productId,
           styleId: item.styleId,
-          itemId: item.itemId,
           variantId: item.variantId,
           variantUnitPriceId: item.variantUnitPriceId,
           product_name_snapshot: item.productName,

@@ -21,12 +21,12 @@ function createClient() {
 const prisma = createClient();
 
 async function main() {
-  const [products, styles, items] = await Promise.all([
+  const [products, styles, variants] = await Promise.all([
     prisma.product.findMany({ select: { id: true, uuid: true, name: true, deleted_at: true, isActive: true } }),
     prisma.style.findMany({ select: { id: true, uuid: true, name: true, productId: true, deleted_at: true, isActive: true } }),
-    prisma.item.findMany({ select: { id: true, uuid: true, name: true, styleId: true, deleted_at: true, isActive: true } }),
+    prisma.productVariant.findMany({ select: { id: true, uuid: true, variant_name: true, styleId: true, deleted_at: true, isActive: true } }),
   ]);
-  console.log("DB State:", JSON.stringify({ products, styles, items }, (_, v) => typeof v === "bigint" ? v.toString() : v, 2));
+  console.log("DB State:", JSON.stringify({ products, styles, variants }, (_, v) => typeof v === "bigint" ? v.toString() : v, 2));
 }
 
 main().finally(() => prisma.$disconnect());

@@ -28,7 +28,7 @@ export interface AdminStyleResponse {
   isActive: boolean;
   outOfStock: boolean;
   primaryImage: string | null;
-  itemCount: number;
+  variantCount: number;
   totalStock: number;
   colors: string[];
   createdAt: Date;

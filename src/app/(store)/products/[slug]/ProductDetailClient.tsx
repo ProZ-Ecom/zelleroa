@@ -3,9 +3,8 @@
 import { StyleDetailClient } from "../../styles/[slug]/StyleDetailClient";
 
 /**
- * `slug` is the Style UUID older cards link to. The Style's Items are never
- * offered as a choice on one page - this resolves to the default Item's own
- * page (`/items/:id`), exactly as `/styles/:id` does.
+ * `slug` is the Style UUID older cards link to; the Style's own page
+ * (`/styles/:id`) is the product page, so this renders exactly that.
  */
 export function ProductDetailClient({ slug }: { slug: string }) {
   return <StyleDetailClient slug={slug} notFoundMessage="Product not found" />;

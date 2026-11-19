@@ -106,9 +106,9 @@ function VariantUnitPriceList({
     units.find((u: AdminUnitResponse) => u.isActive) ??
     null;
 
-  // The Item's price is the one price entered for the whole Item; a size only
+  // The Style's price is the one price entered for the whole Style; a size only
   // carries a price of its own when it genuinely costs more or less.
-  const itemPrice = variant?.itemPrice && variant.itemPrice > 0 ? variant.itemPrice : null;
+  const stylePrice = variant?.stylePrice && variant.stylePrice > 0 ? variant.stylePrice : null;
 
   const createMutation = useCreateVariantUnitPrice();
   const updateMutation = useUpdateVariantUnitPrice();
@@ -361,13 +361,13 @@ function VariantUnitPriceList({
                   <span className="text-sm font-bold text-secondary-900 font-mono">
                     ₹{item.basePrice.toLocaleString("en-IN")}
                   </span>
-                  {itemPrice !== null && (
+                  {stylePrice !== null && (
                     <span
                       className={`text-[10px] font-semibold ${
-                        item.basePrice === itemPrice ? "text-neutral-400" : "text-amber-700"
+                        item.basePrice === stylePrice ? "text-neutral-400" : "text-amber-700"
                       }`}
                     >
-                      {item.basePrice === itemPrice ? "Item price" : "Own price"}
+                      {item.basePrice === stylePrice ? "Style price" : "Own price"}
                     </span>
                   )}
                 </span>

@@ -1,4 +1,3 @@
-export { ProductDetails } from "./ProductDetails";
 export { ProductGallery } from "./ProductGallery";
 export { ProductPrice } from "./ProductPrice";
 export { ProductRating } from "./ProductRating";

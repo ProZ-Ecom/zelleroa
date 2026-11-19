@@ -48,15 +48,15 @@ async function validateProductAndVariant(productUuid: string, variantUuid: strin
   }
 
   let product = await productRepository.findByUuid(productUuid);
-  if (!product && variant.item?.style?.productId) {
-    product = await productRepository.findById(variant.item.style.productId);
+  if (!product && variant.style?.productId) {
+    product = await productRepository.findById(variant.style.productId);
   }
 
   if (!product || product.deleted_at !== null) {
     throw ApiError.notFound("Product not found");
   }
 
-  if (variant.item.style.productId !== product.id) {
+  if (variant.style.productId !== product.id) {
     throw ApiError.notFound("Variant not found for this product");
   }
 

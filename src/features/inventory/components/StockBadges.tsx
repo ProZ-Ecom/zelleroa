@@ -32,35 +32,35 @@ export function MovementTypeBadge({ type }: { type: MovementType | null }) {
   );
 }
 
-export function StockStatusBadge({ status }: { status: StockStatus }) {
-  if (status === "out_of_stock") return <Badge variant="destructive">Out of stock</Badge>;
-  if (status === "low_stock") return <Badge variant="warning">Low stock</Badge>;
-  return <Badge variant="success">In stock</Badge>;
-}
+  export function StockStatusBadge({ status, className }: { status: StockStatus; className?: string }) {
+    if (status === "out_of_stock") return <Badge variant="destructive" className={cn("text-[10px] sm:text-xs px-2 sm:px-2.5 py-0.5 whitespace-nowrap", className)}>Out of stock</Badge>;
+    if (status === "low_stock") return <Badge variant="warning" className={cn("text-[10px] sm:text-xs px-2 sm:px-2.5 py-0.5 whitespace-nowrap", className)}>Low stock</Badge>;
+    return <Badge variant="success" className={cn("text-[10px] sm:text-xs px-2 sm:px-2.5 py-0.5 whitespace-nowrap", className)}>In stock</Badge>;
+  }
 
-/** Product on the first line, colour / size / SKU underneath. */
-export function VariantLabel({ item }: { item: StockItemLabel }) {
-  const detail = [
-    item.itemName && item.itemName !== item.productName ? item.itemName : null,
-    item.colorName,
-    item.sizeName,
-  ]
-    .filter(Boolean)
-    .join(" · ");
-  return (
-    <div>
-      <p className="font-medium text-[var(--color-neutral-900)]">{item.productName}</p>
-      <p className="text-xs text-[var(--color-neutral-500)]">
-        {detail || "Default"} · {item.sku}
-      </p>
-    </div>
-  );
-}
+  /** Product on the first line, colour / size / SKU underneath. */
+  export function VariantLabel({ item }: { item: StockItemLabel }) {
+    const detail = [
+      item.itemName && item.itemName !== item.productName ? item.itemName : null,
+      item.colorName,
+      item.sizeName,
+    ]
+      .filter(Boolean)
+      .join(" · ");
+    return (
+      <div>
+        <p className="font-medium text-[var(--color-neutral-900)]">{item.productName}</p>
+        <p className="text-xs text-[var(--color-neutral-500)]">
+          {detail || "Default"} · {item.sku}
+        </p>
+      </div>
+    );
+  }
 
-export function SignedQuantity({ value }: { value: number }) {
-  return (
-    <span className={cn("font-semibold tabular-nums", value < 0 ? "text-red-600" : "text-green-700")}>
-      {value > 0 ? `+${value}` : value}
-    </span>
-  );
-}
+  export function SignedQuantity({ value }: { value: number }) {
+    return (
+      <span className={cn("font-semibold tabular-nums", value < 0 ? "text-red-600" : "text-green-700")}>
+        {value > 0 ? `+${value}` : value}
+      </span>
+    );
+  }

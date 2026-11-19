@@ -3,7 +3,7 @@ export {
   useAdminAttribute,
   useAttributesForProduct,
   useConfiguredAttributesForProduct,
-  useItemAttributeValues,
+  useStyleAttributeValues,
 } from "./use-attributes";
 export {
   useCreateAttribute,
@@ -13,5 +13,5 @@ export {
   useUpdateAttributeValue,
   useDeleteAttributeValue,
   useSetAttributesForProduct,
-  useSetAttributeValuesForItem,
+  useSetAttributeValuesForStyle,
 } from "./use-attribute-mutations";

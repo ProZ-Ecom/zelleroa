@@ -108,6 +108,8 @@ export const generateVariantsSchema = z
     unitId: z.string().trim().uuid("Invalid unit UUID format"),
     /** Applied to every generated combination unless overridden per-row afterwards. */
     defaultPrice: z.coerce.number().min(0, "Price cannot be negative").optional(),
+    /** Optional opening stock for each created SKU row. Default: 0 */
+    initialStock: z.coerce.number().int().min(0, "Stock cannot be negative").optional().default(0),
     activate: z.boolean().optional().default(true),
   })
   .strict()
@@ -143,19 +145,23 @@ export const previewGenerateVariantsSchema = z
 
 export type PreviewGenerateVariantsInput = z.infer<typeof previewGenerateVariantsSchema>;
 
-/** Item-driven generation: attribute values come from item_attribute_values,
- * so only the pricing/unit defaults need to be supplied here. Generated rows always
- * start with no stock - it arrives through a purchase or an inventory adjustment, so
- * that every stock level is backed by a ledger movement. */
-export const generateVariantsFromItemSchema = z
+/** Style-driven generation: attribute values come from style_attribute_values,
+ * so only the pricing / unit / stock defaults need to be supplied here.Opening stock
+  * can be optionally specified and is backed by an initial ledger movement. */
+export const generateVariantsFromStyleSchema = z
   .object({
     unitId: z.string().trim().uuid("Invalid unit UUID format"),
     defaultPrice: z.coerce.number().min(0, "Price cannot be negative").optional(),
+    initialStock: z.coerce.number().int().min(0, "Stock cannot be negative").optional().default(0),
     activate: z.boolean().optional().default(true),
   })
   .strict();
 
-export type GenerateVariantsFromItemInput = z.infer<typeof generateVariantsFromItemSchema>;
+export type GenerateVariantsFromStyleInput = z.infer<typeof generateVariantsFromStyleSchema>;
+
+/** Backward-compatible aliases for legacy item naming */
+export const generateVariantsFromItemSchema = generateVariantsFromStyleSchema;
+export type GenerateVariantsFromItemInput = GenerateVariantsFromStyleInput;
 
 export const applyVariantRemovalsSchema = z
   .object({
@@ -184,8 +190,8 @@ export const adminVariantsQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1).optional(),
   pageSize: z.coerce.number().int().min(1).max(100).default(10).optional(),
   search: z.string().trim().optional(),
-  itemId: z.string().trim().uuid("Invalid Item UUID format").optional(),
-  itemUuid: z.string().trim().uuid("Invalid Item UUID format").optional(),
+  styleId: z.string().trim().uuid("Invalid Style UUID format").optional(),
+  styleUuid: z.string().trim().uuid("Invalid Style UUID format").optional(),
   isActive: z.coerce.boolean().optional(),
 });
 

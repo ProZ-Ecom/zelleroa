@@ -25,6 +25,7 @@ import { getImageUrl } from "@/lib/utils";
 import { ExcelImportDialog } from "@/components/common/ExcelImportDialog";
 import { NoImagePlaceholder } from "@/components/common/NoImagePlaceholder";
 import { MissingImageBanner } from "@/components/common/MissingImageBanner";
+import { CatalogChecklistBanner } from "@/components/common/CatalogChecklistBanner";
 import { createAdminProductSchema } from "@/features/products/validations/admin-product.schema";
 import { Select } from "@/components/ui/select";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -354,6 +355,7 @@ export default function AdminProductsPage() {
             </div>
           </div>
 
+          <CatalogChecklistBanner />
           <MissingImageBanner count={counts?.withoutImage ?? 0} noun="products" />
 
           <div className="mt-6 flex-1 min-h-0 flex flex-col">

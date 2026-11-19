@@ -24,7 +24,7 @@ import {
 } from "../../../utils/catalog-listing-query";
 import type { ListingFiltersDto } from "../../../types/catalog-listing.types";
 import { ListingFilterPanel } from "./ListingFilterPanel";
-import { ListingItemCard } from "./ListingItemCard";
+import { ListingStyleCard } from "./ListingStyleCard";
 
 const PAGE_SIZE = 24;
 const GRID = "grid grid-cols-2 gap-3 sm:gap-5 md:grid-cols-3 2xl:grid-cols-4";
@@ -457,7 +457,7 @@ export function CategoryListingView({ categoryKey, initialTitle }: CategoryListi
               >
                 <div className={GRID}>
                   {items.map((item) => (
-                    <ListingItemCard key={item.id} item={item} />
+                    <ListingStyleCard key={item.id} item={item} />
                   ))}
                 </div>
                 {isFetchingNextPage && (

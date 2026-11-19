@@ -167,7 +167,7 @@ export type {
   CustomerProductDetailDto,
   CustomerVariantListItemDto,
   CustomerVariantUnitPriceDto,
-  CustomerItemDto,
+  CustomerProductStyleDto,
 } from "@/features/customers/types";
 
 export interface CustomerProductListParams {
