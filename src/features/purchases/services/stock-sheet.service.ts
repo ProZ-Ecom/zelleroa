@@ -46,9 +46,7 @@ const rowSelect = {
           product_attributes: { select: { name: true } },
         },
       },
-      item: {
-        select: { name: true, style: { select: { product: { select: { name: true } } } } },
-      },
+      style: { select: { name: true, product: { select: { name: true } } } },
     },
   },
 } satisfies Prisma.VariantUnitPriceSelect;
@@ -74,7 +72,7 @@ function attributesOf(row: StockRow): Map<string, string> {
 }
 
 function productOf(row: StockRow) {
-  return row.variant?.item?.style?.product?.name ?? row.variant?.item?.name ?? "";
+  return row.variant?.style?.product?.name ?? row.variant?.style?.name ?? "";
 }
 
 /** Deepest sensible category nesting; the loop stops here rather than spinning on a cycle. */
@@ -115,7 +113,7 @@ async function loadRows(filters: StockSheetFilters): Promise<StockRow[]> {
     deleted_at: null,
     variant: {
       deleted_at: null,
-      item: { deleted_at: null, style: { deleted_at: null, product } },
+      style: { deleted_at: null, product },
     },
     // Bought from this vendor before: narrows a long catalogue to what this
     // vendor actually supplies, which is usually what the admin wants to reorder.
@@ -127,7 +125,7 @@ async function loadRows(filters: StockSheetFilters): Promise<StockRow[]> {
   const rows = await db.variantUnitPrice.findMany({
     where,
     select: rowSelect,
-    orderBy: [{ variant: { item: { name: "asc" } } }, { sku: "asc" }],
+    orderBy: [{ variant: { style: { name: "asc" } } }, { sku: "asc" }],
     take: MAX_ROWS + 1,
   });
 
@@ -193,7 +191,7 @@ export async function buildStockSheet(filters: StockSheetFilters): Promise<Buffe
       return [
         { value: r.sku, fontWeight: "bold" as const },
         locked(productOf(r)),
-        locked(r.variant?.item?.name ?? ""),
+        locked(r.variant?.style?.name ?? ""),
         locked(colour),
         ...attributeNames.map((n) => locked(attrs.get(n) ?? null)),
         locked(r.product_units?.name ?? ""),

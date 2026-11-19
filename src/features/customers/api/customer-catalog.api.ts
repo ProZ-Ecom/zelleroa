@@ -7,7 +7,7 @@ import type {
   CustomerVariantListItemDto,
   CustomerVariantDetailDto,
   CustomerStyleDetailDto,
-  CustomerStyleDetailDto,
+  GlobalSearchResultDto,
 } from "../types/catalog.types";
 import type { CategoryListingDto, CategoryMenuDto } from "../types/catalog-listing.types";
 import type {

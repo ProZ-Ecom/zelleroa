@@ -1735,23 +1735,23 @@ async function main() {
       });
     }
 
-      // 4. Create ProductVariant (Color) directly under Style
-      const variant = await prisma.productVariant.create({
-        data: {
-          uuid: crypto.randomUUID(),
-          styleId: style.id,
-          variant_name: itemDef.colorName,
-          slug: `${itemDef.slug}-${itemDef.colorName.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`,
-          color_name: itemDef.colorName,
-          color_hex: itemDef.colorHex,
-          price_adjustment: 0,
-          is_default: true,
-          is_featured: true,
-          isActive: true,
-          out_of_stock: false,
-        },
-      });
-      totalVariants++;
+    // 4. Create ProductVariant (Color)
+    const variant = await prisma.productVariant.create({
+      data: {
+        uuid: crypto.randomUUID(),
+        styleId: style.id,
+        variant_name: itemDef.colorName,
+        slug: `${itemDef.slug}-${itemDef.colorName.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`,
+        color_name: itemDef.colorName,
+        color_hex: itemDef.colorHex,
+        price_adjustment: 0,
+        is_default: true,
+        is_featured: true,
+        isActive: true,
+        out_of_stock: false,
+      },
+    });
+    totalVariants++;
     seededVariants.push(variant);
 
     // Add Product Variant Image

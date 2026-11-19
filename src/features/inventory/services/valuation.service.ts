@@ -100,17 +100,13 @@ export const valuationService = {
         inventories: { select: { quantity_available: true } },
         variant: {
           select: {
-              style: {
-                select: {
-                    product: {
+            style: { select: { product: {
                       select: { categoryId: true, brand: { select: { slug: true, name: true } } },
-                    },
-                  },
-                },
-              },
-            },
+                    } } },
           },
-        });
+        },
+      },
+    });
 
     const blank = (): ValuationRow => ({
       key: "",
@@ -128,7 +124,7 @@ export const valuationService = {
     const totals = blank();
 
     for (const row of rows) {
-      const id = groupIdOf(groupBy, (row.variant as any)?.style?.product ?? null, names);
+      const id = groupIdOf(groupBy, row.variant?.style?.product ?? null, names);
       const bucket = bucketOf(buckets, id, blank);
       const stock = row.inventories?.quantity_available ?? 0;
       const cost = unitCost(row);

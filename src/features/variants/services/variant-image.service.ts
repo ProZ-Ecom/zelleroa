@@ -47,146 +47,144 @@ async function validateProductAndVariant(productUuid: string, variantUuid: strin
     throw ApiError.notFound("Variant not found");
   }
 
-  const variantProductId = variant.style?.productId ?? (variant as any).item?.style?.productId;
-
   let product = await productRepository.findByUuid(productUuid);
-    if (!product && variantProductId) {
-      product = await productRepository.findById(variantProductId);
+  if (!product && variant.style?.productId) {
+    product = await productRepository.findById(variant.style.productId);
+  }
+
+  if (!product || product.deleted_at !== null) {
+    throw ApiError.notFound("Product not found");
+  }
+
+  if (variant.style.productId !== product.id) {
+    throw ApiError.notFound("Variant not found for this product");
+  }
+
+  return { product, variant };
+}
+
+export const variantImageService = {
+  async createAdminVariantImages(
+    productUuid: string,
+    variantUuid: string,
+    data: CreateAdminVariantImagesInput,
+    adminEmail?: string
+  ): Promise<AdminVariantImageResponse[]> {
+    const { variant } = await validateProductAndVariant(productUuid, variantUuid);
+    const adminId = await getAdminInternalId(adminEmail);
+
+    const imagesToCreate = data.map((img) => ({
+      uuid: crypto.randomUUID(),
+      image_url: img.imageUrl,
+      sort_order: img.sortOrder ?? 0,
+      is_primary: Boolean(img.isPrimary),
+      status: true,
+      is_active: true,
+      created_by: adminId,
+      updated_by: adminId,
+    }));
+
+    const createdList = await variantImageRepository.createManyWithPrimaryHandling(
+      variant.id,
+      imagesToCreate
+    );
+
+    return createdList.map(formatAdminVariantImageResponse);
+  },
+
+  async getAdminVariantImages(
+    productUuid: string,
+    variantUuid: string
+  ): Promise<AdminVariantImageResponse[]> {
+    const { variant } = await validateProductAndVariant(productUuid, variantUuid);
+    const images = await variantImageRepository.findActiveByVariantId(variant.id);
+
+    return images.map(formatAdminVariantImageResponse);
+  },
+
+  async updateAdminVariantImage(
+    productUuid: string,
+    variantUuid: string,
+    imageUuid: string,
+    data: UpdateAdminVariantImageInput,
+    adminEmail?: string
+  ): Promise<AdminVariantImageResponse> {
+    const { variant } = await validateProductAndVariant(productUuid, variantUuid);
+
+    const existing = await variantImageRepository.findByUuid(imageUuid);
+    if (!existing || existing.variant_id !== variant.id) {
+      throw ApiError.notFound("Variant image not found");
     }
 
-    if (!product || product.deleted_at !== null) {
-      throw ApiError.notFound("Product not found");
+    const adminId = await getAdminInternalId(adminEmail);
+    const updateData: Prisma.product_variant_imagesUncheckedUpdateInput = {};
+
+    if (adminId) {
+      updateData.updated_by = adminId;
     }
 
-      if (variantProductId !== product.id) {
-        throw ApiError.notFound("Variant not found for this product");
-      }
-
-      return { product, variant };
+    if (data.imageUrl !== undefined) {
+      updateData.image_url = data.imageUrl;
     }
 
-    export const variantImageService = {
-      async createAdminVariantImages(
-        productUuid: string,
-        variantUuid: string,
-        data: CreateAdminVariantImagesInput,
-        adminEmail?: string
-      ): Promise<AdminVariantImageResponse[]> {
-        const { variant } = await validateProductAndVariant(productUuid, variantUuid);
-        const adminId = await getAdminInternalId(adminEmail);
+    if (data.sortOrder !== undefined) {
+      updateData.sort_order = data.sortOrder;
+    }
 
-        const imagesToCreate = data.map((img) => ({
-          uuid: crypto.randomUUID(),
-          image_url: img.imageUrl,
-          sort_order: img.sortOrder ?? 0,
-          is_primary: Boolean(img.isPrimary),
-          status: true,
-          is_active: true,
-          created_by: adminId,
-          updated_by: adminId,
-        }));
+    const updated = await variantImageRepository.updateByUuid(imageUuid, updateData);
+    if (!updated) {
+      throw ApiError.notFound("Variant image not found");
+    }
 
-        const createdList = await variantImageRepository.createManyWithPrimaryHandling(
-          variant.id,
-          imagesToCreate
-        );
+    return formatAdminVariantImageResponse(updated);
+  },
 
-        return createdList.map(formatAdminVariantImageResponse);
-      },
+  async setPrimaryVariantImage(
+    productUuid: string,
+    variantUuid: string,
+    imageUuid: string
+  ): Promise<AdminVariantImageResponse> {
+    const { variant } = await validateProductAndVariant(productUuid, variantUuid);
 
-      async getAdminVariantImages(
-        productUuid: string,
-        variantUuid: string
-      ): Promise<AdminVariantImageResponse[]> {
-        const { variant } = await validateProductAndVariant(productUuid, variantUuid);
-        const images = await variantImageRepository.findActiveByVariantId(variant.id);
+    const image = await variantImageRepository.findByUuid(imageUuid);
+    if (!image || image.variant_id !== variant.id) {
+      throw ApiError.notFound("Variant image not found");
+    }
 
-        return images.map(formatAdminVariantImageResponse);
-      },
+    const updated = await variantImageRepository.setPrimaryImage(variant.id, imageUuid);
+    if (!updated) {
+      throw ApiError.notFound("Variant image not found");
+    }
 
-      async updateAdminVariantImage(
-        productUuid: string,
-        variantUuid: string,
-        imageUuid: string,
-        data: UpdateAdminVariantImageInput,
-        adminEmail?: string
-      ): Promise<AdminVariantImageResponse> {
-        const { variant } = await validateProductAndVariant(productUuid, variantUuid);
+    return formatAdminVariantImageResponse(updated);
+  },
 
-        const existing = await variantImageRepository.findByUuid(imageUuid);
-        if (!existing || existing.variant_id !== variant.id) {
-          throw ApiError.notFound("Variant image not found");
-        }
+  async deleteAdminVariantImage(
+    productUuid: string,
+    variantUuid: string,
+    imageUuid: string,
+    adminEmail?: string
+  ) {
+    const { variant } = await validateProductAndVariant(productUuid, variantUuid);
 
-        const adminId = await getAdminInternalId(adminEmail);
-        const updateData: Prisma.product_variant_imagesUncheckedUpdateInput = {};
+    const image = await variantImageRepository.findByUuid(imageUuid);
+    if (!image || image.variant_id !== variant.id) {
+      throw ApiError.notFound("Variant image not found");
+    }
 
-        if (adminId) {
-          updateData.updated_by = adminId;
-        }
+    const wasPrimary = Boolean(image.is_primary);
+    const adminId = await getAdminInternalId(adminEmail);
 
-        if (data.imageUrl !== undefined) {
-          updateData.image_url = data.imageUrl;
-        }
+    await variantImageRepository.softDeleteByUuid(imageUuid, adminId);
 
-        if (data.sortOrder !== undefined) {
-          updateData.sort_order = data.sortOrder;
-        }
+    // Rule: If primary image was deleted, promote lowest sortOrder remaining active image
+    if (wasPrimary) {
+      await variantImageRepository.promoteLowestSortOrderPrimary(variant.id);
+    }
 
-        const updated = await variantImageRepository.updateByUuid(imageUuid, updateData);
-        if (!updated) {
-          throw ApiError.notFound("Variant image not found");
-        }
-
-        return formatAdminVariantImageResponse(updated);
-      },
-
-      async setPrimaryVariantImage(
-        productUuid: string,
-        variantUuid: string,
-        imageUuid: string
-      ): Promise<AdminVariantImageResponse> {
-        const { variant } = await validateProductAndVariant(productUuid, variantUuid);
-
-        const image = await variantImageRepository.findByUuid(imageUuid);
-        if (!image || image.variant_id !== variant.id) {
-          throw ApiError.notFound("Variant image not found");
-        }
-
-        const updated = await variantImageRepository.setPrimaryImage(variant.id, imageUuid);
-        if (!updated) {
-          throw ApiError.notFound("Variant image not found");
-        }
-
-        return formatAdminVariantImageResponse(updated);
-      },
-
-      async deleteAdminVariantImage(
-        productUuid: string,
-        variantUuid: string,
-        imageUuid: string,
-        adminEmail?: string
-      ) {
-        const { variant } = await validateProductAndVariant(productUuid, variantUuid);
-
-        const image = await variantImageRepository.findByUuid(imageUuid);
-        if (!image || image.variant_id !== variant.id) {
-          throw ApiError.notFound("Variant image not found");
-        }
-
-        const wasPrimary = Boolean(image.is_primary);
-        const adminId = await getAdminInternalId(adminEmail);
-
-        await variantImageRepository.softDeleteByUuid(imageUuid, adminId);
-
-        // Rule: If primary image was deleted, promote lowest sortOrder remaining active image
-        if (wasPrimary) {
-          await variantImageRepository.promoteLowestSortOrderPrimary(variant.id);
-        }
-
-        return {
-          success: true,
-          message: "Variant image deleted successfully",
-        };
-      },
+    return {
+      success: true,
+      message: "Variant image deleted successfully",
     };
+  },
+};

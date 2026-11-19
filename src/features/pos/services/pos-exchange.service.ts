@@ -189,14 +189,13 @@ export const posExchangeService = {
       const tax = round2(charged - taxable);
 
       const variant = item.row.variant!;
-      const itemEntity = variant.item!;
-      const style = itemEntity.style!;
+      const style = variant.style!;
       const product = style.product!;
 
       newExecutionItems.push({
         productId: product.id,
         styleId: style.id,
-        itemId: itemEntity.id,
+        itemId: style.id,
         variantId: variant.id,
         variantUnitPriceId: item.row.id,
         productName: product.name,

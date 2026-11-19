@@ -19,13 +19,13 @@ export const GET = createApiHandler(
             is: {
               isActive: true,
               deleted_at: null,
-              item: { is: { isActive: true, deleted_at: null, style: { is: { product: { is: { isActive: true, deleted_at: null } } } } } },
+              style: { is: { isActive: true, deleted_at: null, product: { is: { isActive: true, deleted_at: null } } } },
             },
           },
           OR: [
             { sku: { contains: term } },
             { variant: { is: { variant_name: { contains: term } } } },
-            { variant: { is: { item: { is: { style: { is: { product: { is: { name: { contains: term } } } } } } } } } },
+            { variant: { is: { style: { is: { product: { is: { name: { contains: term } } } } } } } },
           ],
         },
         select: {
@@ -36,7 +36,7 @@ export const GET = createApiHandler(
           product_units: { select: { code: true, name: true } },
           attribute_value: { select: { value: true } },
           inventories: { select: { quantity_available: true } },
-          variant: { select: { variant_name: true, item: { select: { style: { select: { product: { select: { name: true } } } } } } } },
+          variant: { select: { variant_name: true, style: { select: { product: { select: { name: true } } } } } },
         },
         take: 20,
       });
@@ -44,7 +44,7 @@ export const GET = createApiHandler(
         rows.map((r) => ({
           id: r.uuid,
           sku: r.sku,
-          productName: r.variant.item.style.product.name,
+          productName: r.variant.style.product.name,
           variantName: r.variant.variant_name,
           size: r.attribute_value?.value ?? (Number(r.unit_value) > 0 ? `${Number(r.unit_value)} ${r.product_units.code || r.product_units.name}` : null),
           price: Number(r.base_price),

@@ -49,7 +49,7 @@ function format(r: Row): PricingRow {
     variantUnitPriceId: Number(r.id),
     sku: r.sku,
     productName: productName(r),
-    itemName: (r.variant as any)?.style?.name ?? (r.variant as any)?.item?.name ?? null,
+    itemName: r.variant?.style?.name ?? null,
     colorName: r.variant?.color_name ?? null,
     sizeName: r.attribute_value?.value ?? null,
     unitName: r.product_units?.name ?? null,
@@ -76,12 +76,12 @@ async function buildWhere(params: PricingListParams): Promise<Prisma.VariantUnit
     variant: { deleted_at: null, style: { deleted_at: null, product } },
     ...(params.search
       ? {
-        OR: [
-          { sku: { contains: params.search } },
-          { variant: { style: { name: { contains: params.search } } } },
-          { variant: { style: { product: { name: { contains: params.search } } } } },
-        ],
-      }
+          OR: [
+            { sku: { contains: params.search } },
+            { variant: { style: { name: { contains: params.search } } } },
+            { variant: { style: { product: { name: { contains: params.search } } } } },
+          ],
+        }
       : {}),
     ...(params.unpriced ? { base_price: { lte: 0 } } : {}),
     // Cost is only ever written when a purchase order is received, so a SKU

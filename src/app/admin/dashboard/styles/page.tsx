@@ -149,8 +149,8 @@ export default function AdminStylesPage() {
       cell: ({ row }) => (
         <span
           className={`font-semibold text-sm ${(row.original.totalStock ?? 0) > 0
-              ? "text-emerald-700"
-              : "text-neutral-500"
+            ? "text-emerald-700"
+            : "text-neutral-500"
             }`}
         >
           {row.original.totalStock ?? 0}
@@ -163,8 +163,8 @@ export default function AdminStylesPage() {
       cell: ({ row }) => (
         <span
           className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-bold ${row.original.isActive
-              ? "bg-emerald-50 text-emerald-700"
-              : "bg-neutral-100 text-neutral-500"
+            ? "bg-emerald-50 text-emerald-700"
+            : "bg-neutral-100 text-neutral-500"
             }`}
         >
           {row.original.isActive ? "Active" : "Inactive"}

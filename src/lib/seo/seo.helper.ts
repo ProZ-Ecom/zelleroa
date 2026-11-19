@@ -210,18 +210,12 @@ export function buildBreadcrumbJsonLd(props: BreadcrumbJsonLdProps) {
  */
 export const getEntitySeoMetaByUuid = cache(
   async (
-    entityType: "item" | "style" | "category" | "product",
+    entityType: "style" | "category" | "product",
     uuid: string
   ): Promise<SeoEntityMeta | null> => {
     try {
       let internalId: bigint | null = null;
-      if (entityType === "item") {
-        const row = await db.item.findFirst({
-          where: { uuid, deleted_at: null },
-          select: { id: true },
-        });
-        internalId = row?.id ?? null;
-      } else if (entityType === "style") {
+      if (entityType === "style") {
         const row = await db.style.findFirst({
           where: { uuid, deleted_at: null },
           select: { id: true },

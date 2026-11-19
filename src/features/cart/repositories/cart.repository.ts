@@ -38,6 +38,8 @@ export const cartItemInclude = Prisma.validator<Prisma.CartItemInclude>()({
       uuid: true,
       name: true,
       slug: true,
+      isActive: true,
+      deleted_at: true,
     },
   },
   variant_unit_price: {
@@ -156,7 +158,6 @@ export const cartRepository = {
     owner: CartOwner;
     productId: bigint;
     styleId: bigint;
-    itemId?: bigint | null;
     variantId: bigint;
     variantUnitPriceId?: bigint | null;
     quantity: number;

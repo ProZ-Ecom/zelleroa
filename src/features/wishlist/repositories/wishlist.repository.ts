@@ -159,7 +159,6 @@ export const wishlistRepository = {
     userId: bigint;
     productId: bigint;
     styleId?: bigint | null;
-    itemId?: bigint | null;
     variantId?: bigint | null;
     variantUnitPriceId: bigint;
     userInternalId: bigint;

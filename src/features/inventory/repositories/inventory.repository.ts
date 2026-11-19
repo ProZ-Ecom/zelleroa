@@ -16,23 +16,7 @@ const inventoryVariantSelect = {
   id: true,
   variant_name: true,
   color_name: true,
-  item: {
-    select: {
-      id: true,
-      uuid: true,
-      name: true,
-      slug: true,
-      style: {
-        select: {
-          id: true,
-          uuid: true,
-          name: true,
-          slug: true,
-          product: { select: { id: true, uuid: true, name: true, slug: true } },
-        },
-      },
-    },
-  },
+  style: { select: { id: true, uuid: true, name: true, slug: true, product: { select: { id: true, uuid: true, name: true, slug: true } } } },
 } as const;
 
 interface FindTransactionsParams {
@@ -123,20 +107,13 @@ export const inventoryRepository = {
               select: {
                 id: true,
                 variant_name: true,
-                  style: {
-                    select: {
-                      id: true,
-                      name: true,
-                      slug: true,
-                      product: { select: { id: true, name: true, slug: true } },
-                    },
-                  },
-                },
+                style: { select: { id: true, name: true, slug: true, product: { select: { id: true, name: true, slug: true } } } },
               },
             },
           },
         },
-      });
+      },
+    });
   },
 
   async findByVariantUnitPriceId(variantUnitPriceId: number | bigint) {

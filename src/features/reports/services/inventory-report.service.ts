@@ -106,7 +106,7 @@ export const inventoryReportService = {
       where: {
         isActive: true,
         deleted_at: null,
-        ...(hasProductFilter ? { variant: { item: { style: { product: productWhere } } } } : {}),
+        ...(hasProductFilter ? { variant: { style: { product: productWhere } } } : {}),
       },
       select: {
         id: true,
@@ -117,13 +117,7 @@ export const inventoryReportService = {
         inventories: { select: { quantity_available: true, quantity_reserved: true, reorderLevel: true } },
         variant: {
           select: {
-            item: {
-              select: {
-                style: {
-                  select: { name: true, product: { select: { categoryId: true, brand: { select: { name: true } } } } },
-                },
-              },
-            },
+            style: { select: { name: true, product: { select: { categoryId: true, brand: { select: { name: true } } } } } },
           },
         },
       },
@@ -138,7 +132,7 @@ export const inventoryReportService = {
       recentLedger(range, ids),
       categoryNameMap(
         skus.map((s) => {
-          const id = s.variant?.item?.style?.product?.categoryId;
+          const id = s.variant?.style?.product?.categoryId;
           return id != null ? String(id) : null;
         })
       ),
@@ -154,7 +148,7 @@ export const inventoryReportService = {
       const reorderLevel = inv?.reorderLevel ?? 0;
       const price = num(s.base_price);
       const avgCost = s.avg_cost != null ? num(s.avg_cost) : s.cost_price != null ? num(s.cost_price) : null;
-      const style = s.variant?.item?.style;
+      const style = s.variant?.style;
       const categoryId = style?.product?.categoryId;
       const last = lastMovementRows.get(String(s.id)) ?? null;
 

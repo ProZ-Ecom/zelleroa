@@ -652,8 +652,8 @@ export const purchaseService = {
           ? {
               OR: [
                 { sku: { contains: search } },
-                { variant: { item: { name: { contains: search } } } },
-                { variant: { item: { style: { product: { name: { contains: search } } } } } },
+                { variant: { style: { name: { contains: search } } } },
+                { variant: { style: { product: { name: { contains: search } } } } },
               ],
             }
           : {}),

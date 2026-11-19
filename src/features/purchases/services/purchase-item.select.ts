@@ -9,22 +9,15 @@ export const productSelect = {
     select: {
       variant_name: true,
       color_name: true,
-        style: {
-          select: {
-            name: true,
-            product: { select: { name: true } },
-          },
-        },
-      },
+      style: { select: { name: true, product: { select: { name: true } } } },
     },
-  } as const;
+  },
+} as const;
 
-export function productName(row: any) {
-  return (
-    row.variant?.style?.product?.name ??
-    row.variant?.item?.style?.product?.name ??
-    row.variant?.style?.name ??
-    row.variant?.item?.name ??
-    "Unknown product"
-  );
+export function productName(row: {
+  variant: {
+    style: { name: string; product: { name: string } | null } | null;
+  } | null;
+}) {
+  return row.variant?.style?.product?.name ?? row.variant?.style?.name ?? "Unknown product";
 }

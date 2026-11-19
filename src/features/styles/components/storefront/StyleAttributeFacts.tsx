@@ -21,7 +21,7 @@ import type {
 } from "@/features/customers/types/catalog.types";
 
 interface StyleAttributeFactsProps {
-  item: CustomerStyleViewDto;
+  style: CustomerStyleViewDto;
   selectedColor: CustomerVariantListItemDto | null;
   /** The exact Colour+Size row on screen, shown here as the SKU fact. */
   selectedSize?: CustomerVariantUnitPriceDto | null;
@@ -52,7 +52,7 @@ function iconFor(attributeName: string): LucideIcon {
  * fact of its own. Renders nothing when there is nothing to show at all.
  */
 export function StyleAttributeFacts({
-  item,
+  style,
   selectedColor,
   selectedSize,
 }: StyleAttributeFactsProps) {
@@ -73,7 +73,7 @@ export function StyleAttributeFacts({
       byName.get(name)!.add(value);
     };
 
-    for (const attribute of item.attributes ?? []) {
+    for (const attribute of style.attributes ?? []) {
       add(attribute.attributeName, attribute.value);
     }
     for (const attribute of selectedColor?.attributeValues ?? []) {
@@ -85,7 +85,7 @@ export function StyleAttributeFacts({
       value: [...values].join(", "),
       icon: iconFor(name),
     }));
-  }, [item.attributes, selectedColor]);
+  }, [style.attributes, selectedColor]);
 
   const sku = selectedSize?.sku || selectedColor?.sku;
 

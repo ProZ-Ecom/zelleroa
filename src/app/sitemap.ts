@@ -76,30 +76,14 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // 2. Query dynamic entities in parallel with graceful error fallback
   let categoryEntries: MetadataRoute.Sitemap = [];
   let styleEntries: MetadataRoute.Sitemap = [];
-  let itemEntries: MetadataRoute.Sitemap = [];
 
   try {
-    const [categoriesResult, stylesResult, itemsResult] = await Promise.allSettled([
+    const [categoriesResult, stylesResult] = await Promise.allSettled([
       catalogListingRepository.findActiveCategories(),
       db.style.findMany({
         where: {
           isActive: true,
           deleted_at: null,
-        },
-        select: {
-          uuid: true,
-          updatedAt: true,
-        },
-        take: 2000,
-      }),
-      db.item.findMany({
-        where: {
-          isActive: true,
-          deleted_at: null,
-          style: {
-            isActive: true,
-            deleted_at: null,
-          },
         },
         select: {
           uuid: true,
@@ -122,24 +106,16 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
     if (stylesResult.status === "fulfilled") {
       styleEntries = stylesResult.value.map((style) => ({
-        url: `${baseUrl}/products/${encodeURIComponent(style.uuid)}`,
+        url: `${baseUrl}/styles/${encodeURIComponent(style.uuid)}`,
         lastModified: style.updatedAt || now,
         changeFrequency: "daily" as const,
         priority: 0.7,
       }));
     }
 
-    if (itemsResult.status === "fulfilled") {
-      itemEntries = itemsResult.value.map((item) => ({
-        url: `${baseUrl}/items/${encodeURIComponent(item.uuid)}`,
-        lastModified: item.updatedAt || now,
-        changeFrequency: "daily" as const,
-        priority: 0.7,
-      }));
-    }
   } catch {
     // Graceful fallback to static entries if database connection fails
   }
 
-  return [...staticPages, ...categoryEntries, ...styleEntries, ...itemEntries];
+  return [...staticPages, ...categoryEntries, ...styleEntries];
 }

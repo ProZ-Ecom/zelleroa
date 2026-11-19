@@ -26,6 +26,7 @@ import type {
   CustomerRelatedVariantDto,
   CustomerStyleDetailDto,
   CustomerStyleViewDto,
+  GlobalSearchResultDto,
 } from "../types/catalog.types";
 
 const brandSelect = { id: true, uuid: true, name: true } as const;
@@ -639,6 +640,9 @@ export const catalogRepository = {
       where.gender = params.gender === "unisex" ? "unisex" : { in: [params.gender, "unisex"] };
     }
 
+    const minProductP = params.minPrice ? Math.max(params.minPrice, 0.01) : 0.01;
+    const maxProductP = params.maxPrice ?? Number.MAX_SAFE_INTEGER;
+
     // Variant-level filters (inStock, price range) - vegType lives on the Style.
     const variantWhere: Prisma.ProductVariantWhereInput = {
       isActive: true,
@@ -664,16 +668,6 @@ export const catalogRepository = {
           : (params.vegType as "veg" | "vegan" | "na");
       variantWhere.style = { veg_type: mappedVegType };
     }
-
-    const minProductP = params.minPrice ? Math.max(params.minPrice, 0.01) : 0.01;
-    const maxProductP = params.maxPrice ?? Number.MAX_SAFE_INTEGER;
-    variantWhere.variant_unit_prices = {
-      some: {
-        deleted_at: null,
-        isActive: true,
-        base_price: { gte: minProductP, lte: maxProductP },
-      },
-    };
 
     where.styles = { some: { deleted_at: null, variants: { some: variantWhere } } };
 

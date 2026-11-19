@@ -7,16 +7,16 @@ import { StyleCard } from "./StyleCard";
 const FETCH_SIZE = 12;
 
 interface RelatedItemsProps {
-  /** The Style or Item being viewed - never listed among its own related items. */
+  /** The Style being viewed - never listed among its own related products. */
   styleId?: string;
   itemId?: string;
-  /** Category UUID (or slug) the related items are drawn from. */
+  /** Category UUID (or slug) the related products are drawn from. */
   categoryId: string | null | undefined;
   title?: string;
   limit?: number;
 }
 
-/** Other Items from the same category - "You may also like" on the Item/Style page. */
+/** Other Styles from the same category - "You may also like" on the Style page. */
 export function RelatedItems({
   styleId,
   itemId,
