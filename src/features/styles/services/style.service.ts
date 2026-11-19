@@ -171,7 +171,7 @@ export const styleService = {
       is_new_arrival: data.isNewArrival ?? false,
       new_arrival_until: data.isNewArrival && data.newArrivalUntil ? new Date(data.newArrivalUntil) : null,
       is_default: isDefault,
-      isActive: data.isActive ?? false,
+      isActive: data.isActive !== undefined ? data.isActive : true,
       out_of_stock: data.outOfStock ?? false,
       created_by: adminId,
       updated_by: adminId,

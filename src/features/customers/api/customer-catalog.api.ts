@@ -182,6 +182,11 @@ export const customerCatalogApi = {
     return response.data!;
   },
 
+  /** Alias for backward compatibility */
+  async getItem(itemUuid: string): Promise<CustomerStyleDetailDto> {
+    return this.getStyle(itemUuid);
+  },
+
   /**
    * Fetch customer product detail by product UUID
    * Postman: GET /api/customer/products/:productUuid

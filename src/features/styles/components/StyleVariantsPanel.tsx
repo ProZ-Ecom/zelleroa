@@ -17,7 +17,9 @@ import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
 import { useStyleAttributeValues, useSetAttributeValuesForStyle } from "@/features/attributes/hooks";
 import { AttributeValueQuickAdd } from "@/features/attributes/components/AttributeValueQuickAdd";
-import { useUnits } from "@/features/units/hooks";
+import { useUnits, useCreateUnit } from "@/features/units/hooks";
+import { FormModal } from "@/components/common/FormModal";
+import { UnitForm } from "@/features/units/components/UnitForm";
 import {
   useVariants,
   useVariantImages,
@@ -92,12 +94,15 @@ function StyleVariantsPanel({
   const setValuesMutation = useSetAttributeValuesForStyle();
   const generateMutation = useGenerateVariantsFromStyle();
   const deleteVariantMutation = useDeleteVariant();
+  const createUnitMutation = useCreateUnit();
 
   // null until the admin touches a chip: until then the panel simply shows
   // whatever the server has saved, so there is no state to keep in sync.
   const [draftSelection, setDraftSelection] = useState<Set<string> | null>(null);
   const [showDefaults, setShowDefaults] = useState(false);
   const [pickedUnitId, setPickedUnitId] = useState("");
+  const [initialStock, setInitialStock] = useState<number>(0);
+  const [isAddUnitOpen, setIsAddUnitOpen] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [result, setResult] = useState<GenerateVariantsResponse | null>(null);
   const [openVariantId, setOpenVariantId] = useState<string | null>(null);
@@ -239,6 +244,7 @@ function StyleVariantsPanel({
         styleUuid,
         data: {
           unitId,
+          initialStock: initialStock > 0 ? initialStock : 0,
           activate: true,
         },
       });
@@ -246,6 +252,18 @@ function StyleVariantsPanel({
         response) as GenerateVariantsResponse;
       setDraftSelection(null);
       setResult(data);
+      if (data.created > 0) {
+        toast.success(
+          "Colors Created",
+          `Successfully created ${data.created} color variant${data.created === 1 ? "" : "s"}${initialStock > 0 ? ` with ${initialStock} stock each` : ""
+          }.`
+        );
+      } else if (data.skipped > 0) {
+        toast.info(
+          "Already Exists",
+          "Selected color(s) already exist for this model."
+        );
+      }
       await Promise.all([refetchGroups(), refetchVariants()]);
       onChanged?.();
     } catch (err) {
@@ -313,11 +331,10 @@ function StyleVariantsPanel({
       <div className="mb-1.5 flex items-center justify-between gap-2">
         <label className="block text-xs font-semibold text-neutral-800">{group.name}</label>
         <span
-          className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold ${
-            group.multipleSelection
+          className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold ${group.multipleSelection
               ? "bg-secondary-50 text-secondary-700"
               : "bg-neutral-100 text-neutral-500"
-          }`}
+            }`}
         >
           {group.multipleSelection ? "Pick any" : "Pick one"}
         </span>
@@ -329,11 +346,10 @@ function StyleVariantsPanel({
             onClick={() => toggleAll(group)}
             disabled={isBusy}
             aria-pressed={group.values.every((value) => selected.has(value.id))}
-            className={`inline-flex cursor-pointer select-none items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-semibold transition-all disabled:opacity-50 ${
-              group.values.every((value) => selected.has(value.id))
+            className={`inline-flex cursor-pointer select-none items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-semibold transition-all disabled:opacity-50 ${group.values.every((value) => selected.has(value.id))
                 ? "border-secondary-600 bg-secondary-600 text-white shadow-xs"
                 : "border-neutral-200 bg-white text-neutral-700 hover:border-neutral-400 hover:bg-neutral-50"
-            }`}
+              }`}
           >
             Select All
           </button>
@@ -348,17 +364,15 @@ function StyleVariantsPanel({
               onClick={() => toggle(group, value.id)}
               disabled={isBusy}
               title={alreadyCreated ? `${value.value} already exists below` : undefined}
-              className={`inline-flex cursor-pointer select-none items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-semibold transition-all disabled:opacity-50 ${
-                isChecked
+              className={`inline-flex cursor-pointer select-none items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-semibold transition-all disabled:opacity-50 ${isChecked
                   ? "border-secondary-600 bg-secondary-600 text-white shadow-xs"
                   : "border-neutral-200 bg-white text-neutral-700 hover:border-neutral-400 hover:bg-neutral-50"
-              }`}
+                }`}
             >
               {!group.multipleSelection && (
                 <span
-                  className={`flex h-3 w-3 items-center justify-center rounded-full border ${
-                    isChecked ? "border-white" : "border-neutral-400"
-                  }`}
+                  className={`flex h-3 w-3 items-center justify-center rounded-full border ${isChecked ? "border-white" : "border-neutral-400"
+                    }`}
                 >
                   {isChecked && <span className="h-1.5 w-1.5 rounded-full bg-white" />}
                 </span>
@@ -428,8 +442,7 @@ function StyleVariantsPanel({
           )}
         </div>
 
-        {/* Defaults stay folded away: the answers are nearly always the same,
-            and a sensible default beats blocking on three fields. */}
+        {/* Defaults for new colors */}
         <div className="mt-4 rounded-lg border border-neutral-200 bg-neutral-50/60">
           <button
             type="button"
@@ -442,21 +455,29 @@ function StyleVariantsPanel({
             </span>
             <span className="flex items-center gap-2">
               <span className="text-[11px] text-neutral-500">
-                {units.find((unit) => unit.id === unitId)?.name || "No unit"}
+                {units.find((unit) => unit.id === unitId)?.name || "No unit"} · Stock: {initialStock}
               </span>
               <ChevronDown
-                className={`h-3.5 w-3.5 text-neutral-400 transition-transform ${
-                  showDefaults ? "rotate-180" : ""
-                }`}
+                className={`h-3.5 w-3.5 text-neutral-400 transition-transform ${showDefaults ? "rotate-180" : ""
+                  }`}
               />
             </span>
           </button>
           {showDefaults && (
             <div className="grid grid-cols-1 gap-4 border-t border-neutral-200 p-3 md:grid-cols-2">
               <div>
-                <label className="mb-1.5 block text-xs font-semibold text-neutral-800">
-                  Unit <span className="text-red-500">*</span>
-                </label>
+                <div className="mb-1.5 flex items-center justify-between">
+                  <label className="block text-xs font-semibold text-neutral-800">
+                    Unit <span className="text-red-500">*</span>
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setIsAddUnitOpen(true)}
+                    className="text-[11px] font-semibold text-secondary-600 hover:text-secondary-700 hover:underline cursor-pointer"
+                  >
+                    + Add Unit
+                  </button>
+                </div>
                 <Select
                   value={unitId}
                   onValueChange={(val) => setPickedUnitId(val)}
@@ -471,9 +492,25 @@ function StyleVariantsPanel({
                   ]}
                 />
               </div>
-              <p className="self-end text-xs text-neutral-500">
-                New colors start with 0 stock. Add stock from Inventory or a Purchase Order.
-              </p>
+              <div>
+                <label className="mb-1.5 block text-xs font-semibold text-neutral-800">
+                  Initial Stock (Pieces on hand)
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  value={initialStock}
+                  onChange={(e) =>
+                    setInitialStock(Math.max(0, parseInt(e.target.value, 10) || 0))
+                  }
+                  placeholder="0"
+                  disabled={isBusy}
+                  className="w-full rounded-xl border border-neutral-300 bg-white px-3 py-2 text-xs text-neutral-900 focus:border-secondary-500 focus:outline-none"
+                />
+                <p className="mt-1 text-[11px] text-neutral-500">
+                  Opening stock for all new sizes. Leave 0 to add stock later from Inventory.
+                </p>
+              </div>
             </div>
           )}
         </div>
@@ -489,12 +526,16 @@ function StyleVariantsPanel({
             <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
             <div>
               <p className="font-bold">
-                {result.created} color{result.created === 1 ? "" : "s"} created
+                {result.created > 0
+                  ? `${result.created} color variant${result.created === 1 ? "" : "s"} created`
+                  : result.skipped > 0
+                    ? "Selected color(s) already exist"
+                    : "No variants created"}
               </p>
               <p className="mt-0.5">
                 {result.skipped > 0
-                  ? `${result.skipped} already existed and were left alone. `
-                  : ""}
+                    ? `${result.skipped} combination(s) already existed and were left alone. `
+                    : ""}
                 Add images and sizes below.
               </p>
             </div>
@@ -581,6 +622,32 @@ function StyleVariantsPanel({
         </div>
       </section>
 
+      <FormModal
+        open={isAddUnitOpen}
+        onClose={() => setIsAddUnitOpen(false)}
+        title="Add Unit"
+        description="Create a product unit (e.g. Piece, Waist 32, S, M, L)"
+      >
+        <UnitForm
+          baseUnits={units}
+          isLoading={createUnitMutation.isPending}
+          submitLabel="Create Unit"
+          onSubmit={async (formData) => {
+            try {
+              const res = await createUnitMutation.mutateAsync(formData);
+              const created = (res as { data?: AdminUnitResponse }).data ?? (res as unknown as AdminUnitResponse);
+              if (created?.id) {
+                setPickedUnitId(created.id);
+              }
+              toast.success("Unit created", `"${formData.name}" added and selected.`);
+              setIsAddUnitOpen(false);
+            } catch (err: unknown) {
+              const message = err instanceof Error ? err.message : "Please try again.";
+              toast.error("Failed to create unit", message);
+            }
+          }}
+        />
+      </FormModal>
     </div>
   );
 }
@@ -650,9 +717,8 @@ function ColorRow({
             </span>
           </span>
           <ChevronDown
-            className={`h-4 w-4 shrink-0 text-neutral-400 transition-transform ${
-              isOpen ? "rotate-180" : ""
-            }`}
+            className={`h-4 w-4 shrink-0 text-neutral-400 transition-transform ${isOpen ? "rotate-180" : ""
+              }`}
           />
         </button>
         {isConfirmingDelete ? (

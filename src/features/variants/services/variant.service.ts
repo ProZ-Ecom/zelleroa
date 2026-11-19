@@ -6,6 +6,7 @@ import { styleRepository } from "@/features/styles/repositories/style.repository
 import { userRepository } from "@/features/users/repositories/user.repository";
 import { unitRepository } from "@/features/units/repositories/unit.repository";
 import { attributeRepository } from "@/features/attributes/repositories/attribute.repository";
+import { recordStockMovement } from "@/features/inventory/services/stock-ledger.service";
 import { formatVariantMeasurement } from "../utils/measurement.util";
 import {
   buildAttributeSignature,
@@ -643,6 +644,7 @@ export const variantService = {
     params: {
       unitId: string;
       defaultPrice?: number;
+      initialStock?: number;
       activate?: boolean;
     },
     adminEmail?: string
@@ -679,8 +681,26 @@ export const variantService = {
         options,
         unitId: params.unitId,
         defaultPrice: params.defaultPrice,
+        initialStock: params.initialStock ?? 0,
         activate: params.activate ?? true,
       },
+      adminEmail
+    );
+  },
+
+  async generateVariantsFromItemAttributeValues(
+    styleUuid: string,
+    params: {
+      unitId: string;
+      defaultPrice?: number;
+      initialStock?: number;
+      activate?: boolean;
+    },
+    adminEmail?: string
+  ): Promise<GenerateVariantsResponse> {
+    return variantService.generateVariantsFromStyleAttributeValues(
+      styleUuid,
+      params,
       adminEmail
     );
   },
@@ -832,6 +852,8 @@ export const variantService = {
     // interactive-transaction timeout is easily exceeded once a product has
     // more than a handful of combinations, which throws an unrecognized P2028
     // that surfaces to the admin as a bare "Something went wrong".
+    const openingStock = data.initialStock ?? 0;
+
     await db.$transaction(async (tx) => {
       for (const colorCombo of colorCombinations) {
         const cKey = colorKey(colorCombo);
@@ -853,7 +875,6 @@ export const variantService = {
             }`.slice(0, 230);
           let variantSlug = slugBase;
           let slugSuffix = 1;
-          // eslint-disable-next-line no-await-in-loop
           while (
             await tx.productVariant.findFirst({ where: { slug: variantSlug, deleted_at: null } })
           ) {
@@ -873,9 +894,7 @@ export const variantService = {
               price_adjustment: 0,
               is_default: colorCombo.length === 0,
               isActive: data.activate !== false,
-              // Nothing is generated with stock, so a new colour starts out of stock
-              // and the flag is cleared by the first movement that brings some in.
-              out_of_stock: true,
+              out_of_stock: openingStock <= 0,
               created_by: adminId,
               updated_by: adminId,
             },
@@ -926,7 +945,6 @@ export const variantService = {
               .join("-") || `ITEM-${variantId}`;
           let sku = skuBase;
           let skuSuffix = 1;
-          // eslint-disable-next-line no-await-in-loop
           while (await tx.variantUnitPrice.findFirst({ where: { sku, deleted_at: null } })) {
             skuSuffix += 1;
             sku = `${skuBase}-${skuSuffix}`;
@@ -961,8 +979,6 @@ export const variantService = {
             });
           }
 
-          // Generated rows always start empty; stock arrives through a purchase or an
-          // inventory adjustment, so it is always backed by a ledger movement.
           await tx.inventory.create({
             data: {
               variantUnitPriceId: unitPrice.id,
@@ -974,22 +990,33 @@ export const variantService = {
             },
           });
 
-          existingSignatures.add(signature);
-          createdVariantIds.add(variantId);
-        }
+            if (openingStock > 0) {
+              await recordStockMovement(tx, {
+                variantUnitPriceId: unitPrice.id,
+                movementType: "ADJUSTMENT",
+                direction: "in",
+                quantity: openingStock,
+                reason: "Opening stock on variant creation",
+                actorId: adminId,
+              });
+            }
 
-        // A brand-new Color that didn't end up with a single sellable Size
-        // (every pairing was a duplicate) would otherwise be
-        // left behind as an empty, unsellable Color with no price - which is
-        // indistinguishable from the generator having silently done nothing
-        // for that color. Roll it back instead, so it never appears at all
-        // and the color's combinations are honestly counted as skipped.
-        if (isNewColorVariant && existingSignatures.size === sizeRowsBefore) {
-          await tx.variant_attribute_values.deleteMany({ where: { variant_id: variantId } });
-          await tx.productVariant.delete({ where: { id: variantId } });
+            existingSignatures.add(signature);
+            createdVariantIds.add(variantId);
+          }
+
+          // A brand-new Color that didn't end up with a single sellable Size
+          // (every pairing was a duplicate) would otherwise be
+          // left behind as an empty, unsellable Color with no price - which is
+          // indistinguishable from the generator having silently done nothing
+          // for that color. Roll it back instead, so it never appears at all
+          // and the color's combinations are honestly counted as skipped.
+          if (isNewColorVariant && existingSignatures.size === sizeRowsBefore) {
+            await tx.variant_attribute_values.deleteMany({ where: { variant_id: variantId } });
+            await tx.productVariant.delete({ where: { id: variantId } });
+          }
         }
-      }
-    }, { timeout: 60000 });
+      }, { timeout: 60000 });
 
     const variants = await Promise.all(
       [...createdVariantIds].map(async (id) => {

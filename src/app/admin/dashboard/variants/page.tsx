@@ -326,11 +326,10 @@ export default function AdminVariantsPage() {
             onClick={() => handleToggleStock(row.original, !isOutOfStock)}
             disabled={isRowPending}
             title={isOutOfStock ? "Click to mark In Stock" : "Click to mark Out of Stock"}
-            className={`group inline-flex items-center justify-between min-w-[132px] h-8 px-3 rounded-md text-xs font-bold border bg-white cursor-pointer shadow-xs transition-all hover:shadow-sm active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed disabled:active:scale-100 ${
-              !isOutOfStock
+            className={`group inline-flex items-center justify-between min-w-[132px] h-8 px-3 rounded-md text-xs font-bold border bg-white cursor-pointer shadow-xs transition-all hover:shadow-sm active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed disabled:active:scale-100 ${!isOutOfStock
                 ? "text-emerald-700 border-emerald-300 hover:bg-emerald-50"
                 : "text-rose-700 border-rose-300 hover:bg-rose-50"
-            }`}
+              }`}
           >
             <span className="flex items-center gap-1.5 whitespace-nowrap">
               {isRowPending ? (
@@ -364,11 +363,10 @@ export default function AdminVariantsPage() {
             onClick={() => handleToggleStatus(row.original, !isActive)}
             disabled={isRowPending}
             title={isActive ? "Click to set Inactive" : "Click to set Active"}
-            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold cursor-pointer border transition-all hover:opacity-80 active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed ${
-              isActive
+            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold cursor-pointer border transition-all hover:opacity-80 active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed ${isActive
                 ? "bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100"
                 : "bg-red-50 text-red-700 border-red-200 hover:bg-red-100"
-            }`}
+              }`}
           >
             {isRowPending && <Loader2 className="w-3 h-3 animate-spin" />}
             {isActive ? "Active" : "Inactive"}
@@ -536,8 +534,8 @@ export default function AdminVariantsPage() {
                   type="button"
                   onClick={() => setViewMode("table")}
                   className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${viewMode === "table"
-                      ? "bg-[var(--color-primary-500)] text-white shadow-xs"
-                      : "text-neutral-600 hover:text-neutral-900"
+                    ? "bg-[var(--color-primary-500)] text-white shadow-xs"
+                    : "text-neutral-600 hover:text-neutral-900"
                     }`}
                   title="Table List View"
                 >
@@ -549,8 +547,8 @@ export default function AdminVariantsPage() {
                   type="button"
                   onClick={() => setViewMode("cards")}
                   className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${viewMode === "cards"
-                      ? "bg-[var(--color-primary-500)] text-white shadow-xs"
-                      : "text-neutral-600 hover:text-neutral-900"
+                    ? "bg-[var(--color-primary-500)] text-white shadow-xs"
+                    : "text-neutral-600 hover:text-neutral-900"
                     }`}
                   title="Storefront Customer Card View"
                 >
@@ -788,8 +786,8 @@ export default function AdminVariantsPage() {
         <div className="mb-6 flex items-center justify-center gap-2 sm:gap-3 border-b border-[var(--color-neutral-200)] pb-4">
           <div
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${createStep === 1
-                ? "bg-[var(--color-primary-500)] text-white shadow"
-                : "bg-[var(--color-success-100)] text-[var(--color-success-700)]"
+              ? "bg-[var(--color-primary-500)] text-white shadow"
+              : "bg-[var(--color-success-100)] text-[var(--color-success-700)]"
               }`}
           >
             {createStep > 1 ? (
@@ -804,10 +802,10 @@ export default function AdminVariantsPage() {
 
           <div
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${createStep === 2
-                ? "bg-[var(--color-primary-500)] text-white shadow"
-                : createStep > 2
-                  ? "bg-[var(--color-success-100)] text-[var(--color-success-700)]"
-                  : "bg-[var(--color-neutral-100)] text-[var(--color-neutral-500)]"
+              ? "bg-[var(--color-primary-500)] text-white shadow"
+              : createStep > 2
+                ? "bg-[var(--color-success-100)] text-[var(--color-success-700)]"
+                : "bg-[var(--color-neutral-100)] text-[var(--color-neutral-500)]"
               }`}
           >
             {createStep > 2 ? (
@@ -822,10 +820,10 @@ export default function AdminVariantsPage() {
 
           <div
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${createStep === 3
-                ? "bg-[var(--color-primary-500)] text-white shadow"
-                : createStep > 3
-                  ? "bg-[var(--color-success-100)] text-[var(--color-success-700)]"
-                  : "bg-[var(--color-neutral-100)] text-[var(--color-neutral-500)]"
+              ? "bg-[var(--color-primary-500)] text-white shadow"
+              : createStep > 3
+                ? "bg-[var(--color-success-100)] text-[var(--color-success-700)]"
+                : "bg-[var(--color-neutral-100)] text-[var(--color-neutral-500)]"
               }`}
           >
             {createStep > 3 ? (
@@ -840,8 +838,8 @@ export default function AdminVariantsPage() {
 
           <div
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${createStep === 4
-                ? "bg-[var(--color-primary-500)] text-white shadow"
-                : "bg-[var(--color-neutral-100)] text-[var(--color-neutral-500)]"
+              ? "bg-[var(--color-primary-500)] text-white shadow"
+              : "bg-[var(--color-neutral-100)] text-[var(--color-neutral-500)]"
               }`}
           >
             <span>4</span>
@@ -890,7 +888,7 @@ export default function AdminVariantsPage() {
         {createStep === 2 && createdVariant && (
           <div className="space-y-4">
 
-  
+
 
 
 
@@ -1034,8 +1032,8 @@ export default function AdminVariantsPage() {
                 onClick={() => setEditTab("details")}
                 disabled={updateMutation.isPending}
                 className={`flex items-center gap-2 px-4 py-2.5 text-sm font-semibold border-b-2 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${editTab === "details"
-                    ? "border-[var(--color-primary-500)] text-[var(--color-primary-500)]"
-                    : "border-transparent text-[var(--color-neutral-500)] hover:text-[var(--color-neutral-800)]"
+                  ? "border-[var(--color-primary-500)] text-[var(--color-primary-500)]"
+                  : "border-transparent text-[var(--color-neutral-500)] hover:text-[var(--color-neutral-800)]"
                   }`}
               >
                 <Package className="h-4 w-4" />
@@ -1047,8 +1045,8 @@ export default function AdminVariantsPage() {
                 onClick={() => setEditTab("pricing")}
                 disabled={updateMutation.isPending}
                 className={`flex items-center gap-2 px-4 py-2.5 text-sm font-semibold border-b-2 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${editTab === "pricing"
-                    ? "border-[var(--color-primary-500)] text-[var(--color-primary-500)]"
-                    : "border-transparent text-[var(--color-neutral-500)] hover:text-[var(--color-neutral-800)]"
+                  ? "border-[var(--color-primary-500)] text-[var(--color-primary-500)]"
+                  : "border-transparent text-[var(--color-neutral-500)] hover:text-[var(--color-neutral-800)]"
                   }`}
               >
                 <Package className="h-4 w-4" />
@@ -1060,8 +1058,8 @@ export default function AdminVariantsPage() {
                 onClick={() => setEditTab("images")}
                 disabled={updateMutation.isPending}
                 className={`flex items-center gap-2 px-4 py-2.5 text-sm font-semibold border-b-2 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${editTab === "images"
-                    ? "border-[var(--color-primary-500)] text-[var(--color-primary-500)]"
-                    : "border-transparent text-[var(--color-neutral-500)] hover:text-[var(--color-neutral-800)]"
+                  ? "border-[var(--color-primary-500)] text-[var(--color-primary-500)]"
+                  : "border-transparent text-[var(--color-neutral-500)] hover:text-[var(--color-neutral-800)]"
                   }`}
               >
                 <ImageIcon className="h-4 w-4" />

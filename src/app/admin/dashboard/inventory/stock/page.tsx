@@ -57,323 +57,324 @@ function availableTone(status: StockStatus) {
 function AvailableCell({ row }: { row: StockRow }) {
   return (
     <div>
-      <span className={cn("text-base font-semibold tabular-nums", availableTone(row.status))}>
-        {row.available}
-      </span>
-      {row.reserved > 0 && (
-        <span className="ml-1.5 text-xs text-neutral-500">+{row.reserved} in carts</span>
-      )}
+        <span className={cn("text-xs sm:text-sm md:text-base font-semibold tabular-nums", availableTone(row.status))}>
+          {row.available}
+        </span>
+        {row.reserved > 0 && (
+        <span className="ml-1 sm:ml-1.5 text-[10px] sm:text-xs text-neutral-500">+{row.reserved} in carts</span>
+        )}
     </div>
   );
 }
 
 function RowActions({ row, full = false }: { row: StockRow; full?: boolean }) {
   return (
-    <div className={cn("flex items-center gap-1.5", full ? "justify-end" : "justify-center")}>
-      <Link href={`/admin/dashboard/inventory/adjustment?item=${row.variantUnitPriceId}`}>
-        <Button variant="outline" size="sm" className="rounded-lg">
-          <SlidersHorizontal className="mr-1.5 h-4 w-4" /> Adjust
-        </Button>
-      </Link>
-      <Link href={`/admin/dashboard/inventory/movements?item=${row.variantUnitPriceId}`}>
-        <Button
-          variant="ghost"
-          size="sm"
-          className="rounded-lg px-2"
-          title="Stock history"
-          aria-label={`Stock history for ${row.productName}`}
-        >
-          <History className="h-4 w-4" />
-        </Button>
-      </Link>
-    </div>
-  );
+      <div className={cn("flex items-center gap-1 sm:gap-1.5", full ? "justify-end" : "justify-center")}>
+        <Link href={`/admin/dashboard/inventory/adjustment?item=${row.variantUnitPriceId}`}>
+            <Button variant="outline" size="sm" className="h-7 sm:h-8 px-2 sm:px-2.5 text-[11px] sm:text-xs rounded-lg">
+              <SlidersHorizontal className="mr-1 h-3 w-3 sm:h-3.5 sm:w-3.5" /> Adjust
+            </Button>
+        </Link>
+        <Link href={`/admin/dashboard/inventory/movements?item=${row.variantUnitPriceId}`}>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7 sm:h-8 w-7 sm:w-8 p-0 rounded-lg"
+            title="Stock history"
+            aria-label={`Stock history for ${row.productName}`}
+          >
+            <History className="h-3.5 w-3.5" />
+          </Button>
+        </Link>
+      </div>
+      );
 }
 
-/** Removable chip for a filter that is currently narrowing the list. */
-function FilterChip({ label, onRemove }: { label: string; onRemove: () => void }) {
+      /** Removable chip for a filter that is currently narrowing the list. */
+      function FilterChip({label, onRemove}: {label: string; onRemove: () => void }) {
   return (
-    <span className="inline-flex items-center gap-1.5 rounded-full border border-neutral-200 bg-neutral-50 px-3 py-1 text-xs font-medium text-neutral-700">
-      {label}
-      <button
-        type="button"
-        onClick={onRemove}
-        className="cursor-pointer rounded-full p-0.5 text-neutral-400 hover:bg-neutral-200 hover:text-neutral-700"
-        aria-label={`Remove ${label} filter`}
-      >
-        <X className="h-3 w-3" />
-      </button>
-    </span>
-  );
+        <span className="inline-flex items-center gap-1 sm:gap-1.5 rounded-full border border-neutral-200 bg-neutral-50 px-2 sm:px-2.5 py-0.5 sm:py-1 text-[11px] sm:text-xs font-medium text-neutral-700">
+          {label}
+          <button
+            type="button"
+            onClick={onRemove}
+            className="cursor-pointer rounded-full p-0.5 text-neutral-400 hover:bg-neutral-200 hover:text-neutral-700"
+            aria-label={`Remove ${label} filter`}
+          >
+            <X className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
+          </button>
+        </span>
+        );
 }
 
-function CurrentStockContent() {
+        function CurrentStockContent() {
   const searchParams = useSearchParams();
-  const router = useRouter();
-  const pathname = usePathname();
+        const router = useRouter();
+        const pathname = usePathname();
 
-  const initialStatus = searchParams.get("status");
-  const [search, setSearch] = useState("");
-  const [color, setColor] = useState("");
-  const [status, setStatus] = useState<StockStatus | "">(
+        const initialStatus = searchParams.get("status");
+        const [search, setSearch] = useState("");
+        const [color, setColor] = useState("");
+        const [status, setStatus] = useState<StockStatus | "">(
     STATUS_TABS.some((s) => s.id && s.id === initialStatus)
-      ? ((initialStatus as StockStatus) ?? "")
-      : ""
-  );
-  const [categorySlug, setCategorySlug] = useState("");
-  const [productSlug, setProductSlug] = useState("");
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(20);
+        ? ((initialStatus as StockStatus) ?? "")
+        : ""
+        );
+        const [categorySlug, setCategorySlug] = useState("");
+        const [productSlug, setProductSlug] = useState("");
+        const [page, setPage] = useState(1);
+        const [pageSize, setPageSize] = useState(20);
 
-  const { data, isLoading, isFetching, error, refetch } = useCurrentStock({
-    page,
-    limit: pageSize,
-    search: search || undefined,
-    color: color || undefined,
-    categorySlug: categorySlug || undefined,
-    productSlug: productSlug || undefined,
-    status: status || undefined,
+        const {data, isLoading, isFetching, error, refetch} = useCurrentStock({
+          page,
+          limit: pageSize,
+        search: search || undefined,
+        color: color || undefined,
+        categorySlug: categorySlug || undefined,
+        productSlug: productSlug || undefined,
+        status: status || undefined,
   });
-  const { data: settings } = useStockSettings();
-  const { data: summary } = useInventoryDashboard();
+        const {data: settings } = useStockSettings();
+        const {data: summary } = useInventoryDashboard();
 
-  const { data: categoryData } = useCategories({ page: 1, pageSize: 200 });
-  const categories = categoryData?.data ?? [];
+        const {data: categoryData } = useCategories({page: 1, pageSize: 200 });
+        const categories = categoryData?.data ?? [];
   // The products endpoint takes the category's public UUID, the filters its slug.
   const categoryUuid = categories.find((c) => c.slug === categorySlug)?.id;
-  // 100 is the list endpoint's ceiling; a category narrows it well before that.
-  const { data: productData } = useAdminProducts({
-    limit: 100,
-    isActive: true,
-    ...(categoryUuid ? { categoryId: String(categoryUuid) } : {}),
+        // 100 is the list endpoint's ceiling; a category narrows it well before that.
+        const {data: productData } = useAdminProducts({
+          limit: 100,
+        isActive: true,
+        ...(categoryUuid ? {categoryId: String(categoryUuid) } : { }),
   });
-  const products = productData?.data ?? [];
+        const products = productData?.data ?? [];
 
-  const rows = data?.data ?? [];
-  const total = data?.meta?.total ?? rows.length;
-  const totalPages = data?.meta?.totalPages ?? 1;
-  const currentPage = data?.meta?.page ?? page;
-  const hasFilters = !!search || !!color || !!status || !!categorySlug || !!productSlug;
-  const threshold = settings?.lowStockThreshold ?? summary?.lowStockThreshold ?? 5;
+        const rows = data?.data ?? [];
+        const total = data?.meta?.total ?? rows.length;
+        const totalPages = data?.meta?.totalPages ?? 1;
+        const currentPage = data?.meta?.page ?? page;
+        const hasFilters = !!search || !!color || !!status || !!categorySlug || !!productSlug;
+        const threshold = settings?.lowStockThreshold ?? summary?.lowStockThreshold ?? 5;
 
-  /** Keep the status in the URL so a refresh, a back button or a shared link keeps the view. */
-  const selectStatus = useCallback(
+        /** Keep the status in the URL so a refresh, a back button or a shared link keeps the view. */
+        const selectStatus = useCallback(
     (next: StockStatus | "") => {
-      setStatus(next);
-      setPage(1);
-      router.replace(next ? `${pathname}?status=${next}` : pathname, { scroll: false });
+          setStatus(next);
+        setPage(1);
+        router.replace(next ? `${pathname}?status=${next}` : pathname, {scroll: false });
     },
-    [pathname, router]
-  );
+        [pathname, router]
+        );
 
-  const counts: Record<string, number | undefined> = summary
-    ? {
-        "": summary.totalVariants,
+        const counts: Record<string, number | undefined> = summary
+        ? {
+          "": summary.totalVariants,
         in_stock: Math.max(0, summary.totalVariants - summary.lowStockItems - summary.outOfStockItems),
         low_stock: summary.lowStockItems,
         out_of_stock: summary.outOfStockItems,
       }
-    : {};
+        : { };
 
   /** Picking a category narrows the product list, so a product from another one is dropped. */
   const selectCategory = (slug: string) => {
-    setCategorySlug(slug);
-    setProductSlug("");
-    setPage(1);
+          setCategorySlug(slug);
+        setProductSlug("");
+        setPage(1);
   };
 
   const clearAll = () => {
-    setSearch("");
-    setColor("");
-    setCategorySlug("");
-    setProductSlug("");
-    selectStatus("");
+          setSearch("");
+        setColor("");
+        setCategorySlug("");
+        setProductSlug("");
+        selectStatus("");
   };
 
-  const columns: ColumnDef<StockRow>[] = [
-    {
-      id: "product",
-      header: "Product",
+        const columns: ColumnDef<StockRow>[] = [
+          {
+            id: "product",
+          header: "Product",
       accessorFn: (row) => row.productName,
-      cell: ({ row }) => (
-        <div className="min-w-[180px]">
-          <p className="font-medium text-[var(--color-neutral-900)]">{row.original.productName}</p>
-          <p className="text-xs text-[var(--color-neutral-500)]">{row.original.sku}</p>
-        </div>
-      ),
+          cell: ({row}) => (
+            <div className="min-w-[120px] sm:min-w-[160px]">
+              <p className="text-xs sm:text-sm font-medium text-[var(--color-neutral-900)] line-clamp-1">{row.original.productName}</p>
+              <p className="text-[10px] sm:text-xs text-[var(--color-neutral-500)]">{row.original.sku}</p>
+            </div>
+            ),
     },
-    {
-      id: "variant",
-      header: "Colour / Size",
+            {
+              id: "variant",
+            header: "Colour / Size",
       accessorFn: (row) => `${row.colorName ?? ""} ${row.sizeName ?? ""}`.trim(),
-      cell: ({ row }) => (
-        <span className="whitespace-nowrap">
-          {[row.original.colorName, row.original.sizeName].filter(Boolean).join(" · ") || "—"}
-        </span>
-      ),
+            cell: ({row}) => (
+              <span className="text-xs sm:text-sm whitespace-nowrap">
+                {[row.original.colorName, row.original.sizeName].filter(Boolean).join(" · ") || "—"}
+              </span>
+              ),
     },
-    {
-      id: "available",
-      header: "Available",
+              {
+                id: "available",
+              header: "Available",
       accessorFn: (row) => row.available,
-      cell: ({ row }) => (
-        <div>
-          <AvailableCell row={row.original} />
-          <p className="text-xs text-neutral-500">
-            reorder at {row.original.threshold}
-            {row.original.reorderLevel > 0 && " (own)"}
-          </p>
-        </div>
-      ),
+              cell: ({row}) => (
+              <div>
+                <AvailableCell row={row.original} />
+                  <p className="text-[10px] sm:text-xs text-neutral-500 whitespace-nowrap">
+                    reorder at {row.original.threshold}
+                    {row.original.reorderLevel > 0 && " (own)"}
+                  </p>
+              </div>
+              ),
     },
-    {
-      id: "status",
-      header: "Status",
+              {
+                id: "status",
+              header: "Status",
       accessorFn: (row) => row.status,
-      cell: ({ row }) => (
-        <div className="whitespace-nowrap">
-          <StockStatusBadge status={row.original.status} />
-          {sinceLabel(row.original.updatedAt) && (
-            <p className="mt-1 text-xs text-neutral-500">{sinceLabel(row.original.updatedAt)}</p>
-          )}
-        </div>
-      ),
+              cell: ({row}) => (
+              <div className="whitespace-nowrap">
+                <StockStatusBadge status={row.original.status} className="text-[10px] sm:text-xs px-2 py-0.5" />
+                {sinceLabel(row.original.updatedAt) && (
+            <p className="mt-0.5 text-[10px] sm:text-xs text-neutral-500">{sinceLabel(row.original.updatedAt)}</p>
+                )}
+              </div>
+              ),
     },
-    {
-      id: "actions",
-      header: "Actions",
-      cell: ({ row }) => <RowActions row={row.original} />,
+              {
+                id: "actions",
+              header: "Actions",
+              cell: ({row}) => <RowActions row={row.original} />,
     },
-  ];
+              ];
 
   const exportRows = () =>
-    exportDataToCsv(
+              exportDataToCsv(
       rows.map((r) => ({
-        Product: r.productName,
-        SKU: r.sku,
-        Color: r.colorName || "—",
-        Size: r.sizeName || "—",
-        Available: r.available,
-        Reserved: r.reserved,
-        "Reorder at": r.threshold,
-        Status: r.status,
+                Product: r.productName,
+              SKU: r.sku,
+              Color: r.colorName || "—",
+              Size: r.sizeName || "—",
+              Available: r.available,
+              Reserved: r.reserved,
+              "Reorder at": r.threshold,
+              Status: r.status,
       })),
-      "current-stock"
-    );
+              "current-stock"
+              );
 
-  if (error) return <ErrorState message="Failed to load stock" onRetry={() => refetch()} />;
+              if (error) return <ErrorState message="Failed to load stock" onRetry={() => refetch()} />;
 
-  return (
-    <div className="flex flex-1 min-h-0 flex-col">
-      <AdminPageHeader
-        title="Current Stock"
-        description={`What is on hand for every colour and size. Anything at ${threshold} units or fewer is flagged as low stock.`}
-        actions={
-          <>
-            <Link href="/admin/dashboard/inventory">
-              <Button variant="outline" className="h-11 rounded-xl">
-                <Settings2 className="mr-2 h-4 w-4" /> Inventory overview
-              </Button>
-            </Link>
-            <Link href="/admin/dashboard/inventory/adjustment">
-              <Button className="h-11 rounded-xl bg-stone-900 hover:bg-stone-800 text-[#D4AF37] border border-[#D4AF37]/30 shadow-xs px-5 text-sm font-semibold transition-colors">
-                Adjust stock
-              </Button>
-            </Link>
-          </>
-        }
-      />
-      {/* No overflow-hidden above the table: on a short window the card hits its
-          380px floor and must spill so the admin <main> can scroll to the pager. */}
-      <AdminContent className="flex-1">
-        <div className="flex h-full flex-col py-1">
-          <div className="flex-shrink-0 space-y-4">
-            {/* One click per stock state, with how many items are in each. */}
-            <ScrollableTabs>
-              {STATUS_TABS.map((tab) => {
-                const isActive = status === tab.id;
-                const count = counts[tab.id];
-                return (
-                  <button
-                    key={tab.id || "all"}
-                    type="button"
-                    onClick={() => selectStatus(tab.id)}
-                    className={cn(
-                      "inline-flex cursor-pointer items-center gap-2 whitespace-nowrap rounded-full border px-3.5 py-1.5 text-xs font-semibold transition-all",
-                      isActive
-                        ? "border-secondary-600 bg-secondary-600 text-cream-white shadow-xs"
-                        : "border-cream-border-subtle bg-white text-neutral-500 hover:border-cream-border-hover hover:bg-cream-200 hover:text-secondary-800"
-                    )}
-                  >
-                    <span>{tab.label}</span>
-                    {count !== undefined && (
-                      <span
-                        className={cn(
-                          "grid h-4 min-w-[16px] place-items-center rounded-full px-1 text-[10px] font-bold tabular-nums",
-                          isActive ? "bg-white/20 text-white" : "bg-cream-300 text-secondary-600"
-                        )}
-                      >
-                        {count}
-                      </span>
-                    )}
-                  </button>
-                );
-              })}
-            </ScrollableTabs>
-
-            <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-              <div className="grid flex-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                <SearchInput
-                  placeholder="Search product name or SKU..."
-                  value={search}
-                  onSearch={(v) => {
-                    setSearch(v);
-                    setPage(1);
-                  }}
-                  className="w-full"
+              return (
+              <div className="flex flex-1 min-h-0 flex-col">
+                <AdminPageHeader
+                  title="Current Stock"
+                  description={`What is on hand for every colour and size. Anything at ${threshold} units or fewer is flagged as low stock.`}
+                  actions={
+                    <>
+                      <Link href="/admin/dashboard/inventory">
+                          <Button variant="outline" className="h-8 sm:h-9 md:h-10 text-xs sm:text-sm px-2.5 sm:px-3.5 rounded-lg sm:rounded-xl">
+                            <Settings2 className="mr-1.5 h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                            <span className="hidden xs:inline">Inventory overview</span>
+                            <span className="xs:hidden">Overview</span>
+                          </Button>
+                      </Link>
+                      <Link href="/admin/dashboard/inventory/adjustment">
+                          <Button className="h-8 sm:h-9 md:h-10 text-xs sm:text-sm rounded-lg sm:rounded-xl bg-stone-900 hover:bg-stone-800 text-[#D4AF37] border border-[#D4AF37]/30 shadow-xs px-3 sm:px-4 font-semibold transition-colors">
+                            Adjust stock
+                          </Button>
+                      </Link>
+                    </>
+                  }
                 />
-                <Select
-                  value={categorySlug}
-                  onValueChange={selectCategory}
-                  options={[
-                    { value: "", label: "All categories" },
-                    ...categories.map((c) => ({ value: c.slug, label: c.name })),
-                  ]}
-                  placeholder="All categories"
-                  className="w-full"
-                  aria-label="Filter by category"
-                />
-                <Select
-                  value={productSlug}
-                  onValueChange={(v) => {
-                    setProductSlug(v);
-                    setPage(1);
-                  }}
-                  options={[
-                    { value: "", label: "All products" },
-                    ...products.map((p) => ({ value: p.slug, label: p.name })),
-                  ]}
-                  placeholder="All products"
-                  className="w-full"
-                  aria-label="Filter by product"
-                />
-                <SearchInput
-                  placeholder="Filter by colour..."
-                  value={color}
-                  onSearch={(v) => {
-                    setColor(v);
-                    setPage(1);
-                  }}
-                  className="w-full"
-                />
-              </div>
+                {/* Table hits min-h-[360px] floor so it never collapses, spilling so admin <main> scrolls naturally. */}
+                <AdminContent className="flex-1">
+                      <div className="flex flex-1 flex-col py-1">
+                        <div className="flex-shrink-0 space-y-3 sm:space-y-4">
+                          {/* One click per stock state, with how many items are in each. */}
+                          <ScrollableTabs>
+                            {STATUS_TABS.map((tab) => {
+                              const isActive = status === tab.id;
+                              const count = counts[tab.id];
+                              return (
+                                <button
+                                  key={tab.id || "all"}
+                                  type="button"
+                                  onClick={() => selectStatus(tab.id)}
+                                  className={cn(
+                                    "inline-flex cursor-pointer items-center gap-1.5 sm:gap-2 whitespace-nowrap rounded-full border px-2.5 sm:px-3.5 py-1 sm:py-1.5 text-[11px] sm:text-xs font-semibold transition-all",
+                                    isActive
+                                      ? "border-secondary-600 bg-secondary-600 text-cream-white shadow-xs"
+                                      : "border-cream-border-subtle bg-white text-neutral-500 hover:border-cream-border-hover hover:bg-cream-200 hover:text-secondary-800"
+                                  )}
+                                >
+                                  <span>{tab.label}</span>
+                                  {count !== undefined && (
+                                    <span
+                                      className={cn(
+                                        "grid h-3.5 sm:h-4 min-w-[14px] sm:min-w-[16px] place-items-center rounded-full px-1 text-[9px] sm:text-[10px] font-bold tabular-nums",
+                                        isActive ? "bg-white/20 text-white" : "bg-cream-300 text-secondary-600"
+                                      )}
+                                    >
+                                      {count}
+                                    </span>
+                                  )}
+                                </button>
+                              );
+                            })}
+                          </ScrollableTabs>
 
-              <ExportButton onClick={exportRows} disabled={rows.length === 0} />
-            </div>
+                              <div className="flex flex-col gap-2.5 sm:gap-3 md:flex-row md:items-start md:justify-between">
+                                <div className="grid flex-1 gap-2 sm:gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                                  <SearchInput
+                                    placeholder="Search product name or SKU..."
+                                    value={search}
+                                    onSearch={(v) => {
+                                      setSearch(v);
+                                      setPage(1);
+                                    }}
+                                    className="w-full"
+                                  />
+                                  <Select
+                                    value={categorySlug}
+                                    onValueChange={selectCategory}
+                                    options={[
+                                      { value: "", label: "All categories" },
+                                      ...categories.map((c) => ({ value: c.slug, label: c.name })),
+                                    ]}
+                                    placeholder="All categories"
+                                    className="w-full"
+                                    aria-label="Filter by category"
+                                  />
+                                  <Select
+                                    value={productSlug}
+                                    onValueChange={(v) => {
+                                      setProductSlug(v);
+                                      setPage(1);
+                                    }}
+                                    options={[
+                                      { value: "", label: "All products" },
+                                      ...products.map((p) => ({ value: p.slug, label: p.name })),
+                                    ]}
+                                    placeholder="All products"
+                                    className="w-full"
+                                    aria-label="Filter by product"
+                                  />
+                                  <SearchInput
+                                    placeholder="Filter by colour..."
+                                    value={color}
+                                    onSearch={(v) => {
+                                      setColor(v);
+                                      setPage(1);
+                                    }}
+                                    className="w-full"
+                                  />
+                                </div>
 
-            {hasFilters && (
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="text-xs text-neutral-500">
+                                <ExportButton onClick={exportRows} disabled={rows.length === 0} />
+                              </div>
+
+                              {hasFilters && (
+              <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+                <span className="text-[11px] sm:text-xs text-neutral-500">
                   {isLoading && !data ? "Loading…" : `${total} item${total === 1 ? "" : "s"}`}
                   {isFetching && data ? " · updating…" : ""}
                 </span>
@@ -406,7 +407,7 @@ function CurrentStockContent() {
             )}
           </div>
 
-          <div className="mt-6 flex min-h-0 flex-1 flex-col">
+          <div className="mt-4 sm:mt-6 flex flex-1 flex-col min-h-[360px] sm:min-h-[440px]">
             {isLoading && !data ? (
               <AdminTableSkeleton />
             ) : (
@@ -469,7 +470,7 @@ function CurrentStockContent() {
                   )}
                 </div>
 
-                <div className="hidden min-h-0 flex-1 flex-col md:flex">
+                <div className="hidden flex-1 flex-col md:flex min-h-[360px] sm:min-h-[440px]">
                   <DataTable
                     columns={columns}
                     data={rows}
@@ -486,7 +487,8 @@ function CurrentStockContent() {
                       setPageSize(n);
                       setPage(1);
                     }}
-                    className="bg-white"
+                    className="bg-white min-h-[360px] sm:min-h-[440px]"
+                    tableClassName="min-w-full"
                   />
                 </div>
               </>
@@ -495,13 +497,13 @@ function CurrentStockContent() {
         </div>
       </AdminContent>
     </div>
-  );
+                            );
 }
 
-export default function CurrentStockPage() {
+                            export default function CurrentStockPage() {
   return (
-    <Suspense fallback={<AdminTableSkeleton />}>
-      <CurrentStockContent />
-    </Suspense>
-  );
+                            <Suspense fallback={<AdminTableSkeleton />}>
+                              <CurrentStockContent />
+                            </Suspense>
+                            );
 }

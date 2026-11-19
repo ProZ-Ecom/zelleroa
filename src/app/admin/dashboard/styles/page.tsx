@@ -98,7 +98,7 @@ export default function AdminStylesPage() {
   const columns: ColumnDef<AdminStyleResponse>[] = [
     {
       accessorKey: "name",
-      header: "Style Name",
+      header: "Model Name",
       cell: ({ row }) => (
         <Link href={`/admin/dashboard/styles/${row.original.id}`} className="group block cursor-pointer">
           <p className="font-semibold text-secondary-600 underline-offset-2 group-hover:underline transition-colors">
@@ -126,7 +126,7 @@ export default function AdminStylesPage() {
     {
       accessorKey: "variantCount",
       header: "Variants",
-      cell: ({ row }) => <span className="text-[var(--color-neutral-700)]">{row.original.variantCount}</span>,
+      cell: ({ row }) => <span className="text-[var(--color-neutral-700)]">{row.original.variantCount ?? 0}</span>,
     },
     {
       accessorKey: "colors",
@@ -148,11 +148,10 @@ export default function AdminStylesPage() {
       header: "Total Stock",
       cell: ({ row }) => (
         <span
-          className={`font-semibold text-sm ${
-            (row.original.totalStock ?? 0) > 0
-              ? "text-emerald-700"
-              : "text-neutral-500"
-          }`}
+          className={`font-semibold text-sm ${(row.original.totalStock ?? 0) > 0
+            ? "text-emerald-700"
+            : "text-neutral-500"
+            }`}
         >
           {row.original.totalStock ?? 0}
         </span>
@@ -163,11 +162,10 @@ export default function AdminStylesPage() {
       header: "Status",
       cell: ({ row }) => (
         <span
-          className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-bold ${
-            row.original.isActive
-              ? "bg-emerald-50 text-emerald-700"
-              : "bg-neutral-100 text-neutral-500"
-          }`}
+          className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-bold ${row.original.isActive
+            ? "bg-emerald-50 text-emerald-700"
+            : "bg-neutral-100 text-neutral-500"
+            }`}
         >
           {row.original.isActive ? "Active" : "Inactive"}
         </span>
@@ -261,7 +259,12 @@ export default function AdminStylesPage() {
       );
     }
 
-    return <ErrorState message="Failed to load styles" onRetry={() => refetch()} />;
+    return (
+      <ErrorState
+        message={(error as any)?.message || "Failed to load styles"}
+        onRetry={() => refetch()}
+      />
+    );
   }
 
   if (isLoading && !data) {
@@ -271,8 +274,8 @@ export default function AdminStylesPage() {
   return (
     <div className="flex flex-1 min-h-0 flex-col">
       <AdminPageHeader
-        title="Style Management"
-        description="Manage styles under products."
+        title="Models (Styles)"
+        description="Manage models and styles under products."
       />
 
       <AdminContent className="flex-1 min-h-0">
@@ -280,7 +283,7 @@ export default function AdminStylesPage() {
           <div className="flex-shrink-0 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <div className="flex flex-1 flex-col gap-3 sm:flex-row sm:items-center">
               <SearchInput
-                placeholder="Search styles..."
+                placeholder="Search models..."
                 value={search}
                 onSearch={(val) => {
                   setSearch(val);

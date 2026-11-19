@@ -8,11 +8,10 @@ import { Heart, Loader2 } from "lucide-react";
 import { toast } from "@/components/ui/Toast";
 import { cn } from "@/lib/utils";
 import {
+  useWishlist,
   useAddToWishlist,
   useRemoveFromWishlist,
-  useWishlist,
 } from "@/features/wishlist/hooks/use-wishlist";
-import { pickColor, pickSize } from "@/features/styles/hooks/use-style-selection";
 import { customerCatalogApi } from "../../api/customer-catalog.api";
 import { CUSTOMER_CATALOG_QUERY_KEYS } from "../../hooks/use-customer-catalog";
 
@@ -23,11 +22,21 @@ const STALE_TIME = 1000 * 60 * 5;
  * filled when any row of this Style is saved; clicking saves the Style's
  * default row, or clears every saved row of it when it is already filled.
  */
-export function StyleWishlistButton({ styleId, className }: { styleId: string; className?: string }) {
+export function StyleWishlistButton({
+  styleId,
+  itemId,
+  className,
+}: {
+  styleId?: string;
+  itemId?: string;
+  className?: string;
+}) {
+  const targetId = styleId ?? itemId ?? "";
   const router = useRouter();
   const pathname = usePathname();
   const { data: session } = useSession();
   const queryClient = useQueryClient();
+
   const { data: wishlist } = useWishlist({ enabled: !!session });
   const addToWishlist = useAddToWishlist();
   const removeFromWishlist = useRemoveFromWishlist();
@@ -37,14 +46,14 @@ export function StyleWishlistButton({ styleId, className }: { styleId: string; c
   // Only needed to know which saved rows belong to this Style, so skip the
   // fetch entirely for shoppers with an empty wishlist.
   const { data: style } = useQuery({
-    queryKey: CUSTOMER_CATALOG_QUERY_KEYS.style(styleId),
-    queryFn: () => customerCatalogApi.getStyle(styleId),
+    queryKey: CUSTOMER_CATALOG_QUERY_KEYS.style(targetId),
+    queryFn: () => customerCatalogApi.getStyle(targetId),
     staleTime: STALE_TIME,
-    enabled: !!session && hasSavedRows,
+    enabled: !!session && hasSavedRows && !!targetId,
   });
 
   const savedRowIds = new Set(wishlist?.items.map((entry) => entry.variantUnitPriceId));
-  const styleRowIds = style?.colors.flatMap((color) => color.unitPrices.map((up) => up.id)) ?? [];
+  const styleRowIds = (style?.colors ?? []).flatMap((color) => (color.unitPrices ?? []).map((up) => up.id));
   const savedStyleRowIds = styleRowIds.filter((id) => savedRowIds.has(id));
   const isSaved = savedStyleRowIds.length > 0;
 
@@ -53,15 +62,16 @@ export function StyleWishlistButton({ styleId, className }: { styleId: string; c
       router.push(`/login?callbackUrl=${encodeURIComponent(pathname || "/")}`);
       return;
     }
-    if (busy) return;
+    if (!targetId) return;
+
     setBusy(true);
     try {
       const current = await queryClient.fetchQuery({
-        queryKey: CUSTOMER_CATALOG_QUERY_KEYS.style(styleId),
-        queryFn: () => customerCatalogApi.getStyle(styleId),
+        queryKey: CUSTOMER_CATALOG_QUERY_KEYS.style(targetId),
+        queryFn: () => customerCatalogApi.getStyle(targetId),
         staleTime: STALE_TIME,
       });
-      const rowIds = current.colors.flatMap((color) => color.unitPrices.map((up) => up.id));
+      const rowIds = (current.colors ?? []).flatMap((color) => (color.unitPrices ?? []).map((up) => up.id));
       const saved = rowIds.filter((id) => savedRowIds.has(id));
 
       if (saved.length > 0) {
@@ -69,37 +79,54 @@ export function StyleWishlistButton({ styleId, className }: { styleId: string; c
         toast.success("Removed from wishlist");
         return;
       }
-      const row = pickSize(pickColor(current.colors));
-      if (!row) {
-        toast.error("Nothing to save yet");
-        return;
-      }
-      await addToWishlist.mutateAsync(row.id);
-      toast.success("Added to wishlist");
-    } catch {
-      toast.error("Could not update your wishlist");
-    } finally {
-      setBusy(false);
-    }
-  };
 
-  return (
-    <button
-      type="button"
-      onClick={handleClick}
-      disabled={busy}
-      aria-label={isSaved ? "Remove from wishlist" : "Add to wishlist"}
-      aria-pressed={isSaved}
-      className={cn(
+        // Default row: first in-stock unit price of the first color, falling
+        // back to the very first unit price of the style.
+        const defaultColor = (current.colors ?? [])[0];
+        const defaultUp =
+          defaultColor?.unitPrices?.find((up) => up.inStock) ??
+          defaultColor?.unitPrices?.[0] ??
+          (current.colors ?? []).flatMap((c) => c.unitPrices ?? []).find((up) => up.inStock) ??
+          (current.colors ?? []).flatMap((c) => c.unitPrices ?? [])[0];
+
+        if (!defaultUp) {
+          toast.error("This product is currently unavailable");
+          return;
+        }
+
+        await addToWishlist.mutateAsync(defaultUp.id);
+        toast.success("Saved to wishlist");
+      } catch {
+        toast.error("Could not update wishlist");
+      } finally {
+        setBusy(false);
+      }
+    };
+
+    const ariaAttributes = {
+      "aria-label": isSaved ? "Remove from wishlist" : "Add to wishlist",
+      "aria-pressed": isSaved,
+    };
+
+    return (
+      <button
+            type = "button"
+      onClick = { handleClick }
+      disabled = { busy }
+      { ...ariaAttributes }
+      className = {
+              cn(
         "inline-flex h-8 w-8 items-center justify-center rounded-full bg-theme-surface/90 text-theme-text-secondary shadow-sm backdrop-blur transition-colors hover:text-rose-500 disabled:opacity-60",
         className
-      )}
-    >
+          )}
+      >
       {busy ? (
-        <Loader2 className="h-4 w-4 animate-spin" />
-      ) : (
-        <Heart className={cn("h-4 w-4", isSaved && "fill-rose-500 text-rose-500")} />
-      )}
-    </button>
+          <Loader2 className="h-4 w-4 animate-spin" />
+        ) : (
+          <Heart className={cn("h-4 w-4", isSaved && "fill-rose-500 text-rose-500")} />
+        )}
+    </button >
   );
 }
+
+export default StyleWishlistButton;

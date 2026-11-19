@@ -25,6 +25,9 @@ export const CUSTOMER_CATALOG_QUERY_KEYS = {
     [...CUSTOMER_CATALOG_QUERY_KEYS.all, "product", uuid] as const,
   style: (uuid: string) =>
     [...CUSTOMER_CATALOG_QUERY_KEYS.all, "style", uuid] as const,
+  /** Alias for backward compatibility */
+  item: (uuid: string) =>
+    [...CUSTOMER_CATALOG_QUERY_KEYS.all, "style", uuid] as const,
   productVariants: (uuid: string, params?: CustomerVariantListInput) =>
     [...CUSTOMER_CATALOG_QUERY_KEYS.all, "product-variants", uuid, params ?? {}] as const,
   relatedProducts: (uuid: string, limit?: number) =>

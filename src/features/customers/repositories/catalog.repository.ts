@@ -640,10 +640,21 @@ export const catalogRepository = {
       where.gender = params.gender === "unisex" ? "unisex" : { in: [params.gender, "unisex"] };
     }
 
+    const minProductP = params.minPrice ? Math.max(params.minPrice, 0.01) : 0.01;
+    const maxProductP = params.maxPrice ?? Number.MAX_SAFE_INTEGER;
+
     // Variant-level filters (inStock, price range) - vegType lives on the Style.
     const variantWhere: Prisma.ProductVariantWhereInput = {
       isActive: true,
       deleted_at: null,
+      variant_unit_prices: {
+        some: {
+          deleted_at: null,
+          isActive: true,
+          base_price: { gte: minProductP, lte: maxProductP },
+          ...(params.inStock === true ? { inventories: { quantity_available: { gt: 0 } } } : {}),
+        },
+      },
     };
 
     if (params.inStock !== undefined) {
@@ -657,16 +668,6 @@ export const catalogRepository = {
           : (params.vegType as "veg" | "vegan" | "na");
       variantWhere.style = { veg_type: mappedVegType };
     }
-
-    const minProductP = params.minPrice ? Math.max(params.minPrice, 0.01) : 0.01;
-    const maxProductP = params.maxPrice ?? Number.MAX_SAFE_INTEGER;
-    variantWhere.variant_unit_prices = {
-      some: {
-        deleted_at: null,
-        isActive: true,
-        base_price: { gte: minProductP, lte: maxProductP },
-      },
-    };
 
     where.styles = { some: { deleted_at: null, variants: { some: variantWhere } } };
 
@@ -1246,9 +1247,9 @@ export const catalogRepository = {
 
     const categories = categoryIds.length
       ? await db.productCategory.findMany({
-          where: { id: { in: categoryIds } },
-          select: { id: true, uuid: true, name: true },
-        })
+        where: { id: { in: categoryIds } },
+        select: { id: true, uuid: true, name: true },
+      })
       : [];
     const catMap = new Map(categories.map((c) => [c.id.toString(), c]));
 
@@ -1470,15 +1471,15 @@ export const catalogRepository = {
     const [matchingProducts, matchingBrands, matchingCategories] = await Promise.all([
       params.productIds && params.productIds.length > 0
         ? db.product.findMany({
-            where: { uuid: { in: params.productIds }, isActive: true, deleted_at: null },
-            select: { id: true },
-          })
+          where: { uuid: { in: params.productIds }, isActive: true, deleted_at: null },
+          select: { id: true },
+        })
         : null,
       params.brandIds && params.brandIds.length > 0
         ? db.productBrand.findMany({
-            where: { uuid: { in: params.brandIds }, isActive: true, deleted_at: null },
-            select: { id: true },
-          })
+          where: { uuid: { in: params.brandIds }, isActive: true, deleted_at: null },
+          select: { id: true },
+        })
         : null,
       params.categoryIds && params.categoryIds.length > 0
         ? resolveCategoryAndDescendantIds(params.categoryIds)
@@ -1910,14 +1911,14 @@ export const catalogRepository = {
 
     const pageCategories = pageCategoryIds.length
       ? await db.productCategory.findMany({
-          where: { id: { in: pageCategoryIds } },
-          select: {
-            id: true,
-            uuid: true,
-            name: true,
-            parent: { select: { id: true, uuid: true, name: true } },
-          },
-        })
+        where: { id: { in: pageCategoryIds } },
+        select: {
+          id: true,
+          uuid: true,
+          name: true,
+          parent: { select: { id: true, uuid: true, name: true } },
+        },
+      })
       : [];
     const categoryMap = new Map(pageCategories.map((c) => [c.id.toString(), c]));
     const variantMap = new Map(variants.map((v) => [v.id.toString(), v]));

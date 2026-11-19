@@ -62,24 +62,28 @@ export const skuInclude = {
           attribute_values: { select: { value: true } },
         },
       },
-      style: { select: { id: true, name: true, isActive: true, deleted_at: true, product: {
+      style: {
+        select: {
+          id: true, name: true, isActive: true, deleted_at: true, product: {
+            select: {
+              id: true,
+              uuid: true,
+              name: true,
+              categoryId: true,
+              isActive: true,
+              deleted_at: true,
+              product_hsn_codes: {
                 select: {
-                  id: true,
-                  uuid: true,
-                  name: true,
-                  categoryId: true,
-                  isActive: true,
-                  deleted_at: true,
-                  product_hsn_codes: {
-                    select: {
-                      code: true,
-                      product_gst_rates: {
-                        select: { cgst_percent: true, sgst_percent: true },
-                      },
-                    },
+                  code: true,
+                  product_gst_rates: {
+                    select: { cgst_percent: true, sgst_percent: true },
                   },
                 },
-              } } },
+              },
+            },
+          }
+        }
+      },
     },
   },
 } satisfies Prisma.VariantUnitPriceInclude;
@@ -187,13 +191,13 @@ export const posService = {
         ? { sku: exact }
         : term
           ? {
-              OR: [
-                { sku: { contains: term } },
-                { variant: { variant_name: { contains: term } } },
-                { variant: { style: { name: { contains: term } } } },
-                { variant: { style: { product: { name: { contains: term } } } } },
-              ],
-            }
+            OR: [
+              { sku: { contains: term } },
+              { variant: { variant_name: { contains: term } } },
+              { variant: { style: { name: { contains: term } } } },
+              { variant: { style: { product: { name: { contains: term } } } } },
+            ],
+          }
           : {}),
     };
 
@@ -289,9 +293,9 @@ export const posService = {
 
     const matched = input.customerPhone
       ? await db.user.findFirst({
-          where: { phone: input.customerPhone, is_active: true },
-          select: { id: true },
-        })
+        where: { phone: input.customerPhone, is_active: true },
+        select: { id: true },
+      })
       : null;
 
     const couponLines = items.map((item, index) => {
@@ -368,7 +372,7 @@ export const posService = {
         const reserved = row.inventories?.quantity_reserved ?? 0;
         throw ApiError.badRequest(
           `Only ${sellable} of "${row.sku}" can be sold at the counter` +
-            (reserved > 0 ? ` (${reserved} held for online orders)` : "")
+          (reserved > 0 ? ` (${reserved} held for online orders)` : "")
         );
       }
 
@@ -393,9 +397,9 @@ export const posService = {
     // 2. Resolve matched customer
     const matched = input.customerPhone
       ? await db.user.findFirst({
-          where: { phone: input.customerPhone, is_active: true },
-          select: { id: true, name: true, phone: true },
-        })
+        where: { phone: input.customerPhone, is_active: true },
+        select: { id: true, name: true, phone: true },
+      })
       : null;
 
     // 3. Validate and apply coupon if provided

@@ -177,7 +177,7 @@ export async function generateAdminVariants(
 export async function generateAdminVariantsFromStyle(
   productUuid: string,
   styleUuid: string,
-  data: { unitId: string; defaultPrice?: number; activate?: boolean }
+  data: { unitId: string; defaultPrice?: number; initialStock?: number; activate?: boolean }
 ) {
   return apiClient.post<GenerateVariantsResponse>(
     `/api/admin/products/${productUuid}/styles/${styleUuid}/variants/generate-from-attributes`,

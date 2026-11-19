@@ -38,8 +38,9 @@ import { StyleVariationSelectors } from "./StyleVariationSelectors";
 import { StyleAttributeFacts } from "./StyleAttributeFacts";
 import { StylePriceBlock } from "./StylePriceBlock";
 
-interface StyleViewProps {
-  style: CustomerStyleViewDto;
+export interface StyleViewProps {
+  style?: CustomerStyleViewDto;
+  item?: CustomerStyleViewDto;
   /** Where to send an anonymous shopper back to after signing in. */
   returnUrl: string;
   /** Rendered above the title, e.g. the Product name. */
@@ -48,6 +49,8 @@ interface StyleViewProps {
   brandName?: string | null;
   className?: string;
 }
+
+export type ItemViewProps = StyleViewProps;
 
 /**
  * One Style, as the shopper sees it.
@@ -63,403 +66,412 @@ interface StyleViewProps {
  * Everything shown belongs to this one Style - there is no way to switch to a
  * sibling Style from here; the shopper goes back to the listing for that.
  */
-export function StyleView({ style, returnUrl, eyebrow, brandName, className }: StyleViewProps) {
-  const router = useRouter();
-  const session = useSignedIn();
+  export function StyleView({
+    style: styleProp,
+    item: itemProp,
+    returnUrl,
+    eyebrow,
+    brandName,
+    className,
+  }: StyleViewProps) {
+    const style = (styleProp ?? itemProp)!;
+    const router = useRouter();
+    const session = useSignedIn();
 
-  const {
-    colors,
-    selectedColor,
-    selectColor,
-    sizes,
-    variationAttributes,
-    selectedValues,
-    selectValue,
-    hasColors,
-    hasVariations,
-    selectedUnitPrice,
-    purchasable,
-    images,
-    inStock,
-    quantity,
-    setQuantity,
-    missingSelection,
-  } = useStyleSelection(style);
+    const {
+      colors,
+      selectedColor,
+      selectColor,
+      sizes,
+      variationAttributes,
+      selectedValues,
+      selectValue,
+      hasColors,
+      hasVariations,
+      selectedUnitPrice,
+      purchasable,
+      images,
+      inStock,
+      quantity,
+      setQuantity,
+      missingSelection,
+    } = useStyleSelection(style);
 
-  const addToCart = useAddToCart();
-  const { data: wishlist } = useWishlist({ enabled: !!session });
-  const addToWishlist = useAddToWishlist();
-  const removeFromWishlist = useRemoveFromWishlist();
+    const addToCart = useAddToCart();
+    const { data: wishlist } = useWishlist({ enabled: !!session });
+    const addToWishlist = useAddToWishlist();
+    const removeFromWishlist = useRemoveFromWishlist();
 
-  // Reviews are held at the Colour (variant) level, so they follow the Colour
-  // the shopper is looking at rather than the Item as a whole.
-  const { data: reviewsData } = usePublicVariantReviews(selectedColor?.id);
-  const averageRating = reviewsData?.ratingSummary?.averageRating ?? 0;
-  const reviewCount =
-    reviewsData?.ratingSummary?.totalReviews ?? reviewsData?.reviews?.length ?? 0;
+    // Reviews are held at the Colour (variant) level, so they follow the Colour
+    // the shopper is looking at rather than the Item as a whole.
+    const { data: reviewsData } = usePublicVariantReviews(selectedColor?.id);
+    const averageRating = reviewsData?.ratingSummary?.averageRating ?? 0;
+    const reviewCount =
+      reviewsData?.ratingSummary?.totalReviews ?? reviewsData?.reviews?.length ?? 0;
 
-  const galleryImages = images.map((image) => ({
-    id: image.id,
-    url: getImageUrl(image.imageUrl),
-    altText: selectedColor?.colorName
-      ? `${style.name} - ${selectedColor.colorName}`
-      : style.name,
-  }));
+    const galleryImages = images.map((image) => ({
+      id: image.id,
+      url: getImageUrl(image.imageUrl),
+      altText: selectedColor?.colorName
+        ? `${style.name} - ${selectedColor.colorName}`
+        : style.name,
+    }));
 
-  const isInWishlist =
-    !!selectedUnitPrice &&
-    !!wishlist?.items.some((entry) => entry.variantUnitPriceId === selectedUnitPrice.id);
+    const isInWishlist =
+      !!selectedUnitPrice &&
+      !!wishlist?.items.some((entry) => entry.variantUnitPriceId === selectedUnitPrice.id);
 
-  const requireSignIn = () => {
-    if (session) return false;
-    router.push(`/login?callbackUrl=${encodeURIComponent(returnUrl)}`);
-    return true;
-  };
+    const requireSignIn = () => {
+      if (session) return false;
+      router.push(`/login?callbackUrl=${encodeURIComponent(returnUrl)}`);
+      return true;
+    };
 
-  const handleAddToCart = () => {
-    if (requireSignIn()) return;
+    const handleAddToCart = () => {
+      if (requireSignIn()) return;
 
-    // The cart line is one exact combination, so every axis has to be answered -
-    // validate before adding rather than adding the wrong row.
-    if (missingSelection) {
-      toast.error(`Please select a ${missingSelection.toLowerCase()}`);
-      return;
-    }
-    if (!purchasable) {
-      toast.error(
-        hasVariations ? "This combination is out of stock" : "This product is out of stock"
-      );
-      return;
-    }
-
-    addToCart.mutate(
-      {
-        variantUnitPriceId: purchasable.id,
-        variantId: selectedColor?.id,
-        quantity,
-      },
-      {
-        onSuccess: () => toast.success(`${style.name} added to cart`),
-        onError: (error) =>
-          toast.error(error?.message || "Could not add this product to your cart"),
-      }
-    );
-  };
-
-  const handleWishlistToggle = () => {
-    if (requireSignIn()) return;
-    if (!selectedUnitPrice) {
-      toast.error(
-        missingSelection ? `Please select a ${missingSelection.toLowerCase()}` : "Nothing to save yet"
-      );
-      return;
-    }
-    if (addToWishlist.isPending || removeFromWishlist.isPending) return;
-
-    if (isInWishlist) {
-      removeFromWishlist.mutate(selectedUnitPrice.id);
-    } else {
-      addToWishlist.mutate(selectedUnitPrice.id);
-    }
-  };
-
-  // What the shopper is mid-typing in the quantity box; null when not editing.
-  const [quantityDraft, setQuantityDraft] = useState<string | null>(null);
-
-  const handleShare = async () => {
-    const url = `${window.location.origin}${returnUrl}`;
-    try {
-      if (navigator.share) {
-        await navigator.share({ title: style.name, url });
+      // The cart line is one exact combination, so every axis has to be answered -
+      // validate before adding rather than adding the wrong row.
+      if (missingSelection) {
+        toast.error(`Please select a ${missingSelection.toLowerCase()}`);
         return;
       }
-      await navigator.clipboard.writeText(url);
-      toast.success("Link copied to clipboard");
-    } catch (error) {
-      // Dismissing the native share sheet rejects with AbortError - not a failure.
-      if (error instanceof DOMException && error.name === "AbortError") return;
-      toast.error("Could not share this product");
-    }
-  };
+      if (!purchasable) {
+        toast.error(
+          hasVariations ? "This combination is out of stock" : "This product is out of stock"
+        );
+        return;
+      }
 
-  const description = style.description?.trim();
-  const wishlistPending = addToWishlist.isPending || removeFromWishlist.isPending;
-  const maxQuantity = purchasable?.stock ?? 0;
+      addToCart.mutate(
+        {
+          variantUnitPriceId: purchasable.id,
+          variantId: selectedColor?.id,
+          quantity,
+        },
+        {
+          onSuccess: () => toast.success(`${style.name} added to cart`),
+          onError: (error) =>
+            toast.error(error?.message || "Could not add this product to your cart"),
+        }
+      );
+    };
 
-  return (
-    <div className={cn("space-y-12", className)}>
-      <div className="grid grid-cols-1 items-start gap-8 lg:grid-cols-12 lg:gap-12">
-        {/* 1. Gallery - keyed on the Colour so it resets to the first image of
+    const handleWishlistToggle = () => {
+      if (requireSignIn()) return;
+      if (!selectedUnitPrice) {
+        toast.error(
+          missingSelection ? `Please select a ${missingSelection.toLowerCase()}` : "Nothing to save yet"
+        );
+        return;
+      }
+      if (addToWishlist.isPending || removeFromWishlist.isPending) return;
+
+      if (isInWishlist) {
+        removeFromWishlist.mutate(selectedUnitPrice.id);
+      } else {
+        addToWishlist.mutate(selectedUnitPrice.id);
+      }
+    };
+
+    // What the shopper is mid-typing in the quantity box; null when not editing.
+    const [quantityDraft, setQuantityDraft] = useState<string | null>(null);
+
+    const handleShare = async () => {
+      const url = `${window.location.origin}${returnUrl}`;
+      try {
+        if (navigator.share) {
+          await navigator.share({ title: style.name, url });
+          return;
+        }
+        await navigator.clipboard.writeText(url);
+        toast.success("Link copied to clipboard");
+      } catch (error) {
+        // Dismissing the native share sheet rejects with AbortError - not a failure.
+        if (error instanceof DOMException && error.name === "AbortError") return;
+        toast.error("Could not share this product");
+      }
+    };
+
+    const description = style?.description?.trim();
+    const wishlistPending = addToWishlist.isPending || removeFromWishlist.isPending;
+    const maxQuantity = purchasable?.stock ?? 0;
+
+    return (
+      <div className={cn("space-y-12", className)}>
+        <div className="grid grid-cols-1 items-start gap-8 lg:grid-cols-12 lg:gap-12">
+          {/* 1. Gallery - keyed on the Colour so it resets to the first image of
             whichever Colour is selected. */}
-        <div className="lg:sticky lg:top-24 lg:col-span-6">
-          <div className="overflow-hidden rounded-3xl border border-theme-border bg-theme-surface shadow-md">
-            <ProductGallery
-              key={selectedColor?.id ?? style.id}
-              images={galleryImages}
-              productName={style.name}
-              isInStock={inStock}
-              isVeg={false}
-              showQualitySeal={false}
-              overlayActions={
-                <>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={handleWishlistToggle}
-                disabled={wishlistPending}
-                aria-label={isInWishlist ? "Remove from wishlist" : "Add to wishlist"}
-                className={cn(
-                  "h-12 w-12 shrink-0 rounded-full bg-white/90 shadow-sm backdrop-blur-xs transition-colors",
-                  isInWishlist
-                    ? "border-rose-200 bg-rose-50 hover:bg-rose-100"
-                    : "hover:border-rose-200 hover:bg-rose-50"
-                )}
-              >
-                {wishlistPending ? (
-                  <Loader2 className="size-7 animate-spin" />
-                ) : (
-                  <Heart
-                    className={cn("size-7", isInWishlist && "fill-rose-500 text-rose-500")}
-                  />
-                )}
-              </Button>
+          <div className="lg:sticky lg:top-24 lg:col-span-6">
+            <div className="overflow-hidden rounded-3xl border border-theme-border bg-theme-surface shadow-md">
+              <ProductGallery
+                key={selectedColor?.id ?? style.id}
+                images={galleryImages}
+                productName={style.name}
+                isInStock={inStock}
+                isVeg={false}
+                showQualitySeal={false}
+                overlayActions={
+                  <>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={handleWishlistToggle}
+                      disabled={wishlistPending}
+                      aria-label={isInWishlist ? "Remove from wishlist" : "Add to wishlist"}
+                      className={cn(
+                        "h-12 w-12 shrink-0 rounded-full bg-white/90 shadow-sm backdrop-blur-xs transition-colors",
+                        isInWishlist
+                          ? "border-rose-200 bg-rose-50 hover:bg-rose-100"
+                          : "hover:border-rose-200 hover:bg-rose-50"
+                      )}
+                    >
+                      {wishlistPending ? (
+                        <Loader2 className="size-7 animate-spin" />
+                      ) : (
+                        <Heart
+                          className={cn("size-7", isInWishlist && "fill-rose-500 text-rose-500")}
+                        />
+                      )}
+                    </Button>
 
-              <Button
-                type="button"
-                variant="outline"
-                onClick={handleShare}
-                aria-label="Share this product"
-                className="h-12 w-12 shrink-0 rounded-full bg-white/90 shadow-sm backdrop-blur-xs"
-              >
-                <Share2 className="size-7" />
-              </Button>
-                </>
-              }
-            />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={handleShare}
+                      aria-label="Share this product"
+                      className="h-12 w-12 shrink-0 rounded-full bg-white/90 shadow-sm backdrop-blur-xs"
+                    >
+                      <Share2 className="size-7" />
+                    </Button>
+                  </>
+                }
+              />
+            </div>
           </div>
-        </div>
 
-        <div className="space-y-5 rounded-3xl border border-theme-border bg-theme-surface p-4 shadow-sm sm:p-6 lg:col-span-6">
-          {/* 2. Name, with the 10. rating summary beside it */}
-          <div className="space-y-2.5">
-            {eyebrow && (
-              <p className="text-xs font-medium uppercase tracking-wide text-theme-text-subtle">
-                {eyebrow}
-              </p>
-            )}
-            {brandName && (
-              <p className="flex items-center gap-1.5 text-sm text-theme-text-subtle">
-                <Store aria-label="Brand" className="h-4 w-4 text-theme-primary" />
-                <span className="font-bold text-theme-primary">{brandName}</span>
-              </p>
-            )}
-            <h1 className="text-xl font-bold leading-tight tracking-tight text-theme-text-primary sm:text-2xl">
-              {style.name}
-            </h1>
+          <div className="space-y-5 rounded-3xl border border-theme-border bg-theme-surface p-4 shadow-sm sm:p-6 lg:col-span-6">
+            {/* 2. Name, with the 10. rating summary beside it */}
+            <div className="space-y-2.5">
+              {eyebrow && (
+                <p className="text-xs font-medium uppercase tracking-wide text-theme-text-subtle">
+                  {eyebrow}
+                </p>
+              )}
+              {brandName && (
+                <p className="flex items-center gap-1.5 text-sm text-theme-text-subtle">
+                  <Store aria-label="Brand" className="h-4 w-4 text-theme-primary" />
+                  <span className="font-bold text-theme-primary">{brandName}</span>
+                </p>
+              )}
+              <h1 className="text-xl font-bold leading-tight tracking-tight text-theme-text-primary sm:text-2xl">
+                {style.name}
+              </h1>
 
-            {reviewCount > 0 && (
-              <a
-                href="#style-reviews"
-                className="inline-flex items-center gap-2 rounded-full text-sm text-theme-text-subtle transition-colors hover:text-theme-primary"
-              >
-                <ReviewRatingStars rating={averageRating} size="sm" showScore />
-                <span>
-                  {reviewCount} review{reviewCount === 1 ? "" : "s"}
+              {reviewCount > 0 && (
+                <a
+                  href="#style-reviews"
+                  className="inline-flex items-center gap-2 rounded-full text-sm text-theme-text-subtle transition-colors hover:text-theme-primary"
+                >
+                  <ReviewRatingStars rating={averageRating} size="sm" showScore />
+                  <span>
+                    {reviewCount} review{reviewCount === 1 ? "" : "s"}
+                  </span>
+                </a>
+              )}
+
+              {/* 3. Short description */}
+              {style.shortDescription && (
+                <p className="pt-1 text-sm leading-relaxed text-theme-text-subtle">
+                  {style.shortDescription}
+                </p>
+              )}
+            </div>
+
+            {/* 7. Amount - this exact combination, with any offer applied */}
+            <StylePriceBlock
+              size={selectedUnitPrice}
+              minPrice={style.minPrice}
+              maxPrice={style.maxPrice}
+              className="py-3"
+            />
+
+            {/* 4. Colour */}
+            {hasColors && (
+              <StyleColorSelector
+                colors={colors}
+                selectedColorId={selectedColor?.id ?? null}
+                onSelect={selectColor}
+              />
+            )}
+
+            {/* 5. Variations - one row per axis the selected Colour varies on */}
+            {hasVariations && (
+              <StyleVariationSelectors
+                attributes={variationAttributes}
+                selectedValues={selectedValues}
+                onSelect={selectValue}
+              />
+            )}
+
+            {/* 9. Quantity and add to cart */}
+            <div className="space-y-3">
+              {purchasable && purchasable.stock <= 5 && (
+                <p className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-3 py-1 text-sm font-semibold text-amber-700">
+                  Only {purchasable.stock} left in stock
+                </p>
+              )}
+
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-xs font-bold uppercase tracking-wide text-theme-text-primary">
+                  Quantity
                 </span>
-              </a>
-            )}
-
-            {/* 3. Short description */}
-            {style.shortDescription && (
-              <p className="pt-1 text-sm leading-relaxed text-theme-text-subtle">
-                {style.shortDescription}
-              </p>
-            )}
-          </div>
-
-          {/* 7. Amount - this exact combination, with any offer applied */}
-          <StylePriceBlock
-            size={selectedUnitPrice}
-            minPrice={style.minPrice}
-            maxPrice={style.maxPrice}
-            className="py-3"
-          />
-
-          {/* 4. Colour */}
-          {hasColors && (
-            <StyleColorSelector
-              colors={colors}
-              selectedColorId={selectedColor?.id ?? null}
-              onSelect={selectColor}
-            />
-          )}
-
-          {/* 5. Variations - one row per axis the selected Colour varies on */}
-          {hasVariations && (
-            <StyleVariationSelectors
-              attributes={variationAttributes}
-              selectedValues={selectedValues}
-              onSelect={selectValue}
-            />
-          )}
-
-          {/* 9. Quantity and add to cart */}
-          <div className="space-y-3">
-            {purchasable && purchasable.stock <= 5 && (
-              <p className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-3 py-1 text-sm font-semibold text-amber-700">
-                Only {purchasable.stock} left in stock
-              </p>
-            )}
-
-            <div className="flex items-center justify-between gap-3">
-              <span className="text-xs font-bold uppercase tracking-wide text-theme-text-primary">
-                Quantity
-              </span>
-              <div className="flex items-center gap-1 rounded-full border border-theme-border bg-theme-surface-alt p-1">
-                <button
-                  type="button"
-                  onClick={() => setQuantity(quantity - 1)}
-                  disabled={quantity <= 1}
-                  aria-label="Decrease quantity"
-                  className="flex h-10 w-10 cursor-pointer items-center justify-center rounded-full bg-theme-surface text-theme-text-primary shadow-sm transition-colors hover:bg-theme-primary hover:text-theme-primary-fg active:scale-95 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-theme-surface disabled:hover:text-theme-text-primary"
-                >
-                  <Minus className="h-4 w-4" />
-                </button>
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  pattern="[0-9]*"
-                  aria-label="Quantity"
-                  value={quantityDraft ?? String(quantity)}
-                  onFocus={(event) => event.target.select()}
-                  onChange={(event) => {
-                    const digits = event.target.value.replace(/\D/g, "").slice(0, 3);
-                    setQuantityDraft(digits);
-                    if (digits && maxQuantity > 0) {
-                      setQuantity(Math.min(Number(digits) || 1, maxQuantity));
-                    }
-                  }}
-                  onBlur={() => setQuantityDraft(null)}
-                  className="h-10 w-14 rounded-full bg-transparent text-center text-base font-bold tabular-nums text-theme-text-primary outline-none focus:bg-theme-surface focus:ring-2 focus:ring-theme-primary/40"
-                />
-                <button
-                  type="button"
-                  onClick={() => setQuantity(quantity + 1)}
-                  disabled={!purchasable || quantity >= maxQuantity}
-                  aria-label="Increase quantity"
-                  className="flex h-10 w-10 cursor-pointer items-center justify-center rounded-full bg-theme-surface text-theme-text-primary shadow-sm transition-colors hover:bg-theme-primary hover:text-theme-primary-fg active:scale-95 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-theme-surface disabled:hover:text-theme-text-primary"
-                >
-                  <Plus className="h-4 w-4" />
-                </button>
+                <div className="flex items-center gap-1 rounded-full border border-theme-border bg-theme-surface-alt p-1">
+                  <button
+                    type="button"
+                    onClick={() => setQuantity(quantity - 1)}
+                    disabled={quantity <= 1}
+                    aria-label="Decrease quantity"
+                    className="flex h-10 w-10 cursor-pointer items-center justify-center rounded-full bg-theme-surface text-theme-text-primary shadow-sm transition-colors hover:bg-theme-primary hover:text-theme-primary-fg active:scale-95 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-theme-surface disabled:hover:text-theme-text-primary"
+                  >
+                    <Minus className="h-4 w-4" />
+                  </button>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    aria-label="Quantity"
+                    value={quantityDraft ?? String(quantity)}
+                    onFocus={(event) => event.target.select()}
+                    onChange={(event) => {
+                      const digits = event.target.value.replace(/\D/g, "").slice(0, 3);
+                      setQuantityDraft(digits);
+                      if (digits && maxQuantity > 0) {
+                        setQuantity(Math.min(Number(digits) || 1, maxQuantity));
+                      }
+                    }}
+                    onBlur={() => setQuantityDraft(null)}
+                    className="h-10 w-14 rounded-full bg-transparent text-center text-base font-bold tabular-nums text-theme-text-primary outline-none focus:bg-theme-surface focus:ring-2 focus:ring-theme-primary/40"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setQuantity(quantity + 1)}
+                    disabled={!purchasable || quantity >= maxQuantity}
+                    aria-label="Increase quantity"
+                    className="flex h-10 w-10 cursor-pointer items-center justify-center rounded-full bg-theme-surface text-theme-text-primary shadow-sm transition-colors hover:bg-theme-primary hover:text-theme-primary-fg active:scale-95 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-theme-surface disabled:hover:text-theme-text-primary"
+                  >
+                    <Plus className="h-4 w-4" />
+                  </button>
+                </div>
               </div>
-            </div>
 
-            <div className="flex items-center gap-2.5">
-              <Button
-                type="button"
-                onClick={handleAddToCart}
-                disabled={addToCart.isPending || !inStock}
-                className="h-12 flex-1 rounded-xl text-sm font-semibold shadow-md shadow-theme-primary/20 transition-all hover:shadow-lg hover:shadow-theme-primary/30"
-              >
-                {addToCart.isPending ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Adding to cart...
-                  </>
-                ) : (
-                  <>
-                    <ShoppingBag className="mr-2 h-4 w-4" />
-                    {inStock ? "Add to cart" : "Out of stock"}
-                  </>
-                )}
-              </Button>
-            </div>
-
-            {/* Reassurance under the buy button */}
-            <ul className="grid grid-cols-1 gap-2 border-t border-theme-border pt-4 sm:grid-cols-3">
-              {[
-                { icon: ShieldCheck, label: "Secure checkout" },
-                { icon: RotateCcw, label: "3-day easy returns" },
-                { icon: PackageCheck, label: "Quality checked" },
-              ].map(({ icon: Icon, label }) => (
-                <li
-                  key={label}
-                  className="flex items-center gap-2 rounded-xl bg-theme-surface-alt px-3 py-2 text-xs font-semibold text-theme-text-secondary"
+              <div className="flex items-center gap-2.5">
+                <Button
+                  type="button"
+                  onClick={handleAddToCart}
+                  disabled={addToCart.isPending || !inStock}
+                  className="h-12 flex-1 rounded-xl text-sm font-semibold shadow-md shadow-theme-primary/20 transition-all hover:shadow-lg hover:shadow-theme-primary/30"
                 >
-                  <Icon className="h-4 w-4 shrink-0 text-theme-primary" />
-                  {label}
-                </li>
-              ))}
-            </ul>
-          </div>
+                  {addToCart.isPending ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Adding to cart...
+                    </>
+                  ) : (
+                    <>
+                      <ShoppingBag className="mr-2 h-4 w-4" />
+                      {inStock ? "Add to cart" : "Out of stock"}
+                    </>
+                  )}
+                </Button>
+              </div>
 
-          {/* 6. Extra attributes - below the buy buttons so they don't push
+              {/* Reassurance under the buy button */}
+              <ul className="grid grid-cols-1 gap-2 border-t border-theme-border pt-4 sm:grid-cols-3">
+                {[
+                  { icon: ShieldCheck, label: "Secure checkout" },
+                  { icon: RotateCcw, label: "3-day easy returns" },
+                  { icon: PackageCheck, label: "Quality checked" },
+                ].map(({ icon: Icon, label }) => (
+                  <li
+                    key={label}
+                    className="flex items-center gap-2 rounded-xl bg-theme-surface-alt px-3 py-2 text-xs font-semibold text-theme-text-secondary"
+                  >
+                    <Icon className="h-4 w-4 shrink-0 text-theme-primary" />
+                    {label}
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            {/* 6. Extra attributes - below the buy buttons so they don't push
               Add to cart down the page. */}
-          <StyleAttributeFacts
-            style={style}
-            selectedColor={selectedColor}
-            selectedSize={selectedUnitPrice}
-          />
+            <StyleAttributeFacts
+              style={style}
+              selectedColor={selectedColor}
+              selectedSize={selectedUnitPrice}
+            />
+          </div>
         </div>
-      </div>
 
-      {/* 8. Detailed description */}
-      {description && (
+        {/* 8. Detailed description */}
+        {description && (
+          <section className="space-y-4 rounded-2xl border border-theme-border bg-theme-surface p-5 shadow-sm sm:p-6">
+            <h2 className="flex items-center gap-2 text-lg font-bold text-theme-text-primary">
+              <span className="h-5 w-1 rounded-full bg-theme-primary" />
+              Description
+            </h2>
+            <div
+              className="prose prose-sm max-w-none text-theme-text-secondary"
+              dangerouslySetInnerHTML={{ __html: sanitizeRichText(description) }}
+            />
+          </section>
+        )}
+
+        {/* Return details, shown on every Item */}
         <section className="space-y-4 rounded-2xl border border-theme-border bg-theme-surface p-5 shadow-sm sm:p-6">
           <h2 className="flex items-center gap-2 text-lg font-bold text-theme-text-primary">
             <span className="h-5 w-1 rounded-full bg-theme-primary" />
-            Description
+            Returns &amp; Refunds
           </h2>
-          <div
-            className="prose prose-sm max-w-none text-theme-text-secondary"
-            dangerouslySetInnerHTML={{ __html: sanitizeRichText(description) }}
+          <ul className="grid grid-cols-1 gap-3 text-sm text-theme-text-secondary md:grid-cols-3">
+            {[
+              { icon: RotateCcw, text: "Raise a return request within 3 days of delivery." },
+              { icon: Video, text: "A complete unboxing video is required with your request." },
+              { icon: PackageCheck, text: "Eligible only for wrong or damaged products." },
+            ].map(({ icon: Icon, text }) => (
+              <li
+                key={text}
+                className="flex flex-col gap-3 rounded-xl border border-theme-border-subtle bg-theme-surface-alt p-4"
+              >
+                <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-theme-primary-light text-theme-primary">
+                  <Icon className="h-4 w-4" />
+                </span>
+                {text}
+              </li>
+            ))}
+          </ul>
+          <Link
+            href="/return-refund-policy"
+            className="inline-block text-sm font-semibold text-theme-primary hover:underline"
+          >
+            View full return &amp; refund policy
+          </Link>
+        </section>
+
+        {/* 10. Reviews and ratings, for the Colour on screen */}
+        <section id="style-reviews" className="scroll-mt-24">
+          <ProductReviewsSection
+            variantId={selectedColor?.id}
+            variantName={selectedColor?.colorName ?? selectedColor?.variantName}
+            productName={style.name}
+            selectedUnitPriceId={selectedUnitPrice?.id ?? null}
+            packSizes={sizes}
           />
         </section>
-      )}
+      </div>
+    );
+  }
 
-      {/* Return details, shown on every Item */}
-      <section className="space-y-4 rounded-2xl border border-theme-border bg-theme-surface p-5 shadow-sm sm:p-6">
-        <h2 className="flex items-center gap-2 text-lg font-bold text-theme-text-primary">
-          <span className="h-5 w-1 rounded-full bg-theme-primary" />
-          Returns &amp; Refunds
-        </h2>
-        <ul className="grid grid-cols-1 gap-3 text-sm text-theme-text-secondary md:grid-cols-3">
-          {[
-            { icon: RotateCcw, text: "Raise a return request within 3 days of delivery." },
-            { icon: Video, text: "A complete unboxing video is required with your request." },
-            { icon: PackageCheck, text: "Eligible only for wrong or damaged products." },
-          ].map(({ icon: Icon, text }) => (
-            <li
-              key={text}
-              className="flex flex-col gap-3 rounded-xl border border-theme-border-subtle bg-theme-surface-alt p-4"
-            >
-              <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-theme-primary-light text-theme-primary">
-                <Icon className="h-4 w-4" />
-              </span>
-              {text}
-            </li>
-          ))}
-        </ul>
-        <Link
-          href="/return-refund-policy"
-          className="inline-block text-sm font-semibold text-theme-primary hover:underline"
-        >
-          View full return &amp; refund policy
-        </Link>
-      </section>
-
-      {/* 10. Reviews and ratings, for the Colour on screen */}
-      <section id="style-reviews" className="scroll-mt-24">
-        <ProductReviewsSection
-          variantId={selectedColor?.id}
-          variantName={selectedColor?.colorName ?? selectedColor?.variantName}
-          productName={style.name}
-          selectedUnitPriceId={selectedUnitPrice?.id ?? null}
-          packSizes={sizes}
-        />
-      </section>
-    </div>
-  );
-}
-
-export default StyleView;
+  export { StyleView as ItemView };
+  export default StyleView;

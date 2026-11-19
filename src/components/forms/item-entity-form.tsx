@@ -169,7 +169,7 @@ function buildDefaults(
     isNewArrival: initialData?.isNewArrival ?? false,
     newArrivalUntil: initialData?.newArrivalUntil ?? "",
     isDefault: initialData?.isDefault ?? false,
-    isActive: initialData?.isActive ?? false,
+    isActive: initialData?.isActive ?? true,
     outOfStock: initialData?.outOfStock ?? false,
   };
 }
@@ -378,8 +378,8 @@ function ItemEntityForm({
 
         <FormCheckbox
           name="isActive"
-          label="Status: Active"
-          description={`Inactive ${entityLower}s are hidden from customers`}
+          label={`Active on Storefront (${entityLabel})`}
+          description={`Active ${entityLower}s are immediately visible to customers on the storefront. Untick to hide.`}
         />
 
         <div className="flex justify-end pt-2">

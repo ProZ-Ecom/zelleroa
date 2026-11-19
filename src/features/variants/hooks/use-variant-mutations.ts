@@ -94,7 +94,7 @@ export function useGenerateVariantsFromStyle() {
     }: {
       productUuid: string;
       styleUuid: string;
-      data: { unitId: string; defaultPrice?: number; activate?: boolean };
+      data: { unitId: string; defaultPrice?: number; initialStock?: number; activate?: boolean };
     }) => generateAdminVariantsFromStyle(productUuid, styleUuid, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: variantKeys.all });

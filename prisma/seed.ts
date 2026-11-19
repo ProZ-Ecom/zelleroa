@@ -12,15 +12,15 @@ function createClient() {
   }
   const url = new URL(databaseUrl);
   const adapter = new PrismaMariaDb({
-  host: url.hostname,
-  port: Number(url.port || 3306),
-  user: decodeURIComponent(url.username),
-  password: decodeURIComponent(url.password),
-  database: url.pathname.slice(1),
-  connectionLimit: 5,
-  allowPublicKeyRetrieval: true,
-});
-  return new PrismaClient({ adapter });
+  host: url.hostname === "localhost" ? "127.0.0.1" : url.hostname,
+    port: Number(url.port || 3306),
+      user: decodeURIComponent(url.username),
+        password: decodeURIComponent(url.password),
+          database: url.pathname.slice(1),
+            connectionLimit: 5,
+              allowPublicKeyRetrieval: true,
+  });
+return new PrismaClient({ adapter });
 }
 
 const prisma = createClient();
@@ -102,13 +102,13 @@ async function main() {
 
   console.log("Permissions created and assigned to admin role");
 
-  let adminUser = await prisma.user.findFirst({ where: { email: "admin@rithusnacks.com" } });
+  let adminUser = await prisma.user.findFirst({ where: { email: "admin@zellora.com" } });
   if (!adminUser) {
     adminUser = await prisma.user.create({
       data: {
         uuid: crypto.randomUUID(),
-        name: "Admin",
-        email: "admin@rithusnacks.com",
+        name: "Zellora Admin",
+        email: "admin@zellora.com",
         password_hash: adminPassword,
         role: { connect: { id: adminRole.id } },
         status: "active",
@@ -119,6 +119,22 @@ async function main() {
     await prisma.user.update({
       where: { id: adminUser.id },
       data: { uuid: crypto.randomUUID() },
+    });
+  }
+
+  // Also maintain legacy email if needed
+  let legacyAdmin = await prisma.user.findFirst({ where: { email: "admin@rithusnacks.com" } });
+  if (!legacyAdmin) {
+    await prisma.user.create({
+      data: {
+        uuid: crypto.randomUUID(),
+        name: "Admin",
+        email: "admin@rithusnacks.com",
+        password_hash: adminPassword,
+        role: { connect: { id: adminRole.id } },
+        status: "active",
+        email_verified_at: new Date(),
+      },
     });
   }
 

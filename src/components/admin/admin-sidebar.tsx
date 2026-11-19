@@ -101,7 +101,7 @@ const sidebarItems: SidebarItem[] = [
       { label: "Header Menu", href: "/admin/dashboard/header-menu", icon: Menu },
       { label: "Tags", href: "/admin/dashboard/tags", icon: Tag },
       { label: "Products", href: "/admin/dashboard/products", icon: Package },
-      { label: "Styles", href: "/admin/dashboard/styles", icon: Shapes },
+      { label: "Models (Styles)", href: "/admin/dashboard/styles", icon: Shapes },
       { label: "Variants", href: "/admin/dashboard/variants", icon: Palette },
       { label: "Brands", href: "/admin/dashboard/brands", icon: Crown },
       { label: "Attributes", href: "/admin/dashboard/attributes", icon: Tag },

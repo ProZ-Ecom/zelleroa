@@ -123,7 +123,7 @@ function DataTable<TData, TValue>({
     onColumnVisibilityChange: setColumnVisibility,
     onRowSelectionChange: setRowSelection,
     onGlobalFilterChange: setGlobalFilter,
-    
+
     state: {
       sorting,
       columnFilters,
@@ -159,190 +159,190 @@ function DataTable<TData, TValue>({
       ? Math.min(effectivePage * effectivePageSize, computedTotalItems)
       : 0;
 
-    
+
   return (
-    <div className={cn("w-full flex-1 min-h-0 flex flex-col justify-between rounded-2xl overflow-hidden border border-neutral-200/70 bg-white shadow-[0_1px_2px_rgba(16,24,40,0.04),0_8px_24px_-8px_rgba(16,24,40,0.08)]", className)}>
-      {(searchKey || exportable) && (
-        <div className="flex items-center justify-between gap-2 p-3 pb-4 flex-shrink-0">
-          {searchKey ? (
-            <SearchInput
-              placeholder={searchPlaceholder}
-              defaultValue={(table.getColumn(searchKey)?.getFilterValue() as string) ?? ""}
-              onSearch={(value) => table.getColumn(searchKey)?.setFilterValue(value)}
-              className="w-full max-w-sm"
-            />
-          ) : (
-            <span />
-          )}
-          {exportable && (
-            <button
-              type="button"
-              onClick={handleExport}
-              disabled={isExporting || !table.getRowModel().rows.length}
-              className="inline-flex items-center gap-2 rounded-xl border border-neutral-200 bg-white px-3.5 py-2 text-sm font-medium text-neutral-700 shadow-sm transition-all hover:border-neutral-300 hover:bg-neutral-50 hover:shadow active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              <Download className={cn("h-4 w-4", isExporting && "animate-spin")} />
-              {isExporting ? "Exporting..." : "Export"}
-              {Object.keys(rowSelection).length > 0 ? ` (${Object.keys(rowSelection).length})` : ""}
-            </button>
-          )}
-        </div>
+      <div className={cn("w-full flex-1 min-h-[340px] flex flex-col justify-between rounded-xl sm:rounded-2xl overflow-hidden border border-neutral-200/70 bg-white shadow-[0_1px_2px_rgba(16,24,40,0.04),0_8px_24px_-8px_rgba(16,24,40,0.08)]", className)}>
+        {(searchKey || exportable) && (
+            <div className="flex items-center justify-between gap-2 p-2.5 sm:p-3 pb-3 sm:pb-4 flex-shrink-0">
+              {searchKey ? (
+                <SearchInput
+                  placeholder={searchPlaceholder}
+                  defaultValue={(table.getColumn(searchKey)?.getFilterValue() as string) ?? ""}
+                  onSearch={(value) => table.getColumn(searchKey)?.setFilterValue(value)}
+                  className="w-full max-w-xs sm:max-w-sm"
+                />
+              ) : (
+                <span />
+              )}
+              {exportable && (
+                <button
+                  type="button"
+                  onClick={handleExport}
+                  disabled={isExporting || !table.getRowModel().rows.length}
+                  className="inline-flex items-center gap-1.5 sm:gap-2 rounded-lg sm:rounded-xl border border-neutral-200 bg-white px-2.5 sm:px-3.5 py-1.5 sm:py-2 text-xs sm:text-sm font-medium text-neutral-700 shadow-sm transition-all hover:border-neutral-300 hover:bg-neutral-50 hover:shadow active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <Download className={cn("h-3.5 w-3.5 sm:h-4 sm:w-4", isExporting && "animate-spin")} />
+                  {isExporting ? "Exporting..." : "Export"}
+                  {Object.keys(rowSelection).length > 0 ? ` (${Object.keys(rowSelection).length})` : ""}
+                </button>
+              )}
+            </div>
       )}
 
-      <div className="min-h-0 flex-1 overflow-hidden flex flex-col">
-        {/* `relative` keeps absolutely positioned cell content (sr-only labels,
+            <div className="min-h-0 flex-1 overflow-hidden flex flex-col">
+              {/* `relative` keeps absolutely positioned cell content (sr-only labels,
             badges) inside this scroller; without it they resolve against the
             page and stretch the document with empty space below the layout. */}
-        <div
-          tabIndex={0}
-          role="region"
-          aria-label="Scrollable table content"
-          className="relative flex-1 min-h-0 overflow-auto overscroll-x-contain scrollbar-table focus:outline-hidden focus-visible:ring-1 focus-visible:ring-secondary-300"
-        >
-          <table className={cn("w-full min-w-[1100px] table-auto caption-bottom text-sm border-separate border-spacing-0", tableClassName)}>
-            <thead>
-              {table.getHeaderGroups().map((headerGroup) => (
-                <tr key={headerGroup.id} className="transition-colors">
-                  {headerGroup.headers.map((header) => {
-                    const isActions =
-                      header.column.id.toLowerCase() === "actions" ||
-                      header.id.toLowerCase() === "actions";
-                    return (
-                      <th
-                        key={header.id}
-                        className={cn(
-                          "group/th h-12 px-4 text-left align-middle text-[11px] font-semibold tracking-[0.08em] whitespace-nowrap uppercase sm:px-5 bg-stone-900 text-[#D4AF37] border-b border-stone-800 shadow-[0_1px_3px_rgba(28,25,23,0.2)] sticky top-0 z-10",
-                          isActions &&
-                            "text-center sticky top-0 right-0 z-30 shadow-[-8px_0_12px_-6px_rgba(28,25,23,0.3)] bg-stone-900 text-[#D4AF37]",
-                          header.column.getCanSort() &&
-                            "cursor-pointer select-none hover:text-[#D4AF37]/80"
-                        )}
-                        onClick={header.column.getToggleSortingHandler()}
-                      >
-                        <div
-                          className={cn(
-                            "flex items-center gap-1",
-                            isActions ? "justify-center" : ""
-                          )}
-                        >
-                          {header.isPlaceholder
-                            ? null
-                            : flexRender(header.column.columnDef.header, header.getContext())}
-                          {header.column.getCanSort() && (
-                            <span className="text-[#D4AF37]/60 transition-colors group-hover/th:text-[#D4AF37]">
-                              {header.column.getIsSorted() === "asc" ? (
-                                <ChevronUp className="h-4 w-4" />
-                              ) : header.column.getIsSorted() === "desc" ? (
-                                <ChevronDown className="h-4 w-4" />
-                              ) : (
-                                <ChevronsUpDown className="h-4 w-4" />
-                              )}
-                            </span>
-                          )}
-                        </div>
-                      </th>
-                    );
-                  })}
-                </tr>
-              ))}
-            </thead>
-            <tbody>
-              {table.getRowModel().rows?.length ? (
-                table.getRowModel().rows.map((row) => (
-                  <tr
-                    key={row.id}
-                    data-state={row.getIsSelected() && "selected"}
-                    className="group transition-colors hover:bg-neutral-50/80 data-[state=selected]:bg-neutral-50"
-                  >
-                    {row.getVisibleCells().map((cell) => {
-                      const isActions =
-                        cell.column.id.toLowerCase() === "actions" ||
-                        cell.id.toLowerCase().includes("actions");
-                      return (
-                        <td
-                          key={cell.id}
-                          className={cn(
-                            "px-4 py-3.5 align-middle whitespace-nowrap sm:px-5 bg-white group-hover:bg-neutral-50 transition-colors border-b border-neutral-100",
-                            isActions &&
-                              "text-center [&>div]:justify-center [&>div]:items-center sticky right-0 z-20 shadow-[-8px_0_12px_-6px_rgba(16,24,40,0.06)] bg-white group-hover:bg-neutral-50"
-                          )}
-                        >
-                          {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                        </td>
-                      );
-                    })}
-                  </tr>
-                ))
-              ) : (
-                <tr>
-                  <td colSpan={columns.length} className="h-24 text-center text-gray-500 bg-white border-b border-neutral-100">
-                    {emptyMessage}
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-4 sm:px-5 py-2.5 flex-shrink-0 border-t border-neutral-200/70 bg-neutral-50/95 backdrop-blur sticky bottom-0 z-20">
-        <div className="flex flex-wrap items-center gap-3 sm:gap-6 text-sm text-[var(--color-neutral-500)]">
-          <p>
-            Showing {startEntry}–{endEntry} of {computedTotalItems} entries
-          </p>
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-medium text-[var(--color-neutral-600)] whitespace-nowrap">
-              Rows per page:
-            </span>
-            <div className="w-20">
-              <Select
-                size="sm"
-                value={String(effectivePageSize)}
-                onValueChange={(val) => handlePageSizeChange(Number(val))}
-                onChange={(e) => handlePageSizeChange(Number(e.target.value))}
-                options={pageSizeOptions.map((opt) => ({
-                  value: String(opt),
-                  label: String(opt),
-                }))}
-                searchable={false}
-                portal={true}
-              />
+              <div
+                tabIndex={0}
+                role="region"
+                aria-label="Scrollable table content"
+                className="relative flex-1 min-h-0 overflow-auto overscroll-x-contain scrollbar-table focus:outline-hidden focus-visible:ring-1 focus-visible:ring-secondary-300"
+              >
+                  <table className={cn("w-full table-auto caption-bottom text-xs sm:text-sm border-separate border-spacing-0", tableClassName || "min-w-[800px] sm:min-w-[1000px]")}>
+                    <thead>
+                      {table.getHeaderGroups().map((headerGroup) => (
+                        <tr key={headerGroup.id} className="transition-colors">
+                          {headerGroup.headers.map((header) => {
+                            const isActions =
+                              header.column.id.toLowerCase() === "actions" ||
+                              header.id.toLowerCase() === "actions";
+                            return (
+                              <th
+                                key={header.id}
+                                className={cn(
+                                  "group/th h-10 sm:h-12 px-3 sm:px-4 text-left align-middle text-[10px] sm:text-[11px] font-semibold tracking-[0.08em] whitespace-nowrap uppercase bg-stone-900 text-[#D4AF37] border-b border-stone-800 shadow-[0_1px_3px_rgba(28,25,23,0.2)] sticky top-0 z-10",
+                                  isActions &&
+                                  "text-center sticky top-0 right-0 z-30 shadow-[-8px_0_12px_-6px_rgba(28,25,23,0.3)] bg-stone-900 text-[#D4AF37]",
+                                  header.column.getCanSort() &&
+                                  "cursor-pointer select-none hover:text-[#D4AF37]/80"
+                                )}
+                                onClick={header.column.getToggleSortingHandler()}
+                              >
+                                <div
+                                  className={cn(
+                                    "flex items-center gap-1",
+                                    isActions ? "justify-center" : ""
+                                  )}
+                                >
+                                  {header.isPlaceholder
+                                    ? null
+                                    : flexRender(header.column.columnDef.header, header.getContext())}
+                                  {header.column.getCanSort() && (
+                                    <span className="text-[#D4AF37]/60 transition-colors group-hover/th:text-[#D4AF37]">
+                                      {header.column.getIsSorted() === "asc" ? (
+                                <ChevronUp className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                                      ) : header.column.getIsSorted() === "desc" ? (
+                                <ChevronDown className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                                      ) : (
+                                <ChevronsUpDown className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                                      )}
+                                    </span>
+                                  )}
+                                </div>
+                              </th>
+                            );
+                          })}
+                        </tr>
+                      ))}
+                    </thead>
+                    <tbody>
+                      {table.getRowModel().rows?.length ? (
+                        table.getRowModel().rows.map((row) => (
+                          <tr
+                            key={row.id}
+                            data-state={row.getIsSelected() && "selected"}
+                            className="group transition-colors hover:bg-neutral-50/80 data-[state=selected]:bg-neutral-50"
+                          >
+                            {row.getVisibleCells().map((cell) => {
+                              const isActions =
+                                cell.column.id.toLowerCase() === "actions" ||
+                                cell.id.toLowerCase().includes("actions");
+                              return (
+                                <td
+                                  key={cell.id}
+                                  className={cn(
+                                    "px-3 sm:px-4 py-2.5 sm:py-3.5 align-middle whitespace-nowrap bg-white group-hover:bg-neutral-50 transition-colors border-b border-neutral-100 text-xs sm:text-sm",
+                                    isActions &&
+                                    "text-center [&>div]:justify-center [&>div]:items-center sticky right-0 z-20 shadow-[-8px_0_12px_-6px_rgba(16,24,40,0.06)] bg-white group-hover:bg-neutral-50"
+                                  )}
+                                >
+                                  {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                                </td>
+                              );
+                            })}
+                          </tr>
+                        ))
+                      ) : (
+                        <tr>
+                            <td colSpan={columns.length} className="h-24 text-center text-xs sm:text-sm text-gray-500 bg-white border-b border-neutral-100">
+                              {emptyMessage}
+                            </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+              </div>
             </div>
-          </div>
-        </div>
-        <div className="flex items-center gap-2 self-end sm:self-auto">
-          <button
-            onClick={() => handlePageChange(effectivePage - 1)}
-            disabled={effectivePage <= 1}
-            className={cn(
-              "inline-flex h-9 w-9 items-center justify-center rounded-xl border border-neutral-200",
-              "bg-white text-[var(--color-neutral-700)] shadow-sm transition-all hover:border-neutral-300 hover:bg-neutral-50 active:scale-95",
-              "disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none"
-            )}
-            aria-label="Previous page"
-          >
-            <ChevronLeft className="h-4 w-4" />
-          </button>
-          <span className="rounded-lg bg-white px-3 py-1.5 text-sm font-semibold tabular-nums text-[var(--color-neutral-700)] border border-neutral-200/70">
-            {effectivePage} / {computedTotalPages}
-          </span>
-          <button
-            onClick={() => handlePageChange(effectivePage + 1)}
-            disabled={effectivePage >= computedTotalPages}
-            className={cn(
-              "inline-flex h-9 w-9 items-center justify-center rounded-xl border border-neutral-200",
-              "bg-white text-[var(--color-neutral-700)] shadow-sm transition-all hover:border-neutral-300 hover:bg-neutral-50 active:scale-95",
-              "disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none"
-            )}
-            aria-label="Next page"
-          >
-            <ChevronRight className="h-4 w-4" />
-          </button>
-        </div>
-      </div>
-    </div>
-  );
+
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-3 px-3 sm:px-5 py-2 sm:py-2.5 flex-shrink-0 border-t border-neutral-200/70 bg-neutral-50/95 backdrop-blur sticky bottom-0 z-20 text-xs sm:text-sm">
+                  <div className="flex flex-wrap items-center gap-2 sm:gap-6 text-xs sm:text-sm text-[var(--color-neutral-500)]">
+                    <p>
+                      Showing {startEntry}–{endEntry} of {computedTotalItems} entries
+                    </p>
+                        <div className="flex items-center gap-1.5 sm:gap-2">
+                          <span className="text-[11px] sm:text-xs font-medium text-[var(--color-neutral-600)] whitespace-nowrap">
+                            Rows per page:
+                          </span>
+                            <div className="w-16 sm:w-20">
+                              <Select
+                                size="sm"
+                                value={String(effectivePageSize)}
+                                onValueChange={(val) => handlePageSizeChange(Number(val))}
+                                onChange={(e) => handlePageSizeChange(Number(e.target.value))}
+                                options={pageSizeOptions.map((opt) => ({
+                                  value: String(opt),
+                                  label: String(opt),
+                                }))}
+                                searchable={false}
+                                portal={true}
+                              />
+                            </div>
+                          </div>
+                        </div>
+                          <div className="flex items-center gap-1 sm:gap-2 self-end sm:self-auto">
+                            <button
+                              onClick={() => handlePageChange(effectivePage - 1)}
+                              disabled={effectivePage <= 1}
+                              className={cn(
+                                "inline-flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-lg border border-neutral-200",
+                                "bg-white text-[var(--color-neutral-700)] shadow-sm transition-all hover:border-neutral-300 hover:bg-neutral-50 active:scale-95",
+                                "disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none"
+                              )}
+                              aria-label="Previous page"
+                            >
+                              <ChevronLeft className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                            </button>
+                              <span className="rounded-lg bg-white px-2 sm:px-3 py-1 text-xs sm:text-sm font-semibold tabular-nums text-[var(--color-neutral-700)] border border-neutral-200/70">
+                                {effectivePage} / {computedTotalPages}
+                              </span>
+                              <button
+                                onClick={() => handlePageChange(effectivePage + 1)}
+                                disabled={effectivePage >= computedTotalPages}
+                                className={cn(
+                                  "inline-flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-lg border border-neutral-200",
+                                  "bg-white text-[var(--color-neutral-700)] shadow-sm transition-all hover:border-neutral-300 hover:bg-neutral-50 active:scale-95",
+                                  "disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none"
+                                )}
+                                aria-label="Next page"
+                              >
+                                <ChevronRight className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                              </button>
+                          </div>
+                        </div>
+                    </div>
+                    );
 }
 
-export { DataTable };
-export type { DataTableProps };
+                    export {DataTable};
+                    export type {DataTableProps};

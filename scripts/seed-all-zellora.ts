@@ -426,7 +426,16 @@ async function main() {
   const unit32 = await createUnit("Waist 32", "32", "count");
   const unit34 = await createUnit("Waist 34", "34", "count");
   const unit36 = await createUnit("Waist 36", "36", "count");
-  console.log(`✓ Created apparel & accessory size units\n`);
+  const unitEU37 = await createUnit("Size EU 37", "EU37", "count");
+  const unitEU38 = await createUnit("Size EU 38", "EU38", "count");
+  const unitEU39 = await createUnit("Size EU 39", "EU39", "count");
+  const unitUK7 = await createUnit("Size UK 7 / EU 41", "UK7", "count");
+  const unitUK8 = await createUnit("Size UK 8 / EU 42", "UK8", "count");
+  const unitUK9 = await createUnit("Size UK 9 / EU 43", "UK9", "count");
+  const unit128GB = await createUnit("128GB", "128GB", "count");
+  const unit256GB = await createUnit("256GB", "256GB", "count");
+  const unit512GB = await createUnit("512GB", "512GB", "count");
+  console.log(`✓ Created apparel, footwear, tech & accessory size units\n`);
 
   // 5. BRANDS
   console.log("5. SEEDING BRANDS...");
@@ -506,7 +515,18 @@ async function main() {
       status: true,
     },
   });
-  console.log(`✓ Created 7 Zellora brands\n`);
+
+  const brandTech = await prisma.productBrand.create({
+    data: {
+      uuid: crypto.randomUUID(),
+      name: "Zellora Tech",
+      slug: "zellora-tech",
+      description: "Flagship smartphones, titanium foldables, and cutting-edge fashion mobile accessories.",
+      isActive: true,
+      status: true,
+    },
+  });
+  console.log(`✓ Created 8 Zellora brands\n`);
 
   // 6. ATTRIBUTES & ATTRIBUTE VALUES
   console.log("6. SEEDING PRODUCT ATTRIBUTES & VALUES...");
@@ -578,7 +598,7 @@ async function main() {
     children?: CategoryNode[];
   }
 
-    const DEFAULT_CATEGORY_IMAGE =
+  const DEFAULT_CATEGORY_IMAGE =
     "https://images.unsplash.com/photo-1441986300917-64674bd600d8?auto=format&fit=crop&w=800&q=80";
   const TAXONOMY: CategoryNode[] = [
     {
@@ -589,7 +609,7 @@ async function main() {
       children: [
         {
           name: "Clothing",
-                    slug: "women-clothing",
+          slug: "women-clothing",
           image: "https://images.unsplash.com/photo-1595777457583-95e059d581b8?w=800&auto=format&fit=crop&q=80",
           description: "Elevated women's apparel from dresses to handloom ethnic wear.",
           children: [
@@ -608,7 +628,7 @@ async function main() {
         },
         {
           name: "Footwear",
-                    slug: "women-footwear",
+          slug: "women-footwear",
           image: "https://images.unsplash.com/photo-1543163521-1bf539c55dd2?w=800&auto=format&fit=crop&q=80",
           children: [
             { name: "Heels", slug: "women-heels" },
@@ -619,7 +639,7 @@ async function main() {
         },
         {
           name: "Bags",
-                    slug: "women-bags",
+          slug: "women-bags",
           image: "https://images.unsplash.com/photo-1584917865442-de89df76afd3?w=800&auto=format&fit=crop&q=80",
           children: [
             { name: "Handbags", slug: "women-handbags" },
@@ -630,7 +650,7 @@ async function main() {
         },
         {
           name: "Accessories",
-                    slug: "women-accessories",
+          slug: "women-accessories",
           image: "https://images.unsplash.com/photo-1535632066927-ab7c9ab60908?w=800&auto=format&fit=crop&q=80",
           children: [
             { name: "Jewellery", slug: "women-jewellery" },
@@ -649,7 +669,7 @@ async function main() {
       children: [
         {
           name: "Clothing",
-                    slug: "men-clothing",
+          slug: "men-clothing",
           image: "https://images.unsplash.com/photo-1602810318383-e386cc2a3ccf?w=800&auto=format&fit=crop&q=80",
           children: [
             { name: "Shirts", slug: "men-shirts" },
@@ -662,7 +682,7 @@ async function main() {
         },
         {
           name: "Footwear",
-                    slug: "men-footwear",
+          slug: "men-footwear",
           image: "https://images.unsplash.com/photo-1614252235316-8c857d38b5f4?w=800&auto=format&fit=crop&q=80",
           children: [
             { name: "Loafers", slug: "men-loafers" },
@@ -672,7 +692,7 @@ async function main() {
         },
         {
           name: "Accessories",
-                    slug: "men-accessories",
+          slug: "men-accessories",
           image: "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800&auto=format&fit=crop&q=80",
           children: [
             { name: "Watches", slug: "men-watches" },
@@ -741,6 +761,17 @@ async function main() {
         { name: "Rings", slug: "jewellery-rings" },
       ],
     },
+    {
+      name: "Mobiles & Tech",
+      slug: "mobiles-tech",
+      description: "Flagship smartphones, lifestyle wearables, designer phone cases, and mobile essentials.",
+      image: "https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?auto=format&fit=crop&w=800&q=80",
+      children: [
+        { name: "Smartphones", slug: "mobiles-smartphones" },
+        { name: "Foldables", slug: "mobiles-foldables" },
+        { name: "Cases & Accessories", slug: "mobiles-accessories" },
+      ],
+    },
   ];
 
   const categoryMap = new Map<string, any>();
@@ -748,7 +779,7 @@ async function main() {
   async function seedCategoryTree(nodes: CategoryNode[], parentId: bigint | null = null) {
     for (let i = 0; i < nodes.length; i++) {
       const node = nodes[i];
-          const imageUrl = node.image || DEFAULT_CATEGORY_IMAGE;
+      const imageUrl = node.image || DEFAULT_CATEGORY_IMAGE;
       const created = await prisma.productCategory.create({
         data: {
           uuid: crypto.randomUUID(),
@@ -787,7 +818,7 @@ async function main() {
 
   await seedCategoryTree(TAXONOMY);
   console.log(`✓ Seeded complete categories hierarchy (${categoryMap.size} categories created)\n`);
-    const missingImages = await prisma.$queryRawUnsafe<{ slug: string }[]>(`
+  const missingImages = await prisma.$queryRawUnsafe<{ slug: string }[]>(`
     SELECT c.slug
     FROM product_categories c
     LEFT JOIN product_category_images i ON i.category_id = c.id
@@ -929,7 +960,8 @@ async function main() {
     { label: "Watches", categorySlug: "luxury-watches", sortOrder: 3 },
     { label: "Bags & Leather", categorySlug: "bags-leather", sortOrder: 4 },
     { label: "Jewellery", categorySlug: "fine-jewellery", sortOrder: 5 },
-    { label: "Sale", link: "/products?sortBy=discount", sortOrder: 6 },
+    { label: "Mobiles", categorySlug: "mobiles-tech", sortOrder: 6 },
+    { label: "Sale", link: "/products?sortBy=discount", sortOrder: 7 },
   ];
 
   for (const item of headerItemsData) {
@@ -943,10 +975,10 @@ async function main() {
         isActive: true,
         ...(cat
           ? {
-              categories: {
-                create: [{ categoryId: cat.id, sortOrder: 0 }],
-              },
-            }
+            categories: {
+              create: [{ categoryId: cat.id, sortOrder: 0 }],
+            },
+          }
           : {}),
       },
     });
@@ -1386,9 +1418,9 @@ async function main() {
       colorName: "Classic Black",
       colorHex: "#111111",
       sizes: [
-        { unit: unitPiece, unitValue: 1, price: 3299, sku: "ZEL-SHO-01-37", isDefault: false },
-        { unit: unitPiece, unitValue: 1, price: 3299, sku: "ZEL-SHO-01-38", isDefault: true },
-        { unit: unitPiece, unitValue: 1, price: 3299, sku: "ZEL-SHO-01-39", isDefault: false },
+        { unit: unitEU37, unitValue: 37, price: 3299, sku: "ZEL-SHO-01-37", isDefault: false },
+        { unit: unitEU38, unitValue: 38, price: 3299, sku: "ZEL-SHO-01-38", isDefault: true },
+        { unit: unitEU39, unitValue: 39, price: 3299, sku: "ZEL-SHO-01-39", isDefault: false },
       ],
     },
     {
@@ -1407,9 +1439,9 @@ async function main() {
       colorName: "Sienna Tan",
       colorHex: "#C19A6B",
       sizes: [
-        { unit: unitPiece, unitValue: 1, price: 4499, sku: "ZEL-SHO-02-41", isDefault: false },
-        { unit: unitPiece, unitValue: 1, price: 4499, sku: "ZEL-SHO-02-42", isDefault: true },
-        { unit: unitPiece, unitValue: 1, price: 4499, sku: "ZEL-SHO-02-43", isDefault: false },
+        { unit: unitUK7, unitValue: 41, price: 4499, sku: "ZEL-SHO-02-41", isDefault: false },
+        { unit: unitUK8, unitValue: 42, price: 4499, sku: "ZEL-SHO-02-42", isDefault: true },
+        { unit: unitUK9, unitValue: 43, price: 4499, sku: "ZEL-SHO-02-43", isDefault: false },
       ],
     },
 
@@ -1576,6 +1608,51 @@ async function main() {
         { unit: unitOneSize, unitValue: 1, price: 799, sku: "ZEL-KID-06-STD", isDefault: true },
       ],
     },
+
+    // --- Category: Mobiles & Tech ---
+    {
+      name: "Zellora Nova Pro 5G Flagship Smartphone",
+      slug: "zellora-nova-pro-5g-smartphone",
+      productName: "Flagship 5G Smartphones",
+      productSlug: "flagship-5g-smartphones",
+      categorySlug: "mobiles-smartphones",
+      brand: brandTech,
+      gender: "unisex",
+      primaryImage: "https://images.unsplash.com/photo-1592750475338-74b7b21085ab?w=800&auto=format&fit=crop&q=80",
+      galleryImages: [
+        "https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?w=800&auto=format&fit=crop&q=80",
+      ],
+      shortDescription: "Aerospace-grade titanium frame with 6.7-inch OLED 120Hz display and 50MP triple studio camera.",
+      description: "Precision engineered with an aerospace-grade titanium frame, 6.7-inch Super Retina 120Hz LTPO display, and an advanced 50MP triple optical studio camera system. Powered for next-generation performance and all-day battery life.",
+      basePrice: 59999,
+      colorName: "Natural Titanium",
+      colorHex: "#8B8D8E",
+      sizes: [
+        { unit: unit128GB, unitValue: 128, price: 59999, sku: "ZEL-MOB-01-128", isDefault: false },
+        { unit: unit256GB, unitValue: 256, price: 64999, sku: "ZEL-MOB-01-256", isDefault: true },
+        { unit: unit512GB, unitValue: 512, price: 74999, sku: "ZEL-MOB-01-512", isDefault: false },
+      ],
+    },
+    {
+      name: "Zellora Fold Slim 5G Luxury Edition",
+      slug: "zellora-fold-slim-5g-luxury-edition",
+      productName: "Foldable Luxury Smartphones",
+      productSlug: "foldable-luxury-smartphones",
+      categorySlug: "mobiles-foldables",
+      brand: brandTech,
+      gender: "unisex",
+      primaryImage: "https://images.unsplash.com/photo-1580910051074-3eb694886505?w=800&auto=format&fit=crop&q=80",
+      galleryImages: [],
+      shortDescription: "Ultra-thin zero-gap teardrop hinge foldable with 7.9-inch internal cinematic screen.",
+      description: "The pinnacle of mobile fashion and engineering. Zero-gap fluid teardrop hinge, ultra-thin folding glass, and vegan leather back panel. Seamless multitasking with flagship processor and dual stereo speakers.",
+      basePrice: 89999,
+      colorName: "Classic Black",
+      colorHex: "#111111",
+      sizes: [
+        { unit: unit256GB, unitValue: 256, price: 89999, sku: "ZEL-MOB-02-256", isDefault: true },
+        { unit: unit512GB, unitValue: 512, price: 99999, sku: "ZEL-MOB-02-512", isDefault: false },
+      ],
+    },
   ];
 
   let totalProducts = 0;
@@ -1685,7 +1762,7 @@ async function main() {
         variant.id,
         itemDef.primaryImage
       );
-          } catch (e: any) {
+    } catch (e: any) {
       console.warn(`! Variant image failed for ${itemDef.slug}: ${e.message}`);
     }
 
@@ -1785,7 +1862,7 @@ async function main() {
       VALUES (1, 'Razorpay', 'razorpay', 1, NOW(), NOW())
       ON DUPLICATE KEY UPDATE \`name\` = 'Razorpay', \`is_active\` = 1
     `);
-  } catch (e: any) {}
+  } catch (e: any) { }
 
   const sampleOrderConfigs = [
     {
@@ -1839,7 +1916,7 @@ async function main() {
     const style = seededStyles[ord.styleIdx];
     const product = seededProducts.find((p) => p.id === style.productId) || seededProducts[0];
     const variant = seededVariants.find((v) => v.styleId === style.id) || seededVariants[0];
-    const unitPrice = seededUnitPrices.find((up) => up.variant_id === variant.id && up.is_default) || seededUnitPrices[0];
+    const unitPrice = seededUnitPrices.find((up) => up.variant_id === variant.id && up.is_default) || seededUnitPrices.find((up) => up.variant_id === variant.id) || seededUnitPrices[0];
 
     const createdOrder = await prisma.order.create({
       data: {
@@ -1906,7 +1983,7 @@ async function main() {
           createdOrder.id,
           ord.totalAmount
         );
-      } catch (e: any) {}
+      } catch (e: any) { }
     }
 
     console.log(`✓ Order #${ord.orderNumber}: ₹${ord.totalAmount} (${ord.status.toUpperCase()})`);

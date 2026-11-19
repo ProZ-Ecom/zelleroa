@@ -8,7 +8,8 @@ const FETCH_SIZE = 12;
 
 interface RelatedItemsProps {
   /** The Style being viewed - never listed among its own related products. */
-  styleId: string;
+  styleId?: string;
+  itemId?: string;
   /** Category UUID (or slug) the related products are drawn from. */
   categoryId: string | null | undefined;
   title?: string;
@@ -18,18 +19,20 @@ interface RelatedItemsProps {
 /** Other Styles from the same category - "You may also like" on the Style page. */
 export function RelatedItems({
   styleId,
+  itemId,
   categoryId,
   title = "You May Also Like",
   limit = 8,
 }: RelatedItemsProps) {
+  const currentId = styleId ?? itemId ?? "";
   const listing = useCategoryListing(categoryId ?? "", "", FETCH_SIZE);
 
   const items = React.useMemo(
     () =>
       (listing.data?.pages[0]?.data.items ?? [])
-        .filter((item) => item.id !== styleId)
+        .filter((item) => item.id !== currentId)
         .slice(0, limit),
-    [listing.data, styleId, limit]
+    [listing.data, currentId, limit]
   );
 
   if (!categoryId || listing.isLoading || items.length === 0) return null;

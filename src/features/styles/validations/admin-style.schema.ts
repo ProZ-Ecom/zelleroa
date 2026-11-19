@@ -59,7 +59,7 @@ export const createAdminStyleSchema = z
     isNewArrival: z.boolean().optional().default(false),
     newArrivalUntil: newArrivalUntil,
     isDefault: z.boolean().optional().default(false),
-    isActive: z.boolean().optional().default(false),
+    isActive: z.boolean().optional().default(true),
     outOfStock: z.boolean().optional().default(false),
   })
   .strict();

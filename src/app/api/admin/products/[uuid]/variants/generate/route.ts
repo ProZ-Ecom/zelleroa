@@ -27,11 +27,11 @@ export const POST = createApiHandler(
 
       return apiCreated(
         result,
-        `${result.created} item${result.created === 1 ? "" : "s"} created${
-          result.skipped > 0
-            ? `, ${result.skipped} combination(s) skipped (already existed, or not allowed by a configured attribute dependency rule)`
-            : ""
-        }`
+        result.created > 0
+          ? `Successfully created ${result.created} item${result.created === 1 ? "" : "s"}.`
+          : result.skipped > 0
+            ? "Selected combination(s) already exist."
+            : "No new variants were created."
       );
     },
   },

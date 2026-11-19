@@ -195,7 +195,7 @@ export const posExchangeService = {
       newExecutionItems.push({
         productId: product.id,
         styleId: style.id,
-        itemId: null,
+        itemId: style.id,
         variantId: variant.id,
         variantUnitPriceId: item.row.id,
         productName: product.name,
