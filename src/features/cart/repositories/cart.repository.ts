@@ -30,15 +30,6 @@ export const cartItemInclude = Prisma.validator<Prisma.CartItemInclude>()({
       },
     },
   },
-  item: {
-    select: {
-      id: true,
-      uuid: true,
-      name: true,
-      isActive: true,
-      deleted_at: true,
-    },
-  },
   // The Style the line was bought under - the unit the storefront lists and
   // links to, so the cart can name it and link back to its detail page.
   style: {
@@ -47,6 +38,8 @@ export const cartItemInclude = Prisma.validator<Prisma.CartItemInclude>()({
       uuid: true,
       name: true,
       slug: true,
+      isActive: true,
+      deleted_at: true,
     },
   },
   variant_unit_price: {
@@ -165,7 +158,6 @@ export const cartRepository = {
     owner: CartOwner;
     productId: bigint;
     styleId: bigint;
-    itemId?: bigint | null;
     variantId: bigint;
     variantUnitPriceId?: bigint | null;
     quantity: number;
@@ -230,7 +222,6 @@ export const cartRepository = {
             cartId: cart.id,
             productId: params.productId,
             styleId: params.styleId,
-            itemId: params.itemId ?? null,
             variantId: params.variantId,
             variantUnitPriceId: params.variantUnitPriceId ?? null,
             quantity: params.quantity,

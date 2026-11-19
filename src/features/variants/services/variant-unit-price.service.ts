@@ -91,14 +91,14 @@ async function resolveAttributeValues(
 
   const variant = await db.productVariant.findUnique({
     where: { id: variantId },
-    select: { item: { select: { style: { select: { productId: true } } } } },
+    select: { style: { select: { productId: true } } },
   });
   let configs: Array<{ attribute_id: bigint; sort_order: number }> = [];
   if (variant) {
     try {
       configs = await db.product_attribute_configs.findMany({
         where: {
-          product_id: variant.item.style.productId,
+          product_id: variant.style.productId,
           attribute_id: { in: values.map((v) => v.attributeId) },
         },
         select: { attribute_id: true, sort_order: true },
@@ -135,21 +135,21 @@ async function resolveAttributeValues(
 }
 
 /**
- * Builds a SKU as {item code}-{Color}-{variation values}, skipping whichever parts
+ * Builds a SKU as {style code}-{Color}-{variation values}, skipping whichever parts
  * the variant doesn't have (e.g. no Size on a Watch). Falls back to appending a
  * numeric suffix if the generated code collides with an existing SKU.
  */
 async function generateSku(
   variant: {
-    item?: { slug?: string | null } | null;
+    style?: { slug?: string | null } | null;
     color_name?: string | null;
   },
   sizeValues: string[] = []
 ): Promise<string> {
   const parts: string[] = [];
 
-  if (variant.item?.slug) {
-    parts.push(skuPart(variant.item.slug));
+  if (variant.style?.slug) {
+    parts.push(skuPart(variant.style.slug));
   }
 
   if (variant.color_name) parts.push(skuPart(variant.color_name));
@@ -173,10 +173,10 @@ async function generateSku(
  * A size row created without a price sells at its Item's price - the one
  * place a price is entered. Color/size "add-ons" are no longer part of it.
  */
-function itemPriceOf(variant: {
-  item?: { base_price?: Prisma.Decimal | number | null } | null;
+function stylePriceOf(variant: {
+  style?: { base_price?: Prisma.Decimal | number | null } | null;
 }): number {
-  return Number(variant.item?.base_price ?? 0);
+  return Number(variant.style?.base_price ?? 0);
 }
 
 export const variantUnitPriceService = {
@@ -226,7 +226,7 @@ export const variantUnitPriceService = {
       attributeSignature
     );
     if (duplicateSize) {
-      throw ApiError.conflict("This item/color already has a price for that size");
+      throw ApiError.conflict("This style/color already has a price for that size");
     }
 
     let sku = data.sku;
@@ -250,7 +250,7 @@ export const variantUnitPriceService = {
     // A row with no variation of its own is told apart by its unit and measurement,
     // so a second one of those really is a duplicate.
     if (duplicateUnit && attributeValues.length === 0) {
-      throw ApiError.conflict("This item already has a price for that unit and measurement");
+      throw ApiError.conflict("This variant already has a price for that unit and measurement");
     }
 
     if (data.isDefault) {
@@ -260,7 +260,7 @@ export const variantUnitPriceService = {
     // A new stock row starts at the Item's price, or at zero when the Item has
     // none: the catalog no longer asks for a price, so an unpriced SKU is a
     // normal state and Inventory > Pricing is where it gets one.
-    const basePrice = data.basePrice ?? Math.max(itemPriceOf(variant), 0);
+    const basePrice = data.basePrice ?? Math.max(stylePriceOf(variant), 0);
 
     const row = {
       unit_id: unit.id,
@@ -359,7 +359,7 @@ export const variantUnitPriceService = {
         unitPriceUuid
       );
       if (duplicateUnit) {
-        throw ApiError.conflict("This item already has a price for that unit and measurement");
+        throw ApiError.conflict("This variant already has a price for that unit and measurement");
       }
     }
 
@@ -384,7 +384,7 @@ export const variantUnitPriceService = {
         unitPriceUuid
       );
       if (duplicateSize) {
-        throw ApiError.conflict("This item/color already has a price for that size");
+        throw ApiError.conflict("This style/color already has a price for that size");
       }
       updateData.attribute_value_id = sizeValueInternalId;
       updateData.attribute_signature = attributeSignature;

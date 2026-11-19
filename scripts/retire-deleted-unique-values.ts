@@ -102,16 +102,6 @@ async function run() {
   );
 
   await retire(
-    "items",
-    await db.item.findMany({ where: deleted, select: { id: true, slug: true, sku: true } }),
-    [
-      { name: "slug", max: 220 },
-      { name: "sku", max: 100 },
-    ],
-    (id, data) => db.item.update({ where: { id }, data })
-  );
-
-  await retire(
     "product_variants",
     await db.productVariant.findMany({ where: deleted, select: { id: true, slug: true } }),
     [{ name: "slug", max: 255 }],

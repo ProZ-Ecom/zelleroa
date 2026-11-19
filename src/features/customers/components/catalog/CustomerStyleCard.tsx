@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { ProductImage } from "@/components/common/ProductImage";
-import { ItemQuickAdd } from "./ItemQuickAdd";
+import { StyleQuickAdd } from "./StyleQuickAdd";
 import { formatPrice } from "@/lib/utils";
 import type { CustomerProductListItemDto } from "../../types/catalog.types";
 
@@ -60,7 +60,7 @@ export function CustomerStyleCard({ style }: CustomerStyleCardProps) {
         </div>
       </Link>
       <div className="px-2.5 pb-2.5 sm:px-3 sm:pb-3">
-        <ItemQuickAdd
+        <StyleQuickAdd
           styleId={style.id}
           name={style.name}
           inStock={!isOutOfStock}

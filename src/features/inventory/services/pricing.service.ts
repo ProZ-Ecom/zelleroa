@@ -25,7 +25,7 @@ const rowSelect = {
     select: {
       variant_name: true,
       color_name: true,
-      item: { select: { name: true, style: { select: { product: { select: { name: true } } } } } },
+      style: { select: { name: true, product: { select: { name: true } } } },
     },
   },
   attribute_value: { select: { value: true } },
@@ -49,7 +49,7 @@ function format(r: Row): PricingRow {
     variantUnitPriceId: Number(r.id),
     sku: r.sku,
     productName: productName(r),
-    itemName: r.variant?.item?.name ?? null,
+    itemName: r.variant?.style?.name ?? null,
     colorName: r.variant?.color_name ?? null,
     sizeName: r.attribute_value?.value ?? null,
     unitName: r.product_units?.name ?? null,
@@ -73,13 +73,13 @@ async function buildWhere(params: PricingListParams): Promise<Prisma.VariantUnit
 
   return {
     deleted_at: null,
-    variant: { deleted_at: null, item: { deleted_at: null, style: { deleted_at: null, product } } },
+    variant: { deleted_at: null, style: { deleted_at: null, product } },
     ...(params.search
       ? {
           OR: [
             { sku: { contains: params.search } },
-            { variant: { item: { name: { contains: params.search } } } },
-            { variant: { item: { style: { product: { name: { contains: params.search } } } } } },
+            { variant: { style: { name: { contains: params.search } } } },
+            { variant: { style: { product: { name: { contains: params.search } } } } },
           ],
         }
       : {}),

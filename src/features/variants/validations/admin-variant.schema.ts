@@ -143,11 +143,11 @@ export const previewGenerateVariantsSchema = z
 
 export type PreviewGenerateVariantsInput = z.infer<typeof previewGenerateVariantsSchema>;
 
-/** Item-driven generation: attribute values come from item_attribute_values,
+/** Style-driven generation: attribute values come from style_attribute_values,
  * so only the pricing/unit defaults need to be supplied here. Generated rows always
  * start with no stock - it arrives through a purchase or an inventory adjustment, so
  * that every stock level is backed by a ledger movement. */
-export const generateVariantsFromItemSchema = z
+export const generateVariantsFromStyleSchema = z
   .object({
     unitId: z.string().trim().uuid("Invalid unit UUID format"),
     defaultPrice: z.coerce.number().min(0, "Price cannot be negative").optional(),
@@ -155,7 +155,7 @@ export const generateVariantsFromItemSchema = z
   })
   .strict();
 
-export type GenerateVariantsFromItemInput = z.infer<typeof generateVariantsFromItemSchema>;
+export type GenerateVariantsFromStyleInput = z.infer<typeof generateVariantsFromStyleSchema>;
 
 export const applyVariantRemovalsSchema = z
   .object({
@@ -184,8 +184,8 @@ export const adminVariantsQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1).optional(),
   pageSize: z.coerce.number().int().min(1).max(100).default(10).optional(),
   search: z.string().trim().optional(),
-  itemId: z.string().trim().uuid("Invalid Item UUID format").optional(),
-  itemUuid: z.string().trim().uuid("Invalid Item UUID format").optional(),
+  styleId: z.string().trim().uuid("Invalid Style UUID format").optional(),
+  styleUuid: z.string().trim().uuid("Invalid Style UUID format").optional(),
   isActive: z.coerce.boolean().optional(),
 });
 

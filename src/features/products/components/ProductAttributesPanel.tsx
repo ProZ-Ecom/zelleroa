@@ -254,7 +254,7 @@ function ProductAttributesPanel({ productUuid }: ProductAttributesPanelProps) {
             ? usageWarning
                 .map((u) => {
                   const used = [
-                    u.itemCount > 0 ? `${u.itemCount} item(s)` : null,
+                    u.styleCount > 0 ? `${u.styleCount} style(s)` : null,
                     u.variantCount > 0 ? `${u.variantCount} variant(s)` : null,
                     u.skuCount > 0 ? `${u.skuCount} stock row(s)` : null,
                   ]

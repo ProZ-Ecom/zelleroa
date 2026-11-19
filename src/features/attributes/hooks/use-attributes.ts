@@ -7,7 +7,7 @@ import {
   getAdminAttribute,
   getAttributesForProduct,
   getConfiguredAttributesForProduct,
-  getAttributeValuesForItem,
+  getAttributeValuesForStyle,
 } from "../api/get-attributes";
 import type { GetAdminAttributesParams } from "../types";
 
@@ -54,10 +54,10 @@ export function useConfiguredAttributesForProduct(productUuid: string | null) {
 
 /** The Product's configured attributes, grouped with this Item's currently
  * selected values - powers the Item form's "Attributes" (value-selection) section. */
-export function useItemAttributeValues(productUuid: string | null, itemUuid: string | null) {
+export function useStyleAttributeValues(productUuid: string | null, styleUuid: string | null) {
   return useQuery({
-    queryKey: [...attributeKeys.all, "item-values", productUuid, itemUuid],
-    queryFn: () => getAttributeValuesForItem(productUuid!, itemUuid!),
-    enabled: !!productUuid && !!itemUuid,
+    queryKey: [...attributeKeys.all, "style-values", productUuid, styleUuid],
+    queryFn: () => getAttributeValuesForStyle(productUuid!, styleUuid!),
+    enabled: !!productUuid && !!styleUuid,
   });
 }

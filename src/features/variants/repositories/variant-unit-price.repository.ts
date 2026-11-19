@@ -36,7 +36,7 @@ export const variantUnitPriceInclude = Prisma.validator<Prisma.VariantUnitPriceI
       id: true,
       uuid: true,
       variant_name: true,
-      itemId: true,
+      styleId: true,
     },
   },
 });
@@ -358,7 +358,7 @@ export const variantUnitPriceRepository = {
         isActive: false,
         deleted_at: new Date(),
         // Free the unique SKU so the next row - including a regenerated
-        // {item}-{color}-{size} SKU - can take it back.
+        // {style}-{color}-{size} SKU - can take it back.
         sku: retireUniqueValue(existing.sku, existing.id, 100),
         ...(adminId ? { updated_by: adminId } : {}),
       },

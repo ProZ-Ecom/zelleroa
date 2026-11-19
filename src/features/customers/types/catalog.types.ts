@@ -31,7 +31,7 @@ export interface CustomerProductListItemDto {
   image: string | null;
   minPrice: number;
   maxPrice: number;
-  /** Distinct Color count across the Style's Items - shown on the storefront card. */
+  /** Distinct Color count on the Style - shown on the storefront card. */
   colorCount?: number;
   inStock?: boolean;
   outOfStock?: boolean;
@@ -48,7 +48,7 @@ export interface CustomerProductListItemDto {
 }
 
 /**
- * A single sellable pack size ("250g", "500g", "1kg", ...) for a variant/item.
+ * A single sellable pack size ("250g", "500g", "1kg", ...) for a variant.
  * Selling price is NOT stored - the repository returns it equal to basePrice,
  * and `catalogOffers` in the customer service layer replaces it with the price
  * the shared offer engine produces before the DTO leaves the server.
@@ -98,11 +98,11 @@ export interface CustomerVariantImageDto {
 
 export interface CustomerVariantListItemDto {
   id: string; // Variant UUID (Color level)
-  itemId: string; // Item UUID
-  itemName: string;
-  /** @deprecated use itemId - kept for callers not yet migrated */
+  styleId: string; // Style UUID
+  styleName: string;
+  /** @deprecated use styleId - kept for callers not yet migrated */
   productId: string;
-  /** @deprecated use itemName */
+  /** @deprecated use styleName */
   productName: string;
   variantName: string;
   measurement: VariantMeasurement;
@@ -111,7 +111,7 @@ export interface CustomerVariantListItemDto {
   /** Default pack size's price after offers; mirrors `unitPrices`. */
   salePrice: number;
   primaryImage: string | null;
-  /** This variant's color, when the Item distinguishes variants by color. */
+  /** This variant's color, when the Style distinguishes variants by color. */
   colorName: string | null;
   colorHex: string | null;
   /** Full set of images for this color - the gallery to show when this variant/color is selected. */
@@ -132,11 +132,11 @@ export interface CustomerVariantDetailDto extends CustomerVariantListItemDto {
 
 /**
  * A single sellable style/design under a Product (e.g. Product "T-Shirt" ->
- * Item "V Neck T-Shirt"). Holds the style-level description/ingredients/etc,
+ * Style "V Neck T-Shirt"). Holds the style-level description/ingredients/etc,
  * and the Color variants the customer picks between.
  */
-export interface CustomerItemDto {
-  id: string; // Item UUID
+export interface CustomerProductStyleDto {
+  id: string; // Style UUID
   productId: string;
   productName: string;
   name: string;
@@ -149,7 +149,7 @@ export interface CustomerItemDto {
   shelfLife: string | null;
   vegType: "veg" | "nonveg" | "vegan" | "na";
   isDefault: boolean;
-  /** Item-level fallback images, used when this Item has no Color split. */
+  /** Style-level fallback images, used when this Style has no Color split. */
   images: CustomerVariantImageDto[];
   variants: CustomerVariantListItemDto[];
 }
@@ -168,13 +168,13 @@ export interface CustomerProductDetailDto {
   } | null;
   image: string | null;
   gender: "men" | "women" | "kids" | "unisex" | null;
-  items: CustomerItemDto[];
+  styles: CustomerProductStyleDto[];
 }
 
 /**
- * One related item returned by the related-products API. It is variant-level
+ * One related product returned by the related-products API. It is variant-level
  * (a single representative variant per related product) so the storefront can
- * link/add straight to a sellable item, while still carrying the product,
+ * link/add straight to a sellable row, while still carrying the product,
  * category and brand context the card needs.
  */
 export interface CustomerRelatedVariantDto {
@@ -208,19 +208,18 @@ export interface CustomerRelatedVariantDto {
 }
 
 // ---------------------------------------------------------------------------
-// Style -> Item -> Color -> Size storefront flow
+// Style -> Color -> Size storefront flow
 //
-// The listing shows one card per Style; the Style detail page lists the Items
-// under it; picking an Item reveals its Colors, and each Color its own Sizes,
-// each with its own price and stock. These DTOs carry that whole tree in one
-// response so the client never has to re-fetch while the shopper switches
-// Item/Color/Size.
+// The listing shows one card per Style; the Style's own page reveals its
+// Colors, and each Color its own Sizes, each with its own price and stock.
+// These DTOs carry that whole tree in one response so the client never has to
+// re-fetch while the shopper switches Color/Size.
 // ---------------------------------------------------------------------------
 
-/** One Item under a Style, with the Colors the shopper picks between. */
-export interface CustomerStyleItemDto {
-  id: string; // Item UUID
-  styleId: string; // Style UUID
+/** A Style as the storefront renders it, with the Colors the shopper picks
+ *  between and each Color's own Sizes. */
+export interface CustomerStyleViewDto {
+  id: string; // Style UUID
   name: string;
   slug: string;
   shortDescription: string | null;
@@ -229,7 +228,7 @@ export interface CustomerStyleItemDto {
   outOfStock: boolean;
   /** Default image: the default Color's primary image, else the Style's. */
   image: string | null;
-  /** Shown before a Color is picked, and for Items with no Color split. */
+  /** Shown before a Color is picked, and for Styles with no Color split. */
   images: CustomerVariantImageDto[];
   minPrice: number;
   maxPrice: number;
@@ -239,41 +238,17 @@ export interface CustomerStyleItemDto {
   /** One entry per Color (ProductVariant), each with its own images/sizes. */
   colors: CustomerVariantListItemDto[];
   /**
-   * The Item's own extra attributes - Material, Fit, Pattern and so on. These
-   * describe the Item as a whole, so they are shown as plain facts rather than
+   * The Style's own extra attributes - Material, Fit, Pattern and so on. These
+   * describe the Style as a whole, so they are shown as plain facts rather than
    * as something to pick; Color and Size are excluded, having their own
-   * selectors. Empty when the Item carries none.
+   * selectors. Empty when the Style carries none.
    */
   attributes: Array<{ attributeName: string; valueId: string; value: string }>;
 }
 
-/**
- * One Item on its own page, outside the Style that owns it: the same Item the
- * Style detail page renders, plus the Style/Product context the standalone
- * route needs for its breadcrumb, title and description fallbacks.
- */
-export interface CustomerItemDetailDto extends CustomerStyleItemDto {
-  styleName: string;
-  styleSlug: string;
-  /** Style-level copy, shown when the Item carries none of its own. */
-  styleDescription: string | null;
-  styleShortDescription: string | null;
-  product: {
-    id: string;
-    name: string;
-    gender: "men" | "women" | "kids" | "unisex" | null;
-  };
-  brand: { id: string; name: string } | null;
-  category: { id: string; name: string } | null;
-}
-
-/** A Style with every Item under it - the storefront Style detail page. */
-export interface CustomerStyleDetailDto {
-  id: string; // Style UUID
-  name: string;
-  slug: string;
-  shortDescription: string | null;
-  description: string | null;
+/** A Style on its own page: everything the storefront needs to render it,
+ *  plus the Product/brand/category context for breadcrumbs and fallbacks. */
+export interface CustomerStyleDetailDto extends CustomerStyleViewDto {
   ingredients: string | null;
   isReadyToMix: boolean;
   cookingRecipe: string | null;
@@ -286,12 +261,6 @@ export interface CustomerStyleDetailDto {
   };
   brand: { id: string; name: string } | null;
   category: { id: string; name: string } | null;
-  /** Style-level gallery, shown until an Item/Color is picked. */
-  image: string | null;
-  images: CustomerVariantImageDto[];
-  minPrice: number;
-  maxPrice: number;
-  items: CustomerStyleItemDto[];
 }
 
 export interface GlobalSearchResultDto {

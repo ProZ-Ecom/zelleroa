@@ -29,14 +29,14 @@ export interface ListingCategoryDto extends ListingCategoryRefDto {
 export type ListingStockStatus = "in_stock" | "low_stock" | "out_of_stock";
 
 /**
- * One card per Item - Items of the same Style are listed separately. Prices
- * already include any live offer.
+ * One card per Style - Styles of the same Product are listed separately.
+ * Prices already include any live offer.
  */
-export interface ListingItemCardDto {
-  id: string; // Item UUID - the card links to /items/:id
+export interface ListingStyleCardDto {
+  id: string; // Style UUID - the card links to /styles/:id
   name: string;
-  /** The Style the Item belongs to, shown as the card's eyebrow. */
-  styleName: string;
+  /** The Product the Style belongs to, shown as the card's eyebrow. */
+  productName: string;
   description: string | null;
   image: string | null;
   brand: { id: string; name: string } | null;
@@ -52,10 +52,10 @@ export interface ListingItemCardDto {
   hasPriceRange: boolean;
   /**
    * The Colour the card is showing: the one matching the Colour filter when
-   * one is applied, otherwise the Item's default Colour.
+   * one is applied, otherwise the Style's default Colour.
    */
   selectedColor: { name: string; hex: string | null } | null;
-  /** Every Colour available for the Item (swatches), default first. */
+  /** Every Colour available for the Style (swatches), default first. */
   colors: Array<{ name: string; hex: string | null }>;
   rating: { average: number; count: number } | null;
   stockStatus: ListingStockStatus;
@@ -67,7 +67,7 @@ export interface ListingFilterValueDto {
   key: string;
   label: string;
   colorHex: string | null;
-  /** Items this value would show, given every *other* active filter. */
+  /** Styles this value would show, given every *other* active filter. */
   count: number;
   selected: boolean;
 }
@@ -105,22 +105,22 @@ export interface CategoryListingDto {
   activeSubcategoryId: string | null;
   /** Image per category UUID, for strips built from a header nav item's categories. */
   categoryImages: Record<string, string | null>;
-  items: ListingItemCardDto[];
+  items: ListingStyleCardDto[];
   filters: ListingFiltersDto;
 }
 
-/** One Item link in the header category menu. */
-export interface CategoryMenuItemDto {
-  id: string; // Item UUID
+/** One Style link in the header category menu. */
+export interface CategoryMenuStyleDto {
+  id: string; // Style UUID
   name: string;
   image: string | null;
 }
 
-/** One Product in the header category menu, with the Items sold under it. */
+/** One Product in the header category menu, with the Styles sold under it. */
 export interface CategoryMenuProductDto {
   id: string; // Product UUID
   name: string;
-  items: CategoryMenuItemDto[];
+  styles: CategoryMenuStyleDto[];
 }
 
 /** What the header shows when a category is hovered. */

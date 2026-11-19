@@ -565,7 +565,7 @@ export default function AdminVariantsPage() {
                     variants,
                     "items",
                     [
-                      { header: "Product", accessor: (v) => v.productName || v.itemName || "-" },
+                      { header: "Product", accessor: (v) => v.productName || v.styleName || "-" },
                       { header: "Variant Name", accessor: (v) => v.variantName || "-" },
                       { header: "SKU", accessor: (v) => v.sku || "-" },
                       {

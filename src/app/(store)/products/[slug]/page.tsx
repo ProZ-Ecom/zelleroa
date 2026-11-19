@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { cache } from "react";
 import { redirect } from "next/navigation";
 import { catalogService } from "@/features/customers/services/catalog.service";
-import { styleDefaultItemId, itemHref } from "@/features/customers/utils/style-default-item";
+import { styleHref } from "@/features/customers/utils/style-href";
 import { ProductDetailClient } from "./ProductDetailClient";
 import {
   constructMetadata,
@@ -61,11 +61,10 @@ export default async function ProductDetailPage({ params }: ProductDetailPagePro
   const { slug } = await params;
   const style = await getStyleForSeo(slug);
 
-  // A Style is never shown as a page of Items to choose between - each Item
-  // has its own page, so this link opens the Style's default Item. Called
-  // outside any try/catch: `redirect` works by throwing.
-  const itemId = style ? styleDefaultItemId(style) : null;
-  if (itemId) redirect(itemHref(itemId));
+  // The Style has its own page, which is the product page - this older
+  // `/products/:styleId` link just forwards to it. Called outside any
+  // try/catch: `redirect` works by throwing.
+  if (style) redirect(styleHref(style.id));
 
   return <ProductDetailClient slug={slug} />;
 }

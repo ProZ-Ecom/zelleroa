@@ -117,14 +117,11 @@ const skuSelect = {
   variant: {
     select: {
       variant_name: true,
-      itemId: true,
-      item: {
+      styleId: true,
+      style: {
         select: {
           name: true,
-          styleId: true,
-          style: {
-            select: { product: { select: { id: true, name: true, categoryId: true } } },
-          },
+          product: { select: { id: true, name: true, categoryId: true } },
         },
       },
     },
@@ -210,7 +207,7 @@ async function main() {
     ).filter((c) => c.variant?.item?.style?.product != null);
 
     for (const candidate of candidates) {
-      const p = candidate.variant.item.style.product;
+      const p = candidate.variant.style.product;
       const r = await resolveCommissionRate(
         db,
         p.id,
@@ -228,7 +225,7 @@ async function main() {
     throw new Error(`SKU ${sku.sku} has no style/product (orphaned row) - pass a different --sku.`);
   }
 
-  const product = sku.variant.item.style.product;
+  const product = sku.variant.style.product;
   const categoryId = product.categoryId != null ? BigInt(product.categoryId) : null;
   const rate = await resolveCommissionRate(db, product.id, categoryId);
   if (rate.percentage <= 0) {
@@ -307,12 +304,11 @@ async function main() {
         uuid: crypto.randomUUID(),
         orderId: order.id,
         productId: product.id,
-        styleId: sku.variant.item.styleId,
-        itemId: sku.variant.itemId,
+        styleId: sku.variant.styleId,
         variantId: sku.variant_id,
         variantUnitPriceId: sku.id,
         product_name_snapshot: product.name,
-        item_name_snapshot: sku.variant.item.name,
+        item_name_snapshot: sku.variant.style.name,
         variant_snapshot: sku.variant.variant_name,
         attributes_snapshot: [],
         sku_snapshot: sku.sku,

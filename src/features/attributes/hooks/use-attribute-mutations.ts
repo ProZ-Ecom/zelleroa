@@ -10,7 +10,7 @@ import {
   updateAttributeValue,
   deleteAttributeValue,
   setAttributesForProduct,
-  setAttributeValuesForItem,
+  setAttributeValuesForStyle,
 } from "../api/get-attributes";
 import type { VariationLevel } from "../types";
 
@@ -126,21 +126,21 @@ export function useSetAttributesForProduct() {
   });
 }
 
-export function useSetAttributeValuesForItem() {
+export function useSetAttributeValuesForStyle() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: ({
       productUuid,
-      itemUuid,
+      styleUuid,
       attributeValueIds,
     }: {
       productUuid: string;
-      itemUuid: string;
+      styleUuid: string;
       attributeValueIds: string[];
-    }) => setAttributeValuesForItem(productUuid, itemUuid, attributeValueIds),
+    }) => setAttributeValuesForStyle(productUuid, styleUuid, attributeValueIds),
     onSuccess: (_result, variables) => {
       queryClient.invalidateQueries({
-        queryKey: [...attributeKeys.all, "item-values", variables.productUuid, variables.itemUuid],
+        queryKey: [...attributeKeys.all, "style-values", variables.productUuid, variables.styleUuid],
       });
     },
   });

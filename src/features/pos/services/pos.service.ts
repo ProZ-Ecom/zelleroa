@@ -62,17 +62,7 @@ export const skuInclude = {
           attribute_values: { select: { value: true } },
         },
       },
-      item: {
-        select: {
-          id: true,
-          name: true,
-          isActive: true,
-          deleted_at: true,
-          style: {
-            select: {
-              id: true,
-              name: true,
-              product: {
+      style: { select: { id: true, name: true, isActive: true, deleted_at: true, product: {
                 select: {
                   id: true,
                   uuid: true,
@@ -89,11 +79,7 @@ export const skuInclude = {
                     },
                   },
                 },
-              },
-            },
-          },
-        },
-      },
+              } } },
     },
   },
 } satisfies Prisma.VariantUnitPriceInclude;
@@ -113,8 +99,7 @@ export function sellableOf(row: SkuRow): number {
 
 export function describe(row: SkuRow) {
   const variant = row.variant;
-  const item = variant?.item;
-  const style = item?.style;
+  const style = variant?.style;
   const product = style?.product;
 
   const attributes: Array<{ name: string; value: string }> = [];
@@ -140,7 +125,7 @@ export function describe(row: SkuRow) {
 
   return {
     productName: product?.name ?? "",
-    itemName: style?.name ?? "",
+    styleName: style?.name ?? "",
     variantName: variant?.variant_name ?? "",
     colorName: variant?.color_name ?? null,
     sizeName: row.attribute_value?.value ?? null,
@@ -153,15 +138,15 @@ export function describe(row: SkuRow) {
 
 export function assertSellable(row: SkuRow) {
   const variant = row.variant;
-  const item = variant?.item;
-  const product = item?.style?.product;
+  const style = variant?.style;
+  const product = style?.product;
   if (
     !row.isActive ||
     row.deleted_at ||
     !variant?.isActive ||
     variant.deleted_at ||
-    !item?.isActive ||
-    item.deleted_at ||
+    !style?.isActive ||
+    style.deleted_at ||
     !product?.isActive ||
     product.deleted_at
   ) {
@@ -176,8 +161,13 @@ export function assertSellable(row: SkuRow) {
  * the place of supply is the counter's own state and the tax splits CGST+SGST.
  * IGST never applies here, which is why only those two are read.
  */
+<<<<<<< HEAD
 export function gstPercentOf(row: SkuRow): number {
   const slab = row.variant?.item?.style?.product?.product_hsn_codes?.product_gst_rates;
+=======
+function gstPercentOf(row: SkuRow): number {
+  const slab = row.variant?.style?.product?.product_hsn_codes?.product_gst_rates;
+>>>>>>> origin/monisha
   if (!slab) return 0;
   return Number(slab.cgst_percent) + Number(slab.sgst_percent);
 }
@@ -205,8 +195,8 @@ export const posService = {
               OR: [
                 { sku: { contains: term } },
                 { variant: { variant_name: { contains: term } } },
-                { variant: { item: { name: { contains: term } } } },
-                { variant: { item: { style: { product: { name: { contains: term } } } } } },
+                { variant: { style: { name: { contains: term } } } },
+                { variant: { style: { product: { name: { contains: term } } } } },
               ],
             }
           : {}),
@@ -311,7 +301,7 @@ export const posService = {
 
     const couponLines = items.map((item, index) => {
       const line = pricing.lines[index];
-      const product = item.row.variant?.item?.style?.product;
+      const product = item.row.variant?.style?.product;
       return {
         productId: product?.id ?? BigInt(0),
         categoryId: product?.categoryId ?? null,
@@ -420,7 +410,7 @@ export const posService = {
     if (input.couponCode?.trim()) {
       const couponLines = priced.map((item, index) => {
         const offerLine = offerPricing.lines[index];
-        const product = item.row.variant?.item?.style?.product;
+        const product = item.row.variant?.style?.product;
         return {
           productId: product?.id ?? BigInt(0),
           categoryId: product?.categoryId ?? null,
@@ -493,18 +483,16 @@ export const posService = {
       taxableTotal = round2(taxableTotal + taxable);
 
       const variant = item.row.variant!;
-      const itemEntity = variant.item!;
-      const style = itemEntity.style!;
+      const style = variant.style!;
       const product = style.product!;
 
       lines.push({
         productId: product.id,
         styleId: style.id,
-        itemId: itemEntity.id,
         variantId: variant.id,
         variantUnitPriceId: item.row.id,
         productName: product.name,
-        itemName: style.name,
+        styleName: style.name,
         variantName: variant.variant_name,
         attributes: item.info.attributes,
         sku: item.row.sku,

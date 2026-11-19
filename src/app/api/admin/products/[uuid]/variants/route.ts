@@ -2,7 +2,6 @@ import { createApiHandler } from "@/lib/api/api-handler";
 import { apiSuccess, apiCreated } from "@/lib/api/api-response";
 import { ApiError } from "@/lib/api/api-error";
 import { variantService } from "@/features/variants/services/variant.service";
-import { itemService } from "@/features/items/services/item.service";
 import { styleService } from "@/features/styles/services/style.service";
 import {
   createAdminVariantSchema,
@@ -11,13 +10,9 @@ import {
   type AdminVariantsQueryInput,
 } from "@/features/variants/validations/admin-variant.schema";
 
-// Legacy Product-scoped shim: resolves the Product's default Style, then that
-// Style's default Item, so routes written before the Style/Item split keep
-// working unchanged for the common case of one Style with one Item.
-async function resolveDefaultItemUuidForProduct(productUuid: string): Promise<string> {
-  const styleUuid = await styleService.resolveDefaultStyleUuid(productUuid);
-  return itemService.resolveDefaultItemUuid(styleUuid);
-}
+// Legacy Product-scoped shim: resolves the Product's default Style, so routes
+// written before variants moved under the Style keep working unchanged for the
+// common case of a product with one Style.
 
 export const GET = createApiHandler(
   {
@@ -27,9 +22,9 @@ export const GET = createApiHandler(
         throw ApiError.badRequest("Product UUID is required");
       }
 
-      const itemUuid = await resolveDefaultItemUuidForProduct(productUuid);
+      const styleUuid = await styleService.resolveDefaultStyleUuid(productUuid);
       const query = context.query as AdminVariantsQueryInput;
-      const result = await variantService.getAdminVariants(itemUuid, {
+      const result = await variantService.getAdminVariants(styleUuid, {
         page: query?.page ?? 1,
         pageSize: query?.pageSize ?? 10,
         search: query?.search,
@@ -55,10 +50,10 @@ export const POST = createApiHandler(
 
       const body = context.body as CreateAdminVariantInput;
       const adminEmail = context.session?.user?.email ?? undefined;
-      const itemUuid = await resolveDefaultItemUuidForProduct(productUuid);
+      const styleUuid = await styleService.resolveDefaultStyleUuid(productUuid);
 
       const variant = await variantService.createAdminVariant(
-        itemUuid,
+        styleUuid,
         body,
         adminEmail
       );

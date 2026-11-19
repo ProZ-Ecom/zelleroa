@@ -62,7 +62,7 @@ export function StyleCard({ item, isSelected, onSelect, onEdit, onDelete }: Styl
             {item.isActive ? "Active" : "Inactive"}
           </span>
           <span className="text-[10px] text-neutral-400">
-            {item.itemCount} item{item.itemCount === 1 ? "" : "s"}
+            {item.variantCount} variant{item.variantCount === 1 ? "" : "s"}
           </span>
         </div>
       </div>

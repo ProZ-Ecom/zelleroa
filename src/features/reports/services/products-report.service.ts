@@ -283,7 +283,7 @@ function zeroSaleWhere(
     isActive: true,
     deleted_at: null,
     orderItems: { none: { is_active: true, order: { ...SOLD_ORDER, createdAt: inRange(range) } } },
-    ...(hasProductFilter ? { variant: { item: { style: { product: productWhere } } } } : {}),
+    ...(hasProductFilter ? { variant: { style: { product: productWhere } } } : {}),
   };
 }
 
@@ -313,16 +313,7 @@ async function zeroSaleSkus(
       inventories: { select: { quantity_available: true } },
       variant: {
         select: {
-          item: {
-            select: {
-              style: {
-                select: {
-                  name: true,
-                  product: { select: { categoryId: true, brand: { select: { name: true } } } },
-                },
-              },
-            },
-          },
+          style: { select: { name: true, product: { select: { categoryId: true, brand: { select: { name: true } } } } } },
         },
       },
     },
@@ -330,21 +321,21 @@ async function zeroSaleSkus(
 
   const names = await categoryNameMap(
     rows.map((r) => {
-      const id = r.variant?.item?.style?.product?.categoryId;
+      const id = r.variant?.style?.product?.categoryId;
       return id != null ? String(id) : null;
     })
   );
 
   return rows.map((r) => {
-    const product = r.variant?.item?.style;
-    const categoryId = product?.product?.categoryId;
+    const style = r.variant?.style;
+    const categoryId = style?.product?.categoryId;
     return {
       key: `v${r.id}`,
       sku: r.sku,
-      product: product?.name ?? "—",
+      product: style?.name ?? "—",
       variant: "—",
       category: (categoryId != null ? names.get(String(categoryId)) : null) ?? "Uncategorised",
-      brand: product?.product?.brand?.name ?? "No brand",
+      brand: style?.product?.brand?.name ?? "No brand",
       units: 0,
       revenue: 0,
       orders: 0,

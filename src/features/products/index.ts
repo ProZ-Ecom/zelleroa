@@ -13,4 +13,4 @@ export {
   useUpdateProduct,
   useDeleteProduct,
 } from "./hooks";
-export { ProductDetails, ProductGallery, ProductPrice, ProductRating, ProductForm, ProductPriceEditModal } from "./components";
+export { ProductGallery, ProductPrice, ProductRating, ProductForm, ProductPriceEditModal } from "./components";

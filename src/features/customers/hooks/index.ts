@@ -51,7 +51,6 @@ export {
   useCustomerStyles,
   useCategoryListing,
   useCustomerStyle,
-  useCustomerItem,
   useCustomerCategories,
   useCustomerBrands,
   useCustomerProductVariants,

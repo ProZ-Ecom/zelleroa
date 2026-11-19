@@ -3,7 +3,7 @@ export {
   useAdminAttribute,
   useAttributesForProduct,
   useConfiguredAttributesForProduct,
-  useItemAttributeValues,
+  useStyleAttributeValues,
   useCreateAttribute,
   useUpdateAttribute,
   useDeleteAttribute,
@@ -11,5 +11,5 @@ export {
   useUpdateAttributeValue,
   useDeleteAttributeValue,
   useSetAttributesForProduct,
-  useSetAttributeValuesForItem,
+  useSetAttributeValuesForStyle,
 } from "./hooks";

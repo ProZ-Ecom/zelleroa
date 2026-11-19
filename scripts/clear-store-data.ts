@@ -57,14 +57,13 @@ async function main() {
     "inventory_reservations",
     "inventories",
 
-    // 4. Variants, Items, Styles & Unit Prices
+    // 4. Variants, Styles & Unit Prices
     "variant_price_history",
     "variant_attribute_values",
-    "item_attribute_values",
+    "style_attribute_values",
     "variant_unit_prices",
     "product_variant_images",
     "product_variants",
-    "items",
     "style_images",
     "styles",
 

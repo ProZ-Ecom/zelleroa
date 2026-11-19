@@ -2,22 +2,22 @@
 
 import * as React from "react";
 import { useCategoryListing } from "../../hooks/use-customer-catalog";
-import { ItemCard } from "./ItemCard";
+import { StyleCard } from "./StyleCard";
 
 const FETCH_SIZE = 12;
 
 interface RelatedItemsProps {
-  /** The Item being viewed - never listed among its own related items. */
-  itemId: string;
-  /** Category UUID (or slug) the related items are drawn from. */
+  /** The Style being viewed - never listed among its own related products. */
+  styleId: string;
+  /** Category UUID (or slug) the related products are drawn from. */
   categoryId: string | null | undefined;
   title?: string;
   limit?: number;
 }
 
-/** Other Items from the same category - "You may also like" on the Item page. */
+/** Other Styles from the same category - "You may also like" on the Style page. */
 export function RelatedItems({
-  itemId,
+  styleId,
   categoryId,
   title = "You May Also Like",
   limit = 8,
@@ -27,9 +27,9 @@ export function RelatedItems({
   const items = React.useMemo(
     () =>
       (listing.data?.pages[0]?.data.items ?? [])
-        .filter((item) => item.id !== itemId)
+        .filter((item) => item.id !== styleId)
         .slice(0, limit),
-    [listing.data, itemId, limit]
+    [listing.data, styleId, limit]
   );
 
   if (!categoryId || listing.isLoading || items.length === 0) return null;
@@ -44,7 +44,7 @@ export function RelatedItems({
       </h2>
       <div className="grid grid-cols-2 gap-3 sm:gap-5 md:grid-cols-3 lg:grid-cols-4">
         {items.map((item) => (
-          <ItemCard key={item.id} item={item} variant="grid" />
+          <StyleCard key={item.id} item={item} variant="grid" />
         ))}
       </div>
     </section>
