@@ -1414,12 +1414,8 @@ export default function AdminProductDetailsPage() {
                   setNewlyCreatedVariant((res as any).data);
                 }
               } catch (err: any) {
-<<<<<<< HEAD
                 console.error("Failed to create variant", err);
                 toast.error(err?.message || "Failed to create variant");
-=======
-                console.error("Failed to create Variant", err);
->>>>>>> origin/monisha
               }
             }}
           />
@@ -1545,12 +1541,8 @@ export default function AdminProductDetailsPage() {
                     });
                     setEditingVariant(null);
                   } catch (err: any) {
-<<<<<<< HEAD
                     console.error("Failed to update variant", err);
                     toast.error(err?.message || "Failed to update variant");
-=======
-                    console.error("Failed to update Variant", err);
->>>>>>> origin/monisha
                   }
                 }}
               />

@@ -7,11 +7,7 @@ import type {
   CustomerVariantListItemDto,
   CustomerVariantDetailDto,
   CustomerStyleDetailDto,
-<<<<<<< HEAD
-  CustomerItemDetailDto,
   GlobalSearchResultDto,
-=======
->>>>>>> origin/monisha
 } from "../types/catalog.types";
 import type { CategoryListingDto, CategoryMenuDto } from "../types/catalog-listing.types";
 import type {

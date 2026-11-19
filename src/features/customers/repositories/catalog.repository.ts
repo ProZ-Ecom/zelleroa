@@ -25,13 +25,8 @@ import type {
   CustomerProductStyleDto,
   CustomerRelatedVariantDto,
   CustomerStyleDetailDto,
-<<<<<<< HEAD
-  CustomerStyleItemDto,
-  CustomerItemDetailDto,
-  GlobalSearchResultDto,
-=======
   CustomerStyleViewDto,
->>>>>>> origin/monisha
+  GlobalSearchResultDto,
 } from "../types/catalog.types";
 
 const brandSelect = { id: true, uuid: true, name: true } as const;

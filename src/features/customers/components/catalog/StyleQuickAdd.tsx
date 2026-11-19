@@ -10,16 +10,10 @@ import { Modal } from "@/components/ui/modal";
 import { toast } from "@/components/ui/Toast";
 import { useAddToCart } from "@/features/cart/hooks/use-cart";
 import { formatPrice } from "@/lib/utils";
-<<<<<<< HEAD:src/features/customers/components/catalog/ItemQuickAdd.tsx
-import { useItemSelection } from "@/features/items/hooks/use-item-selection";
-import { ItemColorSelector } from "@/features/items/components/storefront/ItemColorSelector";
-import { ItemVariationSelectors } from "@/features/items/components/storefront/ItemVariationSelectors";
-=======
 import { useStyleSelection } from "@/features/styles/hooks/use-style-selection";
 import { StyleColorSelector } from "@/features/styles/components/storefront/StyleColorSelector";
 import { StyleSizeSelector } from "@/features/styles/components/storefront/StyleSizeSelector";
 import { StyleVariationSelectors } from "@/features/styles/components/storefront/StyleVariationSelectors";
->>>>>>> origin/monisha:src/features/customers/components/catalog/StyleQuickAdd.tsx
 import { customerCatalogApi } from "../../api/customer-catalog.api";
 import { CUSTOMER_CATALOG_QUERY_KEYS } from "../../hooks/use-customer-catalog";
 import type { CustomerStyleViewDto } from "../../types/catalog.types";
@@ -89,19 +83,12 @@ function SelectionBody({
             onSelect={sel.selectColor}
           />
         )}
-<<<<<<< HEAD:src/features/customers/components/catalog/ItemQuickAdd.tsx
-        {sel.hasVariations && (
-          <ItemVariationSelectors
-=======
         {sel.hasVariations ? (
           <StyleVariationSelectors
->>>>>>> origin/monisha:src/features/customers/components/catalog/StyleQuickAdd.tsx
             attributes={sel.variationAttributes}
             selectedValues={sel.selectedValues}
             onSelect={sel.selectValue}
           />
-<<<<<<< HEAD:src/features/customers/components/catalog/ItemQuickAdd.tsx
-=======
         ) : (
           // Pack-size rows carry no variation values, so they are picked directly.
           sel.sizes.length > 1 && (
@@ -111,7 +98,6 @@ function SelectionBody({
               onSelect={sel.selectUnitPrice}
             />
           )
->>>>>>> origin/monisha:src/features/customers/components/catalog/StyleQuickAdd.tsx
         )}
 
         <div className="flex items-center justify-between gap-3">

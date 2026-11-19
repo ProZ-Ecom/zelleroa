@@ -323,13 +323,9 @@ async function assertNoDuplicateAttributeCombination(
   );
 
   if (duplicate) {
-<<<<<<< HEAD
-    throw ApiError.conflict("This color already exists.");
-=======
     throw ApiError.conflict(
       "Another Color on this Style already has this exact combination of attributes"
     );
->>>>>>> origin/monisha
   }
 }
 

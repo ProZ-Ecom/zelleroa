@@ -161,13 +161,8 @@ export function assertSellable(row: SkuRow) {
  * the place of supply is the counter's own state and the tax splits CGST+SGST.
  * IGST never applies here, which is why only those two are read.
  */
-<<<<<<< HEAD
 export function gstPercentOf(row: SkuRow): number {
-  const slab = row.variant?.item?.style?.product?.product_hsn_codes?.product_gst_rates;
-=======
-function gstPercentOf(row: SkuRow): number {
   const slab = row.variant?.style?.product?.product_hsn_codes?.product_gst_rates;
->>>>>>> origin/monisha
   if (!slab) return 0;
   return Number(slab.cgst_percent) + Number(slab.sgst_percent);
 }
