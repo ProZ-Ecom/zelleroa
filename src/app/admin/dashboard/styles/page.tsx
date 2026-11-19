@@ -259,7 +259,12 @@ export default function AdminStylesPage() {
       );
     }
 
-    return <ErrorState message="Failed to load styles" onRetry={() => refetch()} />;
+    return (
+      <ErrorState
+        message={(error as any)?.message || "Failed to load styles"}
+        onRetry={() => refetch()}
+      />
+    );
   }
 
   if (isLoading && !data) {
