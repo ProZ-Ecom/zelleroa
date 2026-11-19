@@ -6,6 +6,8 @@ export interface CategoryListItem {
   description: string | null;
   image: string | null;
   parentId: number | null;
+  parentName?: string | null;
+  parentUuid?: string | null;
   isActive: boolean;
   sortOrder: number;
   _count: {
@@ -49,7 +51,7 @@ export interface GetCategoriesParams {
   page?: number;
   pageSize?: number;
   search?: string;
-  parentId?: number | null;
+  parentId?: number | string | null;
 }
 
 export interface CreateCategoryInput {
@@ -76,6 +78,7 @@ export interface AdminCategoryResponse {
   isActive: boolean;
   sortOrder: number;
   parentId: string | null; // Public UUID of the parent category, if any
+  parentName?: string | null;
   createdAt: Date;
   updatedAt: Date;
 }

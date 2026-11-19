@@ -36,8 +36,19 @@ function buildCategoryWhere(params: GetCategoriesParams): Prisma.ProductCategory
     ];
   }
 
-  if (params.parentId !== undefined) {
-    where.parentId = params.parentId;
+  if (params.parentId !== undefined && params.parentId !== null) {
+    if (params.parentId === "all") {
+      // Don't filter parentId - return all
+    } else if (params.parentId === "root") {
+      where.parentId = null;
+    } else {
+      const num = Number(params.parentId);
+      if (!Number.isNaN(num)) {
+        where.parentId = BigInt(num);
+      }
+    }
+  } else if (params.parentId === null) {
+    where.parentId = null;
   }
 
   return where;

@@ -30,6 +30,7 @@ function formatAdminCategoryResponse(category: {
   sortOrder: number;
   parentId?: bigint | null;
   parentUuid?: string | null;
+  parentName?: string | null;
   createdAt: Date;
   updatedAt: Date;
 }): AdminCategoryResponse {
@@ -44,6 +45,7 @@ function formatAdminCategoryResponse(category: {
     isActive: Boolean(category.isActive),
     sortOrder: category.sortOrder ?? 0,
     parentId: category.parentUuid ?? (category.parentId ? String(category.parentId) : null),
+    parentName: category.parentName ?? null,
     createdAt: category.createdAt,
     updatedAt: category.updatedAt,
   };
@@ -96,9 +98,15 @@ export function flattenTree(nodes: CategoryTreeNode[]): CategoryTreeNode[] {
   return nodes.flatMap((n) => [n, ...flattenTree(n.children)]);
 }
 
-async function buildParentUuidMap(): Promise<Map<string, string | null>> {
+async function buildParentMaps(): Promise<{
+  uuidMap: Map<string, string | null>;
+  nameMap: Map<string, string>;
+}> {
   const flat = await categoryRepository.findAllActiveFlat();
-  return new Map(flat.map((c) => [String(c.id), c.uuid]));
+  return {
+    uuidMap: new Map(flat.map((c) => [String(c.id), c.uuid])),
+    nameMap: new Map(flat.map((c) => [String(c.id), c.name])),
+  };
 }
 
 /** Internal-id (not uuid) descendant set, used to block moving a category under its own subtree. */
@@ -251,21 +259,23 @@ export const categoryService = {
       updated_by: adminId,
     });
 
-    const parentUuidMap = await buildParentUuidMap();
+    const { uuidMap, nameMap } = await buildParentMaps();
     return formatAdminCategoryResponse({
       ...created,
-      parentUuid: created.parentId ? parentUuidMap.get(String(created.parentId)) ?? null : null,
+      parentUuid: created.parentId ? uuidMap.get(String(created.parentId)) ?? null : null,
+      parentName: created.parentId ? nameMap.get(String(created.parentId)) ?? null : null,
     });
   },
 
   async getAdminCategories(params: GetAdminCategoriesParams = {}) {
     const result = await categoryRepository.findAdminAll(params);
-    const parentUuidMap = await buildParentUuidMap();
+    const { uuidMap, nameMap } = await buildParentMaps();
     return {
       data: result.data.map((cat) =>
         formatAdminCategoryResponse({
           ...cat,
-          parentUuid: cat.parentId ? parentUuidMap.get(String(cat.parentId)) ?? null : null,
+          parentUuid: cat.parentId ? uuidMap.get(String(cat.parentId)) ?? null : null,
+          parentName: cat.parentId ? nameMap.get(String(cat.parentId)) ?? null : null,
         })
       ),
       meta: result.meta,
@@ -283,10 +293,11 @@ export const categoryService = {
     if (!category) {
       throw ApiError.notFound("Category not found");
     }
-    const parentUuidMap = await buildParentUuidMap();
+    const { uuidMap, nameMap } = await buildParentMaps();
     return formatAdminCategoryResponse({
       ...category,
-      parentUuid: category.parentId ? parentUuidMap.get(String(category.parentId)) ?? null : null,
+      parentUuid: category.parentId ? uuidMap.get(String(category.parentId)) ?? null : null,
+      parentName: category.parentId ? nameMap.get(String(category.parentId)) ?? null : null,
     });
   },
 
@@ -361,10 +372,11 @@ export const categoryService = {
       throw ApiError.notFound("Category not found");
     }
 
-    const parentUuidMap = await buildParentUuidMap();
+    const { uuidMap, nameMap } = await buildParentMaps();
     return formatAdminCategoryResponse({
       ...updated,
-      parentUuid: updated.parentId ? parentUuidMap.get(String(updated.parentId)) ?? null : null,
+      parentUuid: updated.parentId ? uuidMap.get(String(updated.parentId)) ?? null : null,
+      parentName: updated.parentId ? nameMap.get(String(updated.parentId)) ?? null : null,
     });
   },
 

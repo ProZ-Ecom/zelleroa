@@ -679,17 +679,17 @@ async function main() {
           image: "https://images.unsplash.com/photo-1595777457583-95e059d581b8?w=800&auto=format&fit=crop&q=80",
           description: "Elevated women's apparel from dresses to handloom ethnic wear.",
           children: [
-            { name: "Dresses", slug: "women-dresses" },
-            { name: "Tops", slug: "women-tops" },
-            { name: "T-Shirts", slug: "women-t-shirts" },
-            { name: "Shirts", slug: "women-shirts" },
-            { name: "Jeans", slug: "women-jeans" },
-            { name: "Trousers", slug: "women-trousers" },
-            { name: "Skirts", slug: "women-skirts" },
-            { name: "Kurtis", slug: "women-kurtis" },
-            { name: "Ethnic Wear", slug: "women-ethnic-wear" },
-            { name: "Sarees", slug: "women-sarees" },
-            { name: "Co-ords", slug: "women-co-ords" },
+            { name: "Dresses", slug: "women-dresses", image: "https://images.unsplash.com/photo-1595777457583-95e059d581b8?w=800&auto=format&fit=crop&q=80" },
+            { name: "Tops", slug: "women-tops", image: "https://images.unsplash.com/photo-1503342217505-b0a15ec3261c?w=800&auto=format&fit=crop&q=80" },
+            { name: "T-Shirts", slug: "women-t-shirts", image: "https://images.unsplash.com/photo-1521572267360-ee0c2909d518?w=800&auto=format&fit=crop&q=80" },
+            { name: "Shirts", slug: "women-shirts", image: "https://images.unsplash.com/photo-1598033129183-c4f50c736f10?w=800&auto=format&fit=crop&q=80" },
+            { name: "Jeans", slug: "women-jeans", image: "https://images.unsplash.com/photo-1541099649105-f69ad21f3246?w=800&auto=format&fit=crop&q=80" },
+            { name: "Trousers", slug: "women-trousers", image: "https://images.unsplash.com/photo-1594633312681-425c7b97ccd1?w=800&auto=format&fit=crop&q=80" },
+            { name: "Skirts", slug: "women-skirts", image: "https://images.unsplash.com/photo-1583496661160-fb5886a0aaaa?w=800&auto=format&fit=crop&q=80" },
+            { name: "Kurtis", slug: "women-kurtis", image: "https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=800&auto=format&fit=crop&q=80" },
+            { name: "Ethnic Wear", slug: "women-ethnic-wear", image: "https://images.unsplash.com/photo-1617627143750-d86bc21e42bb?w=800&auto=format&fit=crop&q=80" },
+            { name: "Sarees", slug: "women-sarees", image: "https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=800&auto=format&fit=crop&q=80" },
+            { name: "Co-ords", slug: "women-co-ords", image: "https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=800&auto=format&fit=crop&q=80" },
           ],
         },
         {
@@ -697,10 +697,10 @@ async function main() {
           slug: "women-footwear",
           image: "https://images.unsplash.com/photo-1543163521-1bf539c55dd2?w=800&auto=format&fit=crop&q=80",
           children: [
-            { name: "Heels", slug: "women-heels" },
-            { name: "Flats", slug: "women-flats" },
-            { name: "Sneakers", slug: "women-sneakers" },
-            { name: "Sandals", slug: "women-sandals" },
+            { name: "Heels", slug: "women-heels", image: "https://images.unsplash.com/photo-1543163521-1bf539c55dd2?w=800&auto=format&fit=crop&q=80" },
+            { name: "Flats", slug: "women-flats", image: "https://images.unsplash.com/photo-1560343090-f0409e92791a?w=800&auto=format&fit=crop&q=80" },
+            { name: "Sneakers", slug: "women-sneakers", image: "https://images.unsplash.com/photo-1595950653106-6c9ebd614d3a?w=800&auto=format&fit=crop&q=80" },
+            { name: "Sandals", slug: "women-sandals", image: "https://images.unsplash.com/photo-1603808033192-082d6919d3e1?w=800&auto=format&fit=crop&q=80" },
           ],
         },
         {
@@ -708,10 +708,10 @@ async function main() {
           slug: "women-bags",
           image: "https://images.unsplash.com/photo-1584917865442-de89df76afd3?w=800&auto=format&fit=crop&q=80",
           children: [
-            { name: "Handbags", slug: "women-handbags" },
-            { name: "Shoulder Bags", slug: "women-shoulder-bags" },
-            { name: "Sling Bags", slug: "women-sling-bags" },
-            { name: "Tote Bags", slug: "women-tote-bags" },
+            { name: "Handbags", slug: "women-handbags", image: "https://images.unsplash.com/photo-1584917865442-de89df76afd3?w=800&auto=format&fit=crop&q=80" },
+            { name: "Shoulder Bags", slug: "women-shoulder-bags", image: "https://images.unsplash.com/photo-1548036328-c9fa89d128fa?w=800&auto=format&fit=crop&q=80" },
+            { name: "Sling Bags", slug: "women-sling-bags", image: "https://images.unsplash.com/photo-1590874103328-eac38a683ce7?w=800&auto=format&fit=crop&q=80" },
+            { name: "Tote Bags", slug: "women-tote-bags", image: "https://images.unsplash.com/photo-1591561954557-26941169b49e?w=800&auto=format&fit=crop&q=80" },
           ],
         },
         {
@@ -719,10 +719,10 @@ async function main() {
           slug: "women-accessories",
           image: "https://images.unsplash.com/photo-1535632066927-ab7c9ab60908?w=800&auto=format&fit=crop&q=80",
           children: [
-            { name: "Jewellery", slug: "women-jewellery" },
-            { name: "Sunglasses", slug: "women-sunglasses" },
-            { name: "Watches", slug: "women-watches" },
-            { name: "Scarves", slug: "women-scarves" },
+            { name: "Jewellery", slug: "women-jewellery", image: "https://images.unsplash.com/photo-1599643478518-a784e5dc4c8f?w=800&auto=format&fit=crop&q=80" },
+            { name: "Sunglasses", slug: "women-sunglasses", image: "https://images.unsplash.com/photo-1511499767150-a48a237f0083?w=800&auto=format&fit=crop&q=80" },
+            { name: "Watches", slug: "women-watches", image: "https://images.unsplash.com/photo-1524805444758-089113d48a6d?w=800&auto=format&fit=crop&q=80" },
+            { name: "Scarves", slug: "women-scarves", image: "https://images.unsplash.com/photo-1601924994987-69e26d50dc26?w=800&auto=format&fit=crop&q=80" },
           ],
         },
       ],
@@ -738,12 +738,12 @@ async function main() {
           slug: "men-clothing",
           image: "https://images.unsplash.com/photo-1602810318383-e386cc2a3ccf?w=800&auto=format&fit=crop&q=80",
           children: [
-            { name: "Shirts", slug: "men-shirts" },
-            { name: "T-Shirts", slug: "men-t-shirts" },
-            { name: "Jeans", slug: "men-jeans" },
-            { name: "Trousers", slug: "men-trousers" },
-            { name: "Chinos", slug: "men-chinos" },
-            { name: "Suits & Blazers", slug: "men-suits-blazers" },
+            { name: "Shirts", slug: "men-shirts", image: "https://images.unsplash.com/photo-1602810318383-e386cc2a3ccf?w=800&auto=format&fit=crop&q=80" },
+            { name: "T-Shirts", slug: "men-t-shirts", image: "https://images.unsplash.com/photo-1521572267360-ee0c2909d518?w=800&auto=format&fit=crop&q=80" },
+            { name: "Jeans", slug: "men-jeans", image: "https://images.unsplash.com/photo-1542272604-780c96856592?w=800&auto=format&fit=crop&q=80" },
+            { name: "Trousers", slug: "men-trousers", image: "https://images.unsplash.com/photo-1624378439575-d8705ad7ae80?w=800&auto=format&fit=crop&q=80" },
+            { name: "Chinos", slug: "men-chinos", image: "https://images.unsplash.com/photo-1473966968600-fa801b869a1a?w=800&auto=format&fit=crop&q=80" },
+            { name: "Suits & Blazers", slug: "men-suits-blazers", image: "https://images.unsplash.com/photo-1507679799987-c73779587ccf?w=800&auto=format&fit=crop&q=80" },
           ],
         },
         {
@@ -751,9 +751,9 @@ async function main() {
           slug: "men-footwear",
           image: "https://images.unsplash.com/photo-1614252235316-8c857d38b5f4?w=800&auto=format&fit=crop&q=80",
           children: [
-            { name: "Loafers", slug: "men-loafers" },
-            { name: "Sneakers", slug: "men-sneakers" },
-            { name: "Formal Shoes", slug: "men-formal-shoes" },
+            { name: "Loafers", slug: "men-loafers", image: "https://images.unsplash.com/photo-1614252235316-8c857d38b5f4?w=800&auto=format&fit=crop&q=80" },
+            { name: "Sneakers", slug: "men-sneakers", image: "https://images.unsplash.com/photo-1525966222134-fcfa99b8ae77?w=800&auto=format&fit=crop&q=80" },
+            { name: "Formal Shoes", slug: "men-formal-shoes", image: "https://images.unsplash.com/photo-1533867617858-e7b97e060509?w=800&auto=format&fit=crop&q=80" },
           ],
         },
         {
@@ -761,10 +761,10 @@ async function main() {
           slug: "men-accessories",
           image: "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800&auto=format&fit=crop&q=80",
           children: [
-            { name: "Watches", slug: "men-watches" },
-            { name: "Belts", slug: "men-belts" },
-            { name: "Wallets", slug: "men-wallets" },
-            { name: "Sunglasses", slug: "men-sunglasses" },
+            { name: "Watches", slug: "men-watches", image: "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800&auto=format&fit=crop&q=80" },
+            { name: "Belts", slug: "men-belts", image: "https://images.unsplash.com/photo-1624222247344-550fb60583dc?w=800&auto=format&fit=crop&q=80" },
+            { name: "Wallets", slug: "men-wallets", image: "https://images.unsplash.com/photo-1627123424574-724758594e93?w=800&auto=format&fit=crop&q=80" },
+            { name: "Sunglasses", slug: "men-sunglasses", image: "https://images.unsplash.com/photo-1511499767150-a48a237f0083?w=800&auto=format&fit=crop&q=80" },
           ],
         },
       ],
@@ -798,9 +798,9 @@ async function main() {
       description: "Sapphire glass automatics, minimalist rose gold chronographs, and precision dials.",
       image: "https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&w=800&q=80",
       children: [
-        { name: "Automatic Watches", slug: "watches-automatic" },
-        { name: "Chronographs", slug: "watches-chronographs" },
-        { name: "Minimalist Watches", slug: "watches-minimalist" },
+        { name: "Automatic Watches", slug: "watches-automatic", image: "https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?w=800&auto=format&fit=crop&q=80" },
+        { name: "Chronographs", slug: "watches-chronographs", image: "https://images.unsplash.com/photo-1524805444758-089113d48a6d?w=800&auto=format&fit=crop&q=80" },
+        { name: "Minimalist Watches", slug: "watches-minimalist", image: "https://images.unsplash.com/photo-1508685096489-7aacd43bd3b1?w=800&auto=format&fit=crop&q=80" },
       ],
     },
     {
@@ -809,10 +809,10 @@ async function main() {
       description: "Full-grain leather totes, lambskin crossbody bags, and travel duffles.",
       image: "https://images.unsplash.com/photo-1548036328-c9fa89d128fa?auto=format&fit=crop&w=800&q=80",
       children: [
-        { name: "Leather Totes", slug: "bags-totes" },
-        { name: "Crossbody Bags", slug: "bags-crossbody" },
-        { name: "Travel Duffles", slug: "bags-duffles" },
-        { name: "Wallets & Clutches", slug: "bags-wallets" },
+        { name: "Leather Totes", slug: "bags-totes", image: "https://images.unsplash.com/photo-1591561954557-26941169b49e?w=800&auto=format&fit=crop&q=80" },
+        { name: "Crossbody Bags", slug: "bags-crossbody", image: "https://images.unsplash.com/photo-1548036328-c9fa89d128fa?w=800&auto=format&fit=crop&q=80" },
+        { name: "Travel Duffles", slug: "bags-duffles", image: "https://images.unsplash.com/photo-1553062407-98eeb64c6a62?w=800&auto=format&fit=crop&q=80" },
+        { name: "Wallets & Clutches", slug: "bags-wallets", image: "https://images.unsplash.com/photo-1627123424574-724758594e93?w=800&auto=format&fit=crop&q=80" },
       ],
     },
     {
@@ -821,10 +821,10 @@ async function main() {
       description: "18K gold-plated earrings, Baroque pearl drops, and diamond constellation necklaces.",
       image: "https://images.unsplash.com/photo-1599643478518-a784e5dc4c8f?auto=format&fit=crop&w=800&q=80",
       children: [
-        { name: "Earrings", slug: "jewellery-earrings" },
-        { name: "Necklaces & Pendants", slug: "jewellery-necklaces" },
-        { name: "Bracelets & Bangles", slug: "jewellery-bracelets" },
-        { name: "Rings", slug: "jewellery-rings" },
+        { name: "Earrings", slug: "jewellery-earrings", image: "https://images.unsplash.com/photo-1535632066927-ab7c9ab60908?w=800&auto=format&fit=crop&q=80" },
+        { name: "Necklaces & Pendants", slug: "jewellery-necklaces", image: "https://images.unsplash.com/photo-1599643478518-a784e5dc4c8f?w=800&auto=format&fit=crop&q=80" },
+        { name: "Bracelets & Bangles", slug: "jewellery-bracelets", image: "https://images.unsplash.com/photo-1611591475819-0f2c41935c1a?w=800&auto=format&fit=crop&q=80" },
+        { name: "Rings", slug: "jewellery-rings", image: "https://images.unsplash.com/photo-1605100804763-247f67b3557e?w=800&auto=format&fit=crop&q=80" },
       ],
     },
     {
@@ -2185,17 +2185,17 @@ async function main() {
       });
     }
 
-        const variantsToCreate = (itemDef as any).variants ?? [
-          {
-            colorName: itemDef.colorName,
-            colorHex: itemDef.colorHex,
-            primaryImage: itemDef.primaryImage,
-            sizes: itemDef.sizes,
-          },
+    const variantsToCreate = (itemDef as any).variants ?? [
+      {
+        colorName: itemDef.colorName,
+        colorHex: itemDef.colorHex,
+        primaryImage: itemDef.primaryImage,
+        sizes: itemDef.sizes,
+      },
     ];
 
-        for(let vIdx = 0; vIdx<variantsToCreate.length; vIdx++) {
-          const vDef = variantsToCreate[vIdx];
+    for (let vIdx = 0; vIdx < variantsToCreate.length; vIdx++) {
+      const vDef = variantsToCreate[vIdx];
       // 4. Create ProductVariant (Color)
       const variant = await prisma.productVariant.create({
         data: {

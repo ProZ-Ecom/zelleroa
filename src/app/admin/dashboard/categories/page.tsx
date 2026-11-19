@@ -42,8 +42,11 @@ export default function AdminCategoriesPage() {
   const [onlyMissingImage, setOnlyMissingImage] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<CategoryListItem | null>(null);
 
+  const [levelFilter, setLevelFilter] = useState<"root" | "sub" | "all">("root");
+
   const { data, isLoading, error, refetch } = useCategories({
     pageSize: 500,
+    parentId: "all",
     search: search || undefined,
   });
 
@@ -53,20 +56,32 @@ export default function AdminCategoriesPage() {
 
   const allCategories = data?.success && data.data ? data.data : [];
 
-  // This page manages top-level categories only (Women, Men, Beauty, ...).
   const rootCategories = useMemo(
     () => allCategories.filter((c) => !c.parentId).sort((a, b) => a.sortOrder - b.sortOrder),
     [allCategories]
   );
 
-  const missingImageCount = useMemo(
-    () => rootCategories.filter((c) => !c.icon).length,
-    [rootCategories]
+  const subCategories = useMemo(
+    () => allCategories.filter((c) => !!c.parentId).sort((a, b) => a.sortOrder - b.sortOrder),
+    [allCategories]
   );
 
-  const visibleCategories = useMemo(
-    () => (onlyMissingImage ? rootCategories.filter((c) => !c.icon) : rootCategories),
-    [rootCategories, onlyMissingImage]
+  const visibleCategories = useMemo(() => {
+    let list = allCategories;
+    if (levelFilter === "root") {
+      list = rootCategories;
+    } else if (levelFilter === "sub") {
+      list = subCategories;
+    }
+    if (onlyMissingImage) {
+      list = list.filter((c) => !c.icon);
+    }
+    return list;
+  }, [allCategories, rootCategories, subCategories, levelFilter, onlyMissingImage]);
+
+  const missingImageCount = useMemo(
+    () => visibleCategories.filter((c) => !c.icon).length,
+    [visibleCategories]
   );
 
   const columns: ColumnDef<CategoryListItem, unknown>[] = [
@@ -103,6 +118,23 @@ export default function AdminCategoriesPage() {
           {row.original.slug}
         </span>
       ),
+    },
+    {
+      id: "type",
+      header: "Category Type",
+      cell: ({ row }) => {
+        const isRoot = !row.original.parentId;
+        const parentName = row.original.parentName;
+        return isRoot ? (
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-50 px-2.5 py-1 text-xs font-semibold text-blue-700 ring-1 ring-inset ring-blue-600/20">
+            Main Department
+          </span>
+        ) : (
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-800 ring-1 ring-inset ring-amber-600/20">
+            {parentName ? `Sub: ${parentName}` : "Subcategory"}
+          </span>
+        );
+      },
     },
     {
       accessorKey: "sortOrder",
@@ -253,6 +285,42 @@ export default function AdminCategoriesPage() {
           />
 
           <div className="mt-6 flex-1 min-h-0 flex flex-col">
+            <div className="flex flex-wrap items-center gap-2 mb-4">
+              <button
+                type="button"
+                onClick={() => { setLevelFilter("root"); setPage(1); }}
+                className={`px-3.5 py-1.5 text-xs font-semibold rounded-xl transition-all cursor-pointer ${
+                  levelFilter === "root"
+                    ? "bg-stone-900 text-[#D4AF37] shadow-sm"
+                    : "bg-white text-stone-600 hover:bg-stone-100 border border-stone-200"
+                }`}
+              >
+                Main Departments ({rootCategories.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => { setLevelFilter("sub"); setPage(1); }}
+                className={`px-3.5 py-1.5 text-xs font-semibold rounded-xl transition-all cursor-pointer ${
+                  levelFilter === "sub"
+                    ? "bg-stone-900 text-[#D4AF37] shadow-sm"
+                    : "bg-white text-stone-600 hover:bg-stone-100 border border-stone-200"
+                }`}
+              >
+                Subcategories ({subCategories.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => { setLevelFilter("all"); setPage(1); }}
+                className={`px-3.5 py-1.5 text-xs font-semibold rounded-xl transition-all cursor-pointer ${
+                  levelFilter === "all"
+                    ? "bg-stone-900 text-[#D4AF37] shadow-sm"
+                    : "bg-white text-stone-600 hover:bg-stone-100 border border-stone-200"
+                }`}
+              >
+                All Categories ({allCategories.length})
+              </button>
+            </div>
+
             <DataTable
               columns={columns}
               data={visibleCategories}
