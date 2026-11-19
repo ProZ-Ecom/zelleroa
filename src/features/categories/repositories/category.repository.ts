@@ -36,282 +36,282 @@ function buildCategoryWhere(params: GetCategoriesParams): Prisma.ProductCategory
     ];
   }
 
-  if (params.parentId !== undefined && params.parentId !== null) {
-    if (params.parentId === "all") {
-      // Don't filter parentId - return all
-    } else if (params.parentId === "root") {
+    if (params.parentId !== undefined && params.parentId !== null) {
+      if (params.parentId === "all") {
+        // Don't filter parentId - return all
+      } else if (params.parentId === "root") {
+        where.parentId = null;
+      } else {
+        const num = Number(params.parentId);
+        if (!Number.isNaN(num)) {
+          where.parentId = BigInt(num);
+        }
+      }
+    } else if (params.parentId === null) {
       where.parentId = null;
-    } else {
+    }
+
+    return where;
+  }
+
+  function buildAdminCategoryWhere(params: GetAdminCategoriesParams = {}): Prisma.ProductCategoryWhereInput {
+    const where: Prisma.ProductCategoryWhereInput = {
+      deleted_at: null,
+    };
+
+    if (typeof params.isActive === "boolean") {
+      where.isActive = params.isActive;
+    }
+
+    if (params.search) {
+      where.OR = [
+        { name: { contains: params.search } },
+        { description: { contains: params.search } },
+        { slug: { contains: params.search } },
+      ];
+    }
+
+    // Admin Master Categories: default to top-level categories (parentId: null)
+    if (params.parentId === undefined || params.parentId === null) {
+      where.parentId = null;
+    } else if (params.parentId !== "all") {
       const num = Number(params.parentId);
       if (!Number.isNaN(num)) {
         where.parentId = BigInt(num);
       }
     }
-  } else if (params.parentId === null) {
-    where.parentId = null;
+
+    return where;
   }
 
-  return where;
-}
+  export const categoryRepository = {
+    buildAdminCategoryWhere,
 
-function buildAdminCategoryWhere(params: GetAdminCategoriesParams = {}): Prisma.ProductCategoryWhereInput {
-  const where: Prisma.ProductCategoryWhereInput = {
-    deleted_at: null,
-  };
+    /** All active categories, minimal fields — used to build the in-memory category tree for nav/routing. */
+    async findAllActiveFlat() {
+      return db.productCategory.findMany({
+        where: { isActive: true, deleted_at: null },
+        select: {
+          id: true,
+          uuid: true,
+          slug: true,
+          name: true,
+          icon: true,
+          parentId: true,
+          sortOrder: true,
+        },
+        orderBy: { sortOrder: "asc" },
+      });
+    },
 
-  if (typeof params.isActive === "boolean") {
-    where.isActive = params.isActive;
-  }
-
-  if (params.search) {
-    where.OR = [
-      { name: { contains: params.search } },
-      { description: { contains: params.search } },
-      { slug: { contains: params.search } },
-    ];
-  }
-
-  // Admin Master Categories: default to top-level categories (parentId: null)
-  if (params.parentId === undefined || params.parentId === null) {
-    where.parentId = null;
-  } else if (params.parentId !== "all") {
-    const num = Number(params.parentId);
-    if (!Number.isNaN(num)) {
-      where.parentId = BigInt(num);
-    }
-  }
-
-  return where;
-}
-
-export const categoryRepository = {
-  buildAdminCategoryWhere,
-
-  /** All active categories, minimal fields — used to build the in-memory category tree for nav/routing. */
-  async findAllActiveFlat() {
-    return db.productCategory.findMany({
-      where: { isActive: true, deleted_at: null },
-      select: {
-        id: true,
-        uuid: true,
-        slug: true,
-        name: true,
-        icon: true,
-        parentId: true,
-        sortOrder: true,
-      },
-      orderBy: { sortOrder: "asc" },
-    });
-  },
-
-  async findAll(params: GetCategoriesParams = {}) {
-    const where = buildCategoryWhere(params);
-    return db.productCategory.findMany({
-      where,
-      include: categoryListInclude,
-      orderBy: { sortOrder: "asc" },
-    });
-  },
-
-  async findBySlugOrId(slugOrId: string) {
-    const numericId = parseInt(slugOrId);
-    return db.productCategory.findFirst({
-      where: {
-        isActive: true,
-        deleted_at: null,
-        OR: [
-          { slug: slugOrId },
-          { uuid: slugOrId },
-          ...(numericId ? [{ id: numericId }] : []),
-        ],
-      },
-      include: categoryDetailInclude,
-    });
-  },
-
-  async findById(id: number | bigint) {
-    return db.productCategory.findFirst({
-      where: { id: BigInt(id), isActive: true, deleted_at: null },
-      include: categoryDetailInclude,
-    });
-  },
-
-  async findByUuid(uuid: string) {
-    const numericId = parseInt(uuid);
-    return db.productCategory.findFirst({
-      where: {
-        isActive: true,
-        deleted_at: null,
-        OR: [
-          { uuid },
-          ...(Number.isFinite(numericId) && String(numericId) === uuid.trim() ? [{ id: BigInt(numericId) }] : []),
-        ],
-      },
-    });
-  },
-
-  async findBySlug(slug: string, excludeUuid?: string) {
-    return db.productCategory.findFirst({
-      where: {
-        slug,
-        isActive: true,
-        deleted_at: null,
-        ...(excludeUuid ? { uuid: { not: excludeUuid } } : {}),
-      },
-    });
-  },
-
-  async findByName(name: string, excludeUuid?: string) {
-    return db.productCategory.findFirst({
-      where: {
-        name,
-        isActive: true,
-        deleted_at: null,
-        ...(excludeUuid ? { uuid: { not: excludeUuid } } : {}),
-      },
-    });
-  },
-
-  async countAdminCategories(
-    params: GetAdminCategoriesParams = {}
-  ): Promise<AdminCategoriesCountResponse> {
-    const baseWhere = buildAdminCategoryWhere(params);
-
-    const [active, inactive, all] = await Promise.all([
-      db.productCategory.count({ where: { ...baseWhere, isActive: true } }),
-      db.productCategory.count({ where: { ...baseWhere, isActive: false } }),
-      db.productCategory.count({ where: baseWhere }),
-    ]);
-
-    return {
-      active,
-      inactive,
-      all,
-    };
-  },
-
-  async findAdminAll(params: GetAdminCategoriesParams = {}) {
-    const page = params.page ?? 1;
-    const pageSize = params.pageSize ?? params.limit ?? 10;
-
-    const where = buildAdminCategoryWhere(params);
-
-    const [data, total] = await Promise.all([
-      db.productCategory.findMany({
+    async findAll(params: GetCategoriesParams = {}) {
+      const where = buildCategoryWhere(params);
+      return db.productCategory.findMany({
         where,
-        orderBy: [{ sortOrder: "asc" }, { createdAt: "desc" }],
-        skip: (page - 1) * pageSize,
-        take: pageSize,
-      }),
-      db.productCategory.count({ where }),
-    ]);
+        include: categoryListInclude,
+        orderBy: { sortOrder: "asc" },
+      });
+    },
 
-    return {
-      data,
-      meta: {
-        page,
-        limit: pageSize,
-        pageSize,
-        total,
-        totalPages: Math.ceil(total / pageSize) || 1,
-      },
-    };
-  },
+    async findBySlugOrId(slugOrId: string) {
+      const numericId = parseInt(slugOrId);
+      return db.productCategory.findFirst({
+        where: {
+          isActive: true,
+          deleted_at: null,
+          OR: [
+            { slug: slugOrId },
+            { uuid: slugOrId },
+            ...(numericId ? [{ id: numericId }] : []),
+          ],
+        },
+        include: categoryDetailInclude,
+      });
+    },
 
-  async create(data: Prisma.ProductCategoryUncheckedCreateInput) {
-    return db.productCategory.create({
-      data,
-    });
-  },
+    async findById(id: number | bigint) {
+      return db.productCategory.findFirst({
+        where: { id: BigInt(id), isActive: true, deleted_at: null },
+        include: categoryDetailInclude,
+      });
+    },
 
-  async updateByUuid(uuid: string, data: Prisma.ProductCategoryUncheckedUpdateInput) {
-    const existing = await this.findByUuid(uuid);
-    if (!existing) return null;
-
-    return db.productCategory.update({
-      where: { id: existing.id },
-      data,
-    });
-  },
-
-  async softDeleteByUuid(uuid: string, adminId?: bigint | null) {
-    const existing = await this.findByUuid(uuid);
-    if (!existing) return null;
-
-    return db.$transaction(async (tx) => {
-      const category = await tx.productCategory.update({
-        where: { id: existing.id },
-        data: {
-          isActive: false,
-          deleted_at: new Date(),
-          // Free the unique slug so a new category can reuse it; the archived row
-          // keeps a namespaced slug instead of blocking the insert.
-          slug: retireUniqueValue(existing.slug, existing.id, 170),
-          ...(adminId ? { updated_by: adminId } : {}),
+    async findByUuid(uuid: string) {
+      const numericId = parseInt(uuid);
+      return db.productCategory.findFirst({
+        where: {
+          isActive: true,
+          deleted_at: null,
+          OR: [
+            { uuid },
+            ...(Number.isFinite(numericId) && String(numericId) === uuid.trim() ? [{ id: BigInt(numericId) }] : []),
+          ],
         },
       });
+    },
 
-      // Cascade the soft delete to every product under this category and from
-      // there to its styles, so nothing orphaned stays visible after the
-      // category disappears.
-      const now = new Date();
-
-      const products = await tx.product.findMany({
-        where: { categoryId: existing.id, deleted_at: null },
-        select: { id: true, slug: true },
+    async findBySlug(slug: string, excludeUuid?: string) {
+      return db.productCategory.findFirst({
+        where: {
+          slug,
+          isActive: true,
+          deleted_at: null,
+          ...(excludeUuid ? { uuid: { not: excludeUuid } } : {}),
+        },
       });
-      await Promise.all(
-        products.map((product) =>
-          tx.product.update({
-            where: { id: product.id },
-            data: {
-              isActive: false,
-              deleted_at: now,
-              slug: retireUniqueValue(product.slug, product.id, 220),
-              ...(adminId ? { updated_by: adminId } : {}),
-            },
-          })
-        )
-      );
+    },
 
-      if (products.length > 0) {
-        const styles = await tx.style.findMany({
-          where: { productId: { in: products.map((p) => p.id) }, deleted_at: null },
-          select: { id: true, slug: true, sku: true },
+    async findByName(name: string, excludeUuid?: string) {
+      return db.productCategory.findFirst({
+        where: {
+          name,
+          isActive: true,
+          deleted_at: null,
+          ...(excludeUuid ? { uuid: { not: excludeUuid } } : {}),
+        },
+      });
+    },
+
+    async countAdminCategories(
+      params: GetAdminCategoriesParams = {}
+    ): Promise<AdminCategoriesCountResponse> {
+      const baseWhere = buildAdminCategoryWhere(params);
+
+      const [active, inactive, all] = await Promise.all([
+        db.productCategory.count({ where: { ...baseWhere, isActive: true } }),
+        db.productCategory.count({ where: { ...baseWhere, isActive: false } }),
+        db.productCategory.count({ where: baseWhere }),
+      ]);
+
+      return {
+        active,
+        inactive,
+        all,
+      };
+    },
+
+    async findAdminAll(params: GetAdminCategoriesParams = {}) {
+      const page = params.page ?? 1;
+      const pageSize = params.pageSize ?? params.limit ?? 10;
+
+      const where = buildAdminCategoryWhere(params);
+
+      const [data, total] = await Promise.all([
+        db.productCategory.findMany({
+          where,
+          orderBy: [{ sortOrder: "asc" }, { createdAt: "desc" }],
+          skip: (page - 1) * pageSize,
+          take: pageSize,
+        }),
+        db.productCategory.count({ where }),
+      ]);
+
+      return {
+        data,
+        meta: {
+          page,
+          limit: pageSize,
+          pageSize,
+          total,
+          totalPages: Math.ceil(total / pageSize) || 1,
+        },
+      };
+    },
+
+    async create(data: Prisma.ProductCategoryUncheckedCreateInput) {
+      return db.productCategory.create({
+        data,
+      });
+    },
+
+    async updateByUuid(uuid: string, data: Prisma.ProductCategoryUncheckedUpdateInput) {
+      const existing = await this.findByUuid(uuid);
+      if (!existing) return null;
+
+      return db.productCategory.update({
+        where: { id: existing.id },
+        data,
+      });
+    },
+
+    async softDeleteByUuid(uuid: string, adminId?: bigint | null) {
+      const existing = await this.findByUuid(uuid);
+      if (!existing) return null;
+
+      return db.$transaction(async (tx) => {
+        const category = await tx.productCategory.update({
+          where: { id: existing.id },
+          data: {
+            isActive: false,
+            deleted_at: new Date(),
+            // Free the unique slug so a new category can reuse it; the archived row
+            // keeps a namespaced slug instead of blocking the insert.
+            slug: retireUniqueValue(existing.slug, existing.id, 170),
+            ...(adminId ? { updated_by: adminId } : {}),
+          },
+        });
+
+        // Cascade the soft delete to every product under this category and from
+        // there to its styles, so nothing orphaned stays visible after the
+        // category disappears.
+        const now = new Date();
+
+        const products = await tx.product.findMany({
+          where: { categoryId: existing.id, deleted_at: null },
+          select: { id: true, slug: true },
         });
         await Promise.all(
-          styles.map((style) =>
-            tx.style.update({
-              where: { id: style.id },
+          products.map((product) =>
+            tx.product.update({
+              where: { id: product.id },
               data: {
                 isActive: false,
                 deleted_at: now,
-                slug: retireUniqueValue(style.slug, style.id, 220),
-                ...(style.sku ? { sku: retireUniqueValue(style.sku, style.id, 100) } : {}),
+                slug: retireUniqueValue(product.slug, product.id, 220),
                 ...(adminId ? { updated_by: adminId } : {}),
               },
             })
           )
         );
-      }
 
-      return category;
-    });
-  },
+        if (products.length > 0) {
+          const styles = await tx.style.findMany({
+            where: { productId: { in: products.map((p) => p.id) }, deleted_at: null },
+            select: { id: true, slug: true, sku: true },
+          });
+          await Promise.all(
+            styles.map((style) =>
+              tx.style.update({
+                where: { id: style.id },
+                data: {
+                  isActive: false,
+                  deleted_at: now,
+                  slug: retireUniqueValue(style.slug, style.id, 220),
+                  ...(style.sku ? { sku: retireUniqueValue(style.sku, style.id, 100) } : {}),
+                  ...(adminId ? { updated_by: adminId } : {}),
+                },
+              })
+            )
+          );
+        }
 
-  async update(id: number | bigint, data: Prisma.ProductCategoryUncheckedUpdateInput) {
-    return db.productCategory.update({
-      where: { id: BigInt(id) },
-      data,
-      include: categoryDetailInclude,
-    });
-  },
+        return category;
+      });
+    },
 
-  async delete(id: number | bigint) {
-    return db.productCategory.delete({ where: { id: BigInt(id) } });
-  },
+    async update(id: number | bigint, data: Prisma.ProductCategoryUncheckedUpdateInput) {
+      return db.productCategory.update({
+        where: { id: BigInt(id) },
+        data,
+        include: categoryDetailInclude,
+      });
+    },
 
-  async count(where?: Prisma.ProductCategoryWhereInput) {
-    return db.productCategory.count({ where });
-  },
-};
+    async delete(id: number | bigint) {
+      return db.productCategory.delete({ where: { id: BigInt(id) } });
+    },
+
+    async count(where?: Prisma.ProductCategoryWhereInput) {
+      return db.productCategory.count({ where });
+    },
+  };

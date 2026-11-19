@@ -62,22 +62,22 @@ export default function AdminCategoriesPage() {
   );
 
   const subCategories = useMemo(
-    () => allCategories.filter((c) => !!c.parentId).sort((a, b) => a.sortOrder - b.sortOrder),
-    [allCategories]
-  );
+      () => allCategories.filter((c) => !!c.parentId).sort((a, b) => a.sortOrder - b.sortOrder),
+      [allCategories]
+    );
 
   const visibleCategories = useMemo(() => {
-    let list = allCategories;
-    if (levelFilter === "root") {
-      list = rootCategories;
-    } else if (levelFilter === "sub") {
-      list = subCategories;
-    }
-    if (onlyMissingImage) {
-      list = list.filter((c) => !c.icon);
-    }
-    return list;
-  }, [allCategories, rootCategories, subCategories, levelFilter, onlyMissingImage]);
+      let list = allCategories;
+      if (levelFilter === "root") {
+        list = rootCategories;
+      } else if (levelFilter === "sub") {
+        list = subCategories;
+      }
+      if (onlyMissingImage) {
+        list = list.filter((c) => !c.icon);
+      }
+      return list;
+    }, [allCategories, rootCategories, subCategories, levelFilter, onlyMissingImage]);
 
   const missingImageCount = useMemo(
     () => visibleCategories.filter((c) => !c.icon).length,
@@ -257,16 +257,16 @@ export default function AdminCategoriesPage() {
                 Import
               </Button>
 
-            <CanAct action="CREATE">
-              <Button
-                type="button"
-                onClick={() => setIsCreateOpen(true)}
-                className="h-11 rounded-xl bg-stone-900 hover:bg-stone-800 text-[#D4AF37] border border-[#D4AF37]/30 shadow-xs px-5 text-sm font-semibold transition-colors"
-              >
-                <Plus className="mr-2 h-4 w-4 text-[#D4AF37]" />
-                Add Category
-              </Button>
-            </CanAct>
+              <CanAct action="CREATE">
+                <Button
+                  type="button"
+                  onClick={() => setIsCreateOpen(true)}
+                  className="h-11 rounded-xl bg-stone-900 hover:bg-stone-800 text-[#D4AF37] border border-[#D4AF37]/30 shadow-xs px-5 text-sm font-semibold transition-colors"
+                >
+                  <Plus className="mr-2 h-4 w-4 text-[#D4AF37]" />
+                  Add Category
+                </Button>
+              </CanAct>
             </div>
           </div>
 
@@ -289,33 +289,30 @@ export default function AdminCategoriesPage() {
               <button
                 type="button"
                 onClick={() => { setLevelFilter("root"); setPage(1); }}
-                className={`px-3.5 py-1.5 text-xs font-semibold rounded-xl transition-all cursor-pointer ${
-                  levelFilter === "root"
+                className={`px-3.5 py-1.5 text-xs font-semibold rounded-xl transition-all cursor-pointer ${levelFilter === "root"
                     ? "bg-stone-900 text-[#D4AF37] shadow-sm"
                     : "bg-white text-stone-600 hover:bg-stone-100 border border-stone-200"
-                }`}
+                  }`}
               >
                 Main Departments ({rootCategories.length})
               </button>
               <button
                 type="button"
                 onClick={() => { setLevelFilter("sub"); setPage(1); }}
-                className={`px-3.5 py-1.5 text-xs font-semibold rounded-xl transition-all cursor-pointer ${
-                  levelFilter === "sub"
+                className={`px-3.5 py-1.5 text-xs font-semibold rounded-xl transition-all cursor-pointer ${levelFilter === "sub"
                     ? "bg-stone-900 text-[#D4AF37] shadow-sm"
                     : "bg-white text-stone-600 hover:bg-stone-100 border border-stone-200"
-                }`}
+                  }`}
               >
                 Subcategories ({subCategories.length})
               </button>
               <button
                 type="button"
                 onClick={() => { setLevelFilter("all"); setPage(1); }}
-                className={`px-3.5 py-1.5 text-xs font-semibold rounded-xl transition-all cursor-pointer ${
-                  levelFilter === "all"
+                className={`px-3.5 py-1.5 text-xs font-semibold rounded-xl transition-all cursor-pointer ${levelFilter === "all"
                     ? "bg-stone-900 text-[#D4AF37] shadow-sm"
                     : "bg-white text-stone-600 hover:bg-stone-100 border border-stone-200"
-                }`}
+                  }`}
               >
                 All Categories ({allCategories.length})
               </button>

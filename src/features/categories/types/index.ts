@@ -2,7 +2,7 @@ export interface CategoryListItem {
   id: number;
   name: string;
   slug: string;
-  icon?:string;
+  icon?: string;
   description: string | null;
   image: string | null;
   parentId: number | null;
@@ -21,7 +21,7 @@ export interface CategoryDetail extends CategoryListItem {
   metaDescription: string | null;
   createdAt: Date;
   updatedAt: Date;
-  
+
   parent: {
     id: number;
     name: string;

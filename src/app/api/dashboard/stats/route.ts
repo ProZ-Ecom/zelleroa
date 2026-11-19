@@ -281,11 +281,11 @@ async function getStats(searchParams?: URLSearchParams) {
     }),
     db.$queryRaw<
       { sku: string; item_name: string; variant_name: string; quantity_available: number; reorder_level: number }[]
-    >`SELECT vup.sku, it.name AS item_name, pv.variant_name, i.quantity_available, i.reorder_level
+    >`SELECT vup.sku, st.name AS item_name, pv.variant_name, i.quantity_available, i.reorder_level
       FROM inventories i
       JOIN variant_unit_prices vup ON vup.id = i.variant_unit_price_id
       JOIN product_variants pv ON pv.id = vup.variant_id
-      JOIN items it ON it.id = pv.item_id
+      JOIN styles st ON st.id = pv.style_id
       WHERE i.quantity_available <= i.reorder_level
       ORDER BY i.quantity_available ASC
       LIMIT 6`,
