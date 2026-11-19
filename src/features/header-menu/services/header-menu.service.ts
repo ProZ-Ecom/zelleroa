@@ -5,10 +5,12 @@ import { headerMenuRepository } from "../repositories/header-menu.repository";
 import { categoryService, flattenTree } from "@/features/categories/services/category.service";
 import { userRepository } from "@/features/users/repositories/user.repository";
 import type { Prisma } from "@/generated/prisma";
-import type {
+import {
   AdminHeaderMenuItemResponse,
   GetAdminHeaderMenuParams,
+  HeaderMenuGender,
   HeaderNavItem,
+  MAX_HEADER_MENU_ITEMS,
 } from "../types";
 import type {
   CreateAdminHeaderMenuItemInput,
@@ -22,8 +24,20 @@ type HeaderMenuItemWithCategories = Prisma.HeaderMenuItemGetPayload<{
         category: { select: { id: true; uuid: true; slug: true; name: true; icon: true } };
       };
     };
+    tags: {
+      include: {
+        tag: { select: { id: true; slug: true; name: true; is_active: true } };
+      };
+    };
   };
 }>;
+
+function sanitizeHeaderGender(gender: unknown): HeaderMenuGender | null {
+  if (gender === "men" || gender === "women" || gender === "kids" || gender === "unisex" || gender === "not_applicable") {
+    return gender;
+  }
+  return null;
+}
 
 function formatAdminHeaderMenuItemResponse(
   item: HeaderMenuItemWithCategories
@@ -36,8 +50,13 @@ function formatAdminHeaderMenuItemResponse(
       name: join.category.name,
       slug: join.category.slug,
     })),
+    tags: item.tags.map((join) => ({
+      id: String(join.tag.id),
+      name: join.tag.name,
+      slug: join.tag.slug,
+    })),
     link: item.link,
-    gender: (item.gender as unknown as string) === "na" ? null : item.gender,
+    gender: sanitizeHeaderGender(item.gender),
     sortOrder: item.sortOrder,
     isActive: item.isActive,
     createdAt: item.createdAt,
@@ -82,6 +101,22 @@ async function resolveCategoryInternalIdsLenient(publicIds: string[]): Promise<b
   return resolved.filter((id): id is bigint => id !== null);
 }
 
+/** Tag public ids are the numeric primary key as a string. Inactive tags stay linkable; the storefront hides them. */
+async function resolveTagInternalIds(publicIds: string[]): Promise<bigint[]> {
+  const numeric = publicIds.filter((id) => /^\d+$/.test(id)).map((id) => BigInt(id));
+  if (numeric.length !== publicIds.length) {
+    throw ApiError.badRequest("Invalid tag id");
+  }
+  const found = await db.product_tags.findMany({
+    where: { id: { in: numeric } },
+    select: { id: true },
+  });
+  if (found.length !== numeric.length) {
+    throw ApiError.badRequest("One or more selected tags no longer exist");
+  }
+  return numeric;
+}
+
 async function getAdminInternalId(email?: string): Promise<bigint | null> {
   if (!email) return null;
   const user = await userRepository.findByEmail(email);
@@ -89,21 +124,43 @@ async function getAdminInternalId(email?: string): Promise<bigint | null> {
   return BigInt(user.internalId || user.id);
 }
 
+function buildTagLink(slugs: string[], gender: HeaderMenuGender | null): string {
+  const params = new URLSearchParams({ tag: slugs.join(",") });
+  if (gender && gender !== "not_applicable") params.set("gender", gender);
+  return `/products?${params.toString().replace(/%2C/g, ",")}`;
+}
+
+/** A nav item points at exactly one kind of target: categories, tags, or a custom link. */
+function assertSingleTarget(categoryCount: number, tagCount: number, hasLink: boolean) {
+  const targets = [categoryCount > 0, tagCount > 0, hasLink].filter(Boolean).length;
+  if (targets === 0) {
+    throw ApiError.badRequest("Select categories, select tags, or provide a link");
+  }
+  if (targets > 1) {
+    throw ApiError.badRequest("Choose only one of categories, tags or a link");
+  }
+}
+
 export const headerMenuService = {
   async createAdminHeaderMenuItem(
     data: CreateAdminHeaderMenuItemInput,
     adminEmail?: string
   ): Promise<AdminHeaderMenuItemResponse> {
+    const currentCount = await headerMenuRepository.countNonDeleted();
+    if (currentCount >= MAX_HEADER_MENU_ITEMS) {
+      throw ApiError.badRequest(
+        `A maximum of ${MAX_HEADER_MENU_ITEMS} header menu items can exist. The system prevents adding more than ${MAX_HEADER_MENU_ITEMS}.`
+      );
+    }
+
     const adminId = await getAdminInternalId(adminEmail);
     const categoryInternalIds = await resolveCategoryInternalIds(data.categoryIds ?? []);
-    const hasLink = Boolean(data.link?.trim());
-
-    if (categoryInternalIds.length === 0 && !hasLink) {
-      throw ApiError.badRequest("Select a category or provide a link");
-    }
-    if (categoryInternalIds.length > 0 && hasLink) {
-      throw ApiError.badRequest("Choose either categories or a link, not both");
-    }
+    const tagInternalIds = await resolveTagInternalIds(data.tagIds ?? []);
+    assertSingleTarget(
+      categoryInternalIds.length,
+      tagInternalIds.length,
+      Boolean(data.link?.trim())
+    );
 
     const created = await headerMenuRepository.create(
       {
@@ -116,7 +173,8 @@ export const headerMenuService = {
         created_by: adminId,
         updated_by: adminId,
       },
-      categoryInternalIds
+      categoryInternalIds,
+      tagInternalIds
     );
 
     return formatAdminHeaderMenuItemResponse(created);
@@ -175,17 +233,22 @@ export const headerMenuService = {
         ? await resolveCategoryInternalIdsLenient(data.categoryIds)
         : undefined;
 
-    const nextCategoryCount = categoryInternalIds?.length ?? existing.categories.length;
-    const nextLink = data.link !== undefined ? data.link : existing.link;
-    const nextHasLink = Boolean(nextLink?.trim());
-    if (nextCategoryCount === 0 && !nextHasLink) {
-      throw ApiError.badRequest("Select a category or provide a link");
-    }
-    if (nextCategoryCount > 0 && nextHasLink) {
-      throw ApiError.badRequest("Choose either categories or a link, not both");
-    }
+    const tagInternalIds =
+      data.tagIds !== undefined ? await resolveTagInternalIds(data.tagIds) : undefined;
 
-    const updated = await headerMenuRepository.updateByUuid(uuid, updateData, categoryInternalIds);
+    const nextLink = data.link !== undefined ? data.link : existing.link;
+    assertSingleTarget(
+      categoryInternalIds?.length ?? existing.categories.length,
+      tagInternalIds?.length ?? existing.tags.length,
+      Boolean(nextLink?.trim())
+    );
+
+    const updated = await headerMenuRepository.updateByUuid(
+      uuid,
+      updateData,
+      categoryInternalIds,
+      tagInternalIds
+    );
     if (!updated) {
       throw ApiError.notFound("Header menu item not found");
     }
@@ -231,12 +294,19 @@ export const headerMenuService = {
         );
       });
 
+      const tags = item.tags
+        .filter((join) => join.tag.is_active)
+        .map((join) => ({ id: String(join.tag.id), name: join.tag.name, slug: join.tag.slug }));
+      const gender = sanitizeHeaderGender(item.gender);
+
       return {
         id: item.uuid || String(item.id),
         label: item.label,
-        link: item.link,
-        gender: (item.gender as unknown as string) === "na" ? null : item.gender,
+        // A tag item is a plain link to the tagged listing, so the nav renders it like any custom link.
+        link: tags.length > 0 ? buildTagLink(tags.map((t) => t.slug), gender) : item.link,
+        gender,
         categories,
+        tags,
       };
     });
   },

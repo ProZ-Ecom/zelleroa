@@ -7,7 +7,6 @@ import type {
   CustomerVariantDetailDto,
   CustomerVariantListItemDto,
   CustomerStyleDetailDto,
-  CustomerItemDetailDto,
 } from "../types/catalog.types";
 
 /**
@@ -102,60 +101,32 @@ export const catalogOffers = {
 
   /**
    * The Style detail page prices every Color's every Size in one pass, then
-   * re-derives the Item/Style price ranges from the discounted prices so the
-   * "from ₹x" figures match what the size chips actually charge.
+   * re-derives the Style's price range from the discounted prices so the
+   * "from ₹x" figure matches what the size chips actually charge.
    */
   async decorateStyleDetail(style: CustomerStyleDetailDto): Promise<CustomerStyleDetailDto> {
-    await this.decorateVariants(style.items.flatMap((item) => item.colors));
+    await this.decorateVariants(style.colors);
 
-    for (const item of style.items) {
-      const prices = item.colors.flatMap((color) =>
-        color.unitPrices.map((up) => up.sellingPrice)
-      );
-      if (prices.length > 0) {
-        item.minPrice = Math.min(...prices);
-        item.maxPrice = Math.max(...prices);
-      }
-    }
-
-    const allPrices = style.items.flatMap((item) => [item.minPrice, item.maxPrice]);
-    const positive = allPrices.filter((price) => price > 0);
-    if (positive.length > 0) {
-      style.minPrice = Math.min(...positive);
-      style.maxPrice = Math.max(...positive);
+    const prices = style.colors.flatMap((color) =>
+      color.unitPrices.map((up) => up.sellingPrice)
+    );
+    if (prices.length > 0) {
+      style.minPrice = Math.min(...prices);
+      style.maxPrice = Math.max(...prices);
     }
 
     return style;
   },
 
-  /**
-   * The standalone Item page prices every Color's every Size in one pass, then
-   * re-derives the Item's price range from the discounted prices so the
-   * "from ₹x" figure matches what the size chips actually charge.
-   */
-  async decorateItemDetail(item: CustomerItemDetailDto): Promise<CustomerItemDetailDto> {
-    await this.decorateVariants(item.colors);
-
-    const prices = item.colors.flatMap((color) =>
-      color.unitPrices.map((up) => up.sellingPrice)
-    );
-    if (prices.length > 0) {
-      item.minPrice = Math.min(...prices);
-      item.maxPrice = Math.max(...prices);
-    }
-
-    return item;
-  },
-
   async decorateProductDetail(
     product: CustomerProductDetailDto
   ): Promise<CustomerProductDetailDto> {
-    await this.decorateVariants(product.items.flatMap((item) => item.variants));
+    await this.decorateVariants(product.styles.flatMap((style) => style.variants));
     return product;
   },
 
   /**
-   * Related items carry a single representative price rather than a list of
+   * Related rows carry a single representative price rather than a list of
    * pack sizes, so they are priced by the pack size their `sku` refers to.
    */
   async decorateRelatedVariants(

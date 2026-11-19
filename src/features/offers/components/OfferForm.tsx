@@ -55,14 +55,14 @@ function buildDefaults(offer?: OfferListItem | null): CreateOfferSchemaInput {
       code: "",
       level: "product",
       type: "percentage",
-      value: 0,
+      value: "" as unknown as number,
       buyQuantity: null,
       getQuantity: null,
       minQuantity: 1,
       maxQuantity: null,
       minCartValue: null,
       maxDiscountAmount: null,
-      priority: 0,
+      priority: "" as unknown as number,
       terms: "",
       startsAt: todayInputValue(),
       endsAt: todayInputValue(),
@@ -107,6 +107,7 @@ export function OfferForm({
     resolver: zodResolver(createOfferSchema) as any,
     defaultValues: buildDefaults(initialData),
     mode: "onBlur",
+    reValidateMode: "onBlur",
   });
 
   const { control, setValue, formState } = methods;
@@ -181,9 +182,11 @@ export function OfferForm({
   const showMaxDiscount = type === "percentage" || type === "flat";
 
   const targetError =
-    level === "product"
-      ? (formState.errors.productIds?.message as string | undefined)
-      : (formState.errors.itemIds?.message as string | undefined);
+    formState.isSubmitted
+      ? level === "product"
+        ? (formState.errors.productIds?.message as string | undefined)
+        : (formState.errors.itemIds?.message as string | undefined)
+      : undefined;
 
   return (
     <FormProvider {...methods}>
@@ -269,11 +272,17 @@ export function OfferForm({
             onProductChange={setProductFilterId}
             selectedProductIds={productIds}
             onSelectedProductIdsChange={(ids) =>
-              setValue("productIds", ids, { shouldValidate: true })
+              setValue("productIds", ids, {
+                shouldValidate: formState.isSubmitted,
+                shouldDirty: true,
+              })
             }
             selectedItemIds={itemIds}
             onSelectedItemIdsChange={(ids) =>
-              setValue("itemIds", ids, { shouldValidate: true })
+              setValue("itemIds", ids, {
+                shouldValidate: formState.isSubmitted,
+                shouldDirty: true,
+              })
             }
             preloadedItems={initialData?.items}
             preloadedProducts={initialData?.products}
@@ -365,15 +374,33 @@ export function OfferForm({
         <section className="grid gap-4 sm:grid-cols-3">
           <FormInput name="startsAt" type="date" label="Start Date" required />
           <FormInput name="endsAt" type="date" label="End Date" required />
-          <FormInput
-            name="priority"
-            type="number"
-            min={0}
-            max={1000}
-            label="Priority"
-            required
-            description="Higher wins when two offers of the same level compete."
-          />
+         <FormInput
+  name="priority"
+  type="number"
+  inputMode="numeric"
+  min={0}
+  max={1000}
+  step={1}
+  placeholder="0"
+  label="Priority"
+  required
+  description="Higher wins when two offers of the same level compete."
+  onFocus={(e) => e.target.select()}
+  onKeyDown={(e) => {
+    const allowed = [
+      "Backspace", "Delete", "Tab", "Enter", "Escape",
+      "ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Home", "End",
+    ];
+    if (allowed.includes(e.key) || e.ctrlKey || e.metaKey) return;
+    if (!/^\d$/.test(e.key)) e.preventDefault();
+  }}
+  onPaste={(e) => {
+    if (!/^\d+$/.test(e.clipboardData.getData("text").trim())) {
+      e.preventDefault();
+    }
+  }}
+  onDrop={(e) => e.preventDefault()}
+/>
         </section>
 
         {/* Terms & status ---------------------------------------------- */}
@@ -431,7 +458,7 @@ export function OfferForm({
           </Button>
           <FormSubmitButton
             isLoading={isLoading}
-            className="rounded-xl bg-[var(--color-secondary-600)] px-6 font-semibold text-white hover:bg-[var(--color-secondary-700)]"
+            className="rounded-xl bg-theme-primary hover:bg-theme-primary-hover px-6 font-semibold text-white transition-colors"
           >
             {submitLabel}
           </FormSubmitButton>

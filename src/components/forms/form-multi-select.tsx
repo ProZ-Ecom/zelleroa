@@ -49,8 +49,12 @@ function FormMultiSelect({
     <Controller
       name={name}
       control={control}
-      render={({ field, fieldState }) => {
+      render={({ field, fieldState, formState }) => {
         const selected: string[] = Array.isArray(field.value) ? field.value : [];
+        const hasError =
+          (fieldState.isTouched || formState.isSubmitted) &&
+          Boolean(fieldState.error);
+        const errorMessage = hasError ? fieldState.error?.message : undefined;
 
         const toggle = (value: string) => {
           if (disabled) return;
@@ -125,11 +129,11 @@ function FormMultiSelect({
               )}
             </div>
 
-            {description && !fieldState.error && (
+            {description && !hasError && (
               <p className="text-xs text-muted-foreground">{description}</p>
             )}
-            {fieldState.error?.message && (
-              <p className="text-xs text-red-500 font-medium">{fieldState.error.message}</p>
+            {errorMessage && (
+              <p className="text-xs text-red-500 font-medium">{errorMessage}</p>
             )}
           </div>
         );

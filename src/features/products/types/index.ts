@@ -98,7 +98,10 @@ export interface AdminProductResponse {
   hsnCodeName: string | null;
   name: string;
   slug: string;
-  gender: "men" | "women" | "kids" | "unisex" | null;
+  gender: "men" | "women" | "kids" | "unisex" | "not_applicable" | null;
+  /** Primary image, or null while the product still has none. */
+  imageUrl: string | null;
+  imageAlt: string | null;
   status: boolean;
   isActive: boolean;
   createdAt: Date;
@@ -142,6 +145,8 @@ export interface AdminProductsCountResponse {
   active: number;
   inactive: number;
   all: number;
+  /** Products with no active image yet; a bulk import leaves every product here. */
+  withoutImage: number;
 }
 
 export interface AdminProductImageResponse {
@@ -162,7 +167,7 @@ export type {
   CustomerProductDetailDto,
   CustomerVariantListItemDto,
   CustomerVariantUnitPriceDto,
-  CustomerItemDto,
+  CustomerProductStyleDto,
 } from "@/features/customers/types";
 
 export interface CustomerProductListParams {

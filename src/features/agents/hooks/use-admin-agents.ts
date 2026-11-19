@@ -40,6 +40,7 @@ export interface AgentOption {
   id: string;
   name: string;
   agentCode: string | null;
+  isActive: boolean;
 }
 
 export function useAgentOptions() {

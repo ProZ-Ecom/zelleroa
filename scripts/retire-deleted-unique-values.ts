@@ -102,16 +102,6 @@ async function run() {
   );
 
   await retire(
-    "items",
-    await db.item.findMany({ where: deleted, select: { id: true, slug: true, sku: true } }),
-    [
-      { name: "slug", max: 220 },
-      { name: "sku", max: 100 },
-    ],
-    (id, data) => db.item.update({ where: { id }, data })
-  );
-
-  await retire(
     "product_variants",
     await db.productVariant.findMany({ where: deleted, select: { id: true, slug: true } }),
     [{ name: "slug", max: 255 }],
@@ -151,6 +141,13 @@ async function run() {
     await db.product_units.findMany({ where: inactive, select: { id: true, code: true } }),
     [{ name: "code", max: 10 }],
     (id, data) => db.product_units.update({ where: { id }, data })
+  );
+
+  await retire(
+    "product_hsn_codes",
+    await db.product_hsn_codes.findMany({ where: inactive, select: { id: true, code: true } }),
+    [{ name: "code", max: 20 }],
+    (id, data) => db.product_hsn_codes.update({ where: { id }, data })
   );
 
   console.log(

@@ -1,7 +1,8 @@
 "use client";
 
 import React from "react";
-import { signOut } from "next-auth/react";
+import { useLogout } from "@/features/auth/hooks/use-auth-mutations";
+import { LogoutConfirmDialog } from "@/components/common/LogoutConfirmDialog";
 import { DashboardTab } from "./DashboardTab";
 import { OrdersTab } from "./OrdersTab";
 import { ProfileDetailsTab } from "./ProfileDetailsTab";
@@ -10,6 +11,8 @@ import { WishlistTab } from "./WishlistTab";
 import { WalletTab } from "./WalletTab";
 import { SettingsTab } from "./SettingsTab";
 import { useCustomerProfile } from "../../hooks/use-customer-profile";
+import { calculateCustomerCompletion } from "../../lib/profile-completion";
+import { ProfileAvatarRing } from "@/components/ui/ProfileAvatarRing";
 import { useCustomerOrders } from "../../hooks/use-customer-orders";
 import { useCustomerWishlist } from "../../hooks/use-customer-wishlist";
 
@@ -18,6 +21,8 @@ interface AccountShellProps {
   onTabChange: (tab: string) => void;
 }
 export function AccountShell({ activeTab, onTabChange }: AccountShellProps) {
+  const logout = useLogout("/login");
+  const [showLogoutConfirm, setShowLogoutConfirm] = React.useState(false);
   const { data: profile, isLoading: profileLoading } = useCustomerProfile();
   const {
     data: ordersResponse,
@@ -33,6 +38,7 @@ export function AccountShell({ activeTab, onTabChange }: AccountShellProps) {
   const userName = profile?.name || "Customer";
   const userPhone = profile?.phone || "";
   const userInitials = userName ? userName.slice(0, 2).toUpperCase() : "CU";
+  const completionPercent = profile ? calculateCustomerCompletion(profile).percent : 0;
 
   const navItems = [
     { id: "dashboard", label: "Dashboard" },
@@ -57,7 +63,7 @@ export function AccountShell({ activeTab, onTabChange }: AccountShellProps) {
 
   const handleNavClick = (id: string) => {
     if (id === "logout") {
-      signOut({ callbackUrl: "/login" });
+      setShowLogoutConfirm(true);
       return;
     }
     onTabChange(id);
@@ -91,9 +97,11 @@ export function AccountShell({ activeTab, onTabChange }: AccountShellProps) {
             </>
           ) : (
             <>
-              <div className="w-11 h-11 rounded-full bg-theme-primary flex items-center justify-center font-bold text-sm text-theme-secondary-light flex-shrink-0">
-                {userInitials}
-              </div>
+              <ProfileAvatarRing percent={completionPercent} size={52}>
+                <div className="w-full h-full bg-theme-primary flex items-center justify-center font-bold text-sm text-theme-secondary-light">
+                  {userInitials}
+                </div>
+              </ProfileAvatarRing>
               <div className="min-w-0">
                 <div className="font-semibold text-sm text-theme-text-primary truncate">
                   {userName}
@@ -150,9 +158,11 @@ export function AccountShell({ activeTab, onTabChange }: AccountShellProps) {
               </>
             ) : (
               <>
-                <div className="w-13 h-13 rounded-full bg-theme-primary flex items-center justify-center font-bold text-base text-theme-secondary-light flex-shrink-0">
-                  {userInitials}
-                </div>
+                <ProfileAvatarRing percent={completionPercent} size={60}>
+                  <div className="w-full h-full bg-theme-primary flex items-center justify-center font-bold text-base text-theme-secondary-light">
+                    {userInitials}
+                  </div>
+                </ProfileAvatarRing>
                 <div className="min-w-0">
                   <div className="font-semibold text-sm text-theme-text-primary truncate">
                     {userName}
@@ -252,6 +262,13 @@ export function AccountShell({ activeTab, onTabChange }: AccountShellProps) {
           {activeTab === "settings" && <SettingsTab />}
         </main>
       </div>
+
+      <LogoutConfirmDialog
+        open={showLogoutConfirm}
+        onClose={() => setShowLogoutConfirm(false)}
+        onConfirm={() => logout.mutate()}
+        isLoading={logout.isPending}
+      />
     </div>
   );
 }

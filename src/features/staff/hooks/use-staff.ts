@@ -8,10 +8,12 @@ import {
   getStaffCount,
   createStaff,
   updateStaff,
+  getAssignableStaffRoles,
 } from "../api/staff.api";
 import type {
   GetStaffParams,
   StaffResponse,
+  StaffAssignableRole,
   AdminStaffCountResponse,
 } from "../types";
 import type {
@@ -60,6 +62,16 @@ export function useStaffDetail(uuid: string | null) {
     queryKey: staffKeys.detail(uuid ?? ""),
     queryFn: () => getStaffByUuid(uuid!),
     enabled: Boolean(uuid),
+  });
+}
+
+/** Roles the Staff form can assign. Only fetched while the form is open. */
+export function useAssignableStaffRoles(enabled = true) {
+  return useQuery<StaffAssignableRole[]>({
+    queryKey: [...staffKeys.all, "assignable-roles"],
+    queryFn: getAssignableStaffRoles,
+    enabled,
+    staleTime: 5 * 60 * 1000,
   });
 }
 

@@ -1,8 +1,9 @@
 import { z } from "zod";
+import { NAME_REGEX, NAME_INVALID_MESSAGE } from "@/lib/validations/name";
 
 export const createAddressSchema = z.object({
-  firstName: z.string().min(1, "First name is required").max(255),
-  lastName: z.string().max(255).optional(),
+  firstName: z.string().min(1, "First name is required").max(255).regex(NAME_REGEX, NAME_INVALID_MESSAGE),
+  lastName: z.string().max(255).regex(NAME_REGEX, NAME_INVALID_MESSAGE).optional(),
   phone: z
     .string()
     .min(7, "Valid phone number is required")

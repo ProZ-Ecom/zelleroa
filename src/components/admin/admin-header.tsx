@@ -1,11 +1,13 @@
 "use client";
 
+import { useState } from "react";
 import { Bell, Menu } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dropdown, DropdownItem } from "@/components/common/dropdown";
-import { useSession, signOut } from "next-auth/react";
-import { logoutApi } from "@/features/auth/api/auth.api";
+import { useSession } from "next-auth/react";
+import { useLogout } from "@/features/auth/hooks/use-auth-mutations";
 import { getInitials } from "@/lib/utils";
+import { LogoutConfirmDialog } from "@/components/common/LogoutConfirmDialog";
 
 interface AdminHeaderProps {
   onMenuClick: () => void;
@@ -13,14 +15,11 @@ interface AdminHeaderProps {
 
 function AdminHeader({ onMenuClick }: AdminHeaderProps) {
   const { data: session } = useSession();
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
 
-  const handleLogout = async () => {
-    try {
-      await logoutApi();
-    } catch {
-      // ignore network errors on logout
-    }
-    await signOut({ callbackUrl: "/admin/login" });
+  const logout = useLogout("/admin/login");
+  const handleLogout = () => {
+    setShowLogoutConfirm(true);
   };
 
   return (
@@ -58,6 +57,13 @@ function AdminHeader({ onMenuClick }: AdminHeaderProps) {
           </DropdownItem>
         </Dropdown>
       </div>
+
+      <LogoutConfirmDialog
+        open={showLogoutConfirm}
+        onClose={() => setShowLogoutConfirm(false)}
+        onConfirm={() => logout.mutate()}
+        isLoading={logout.isPending}
+      />
     </header>
   );
 }

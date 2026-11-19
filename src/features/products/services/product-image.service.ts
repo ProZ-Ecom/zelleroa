@@ -38,8 +38,8 @@ async function getAdminInternalId(email?: string): Promise<bigint | null> {
 
 async function validateProduct(productUuid: string) {
   const product = await productRepository.findByUuid(productUuid);
-  if (!product || !product.isActive || product.deleted_at !== null) {
-    throw ApiError.notFound("Product not found or inactive");
+  if (!product || product.deleted_at !== null) {
+    throw ApiError.notFound("Product not found");
   }
   return product;
 }

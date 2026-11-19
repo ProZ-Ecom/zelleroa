@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { INDIA_POST_CONSIGNMENT_REGEX } from "@/lib/shipping/india-post";
+import { COURIER_CODES, DEFAULT_COURIER_CODE, getCourier } from "@/lib/shipping/couriers";
 
 /* ----------------------- Admin Delivery Schemas ----------------------- */
 
@@ -89,18 +89,42 @@ export type AssignDeliveryInput = z.infer<typeof assignDeliverySchema>;
 export const shipViaCourierSchema = z
   .object({
     orderId: z.string().uuid("Invalid order UUID"),
+    courier: z.enum(COURIER_CODES).default(DEFAULT_COURIER_CODE),
     trackingNumber: z
       .string()
       .trim()
       .toUpperCase()
-      .regex(
-        INDIA_POST_CONSIGNMENT_REGEX,
-        "Enter a valid Speed Post consignment number (e.g. EE123456789IN)"
-      ),
+      .min(1, "Enter the tracking number")
+      .max(50, "Tracking number is too long"),
+    invoiceNumber: z
+      .string()
+      .trim()
+      .min(1, "Invoice number is required")
+      .max(100, "Invoice number is too long"),
+  })
+  .strict()
+  .superRefine((value, ctx) => {
+    const courier = getCourier(value.courier);
+    if (courier?.pattern && !courier.pattern.test(value.trackingNumber)) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["trackingNumber"],
+        message: courier.patternMessage ?? "Invalid tracking number",
+      });
+    }
+  });
+
+export type ShipViaCourierInput = z.infer<typeof shipViaCourierSchema>;
+
+export const updateCourierStatusSchema = z
+  .object({
+    orderId: z.string().uuid("Invalid order UUID"),
+    status: z.enum(["out_for_delivery", "delivered"]),
+    note: z.string().trim().max(255).optional(),
   })
   .strict();
 
-export type ShipViaCourierInput = z.infer<typeof shipViaCourierSchema>;
+export type UpdateCourierStatusInput = z.infer<typeof updateCourierStatusSchema>;
 
 /* ----------------------- Staff Delivery Schemas ----------------------- */
 

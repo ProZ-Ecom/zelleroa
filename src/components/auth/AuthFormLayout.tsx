@@ -29,7 +29,11 @@ export default function AuthFormLayout({
       {/* Logo */}
       {showLogo && (
         <div className="mb-3 flex justify-center">
-          <span className="flex h-14 w-14 items-center justify-center rounded-xl bg-secondary-900 p-2 shadow-sm md:h-16 md:w-16 lg:h-[4.5rem] lg:w-[4.5rem]">
+          <Link
+            href="/"
+            aria-label="Go to home page"
+            className="flex h-14 w-14 items-center justify-center rounded-xl bg-secondary-900 p-2 shadow-sm md:h-16 md:w-16 lg:h-[4.5rem] lg:w-[4.5rem]"
+          >
             <Image
               src="/logo-mark.png"
               alt="Zellora"
@@ -38,7 +42,7 @@ export default function AuthFormLayout({
               className="h-full w-full object-contain"
               priority
             />
-          </span>
+          </Link>
         </div>
       )}
 

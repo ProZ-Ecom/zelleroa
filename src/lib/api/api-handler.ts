@@ -5,7 +5,11 @@ import { apiError, apiValidationError, apiFromError } from "./api-response";
 import { ApiError } from "./api-error";
 import { handlePrismaError } from "./api-error";
 import { auth } from "@/lib/auth/config";
-import { verifyAccessToken } from "@/lib/auth/jwt";
+import { verifyAccessToken, verifyRefreshToken, generateAccessToken } from "@/lib/auth/jwt";
+import { isRoleAllowed, resolveRoleScope } from "@/lib/auth/role-routes";
+import { resolveRequiredPermission, OWNER_ONLY } from "@/lib/permissions/api-map";
+import { getRoleAccess } from "@/lib/permissions/server";
+import { userRepository } from "@/features/users/repositories/user.repository";
 import { checkRateLimit, getClientIp } from "@/lib/security/rate-limiter";
 import type { Session } from "next-auth";
 
@@ -22,6 +26,12 @@ interface ApiHandlerOptions {
   /** Resolve a session/JWT if one is present, but don't reject the request when there isn't one (guest access). */
   optionalAuth?: boolean;
   requiredRole?: string[];
+  /**
+   * Permission this route needs. Normally left out: admin routes (those whose
+   * `requiredRole` covers ADMIN/STAFF) are matched against `src/lib/permissions/api-map.ts`
+   * by path and method. Set it to override that, or `false` to opt out of it.
+   */
+  requiredPermission?: string | false;
   bodySchema?: ZodSchema;
   querySchema?: ZodSchema;
   /** Per-IP, per-route request cap. Defaults to 60 requests/minute; pass `false` to disable. */
@@ -46,20 +56,54 @@ type HandlerFn = (
 function parseSearchParams(
   searchParams: URLSearchParams,
   schema?: ZodSchema
-): Record<string, unknown> {
+): { data: Record<string, unknown> } | { errors: string[] } {
   const raw: Record<string, string> = {};
   searchParams.forEach((value, key) => {
     raw[key] = value;
   });
 
-  if (schema) {
-    const result = schema.safeParse(raw);
-    if (result.success) {
-      return result.data as Record<string, unknown>;
-    }
-  }
+  if (!schema) return { data: raw };
 
-  return raw;
+  const result = schema.safeParse(raw);
+  if (result.success) {
+    return { data: result.data as Record<string, unknown> };
+  }
+  // Never hand unvalidated query values to a handler that expects parsed ones.
+  return {
+    errors: result.error.issues.map(
+      (issue) => `${issue.path.join(".")}: ${issue.message}`
+    ),
+  };
+}
+
+/**
+ * Permission gate for admin routes. The route's own `requiredPermission` wins; otherwise the
+ * path + method are looked up in `src/lib/permissions/api-map.ts`. Unmapped paths (uploads,
+ * for example) pass on the role check alone, and the built-in owner roles always pass.
+ * Returns an error response to send, or null when the request may proceed.
+ */
+async function checkRoutePermission(
+  request: NextRequest,
+  options: ApiHandlerOptions,
+  roleName?: string
+): Promise<Response | null> {
+  if (options.requiredPermission === false) return null;
+
+  const required =
+    options.requiredPermission ??
+    resolveRequiredPermission(new URL(request.url).pathname, request.method);
+  if (!required) return null;
+
+  const access = await getRoleAccess(roleName);
+  if (access.isOwner) return null;
+
+  if (required === OWNER_ONLY) {
+    return apiError("This action is restricted to the main admin account", 403);
+  }
+  if (!access.permissions.includes(required)) {
+    return apiError("You don't have permission", 403);
+  }
+  return null;
 }
 
 export function createApiHandler(
@@ -131,6 +175,7 @@ export function createApiHandler(
         const token =
           cookieStore?.get("access_token")?.value ||
           request.headers.get("authorization")?.replace("Bearer ", "");
+        const refreshToken = cookieStore?.get("refresh_token")?.value;
 
         if (token) {
           try {
@@ -140,14 +185,56 @@ export function createApiHandler(
                 id: payload.userId, // UUID string
                 email: payload.email,
                 role: payload.role || "CUSTOMER",
+                scope: resolveRoleScope(payload.scope, payload.role),
                 status: "active",
               },
               expires: new Date(Date.now() + 15 * 60 * 1000).toISOString(),
             } as unknown as Session;
           } catch {
-            if (options.requireAuth) {
-              return apiError("Session expired. Please log in again.", 401);
+            session = null;
+          }
+        }
+
+        // If access token is expired or missing, seamlessly refresh using refresh_token
+        if (!session?.user && refreshToken) {
+          try {
+            const refreshPayload = verifyRefreshToken(refreshToken);
+            const user = await userRepository.findById(refreshPayload.userId);
+            if (user && user.status === "active") {
+              const userUuid = user.uuid || String(user.id);
+              const userRole = user.roleName || user.role?.name || "CUSTOMER";
+              const userScope = resolveRoleScope(user.roleScope, userRole);
+              const newAccessToken = generateAccessToken({
+                userId: userUuid,
+                email: user.email ?? "",
+                role: userRole,
+                scope: userScope,
+              });
+
+              try {
+                cookieStore?.set("access_token", newAccessToken, {
+                  httpOnly: true,
+                  secure: process.env.NODE_ENV === "production",
+                  sameSite: "lax",
+                  path: "/",
+                  maxAge: 15 * 60, // 15 minutes
+                });
+              } catch {
+                // Ignore if cookies cannot be modified in read-only phase
+              }
+
+              session = {
+                user: {
+                  id: userUuid,
+                  email: user.email ?? "",
+                  role: userRole,
+                  scope: userScope,
+                  status: "active",
+                },
+                expires: new Date(Date.now() + 15 * 60 * 1000).toISOString(),
+              } as unknown as Session;
             }
+          } catch {
             session = null;
           }
         }
@@ -158,10 +245,13 @@ export function createApiHandler(
           return apiError("You must be logged in", 401);
         }
       } else if (options.requiredRole && options.requiredRole.length > 0) {
-        const userRole = (session.user as { role?: string }).role;
-        if (!userRole || !options.requiredRole.includes(userRole)) {
+        const sessionUser = session.user as { role?: string; scope?: string };
+        if (!isRoleAllowed(options.requiredRole, sessionUser.role, sessionUser.scope)) {
           return apiError("You don't have permission", 403);
         }
+
+        const denial = await checkRoutePermission(request, options, sessionUser.role);
+        if (denial) return denial;
       }
     }
 
@@ -177,7 +267,16 @@ export function createApiHandler(
     };
 
     if (options.querySchema) {
-      context.query = parseSearchParams(searchParams, options.querySchema);
+      const parsedQuery = parseSearchParams(searchParams, options.querySchema);
+      if ("errors" in parsedQuery) {
+        return apiValidationError(parsedQuery.errors);
+      }
+      context.query = parsedQuery.data;
+    } else {
+      const parsedQuery = parseSearchParams(searchParams);
+      if ("data" in parsedQuery) {
+        context.query = parsedQuery.data;
+      }
     }
 
     if (
@@ -219,7 +318,65 @@ export function createApiHandler(
       }
 
       console.error(`Unhandled API Error [${method}]:`, error);
-      return apiError("Something went wrong", 500);
+      const devMsg = error?.message ? `Something went wrong: ${error.message}` : "Something went wrong";
+      return apiError(process.env.NODE_ENV === "production" ? "Something went wrong" : devMsg, 500);
     }
+  };
+}
+
+/**
+ * Role guard for raw route handlers that don't go through createApiHandler.
+ * Resolves the session the same way (NextAuth, then the access_token cookie /
+ * bearer token) and rejects with 401/403 before the wrapped handler runs.
+ */
+export function withApiRoles<A extends unknown[]>(
+  roles: string[],
+  handler: (request: NextRequest, ...args: A) => Promise<Response> | Response
+) {
+  return async (request: NextRequest, ...args: A): Promise<Response> => {
+    let role: string | undefined;
+    let scope: string | undefined;
+    let authed = false;
+
+    try {
+      const session = await auth();
+      if (session?.user) {
+        authed = true;
+        role = (session.user as { role?: string }).role;
+        scope = (session.user as { scope?: string }).scope;
+      }
+    } catch {
+      // fall through to the token check
+    }
+
+    if (!authed) {
+      let token: string | undefined;
+      try {
+        token = (await cookies()).get("access_token")?.value;
+      } catch {
+        token = undefined;
+      }
+      token = token || request.headers.get("authorization")?.replace("Bearer ", "");
+      if (token) {
+        try {
+          const payload = verifyAccessToken(token);
+          role = payload.role;
+          scope = payload.scope;
+          authed = true;
+        } catch {
+          return apiError("Session expired. Please log in again.", 401);
+        }
+      }
+    }
+
+    if (!authed) return apiError("You must be logged in", 401);
+    if (!isRoleAllowed(roles, role, scope)) return apiError("You don't have permission", 403);
+
+    // Same permission gate as createApiHandler, so a route written by hand (and an
+    // owner-only one such as the database reset) is no weaker than the wrapped ones.
+    const denial = await checkRoutePermission(request, {}, role);
+    if (denial) return denial;
+
+    return handler(request, ...args);
   };
 }

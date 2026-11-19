@@ -54,14 +54,14 @@ async function formatCartResponse(
   type PricedCartRow = CartRow & {
     variant_unit_price: NonNullable<CartRow["variant_unit_price"]>;
     product: NonNullable<CartRow["product"]>;
-    item: NonNullable<CartRow["item"]>;
+    style: NonNullable<CartRow["style"]>;
   };
 
   const rows = cart.items.filter(
     (item): item is PricedCartRow =>
       Boolean(item.variant_unit_price) &&
       Boolean(item.product) &&
-      Boolean(item.item) &&
+      Boolean(item.style) &&
       item.is_active
   );
 
@@ -85,7 +85,6 @@ async function formatCartResponse(
     const unitPrice = item.variant_unit_price;
     const variant = unitPrice.variant;
     const product = item.product;
-    const cartItem = item.item;
     const line = pricing.lines[index];
 
     const basePrice = calculateVariantPrice(unitPrice);
@@ -112,11 +111,9 @@ async function formatCartResponse(
       styleId: item.style?.uuid || String(item.styleId),
       styleName: item.style?.name || product.name,
       styleSlug: item.style?.slug ?? null,
-      itemId: cartItem.uuid || String(cartItem.id),
       variantId: variant.uuid || String(variant.id),
       variantUnitPriceId: unitPrice.uuid || String(unitPrice.id),
       productName: product.name,
-      itemName: cartItem.name,
       variantName,
       colorId: variant.color_name ? variant.uuid || String(variant.id) : null,
       colorName: variant.color_name ?? null,
@@ -160,7 +157,7 @@ async function resolveInternalUserId(sessionUserId: string): Promise<bigint> {
     throw ApiError.unauthorized("Please login to access your cart");
   }
   if (!user.isActive || user.is_active === false) {
-    throw ApiError.forbidden("Your account is inactive or blocked. Please contact support.");
+    throw ApiError.accountBlocked("Your account is inactive or blocked. Please contact support.");
   }
   return BigInt(user.internalId);
 }
@@ -189,29 +186,39 @@ export const cartService = {
     let unitPrice = input.variantUnitPriceId
       ? await db.variantUnitPrice.findFirst({
           where: {
-            uuid: input.variantUnitPriceId,
+            OR: [
+              { uuid: input.variantUnitPriceId },
+              ...(/^\d+$/.test(input.variantUnitPriceId)
+                ? [{ id: BigInt(input.variantUnitPriceId) }]
+                : []),
+            ],
             deleted_at: null,
           },
           include: {
-            variant: { include: { item: { include: { style: { include: { product: true } } } } } },
+            variant: { include: { style: { include: { product: true } } } },
             inventories: { select: { quantity_available: true } },
           },
         })
       : null;
 
-    // If not found by unit price UUID or variantId was passed directly, try finding by variant UUID
+    // If not found by unit price UUID/ID or variantId was passed directly, try finding by variant UUID/ID
     if (!unitPrice) {
-      const variantUuid = input.variantId || input.variantUnitPriceId;
-      if (variantUuid) {
+      const variantKey = input.variantId || input.variantUnitPriceId;
+      if (variantKey) {
         // Try finding default unit price of variant
         unitPrice = await db.variantUnitPrice.findFirst({
           where: {
-            variant: { uuid: variantUuid },
+            variant: {
+              OR: [
+                { uuid: variantKey },
+                ...(/^\d+$/.test(variantKey) ? [{ id: BigInt(variantKey) }] : []),
+              ],
+            },
             deleted_at: null,
           },
           orderBy: [{ is_default: "desc" }, { createdAt: "asc" }],
           include: {
-            variant: { include: { item: { include: { style: { include: { product: true } } } } } },
+            variant: { include: { style: { include: { product: true } } } },
             inventories: { select: { quantity_available: true } },
           },
         });
@@ -229,13 +236,12 @@ export const cartService = {
       !variant ||
       !variant.isActive ||
       variant.deleted_at !== null ||
-      !variant.item ||
-      !variant.item.isActive ||
-      variant.item.deleted_at !== null ||
-      !variant.item.style ||
-      !variant.item.style.product ||
-      !variant.item.style.product.isActive ||
-      variant.item.style.product.deleted_at !== null
+      !variant.style ||
+      !variant.style.isActive ||
+      variant.style.deleted_at !== null ||
+      !variant.style.product ||
+      !variant.style.product.isActive ||
+      variant.style.product.deleted_at !== null
     ) {
       throw ApiError.badRequest("Product variant is unavailable");
     }
@@ -259,9 +265,8 @@ export const cartService = {
     // 2. Add to cart in transaction
     const updatedCart = await cartRepository.addItemToCart({
       owner,
-      productId: variant.item.style.productId,
-      styleId: variant.item.styleId,
-      itemId: variant.itemId,
+      productId: variant.style.productId,
+      styleId: variant.styleId,
       variantId: variant.id,
       variantUnitPriceId: unitPrice.id,
       quantity: input.quantity,
@@ -290,7 +295,6 @@ export const cartService = {
     const unitPrice = item.variant_unit_price;
     const variant = unitPrice?.variant;
     const product = item.product;
-    const cartItem = item.item;
 
     const basePrice = unitPrice
       ? calculateVariantPrice(unitPrice)
@@ -333,11 +337,9 @@ export const cartService = {
       styleId: item.style?.uuid || String(item.styleId),
       styleName: item.style?.name || product?.name || "",
       styleSlug: item.style?.slug ?? null,
-      itemId: cartItem?.uuid || String(item.itemId),
       variantId: variant?.uuid || "",
       variantUnitPriceId: unitPrice?.uuid || String(item.variantUnitPriceId),
       productName: product?.name || "",
-      itemName: cartItem?.name || "",
       variantName,
       colorId: variant?.color_name ? variant.uuid || String(variant.id) : null,
       colorName: variant?.color_name ?? null,

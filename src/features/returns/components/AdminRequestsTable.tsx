@@ -5,15 +5,21 @@ import { Eye, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
+import { ClearFiltersButton } from "@/components/common/clear-filters-button";
+import { ExportButton } from "@/components/common/export-button";
+import { exportDataToCsv } from "@/lib/export-csv";
 import { formatDateTime } from "@/lib/utils";
 import {
   REPLACEMENT_STATUSES,
-  RETURN_STATUSES,
+  RETURN_SELECTABLE_STATUSES,
+  returnStatusLabel,
   statusLabel,
+  formatStoreDate,
 } from "../lib/policy";
 import { useAdminRequests, type RequestKind } from "../hooks/use-returns";
 import { RequestStatusBadge } from "./RequestStatusBadge";
 import { AdminRequestDetailModal } from "./AdminRequestDetailModal";
+import { AdminVideoStorageButton } from "./AdminVideoStorageAlert";
 
 const PAGE_SIZE = 10;
 
@@ -24,7 +30,7 @@ export function AdminRequestsTable({ kind }: { kind: RequestKind }) {
   const [query, setQuery] = useState("");
   const [openId, setOpenId] = useState<string | null>(null);
 
-  const statuses = kind === "returns" ? RETURN_STATUSES : REPLACEMENT_STATUSES;
+  const statuses = kind === "returns" ? RETURN_SELECTABLE_STATUSES : REPLACEMENT_STATUSES;
   const { data, isLoading, isFetching, error, refetch } = useAdminRequests(kind, {
     page,
     limit: PAGE_SIZE,
@@ -38,8 +44,9 @@ export function AdminRequestsTable({ kind }: { kind: RequestKind }) {
 
   return (
     <div className="flex h-full min-h-0 flex-col gap-3">
+
       <form
-        className="flex flex-wrap items-center gap-2"
+        className="flex flex-wrap items-center gap-3"
         onSubmit={(e) => {
           e.preventDefault();
           setPage(1);
@@ -55,25 +62,59 @@ export function AdminRequestsTable({ kind }: { kind: RequestKind }) {
             className="pl-9"
           />
         </div>
-        <Select
-          value={status || "all"}
-          onValueChange={(v) => {
-            setPage(1);
-            setStatus(v === "all" ? "" : v);
-          }}
-          options={[
-            { value: "all", label: "All statuses" },
-            ...statuses.map((s) => ({ value: s, label: statusLabel(s) })),
-          ]}
-        />
-        <Button type="submit" variant="outline" size="sm">
+        <div className="w-full sm:w-48 shrink-0">
+          <Select
+            value={status || "all"}
+            onValueChange={(v) => {
+              setPage(1);
+              setStatus(v === "all" ? "" : v);
+            }}
+            options={[
+              { value: "all", label: "All statuses" },
+              ...statuses.map((s) => ({
+                value: s,
+                label: isReturn ? returnStatusLabel(s) : statusLabel(s),
+              })),
+            ]}
+          />
+        </div>
+        <Button type="submit" size="sm" className="h-10 px-4 shrink-0 bg-stone-900 hover:bg-stone-800 text-[#D4AF37] border border-[#D4AF37]/30 shadow-xs font-semibold">
           Search
         </Button>
+        {isReturn && <AdminVideoStorageButton />}
+        <ExportButton
+          onClick={() =>
+            exportDataToCsv(
+              rows.map((r) => ({
+                ReturnId: r.returnNumber || r.id.slice(0, 8).toUpperCase(),
+                OrderNumber: r.orderNumber,
+                Customer: r.customer.name,
+                CustomerContact: r.customer.phone || r.customer.email || "",
+                Products: r.items.map((i) => i.productName).join(", "),
+                Reason: r.reason,
+                RequestedAt: formatDateTime(r.requestedAt),
+                Status: isReturn ? returnStatusLabel(r.status) : statusLabel(r.status),
+              })),
+              `${kind}-requests`
+            )
+          }
+          disabled={rows.length === 0}
+        />
+        {(search.trim() || status || query) && (
+          <ClearFiltersButton
+            onClick={() => {
+              setSearch("");
+              setQuery("");
+              setStatus("");
+              setPage(1);
+            }}
+          />
+        )}
       </form>
 
-      <div className="min-h-0 flex-1 overflow-auto rounded-xl border border-cream-border-subtle bg-white">
+      <div className="min-h-0 flex-1 overflow-auto scrollbar-table rounded-xl border border-cream-border-subtle bg-white">
         <table className="w-full min-w-[900px] text-left text-xs">
-          <thead className="sticky top-0 bg-neutral-50 text-[11px] uppercase tracking-wider text-neutral-500">
+          <thead className="sticky top-0 z-10 bg-stone-900 text-[11px] font-bold uppercase tracking-wider text-[#D4AF37] border-b border-stone-800 shadow-[0_1px_3px_rgba(28,25,23,0.2)]">
             <tr>
               <th className="px-3 py-2.5">Request</th>
               <th className="px-3 py-2.5">Order</th>
@@ -88,7 +129,7 @@ export function AdminRequestsTable({ kind }: { kind: RequestKind }) {
               <th className="px-3 py-2.5">Requested</th>
               {isReturn && <th className="px-3 py-2.5">Deadline</th>}
               <th className="px-3 py-2.5">Status</th>
-              <th className="px-3 py-2.5 text-right">Actions</th>
+              <th className="sticky right-0 z-10 bg-stone-900 px-3 py-2.5 text-center shadow-[-4px_0_6px_-2px_rgba(0,0,0,0.3)]">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-neutral-100">
@@ -121,8 +162,16 @@ export function AdminRequestsTable({ kind }: { kind: RequestKind }) {
             )}
 
             {rows.map((r) => (
-              <tr key={r.id} className="hover:bg-neutral-50/70">
-                <td className="px-3 py-2.5 font-mono text-[11px]">{r.id.slice(0, 8).toUpperCase()}</td>
+              <tr key={r.id} className="group hover:bg-neutral-50/70">
+                <td className="px-3 py-2.5 font-mono text-[11px]">
+                  {r.returnNumber ? (
+                    <span className="font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 inline-block shadow-2xs">
+                      {r.returnNumber}
+                    </span>
+                  ) : (
+                    <span className="text-neutral-500">{r.id.slice(0, 8).toUpperCase()}</span>
+                  )}
+                </td>
                 <td className="px-3 py-2.5 font-mono font-semibold">{r.orderNumber}</td>
                 <td className="px-3 py-2.5">
                   <div className="font-semibold">{r.customer.name}</div>
@@ -150,16 +199,60 @@ export function AdminRequestsTable({ kind }: { kind: RequestKind }) {
                 </td>
                 <td className="px-3 py-2.5 whitespace-nowrap">{formatDateTime(r.requestedAt)}</td>
                 {isReturn && (
-                  <td className="px-3 py-2.5 whitespace-nowrap">
-                    {r.returnDeadline ? formatDateTime(r.returnDeadline) : "—"}
+                  <td className="px-3 py-2.5 whitespace-nowrap text-xs">
+                    {["return_requested", "under_review"].includes(r.status) && r.adminDeadline ? (
+                      <div className="flex flex-col">
+                        <span className="font-semibold text-neutral-900">
+                          {formatStoreDate(new Date(r.adminDeadline))}
+                        </span>
+                        <span
+                          className={`text-[10px] font-bold ${
+                            r.adminDeadlineExpired
+                              ? "text-red-600"
+                              : (r.adminDaysLeft ?? 0) <= 2
+                              ? "text-amber-700 font-extrabold"
+                              : "text-blue-700"
+                          }`}
+                        >
+                          {r.adminDeadlineExpired
+                            ? "Review expired"
+                            : `${r.adminDaysLeft}d left to Approve`}
+                        </span>
+                      </div>
+                    ) : r.status === "approved" && r.shipDeadline ? (
+                      <div className="flex flex-col">
+                        <span className="font-semibold text-neutral-900">
+                          {formatStoreDate(new Date(r.shipDeadline))}
+                        </span>
+                        <span
+                          className={`text-[10px] font-bold ${
+                            r.shipWindowExpired
+                              ? "text-red-600"
+                              : (r.shipDaysLeft ?? 0) <= 1
+                              ? "text-amber-700 font-extrabold"
+                              : "text-blue-700"
+                          }`}
+                        >
+                          {r.shipWindowExpired
+                            ? "Shipment expired"
+                            : `${r.shipDaysLeft}d left to ship`}
+                        </span>
+                      </div>
+                    ) : r.returnDeadline ? (
+                      <span className="text-neutral-500">
+                        {formatStoreDate(new Date(r.returnDeadline))}
+                      </span>
+                    ) : (
+                      <span className="text-neutral-400">—</span>
+                    )}
                   </td>
                 )}
                 <td className="px-3 py-2.5">
-                  <RequestStatusBadge status={r.status} />
+                  <RequestStatusBadge status={r.status} kind={isReturn ? "return" : "replacement"} />
                 </td>
-                <td className="px-3 py-2.5 text-right">
-                  <Button size="sm" variant="outline" onClick={() => setOpenId(r.id)}>
-                    <Eye className="mr-1 h-3.5 w-3.5" /> View
+                <td className="sticky right-0 z-10 bg-white px-3 py-2.5 text-center shadow-[-4px_0_6px_-2px_rgba(0,0,0,0.06)] group-hover:bg-neutral-50">
+                  <Button size="icon" variant="outline" title="View" aria-label="View" onClick={() => setOpenId(r.id)}>
+                    <Eye className="h-4 w-4" />
                   </Button>
                 </td>
               </tr>

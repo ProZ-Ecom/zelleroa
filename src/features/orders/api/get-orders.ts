@@ -81,6 +81,9 @@ export async function getAdminOrders(
   if (params?.paymentStatus) {
     body.paymentStatus = params.paymentStatus;
   }
+  if (params?.channel) {
+    body.channel = params.channel;
+  }
   if (params?.sortBy) {
     body.sortBy = params.sortBy;
   }
@@ -125,6 +128,9 @@ export async function getAdminOrdersCount(
   }
   if (params?.paymentStatus) {
     body.paymentStatus = params.paymentStatus;
+  }
+  if (params?.channel) {
+    body.channel = params.channel;
   }
 
   const response = await apiClient.post<AdminOrdersCountResponse>(
@@ -226,6 +232,29 @@ export async function assignOrderDelivery(
   const response = await apiClient.post<AssignDeliveryResponse>(
     "/api/admin/delivery/assign",
     input
+  );
+  return response.data!;
+}
+
+export async function updateOrderInvoiceNumber(
+  uuid: string | number,
+  invoiceNumber: string
+): Promise<OrderDetailResponse> {
+  const response = await apiClient.patch<OrderDetailResponse>(
+    `/api/admin/orders/${uuid}`,
+    { invoiceNumber }
+  );
+  return response.data!;
+}
+
+/** Admin: record the cash collected on a COD order. */
+export async function markOrderPaid(
+  uuid: string | number,
+  input?: { amount?: number; reference?: string; note?: string }
+): Promise<OrderDetailResponse> {
+  const response = await apiClient.post<OrderDetailResponse>(
+    `/api/admin/orders/${uuid}/mark-paid`,
+    input ?? {}
   );
   return response.data!;
 }

@@ -1,6 +1,7 @@
 import React from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { buttonVariants } from "@/components/ui/button";
 import { Reveal } from "./Reveal";
 import { MousePointerClick, Shirt, Headset, ClipboardCheck, ArrowUpRight, Clock } from "lucide-react";
 
@@ -134,7 +135,7 @@ export function AboutFounderSection() {
 
             <Link
               href="/products"
-              className="inline-flex items-center justify-center gap-2 px-7 py-3.5 rounded-full bg-about-hero-gold hover:bg-about-hero-gold-hover text-about-hero-btn-dark font-semibold text-sm transition-all duration-300 shadow-lg hover:shadow-xl hover:-translate-y-0.5 shrink-0 self-start lg:self-center"
+              className={`${buttonVariants({ variant: "secondary", size: "lg" })} gap-2 shrink-0 self-start lg:self-center`}
             >
               Start Shopping
               <ArrowUpRight className="w-4 h-4" />

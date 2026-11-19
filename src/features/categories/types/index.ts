@@ -94,6 +94,7 @@ export interface GetAdminCategoriesParams {
   limit?: number;
   search?: string;
   isActive?: boolean;
+  parentId?: string | null;
 }
 
 export interface CustomerCategoryDto {

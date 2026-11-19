@@ -2,8 +2,9 @@
 
 import { QueryClient, QueryClientProvider, MutationCache, QueryCache } from "@tanstack/react-query";
 import * as React from "react";
-import { toast } from "@/components/ui/Toast";
+import { toast, getSuccessToastAttempts } from "@/components/ui/Toast";
 import { ApiClientError } from "@/lib/api/api-client";
+import { ACCOUNT_BLOCKED_CODE } from "@/lib/api/account-blocked";
 
 interface MetaOptions {
   skipToast?: boolean;
@@ -41,17 +42,31 @@ function makeQueryClient() {
 
         const message = meta?.successMessage || data?.message;
         if (message && typeof message === "string") {
-          toast.success("Success", message);
+          // The cache-level handler runs before the hook's / caller's own
+          // onSuccess. If one of those shows its own success toast (with different
+          // wording, so content dedupe can't catch it), keep theirs and skip this.
+          const before = getSuccessToastAttempts();
+          setTimeout(() => {
+            if (getSuccessToastAttempts() === before) {
+              toast.success("Success", message);
+            }
+          }, 0);
         }
       },
       onError: (error: any, _variables, _context, mutation) => {
         const meta = mutation.meta as MetaOptions | undefined;
         if (meta?.skipToast) return;
+        // The account-blocked modal already explains this; don't stack an error toast.
+        if (error?.code === ACCOUNT_BLOCKED_CODE) return;
 
-        const backendMessage = error?.message || meta?.errorMessage || "An unexpected error occurred";
-
-        // Preserve exact backend message (e.g. "Invalid email or password")
-        toast.error("Error", backendMessage);
+        // Only fire global error toast if explicitly requested via meta
+        if (meta?.errorMessage) {
+          const detail =
+            (Array.isArray(error?.errors) && error.errors[0]) ||
+            error?.message ||
+            meta.errorMessage;
+          toast.error("Error", detail);
+        }
       },
     }),
     queryCache: new QueryCache({
@@ -61,7 +76,11 @@ function makeQueryClient() {
 
         // Suppress toasts for standard query refetches unless meta.errorMessage or meta explicitly requires it
         if (meta?.errorMessage) {
-          toast.error("Error", error?.message || meta.errorMessage);
+          const detail =
+            (Array.isArray(error?.errors) && error.errors[0]) ||
+            error?.message ||
+            meta.errorMessage;
+          toast.error("Error", detail);
         }
       },
     }),

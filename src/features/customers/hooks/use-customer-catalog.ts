@@ -21,11 +21,12 @@ export const CUSTOMER_CATALOG_QUERY_KEYS = {
     [...CUSTOMER_CATALOG_QUERY_KEYS.all, "listing", category, queryString, pageSize] as const,
   categoryMenu: (category: string, gender?: string | null) =>
     [...CUSTOMER_CATALOG_QUERY_KEYS.all, "category-menu", category, gender ?? null] as const,
-  item: (uuid: string) =>
-    [...CUSTOMER_CATALOG_QUERY_KEYS.all, "item", uuid] as const,
   product: (uuid: string) =>
     [...CUSTOMER_CATALOG_QUERY_KEYS.all, "product", uuid] as const,
   style: (uuid: string) =>
+    [...CUSTOMER_CATALOG_QUERY_KEYS.all, "style", uuid] as const,
+  /** Alias for backward compatibility */
+  item: (uuid: string) =>
     [...CUSTOMER_CATALOG_QUERY_KEYS.all, "style", uuid] as const,
   productVariants: (uuid: string, params?: CustomerVariantListInput) =>
     [...CUSTOMER_CATALOG_QUERY_KEYS.all, "product-variants", uuid, params ?? {}] as const,
@@ -45,6 +46,10 @@ export const CUSTOMER_CATALOG_QUERY_KEYS = {
     [...CUSTOMER_CATALOG_QUERY_KEYS.all, "global-variants", params ?? {}] as const,
   banners: (position?: string) =>
     [...CUSTOMER_CATALOG_QUERY_KEYS.all, "banners", position ?? "all"] as const,
+  globalSearch: (
+    query: string,
+    limits?: { productLimit?: number; categoryLimit?: number; brandLimit?: number }
+  ) => [...CUSTOMER_CATALOG_QUERY_KEYS.all, "global-search", query, limits ?? {}] as const,
 };
 
 /**
@@ -134,9 +139,8 @@ export function useCustomerStyles(
 }
 
 /**
- * Fetch one Style with its Items, and each Item's Colors/Sizes - everything
- * the Style detail page needs to switch Item, Color and Size without
- * re-fetching.
+ * Fetch one Style with its Colors and each Color's Sizes - everything the
+ * Style detail page needs to switch Color and Size without re-fetching.
  */
 export function useCustomerStyle(
   styleUuid: string | null,
@@ -146,23 +150,6 @@ export function useCustomerStyle(
     queryKey: CUSTOMER_CATALOG_QUERY_KEYS.style(styleUuid ?? ""),
     queryFn: () => customerCatalogApi.getStyle(styleUuid!),
     enabled: !!styleUuid && (options?.enabled ?? true),
-    staleTime: 1000 * 60 * 5,
-  });
-}
-
-/**
- * Fetch one Item with its Colors, and each Color's own images, Sizes, prices
- * and stock - everything the Item detail page needs to switch Color and Size
- * without re-fetching.
- */
-export function useCustomerItem(
-  itemUuid: string | null,
-  options?: { enabled?: boolean }
-) {
-  return useQuery({
-    queryKey: CUSTOMER_CATALOG_QUERY_KEYS.item(itemUuid ?? ""),
-    queryFn: () => customerCatalogApi.getItem(itemUuid!),
-    enabled: !!itemUuid && (options?.enabled ?? true),
     staleTime: 1000 * 60 * 5,
   });
 }
@@ -323,5 +310,32 @@ export function useCustomerBanners(
     queryFn: () => customerCatalogApi.getBanners(position),
     staleTime: 1000 * 60 * 10,
     ...options,
+  });
+}
+
+/**
+ * Global search across customer products, categories, and brands
+ */
+export function useCustomerGlobalSearch(
+  query: string,
+  options?: {
+    enabled?: boolean;
+    productLimit?: number;
+    categoryLimit?: number;
+    brandLimit?: number;
+  }
+) {
+  const trimmed = query.trim();
+  const limits = {
+    productLimit: options?.productLimit,
+    categoryLimit: options?.categoryLimit,
+    brandLimit: options?.brandLimit,
+  };
+
+  return useQuery({
+    queryKey: CUSTOMER_CATALOG_QUERY_KEYS.globalSearch(trimmed, limits),
+    queryFn: () => customerCatalogApi.globalSearch(trimmed, limits),
+    enabled: (options?.enabled ?? true) && trimmed.length >= 2,
+    staleTime: 1000 * 30,
   });
 }

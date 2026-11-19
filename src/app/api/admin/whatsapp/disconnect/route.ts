@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 import { disconnectWhatsAppSession } from "@/lib/whatsapp/whatsapp-client";
 import { apiSuccess } from "@/lib/api/api-response";
+import { withApiRoles } from "@/lib/api/api-handler";
 
-export async function POST() {
+async function handlePOST() {
   try {
     const result = await disconnectWhatsAppSession();
     return apiSuccess(result, "WhatsApp session disconnected successfully");
@@ -13,3 +14,5 @@ export async function POST() {
     );
   }
 }
+
+export const POST = withApiRoles(["ADMIN", "STAFF"], handlePOST);

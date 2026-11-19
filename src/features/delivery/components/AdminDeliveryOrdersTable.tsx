@@ -12,8 +12,11 @@ import { DataTable } from "@/components/admin/data-table/DataTable";
 import { LoadingState } from "@/components/ui/loading-state";
 import { ErrorState } from "@/components/ui/error-state";
 import { Button } from "@/components/ui/button";
+import { Select } from "@/components/ui/select";
 import { SearchInput } from "@/components/ui/search-input";
 import { formatDateTime, formatPrice } from "@/lib/utils";
+import { ExportButton } from "@/components/common/export-button";
+import { exportDataToCsv } from "@/lib/export-csv";
 import { useAdminDeliveryOrders, useAdminDeliveryStaff } from "../hooks";
 import { DeliveryStatusBadge, AssignmentStatusBadge } from "./DeliveryStatusBadge";
 import { AssignStaffModal } from "@/features/orders/components/AssignStaffModal";
@@ -194,10 +197,9 @@ export function AdminDeliveryOrdersTable() {
                   })
                 }
                 title="Assign Delivery Staff"
-                className="inline-flex items-center gap-1 h-8 px-2.5 rounded-lg border border-secondary-600 bg-secondary-600 text-xs font-semibold text-white hover:bg-secondary-700 transition-all cursor-pointer shadow-xs"
+                className="inline-flex items-center gap-1 h-8 w-8 justify-center rounded-lg border border-secondary-600 bg-secondary-600 text-xs font-semibold text-white hover:bg-secondary-700 transition-all cursor-pointer shadow-xs"
               >
-                <UserCheck className="h-3.5 w-3.5" />
-                <span>Assign</span>
+                <UserCheck className="h-4 w-4" />
               </button>
             )}
           </div>
@@ -234,50 +236,78 @@ export function AdminDeliveryOrdersTable() {
             className="w-full sm:w-64"
           />
 
-          <select
-            value={selectedDeliveryStatus}
-            onChange={(e) => {
-              setSelectedDeliveryStatus(e.target.value);
-              setPage(1);
-            }}
-            className="h-10 rounded-xl border border-neutral-300 bg-white px-3 text-xs text-neutral-700 focus:border-secondary-600 focus:outline-none focus:ring-2 focus:ring-secondary-600/10 cursor-pointer"
-          >
-            <option value="">All Shipment Statuses</option>
-            <option value="pending">Pending</option>
-            <option value="picked_up">Picked Up</option>
-            <option value="in_transit">In Transit</option>
-            <option value="out_for_delivery">Out for Delivery</option>
-            <option value="delivered">Delivered</option>
-            <option value="failed">Failed</option>
-          </select>
+          <div className="w-full sm:w-48">
+            <Select
+              size="sm"
+              value={selectedDeliveryStatus}
+              onValueChange={(val) => {
+                setSelectedDeliveryStatus(val);
+                setPage(1);
+              }}
+              searchable={false}
+              options={[
+                { value: "", label: "All Shipment Statuses" },
+                { value: "pending", label: "Pending" },
+                { value: "picked_up", label: "Picked Up" },
+                { value: "in_transit", label: "In Transit" },
+                { value: "out_for_delivery", label: "Out for Delivery" },
+                { value: "delivered", label: "Delivered" },
+                { value: "failed", label: "Failed" },
+              ]}
+              aria-label="Filter by shipment status"
+            />
+          </div>
 
-          <select
-            value={selectedStaffId}
-            onChange={(e) => {
-              setSelectedStaffId(e.target.value);
-              setPage(1);
-            }}
-            className="h-10 rounded-xl border border-neutral-300 bg-white px-3 text-xs text-neutral-700 focus:border-secondary-600 focus:outline-none focus:ring-2 focus:ring-secondary-600/10 cursor-pointer"
-          >
-            <option value="">All Delivery Staff</option>
-            {staffList.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.name} ({s.phone || "Staff"})
-              </option>
-            ))}
-          </select>
+          <div className="w-full sm:w-48">
+            <Select
+              size="sm"
+              value={selectedStaffId}
+              onValueChange={(val) => {
+                setSelectedStaffId(val);
+                setPage(1);
+              }}
+              options={[
+                { value: "", label: "All Delivery Staff" },
+                ...staffList.map((s) => ({
+                  value: s.id,
+                  label: `${s.name} (${s.phone || "Staff"})`,
+                })),
+              ]}
+              aria-label="Filter by delivery staff"
+            />
+          </div>
         </div>
 
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => refetch()}
-          disabled={isFetching}
-          className="h-10 px-3 rounded-xl border-cream-border hover:bg-cream-100 cursor-pointer self-end sm:self-auto"
-        >
-          <RotateCcw className={`mr-1.5 h-3.5 w-3.5 ${isFetching ? "animate-spin" : ""}`} />
-          Refresh
-        </Button>
+        <div className="flex items-center gap-2 self-end sm:self-auto">
+          <ExportButton
+            onClick={() =>
+              exportDataToCsv(
+                orders.map((o) => ({
+                  OrderNumber: o.orderNumber,
+                  Customer: o.customer?.name || "Customer",
+                  Phone: o.customer?.phone || "",
+                  Address: `${o.shippingAddress?.addressLine1 || ""}, ${o.shippingAddress?.city || ""} - ${o.shippingAddress?.pincode || ""}`,
+                  AssignedStaff: o.shipment?.deliveryStaff?.name || "Unassigned",
+                  TotalAmount: o.totalAmount,
+                  ShipmentStatus: o.shipment?.status || o.orderStatus,
+                  PlacedAt: formatDateTime(o.createdAt),
+                })),
+                "delivery-orders"
+              )
+            }
+            disabled={orders.length === 0}
+          />
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => refetch()}
+            disabled={isFetching}
+            className="h-10 px-3 rounded-xl border-cream-border hover:bg-cream-100 cursor-pointer"
+          >
+            <RotateCcw className={`mr-1.5 h-3.5 w-3.5 ${isFetching ? "animate-spin" : ""}`} />
+            Refresh
+          </Button>
+        </div>
       </div>
 
       {/* Data Table */}

@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-export const sizeChartGenderEnum = z.enum(["men", "women", "kids", "unisex"]);
+export const sizeChartGenderEnum = z.enum(["men", "women", "kids", "unisex", "not_applicable"]);
 
 export const sizeChartQuerySchema = z.object({
   category_id: z.string().trim().min(1, "category_id is required"),

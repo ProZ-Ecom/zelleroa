@@ -2,8 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db/prisma";
 import { apiSuccess, apiError } from "@/lib/api/api-response";
 import { triggerWorker } from "@/lib/whatsapp/whatsapp-campaign-worker";
+import { withApiRoles } from "@/lib/api/api-handler";
+import { normalizePhoneNumber } from "@/lib/whatsapp/whatsapp-utils";
 
-export async function GET(request: NextRequest) {
+async function handleGET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const status = searchParams.get("status");
@@ -23,16 +25,16 @@ export async function GET(request: NextRequest) {
     }));
 
     return apiSuccess(serialized);
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error("[WhatsApp Campaigns GET] Error:", err);
     return NextResponse.json(
-      { success: false, message: err?.message || "Failed to fetch campaigns" },
+      { success: false, message: (err as Error)?.message || "Failed to fetch campaigns" },
       { status: 500 }
     );
   }
 }
 
-export async function POST(request: NextRequest) {
+async function handlePOST(request: NextRequest) {
   try {
     const body = await request.json();
     const {
@@ -61,13 +63,17 @@ export async function POST(request: NextRequest) {
     const isScheduledForFuture = scheduledDate && scheduledDate.getTime() > Date.now();
     const initialStatus = isScheduledForFuture ? "SCHEDULED" : "RUNNING";
 
-    // Deduplicate recipients by phone number
+    // Deduplicate recipients by normalized international phone number
     const uniqueRecipients = new Map<string, { id?: string; name?: string; phone: string }>();
     for (const r of recipients) {
-      if (r.phone && r.phone.trim()) {
-        const cleaned = r.phone.replace(/\D/g, "");
-        if (cleaned.length >= 10 && !uniqueRecipients.has(cleaned)) {
-          uniqueRecipients.set(cleaned, r);
+      if (r.phone && typeof r.phone === "string" && r.phone.trim()) {
+        const norm = normalizePhoneNumber(r.phone);
+        if (norm.isValid && !uniqueRecipients.has(norm.digits)) {
+          uniqueRecipients.set(norm.digits, {
+            id: r.id,
+            name: r.name,
+            phone: norm.e164, // Always saved with international country code prefix +91
+          });
         }
       }
     }
@@ -98,7 +104,7 @@ export async function POST(request: NextRequest) {
           campaign_id: campaign.id,
           customer_id: r.id ? BigInt(r.id) : null,
           customer_name: r.name || "Valued Customer",
-          phone_number: r.phone.trim(),
+          phone_number: r.phone,
           status: "QUEUED",
         })),
         skipDuplicates: true,
@@ -120,11 +126,14 @@ export async function POST(request: NextRequest) {
       "Campaign created and queued successfully",
       201
     );
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error("[WhatsApp Campaigns POST] Error:", err);
     return NextResponse.json(
-      { success: false, message: err?.message || "Failed to create campaign" },
+      { success: false, message: (err as Error)?.message || "Failed to create campaign" },
       { status: 500 }
     );
   }
 }
+
+export const GET = withApiRoles(["ADMIN", "STAFF"], handleGET);
+export const POST = withApiRoles(["ADMIN", "STAFF"], handlePOST);

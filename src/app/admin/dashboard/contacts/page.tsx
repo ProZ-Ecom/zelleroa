@@ -19,6 +19,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Select } from "@/components/ui/select";
 import { SearchInput } from "@/components/ui/search-input";
+import { ExportButton } from "@/components/common/export-button";
+import { exportDataToCsv } from "@/lib/export-csv";
 import {
   Mail,
   MessageSquare,
@@ -223,21 +225,19 @@ export default function AdminContactsPage() {
             <button
               type="button"
               onClick={() => setSelectedContact(item)}
-              className="inline-flex items-center h-8 gap-1 px-2.5 rounded-lg text-xs font-semibold text-secondary-600 hover:text-secondary-700 hover:bg-secondary-50 cursor-pointer transition-colors"
+              className="inline-flex items-center h-8 w-8 justify-center rounded-lg text-xs font-semibold text-secondary-600 hover:text-secondary-700 hover:bg-secondary-50 cursor-pointer transition-colors"
               title="View Message"
             >
-              <Eye className="h-3.5 w-3.5" />
-              <span>View</span>
+              <Eye className="h-4 w-4" />
             </button>
 
             <button
               type="button"
               onClick={() => setReplyTargetContact(item)}
-              className="inline-flex items-center h-8 gap-1 px-2.5 rounded-lg text-xs font-semibold text-neutral-700 hover:text-neutral-900 hover:bg-neutral-100 cursor-pointer transition-colors"
+              className="inline-flex items-center h-8 w-8 justify-center rounded-lg text-xs font-semibold text-neutral-700 hover:text-neutral-900 hover:bg-neutral-100 cursor-pointer transition-colors"
               title="Reply by Email"
             >
-              <Send className="h-3.5 w-3.5 text-neutral-500" />
-              <span>Reply</span>
+              <Send className="h-4 w-4 text-neutral-500" />
             </button>
           </div>
         );
@@ -341,6 +341,24 @@ export default function AdminContactsPage() {
               </Button>
             )}
           </div>
+
+          <ExportButton
+            onClick={() =>
+              exportDataToCsv(
+                contacts.map((c) => ({
+                  Name: c.name || "Anonymous",
+                  Email: c.email,
+                  Phone: c.phone || "",
+                  Subject: c.subject || "",
+                  Message: c.message || "",
+                  Status: c.status,
+                  ReceivedAt: c.createdAt ? new Date(c.createdAt).toLocaleDateString("en-IN") : "",
+                })),
+                "contact-inquiries"
+              )
+            }
+            disabled={contacts.length === 0}
+          />
         </div>
 
         {/* Quick Filter Status Pills */}

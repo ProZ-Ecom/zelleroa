@@ -7,7 +7,7 @@ import type {
   CustomerVariantListItemDto,
   CustomerVariantDetailDto,
   CustomerStyleDetailDto,
-  CustomerItemDetailDto,
+  GlobalSearchResultDto,
 } from "../types/catalog.types";
 import type { CategoryListingDto, CategoryMenuDto } from "../types/catalog-listing.types";
 import type {
@@ -154,7 +154,7 @@ export const customerCatalogApi = {
 
   /**
    * Fetch the storefront listing as Styles: one card per Style, never per
-   * Item or per Color.
+   * Color.
    * Postman: POST /api/customer/styles
    */
   async getStyles(
@@ -171,8 +171,8 @@ export const customerCatalogApi = {
   },
 
   /**
-   * Fetch one Style with every Item under it - each Item carrying its Colors,
-   * and each Color its own images, Sizes, prices and stock.
+   * Fetch one Style with its Colors, and each Color its own images, Sizes,
+   * prices and stock.
    * Postman: GET /api/customer/styles/:styleUuid
    */
   async getStyle(styleUuid: string): Promise<CustomerStyleDetailDto> {
@@ -182,16 +182,9 @@ export const customerCatalogApi = {
     return response.data!;
   },
 
-  /**
-   * Fetch one Item with its Colors, and each Color's images, Sizes, prices
-   * and stock - the standalone Item detail page.
-   * Postman: GET /api/customer/items/:itemUuid
-   */
-  async getItem(itemUuid: string): Promise<CustomerItemDetailDto> {
-    const response = await apiClient.get<CustomerItemDetailDto>(
-      `/api/customer/items/${itemUuid}`
-    );
-    return response.data!;
+  /** Alias for backward compatibility */
+  async getItem(itemUuid: string): Promise<CustomerStyleDetailDto> {
+    return this.getStyle(itemUuid);
   },
 
   /**
@@ -303,5 +296,25 @@ export const customerCatalogApi = {
       `/api/customer/banners${position ? `?position=${position}` : ""}`
     );
     return response.data ?? [];
+  },
+
+  /**
+   * Global search across products, categories, and brands
+   * GET /api/customer/search?q=
+   */
+  async globalSearch(
+    query: string,
+    limits?: { productLimit?: number; categoryLimit?: number; brandLimit?: number }
+  ): Promise<GlobalSearchResultDto> {
+    const params = new URLSearchParams();
+    params.set("q", query);
+    if (limits?.productLimit) params.set("productLimit", String(limits.productLimit));
+    if (limits?.categoryLimit) params.set("categoryLimit", String(limits.categoryLimit));
+    if (limits?.brandLimit) params.set("brandLimit", String(limits.brandLimit));
+
+    const response = await apiClient.get<GlobalSearchResultDto>(
+      `/api/customer/search?${params.toString()}`
+    );
+    return response.data ?? { query, products: [], categories: [], brands: [], totalMatches: 0 };
   },
 };

@@ -1,5 +1,6 @@
 import { ApiError } from "@/lib/api/api-error";
 import { userRepository } from "@/features/users/repositories/user.repository";
+import { offerRepository } from "@/features/offers/repositories/offer.repository";
 import { bannerPositionRepository } from "../repositories/banner-position.repository";
 import {
   bannerRepository,
@@ -35,6 +36,16 @@ async function resolveBannerPosition(positionUuid: string) {
   return position;
 }
 
+async function resolveOfferInternalId(
+  offerUuid: string | null | undefined
+): Promise<bigint | null | undefined> {
+  if (offerUuid === undefined) return undefined;
+  if (offerUuid === null) return null;
+  const id = await offerRepository.findInternalIdByUuid(offerUuid);
+  if (!id) throw ApiError.notFound("Offer not found");
+  return id;
+}
+
 export const bannerService = {
   async createBanner(
     input: CreateBannerInput,
@@ -54,6 +65,7 @@ export const bannerService = {
       {
         ...input,
         positionInternalId: position.id,
+        offerInternalId: await resolveOfferInternalId(input.offerId),
       },
       userInternalId
     );
@@ -127,6 +139,7 @@ export const bannerService = {
       {
         ...input,
         positionInternalId,
+        offerInternalId: await resolveOfferInternalId(input.offerId),
       },
       userInternalId
     );

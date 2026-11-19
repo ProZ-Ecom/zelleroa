@@ -1,7 +1,9 @@
 import { ApiError } from "@/lib/api/api-error";
+import { db } from "@/lib/db/prisma";
+import { isManualDeliveryStatusEnabled } from "../lib/delivery-config";
 import { deliveryRepository } from "../repositories/delivery.repository";
 import { userRepository } from "@/features/users/repositories/user.repository";
-import { getIndiaPostTrackingUrl } from "@/lib/shipping/india-post";
+import { getCourier } from "@/lib/shipping/couriers";
 import type {
   AdminDeliveryOrdersListInput,
   AdminDeliveryStaffListInput,
@@ -10,6 +12,7 @@ import type {
   MarkDeliveredInput,
   MarkFailedInput,
   ShipViaCourierInput,
+  UpdateCourierStatusInput,
 } from "../validations/delivery.schema";
 import type {
   AdminDeliveryOrderItem,
@@ -21,6 +24,7 @@ import type {
   DeliveryAddressInfo,
   StaffDeliveriesCountResponse,
   CourierShipmentResult,
+  UpdateCourierStatusResult,
 } from "../types/delivery.types";
 
 function formatShippingAddress(addresses: any[]): DeliveryAddressInfo | null {
@@ -551,10 +555,15 @@ export const deliveryService = {
     };
   },
 
-  async shipViaIndiaPost(
+  async shipViaCourier(
     input: ShipViaCourierInput,
     adminEmail?: string | null
   ): Promise<CourierShipmentResult> {
+    const courier = getCourier(input.courier);
+    if (!courier) {
+      throw ApiError.badRequest("Unsupported courier");
+    }
+
     const adminId = await getAdminInternalId(adminEmail);
 
     const order = await deliveryRepository.findOrderForCourierShipment(input.orderId);
@@ -573,13 +582,31 @@ export const deliveryService = {
       throw ApiError.conflict("Order already has an active shipment");
     }
 
+    const invoiceNumber = input.invoiceNumber?.trim();
+    if (!invoiceNumber) {
+      throw ApiError.badRequest("Invoice number is required to ship the order");
+    }
+
+    const duplicateInvoice = await db.order.findFirst({
+      where: {
+        invoice_number: invoiceNumber,
+        id: { not: order.id },
+      },
+      select: { orderNumber: true },
+    });
+    if (duplicateInvoice) {
+      throw ApiError.conflict(
+        `Invoice number "${invoiceNumber}" is already used by order ${duplicateInvoice.orderNumber}`
+      );
+    }
+
     const shippingAddress =
       order.address.find((a) => a.type === "shipping") ?? order.address[0] ?? null;
     if (!shippingAddress) {
       throw ApiError.badRequest("Order has no shipping address to ship to");
     }
 
-    const partner = await deliveryRepository.findOrCreateIndiaPostPartner(adminId);
+    const partner = await deliveryRepository.findOrCreateCourierPartner(courier, adminId);
 
     const { shipment } = await deliveryRepository.createCourierShipmentTransaction({
       orderId: order.id,
@@ -588,13 +615,76 @@ export const deliveryService = {
       adminId,
     });
 
+    if (invoiceNumber) {
+      try {
+        await db.order.update({
+          where: { id: order.id },
+          data: { invoice_number: invoiceNumber },
+        });
+      } catch {
+        await db.$executeRawUnsafe(
+          "UPDATE orders SET invoice_number = ? WHERE id = ?",
+          invoiceNumber,
+          order.id
+        );
+      }
+    }
+
     return {
       id: shipment.uuid || String(shipment.id),
       orderId: order.uuid || String(order.id),
       carrier: partner.name,
       trackingNumber: input.trackingNumber,
-      trackingUrl: getIndiaPostTrackingUrl(input.trackingNumber),
+      trackingUrl: courier.trackingUrl(input.trackingNumber),
       status: shipment.status,
+    };
+  },
+
+  async updateCourierStatus(
+    input: UpdateCourierStatusInput,
+    adminEmail?: string | null
+  ): Promise<UpdateCourierStatusResult> {
+    if (!isManualDeliveryStatusEnabled()) {
+      throw ApiError.forbidden(
+        "Manual courier delivery status updates are disabled in production mode. Status updates are managed automatically by the courier partner."
+      );
+    }
+
+    const adminId = await getAdminInternalId(adminEmail);
+
+    const order = await deliveryRepository.findOrderForCourierShipment(input.orderId);
+    if (!order) {
+      throw ApiError.notFound("Order not found");
+    }
+
+    if (input.status === "out_for_delivery") {
+      if (order.order_status !== "shipped") {
+        throw ApiError.badRequest(
+          `Cannot mark order as out for delivery from '${order.order_status}'. Order must be in 'shipped' status.`
+        );
+      }
+    } else if (input.status === "delivered") {
+      if (order.order_status !== "shipped" && order.order_status !== "out_for_delivery") {
+        throw ApiError.badRequest(
+          `Cannot mark order as delivered from '${order.order_status}'. Order must be in 'shipped' or 'out_for_delivery' status.`
+        );
+      }
+    }
+
+    const { shipment, order: updatedOrder } =
+      await deliveryRepository.updateCourierShipmentStatusTransaction({
+        orderId: order.id,
+        targetStatus: input.status,
+        note: input.note,
+        adminId,
+      });
+
+    return {
+      orderId: updatedOrder.uuid || String(updatedOrder.id),
+      orderNumber: updatedOrder.orderNumber,
+      shipmentId: shipment ? shipment.uuid || String(shipment.id) : null,
+      status: updatedOrder.order_status,
+      deliveredAt: updatedOrder.delivered_at,
     };
   },
 };

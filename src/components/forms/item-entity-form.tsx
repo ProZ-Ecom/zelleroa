@@ -11,6 +11,8 @@ import { FormTextarea } from "@/components/forms/form-textarea";
 import { FormRichText } from "@/components/forms/form-rich-text";
 import { FormCheckbox } from "@/components/forms/form-checkbox";
 import { FormSubmitButton } from "@/components/forms/form-submit-button";
+import { QuickAddBrandModal } from "@/features/brands/components/QuickAddBrandModal";
+import { toast } from "@/components/ui/Toast";
 
 // The single Item create/edit form. Both levels the admin calls an "Item" -
 // the sellable Style under a Product ("V Neck T-Shirt") and the admin-only
@@ -39,14 +41,24 @@ export const itemEntityFormSchema = z.object({
     .max(500, "Short description cannot exceed 500 characters")
     .optional(),
   description: z.string().trim().optional(),
-  // FormInput hands back "" when a number field is cleared, so the message
-  // here doubles as the "required" message instead of zod's raw type error.
+  // When price is not shown, basePrice is optional and defaults to 0.
   basePrice: z
-    .number({ message: "Base price is required" })
-    .min(0, "Base price cannot be negative"),
+    .union([z.number(), z.string(), z.undefined()])
+    .optional()
+    .transform((val) => {
+      if (typeof val === "number") return val;
+      if (!val || val === "") return 0;
+      const num = Number(val);
+      return isNaN(num) ? 0 : num;
+    }),
   isFeatured: z.boolean(),
+  // Storefront "New" badge. Set by hand so a bulk upload doesn't flag everything.
+  isNewArrival: z.boolean().optional(),
+  // YYYY-MM-DD; blank = no expiry.
+  newArrivalUntil: z.string().optional(),
   isDefault: z.boolean().optional(),
   isActive: z.boolean(),
+  outOfStock: z.boolean().optional(),
 });
 
 export type ItemEntityFormValues = z.infer<typeof itemEntityFormSchema>;
@@ -54,17 +66,25 @@ export type ItemEntityFormValues = z.infer<typeof itemEntityFormSchema>;
 // When the price is shown it is the Item's one selling price, so it must be set.
 const pricedItemEntityFormSchema = itemEntityFormSchema.extend({
   basePrice: z
-    .number({ message: "Price is required" })
-    .gt(0, "Price must be more than 0"),
+    .union([z.number(), z.string()])
+    .refine(
+      (val) => {
+        if (val === "" || val === undefined || val === null) return false;
+        const num = typeof val === "number" ? val : Number(val);
+        return !isNaN(num) && num >= 0;
+      },
+      { message: "Price is required and cannot be negative" }
+    )
+    .transform((val) => (typeof val === "number" ? val : Number(val))),
 });
 
 const brandRequired = {
   brandId: z.string({ message: "Brand is required" }).min(1, "Brand is required"),
 };
 
-function pickSchema(showPrice: boolean, showBrand: boolean) {
+function pickSchema(showPrice: boolean, showBrand: boolean, requireBrand: boolean) {
   const base = showPrice ? pricedItemEntityFormSchema : itemEntityFormSchema;
-  return showBrand ? base.extend(brandRequired) : base;
+  return showBrand && requireBrand ? base.extend(brandRequired) : base;
 }
 
 export interface ItemEntityFormProps {
@@ -86,12 +106,24 @@ export interface ItemEntityFormProps {
    */
   showPrice?: boolean;
   /**
+   * Overrides the help text under Price. A Style's price is only a fallback -
+   * what a customer actually pays lives on the SKU rows - so it must not be
+   * described as "what customers pay" the way an Item's price is.
+   */
+  priceDescription?: string;
+  /**
    * Active brands to pick from. Passing this shows a required Brand field -
    * every sellable Item belongs to one Brand. Omitted for the sub-variant form.
    */
   brandOptions?: SelectOption[];
   /** Help text under the Brand field, e.g. when no active brands exist yet. */
   brandDescription?: string;
+  /**
+   * Whether the Brand field must be filled. A Style's brand is only an
+   * override - left blank it inherits the Product's - so the Product is the
+   * one place a brand has to be answered.
+   */
+  brandRequired?: boolean;
   /** What the admin calls this level in labels - "Item" or "Type". */
   entityLabel?: string;
   /**
@@ -99,9 +131,21 @@ export interface ItemEntityFormProps {
    * storefront copy fields: descriptions and "Featured".
    */
   compact?: boolean;
+  /**
+   * "slug" is lowercase-with-hyphens (default); "constant" is UPPER_SNAKE_CASE
+   * (uppercase letters, digits and underscores only), used for Model codes.
+   */
+  codeFormat?: "slug" | "constant";
 }
 
-function toItemCode(raw: string): string {
+function toItemCode(raw: string, format: "slug" | "constant" = "slug"): string {
+  if (format === "constant") {
+    return raw
+      .trim()
+      .toUpperCase()
+      .replace(/[^A-Z0-9]+/g, "_")
+      .replace(/^_+|_+$/g, "");
+  }
   return raw
     .trim()
     .toLowerCase()
@@ -109,7 +153,10 @@ function toItemCode(raw: string): string {
     .replace(/^-+|-+$/g, "");
 }
 
-function buildDefaults(initialData?: Partial<ItemEntityFormValues>): ItemEntityFormValues {
+function buildDefaults(
+  initialData?: Partial<ItemEntityFormValues>,
+  showPrice: boolean = true
+): ItemEntityFormValues {
   return {
     brandId: initialData?.brandId || "",
     name: initialData?.name || "",
@@ -117,10 +164,13 @@ function buildDefaults(initialData?: Partial<ItemEntityFormValues>): ItemEntityF
     sku: initialData?.sku || "",
     shortDescription: initialData?.shortDescription || "",
     description: initialData?.description || "",
-    basePrice: initialData?.basePrice ?? 0,
+    basePrice: initialData?.basePrice ?? (showPrice ? ("" as unknown as number) : 0),
     isFeatured: initialData?.isFeatured ?? false,
+    isNewArrival: initialData?.isNewArrival ?? false,
+    newArrivalUntil: initialData?.newArrivalUntil ?? "",
     isDefault: initialData?.isDefault ?? false,
-    isActive: initialData?.isActive ?? false,
+    isActive: initialData?.isActive ?? true,
+    outOfStock: initialData?.outOfStock ?? false,
   };
 }
 
@@ -135,20 +185,31 @@ function ItemEntityForm({
   codePlaceholder = "e.g. v-neck-t-shirt",
   defaultItemDescription = "Auto-selected on the product page",
   showPrice = true,
+  priceDescription,
+  brandRequired: requireBrand = true,
   brandOptions,
   brandDescription,
   entityLabel = "Item",
   compact = false,
+  codeFormat = "slug",
 }: ItemEntityFormProps) {
   const entityLower = entityLabel.toLowerCase();
   const showBrand = Boolean(brandOptions);
   const [codeTouched, setCodeTouched] = React.useState<boolean>(() => Boolean(initialData?.slug));
+  const [isAddBrandOpen, setIsAddBrandOpen] = React.useState(false);
+  // Brands created from this form; kept locally so the Select can show the new
+  // one before the parent's brand list refetches.
+  const [createdBrands, setCreatedBrands] = React.useState<SelectOption[]>([]);
+  const allBrandOptions = React.useMemo(() => {
+    const base = brandOptions ?? [];
+    return [...base, ...createdBrands.filter((c) => !base.some((b) => b.value === c.value))];
+  }, [brandOptions, createdBrands]);
 
   const methods = useForm<ItemEntityFormValues>({
-    resolver: zodResolver(pickSchema(showPrice, showBrand)),
+    resolver: zodResolver(pickSchema(showPrice, showBrand, requireBrand) as any) as any,
     mode: "onChange",
     reValidateMode: "onChange",
-    defaultValues: buildDefaults(initialData),
+    defaultValues: buildDefaults(initialData, showPrice),
   });
 
   const watchedName = methods.watch("name");
@@ -157,43 +218,72 @@ function ItemEntityForm({
   // VariantForm's Item Code field - stops as soon as the admin edits it by hand.
   useEffect(() => {
     if (codeTouched) return;
-    methods.setValue("slug", toItemCode(watchedName || ""), {
+    methods.setValue("slug", toItemCode(watchedName || "", codeFormat), {
       shouldValidate: methods.formState.isSubmitted,
     });
-  }, [watchedName, codeTouched, methods]);
+  }, [watchedName, codeTouched, codeFormat, methods]);
 
   useEffect(() => {
     if (initialData) {
-      methods.reset(buildDefaults(initialData));
+      methods.reset(buildDefaults(initialData, showPrice));
       setCodeTouched(Boolean(initialData.slug));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [initialData]);
+  }, [initialData, showPrice]);
 
   const handleSlugChange = (raw: string) => {
     setCodeTouched(true);
-    methods.setValue(
-      "slug",
-      raw
-        .toLowerCase()
-        .trim()
-        .replace(/\s+/g, "-")
-        .replace(/[^a-z0-9-]+/g, ""),
-      { shouldValidate: true, shouldDirty: true }
-    );
+    const cleaned =
+      codeFormat === "constant"
+        ? raw
+          .toUpperCase()
+          .replace(/[\s-]+/g, "_")
+          .replace(/[^A-Z0-9_]+/g, "")
+        : raw
+          .toLowerCase()
+          .trim()
+          .replace(/\s+/g, "-")
+          .replace(/[^a-z0-9-]+/g, "");
+    methods.setValue("slug", cleaned, { shouldValidate: true, shouldDirty: true });
   };
 
   return (
     <FormProvider {...methods}>
-      <form onSubmit={methods.handleSubmit(onSubmit)} className="space-y-6">
+      <form
+        onSubmit={methods.handleSubmit(onSubmit, (errors) => {
+          console.error("Item form validation errors:", errors);
+          const firstErrorKey = Object.keys(errors)[0];
+          const firstError = errors[firstErrorKey as keyof ItemEntityFormValues];
+          if (firstError?.message) {
+            toast.error("Please fill in required fields", firstError.message);
+          }
+          const el =
+            document.querySelector(`[name="${firstErrorKey}"]`) ||
+            document.getElementById(firstErrorKey);
+          if (el) {
+            el.scrollIntoView({ behavior: "smooth", block: "center" });
+          }
+        })}
+        className="space-y-6"
+      >
         {showBrand && (
           <FormSelect
             name="brandId"
             label="Brand"
             placeholder="Select brand"
-            options={brandOptions ?? []}
+            options={allBrandOptions}
             description={brandDescription}
-            required
+            searchable
+            required={requireBrand}
+            labelAction={
+              <button
+                type="button"
+                onClick={() => setIsAddBrandOpen(true)}
+                className="text-xs font-semibold text-[var(--color-primary-500)] hover:text-[var(--color-primary-600)] cursor-pointer"
+              >
+                + Add brand
+              </button>
+            }
           />
         )}
 
@@ -204,8 +294,12 @@ function ItemEntityForm({
               name="basePrice"
               type="number"
               label="Price (₹)"
-              placeholder="e.g. 599"
-              description={`What customers pay for every color and size of this ${entityLower}. Only sizes that cost more or less need their own price later.`}
+              placeholder="0"
+              onFocus={(e) => e.target.select()}
+              description={
+                priceDescription ??
+                `What customers pay for every color and size of this ${entityLower}. Only sizes that cost more or less need their own price later.`
+              }
               required
             />
           )}
@@ -264,21 +358,50 @@ function ItemEntityForm({
           />
         </div>
 
+        {!compact && (
+          <div className="space-y-3">
+            <FormCheckbox
+              name="isNewArrival"
+              label="New Arrival"
+              description="Shows the NEW badge on the storefront. Untick (or set an end date) to stop it."
+            />
+            {methods.watch("isNewArrival") && (
+              <FormInput
+                name="newArrivalUntil"
+                type="date"
+                label="Show as New until (optional)"
+                description="Leave blank to keep the badge until you untick it."
+              />
+            )}
+          </div>
+        )}
+
         <FormCheckbox
           name="isActive"
-          label="Status: Active"
-          description={`Inactive ${entityLower}s are hidden from customers`}
+          label={`Active on Storefront (${entityLabel})`}
+          description={`Active ${entityLower}s are immediately visible to customers on the storefront. Untick to hide.`}
         />
 
         <div className="flex justify-end pt-2">
           <FormSubmitButton
             isLoading={isLoading}
-            className="h-11 rounded-xl bg-[var(--color-secondary-600)] px-6 text-sm font-semibold text-white hover:bg-[var(--color-secondary-700)]"
+            className="h-11 rounded-xl bg-theme-primary hover:bg-theme-primary-hover px-6 text-sm font-semibold text-white transition-colors"
           >
             {submitLabel}
           </FormSubmitButton>
         </div>
       </form>
+
+      {showBrand && (
+        <QuickAddBrandModal
+          open={isAddBrandOpen}
+          onClose={() => setIsAddBrandOpen(false)}
+          onCreated={(brand) => {
+            setCreatedBrands((prev) => [...prev, brand]);
+            methods.setValue("brandId", brand.value, { shouldValidate: true, shouldDirty: true });
+          }}
+        />
+      )}
     </FormProvider>
   );
 }

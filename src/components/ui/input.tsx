@@ -3,6 +3,7 @@
 import * as React from "react";
 import { Eye, EyeOff } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { EMAIL_MAX_LENGTH } from "@/lib/validations/email";
 
 export interface InputProps
   extends Omit<React.InputHTMLAttributes<HTMLInputElement>, "size"> {
@@ -57,16 +58,18 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
           <input
             ref={ref}
             type={inputType}
-            className={cn(
-              "w-full border border-theme-border bg-theme-surface text-theme-text-primary placeholder:text-theme-text-muted transition-all outline-none",
-              sizeClasses[size],
-              "focus:outline-none focus:border-theme-primary focus:ring-2 focus:ring-theme-primary/20 hover:border-theme-border-accent",
-              leftIcon && "pl-10",
-              inputPrefix && "pl-20",
-              (rightIcon || isPassword) && "pr-11",
-              error && "border-theme-status-can-fg focus:border-theme-status-can-fg focus:ring-theme-status-can-fg/20",
-              className
-            )}
+            maxLength={type === "email" ? EMAIL_MAX_LENGTH : undefined}
+           className={cn(
+  "w-full border bg-theme-surface text-theme-text-primary placeholder:text-theme-text-muted transition-all outline-none focus:outline-none focus-visible:outline-none",
+  sizeClasses[size],
+  error
+    ? "!border-red-500 hover:!border-red-500 focus:!border-red-500 focus:!ring-2 focus:!ring-red-500/30 focus-visible:!ring-red-500/30"
+    : "border-theme-border hover:border-theme-border-accent focus:border-theme-primary focus:ring-2 focus:ring-theme-primary/20",
+  leftIcon && "pl-10",
+  inputPrefix && "pl-20",
+  (rightIcon || isPassword) && "pr-11",
+  className
+)}
             {...props}
           />
 

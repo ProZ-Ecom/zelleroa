@@ -26,6 +26,7 @@ import { ReviewStatusTabs, type ReviewStatusTab } from "@/features/reviews/compo
 import { AdminReviewDetailModal } from "@/features/reviews/components/AdminReviewDetailModal";
 import { SearchInput } from "@/components/ui/search-input";
 import { Button } from "@/components/ui/button";
+import { Select } from "@/components/ui/select";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Modal } from "@/components/ui/modal";
 import { LoadingState } from "@/components/ui/loading-state";
@@ -314,36 +315,43 @@ export function VariantReviewsCard({
           </div>
 
           {/* Star Filter Dropdown */}
-          <select
-            value={ratingFilter === undefined ? "all" : String(ratingFilter)}
-            onChange={(e) => {
-              const val = e.target.value;
-              setRatingFilter(val === "all" ? undefined : Number(val));
-              setPage(1);
-            }}
-            className="h-9 px-3 rounded-xl border border-cream-border bg-white text-xs font-semibold text-neutral-700 focus:outline-none focus:border-secondary-600 cursor-pointer shadow-2xs"
-            title="Filter by rating"
-          >
-            <option value="all">All Stars</option>
-            <option value="5">⭐⭐⭐⭐⭐ (5 Stars)</option>
-            <option value="4">⭐⭐⭐⭐ (4 Stars)</option>
-            <option value="3">⭐⭐⭐ (3 Stars)</option>
-            <option value="2">⭐⭐ (2 Stars)</option>
-            <option value="1">⭐ (1 Star)</option>
-          </select>
+          <div className="w-36">
+            <Select
+              size="sm"
+              value={ratingFilter === undefined ? "all" : String(ratingFilter)}
+              onValueChange={(val) => {
+                setRatingFilter(val === "all" ? undefined : Number(val));
+                setPage(1);
+              }}
+              searchable={false}
+              options={[
+                { value: "all", label: "All Stars" },
+                { value: "5", label: "⭐⭐⭐⭐⭐ (5 Stars)" },
+                { value: "4", label: "⭐⭐⭐⭐ (4 Stars)" },
+                { value: "3", label: "⭐⭐⭐ (3 Stars)" },
+                { value: "2", label: "⭐⭐ (2 Stars)" },
+                { value: "1", label: "⭐ (1 Star)" },
+              ]}
+              aria-label="Filter by rating"
+            />
+          </div>
 
           {/* Sort Selector */}
-          <select
-            value={`${sortBy}_${sortOrder}`}
-            onChange={(e) => handleSortChange(e.target.value)}
-            className="h-9 px-3 rounded-xl border border-cream-border bg-white text-xs font-semibold text-neutral-700 focus:outline-none focus:border-secondary-600 cursor-pointer shadow-2xs"
-            title="Sort reviews"
-          >
-            <option value="createdAt_desc">Newest First</option>
-            <option value="createdAt_asc">Oldest First</option>
-            <option value="rating_desc">Highest Rating</option>
-            <option value="rating_asc">Lowest Rating</option>
-          </select>
+          <div className="w-36">
+            <Select
+              size="sm"
+              value={`${sortBy}_${sortOrder}`}
+              onValueChange={(val) => handleSortChange(val)}
+              searchable={false}
+              options={[
+                { value: "createdAt_desc", label: "Newest First" },
+                { value: "createdAt_asc", label: "Oldest First" },
+                { value: "rating_desc", label: "Highest Rating" },
+                { value: "rating_asc", label: "Lowest Rating" },
+              ]}
+              aria-label="Sort reviews"
+            />
+          </div>
         </div>
 
         {/* Status Segmented Tabs */}
@@ -575,20 +583,23 @@ export function VariantReviewsCard({
               <span className="text-neutral-600 font-medium whitespace-nowrap">
                 Per page:
               </span>
-              <select
-                value={pageSize}
-                onChange={(e) => {
-                  setPageSize(Number(e.target.value));
-                  setPage(1);
-                }}
-                className="h-7.5 rounded-lg border border-cream-border bg-white px-2 py-0.5 text-xs font-semibold text-neutral-700 shadow-2xs focus:outline-none focus:border-secondary-600 cursor-pointer"
-              >
-                {[5, 10, 20].map((opt) => (
-                  <option key={opt} value={opt}>
-                    {opt}
-                  </option>
-                ))}
-              </select>
+              <div className="w-18">
+                <Select
+                  size="sm"
+                  value={String(pageSize)}
+                  onValueChange={(val) => {
+                    setPageSize(Number(val));
+                    setPage(1);
+                  }}
+                  searchable={false}
+                  portal={true}
+                  options={[5, 10, 20].map((opt) => ({
+                    value: String(opt),
+                    label: String(opt),
+                  }))}
+                  aria-label="Per page"
+                />
+              </div>
             </div>
           </div>
 

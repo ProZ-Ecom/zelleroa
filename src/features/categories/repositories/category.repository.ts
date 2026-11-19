@@ -60,6 +60,16 @@ function buildAdminCategoryWhere(params: GetAdminCategoriesParams = {}): Prisma.
     ];
   }
 
+  // Admin Master Categories: default to top-level categories (parentId: null)
+  if (params.parentId === undefined || params.parentId === null) {
+    where.parentId = null;
+  } else if (params.parentId !== "all") {
+    const num = Number(params.parentId);
+    if (!Number.isNaN(num)) {
+      where.parentId = BigInt(num);
+    }
+  }
+
   return where;
 }
 
@@ -116,8 +126,16 @@ export const categoryRepository = {
   },
 
   async findByUuid(uuid: string) {
+    const numericId = parseInt(uuid);
     return db.productCategory.findFirst({
-      where: { uuid, isActive: true, deleted_at: null },
+      where: {
+        isActive: true,
+        deleted_at: null,
+        OR: [
+          { uuid },
+          ...(Number.isFinite(numericId) && String(numericId) === uuid.trim() ? [{ id: BigInt(numericId) }] : []),
+        ],
+      },
     });
   },
 
@@ -146,17 +164,7 @@ export const categoryRepository = {
   async countAdminCategories(
     params: GetAdminCategoriesParams = {}
   ): Promise<AdminCategoriesCountResponse> {
-    const baseWhere: Prisma.ProductCategoryWhereInput = {
-      deleted_at: null,
-    };
-
-    if (params.search) {
-      baseWhere.OR = [
-        { name: { contains: params.search } },
-        { description: { contains: params.search } },
-        { slug: { contains: params.search } },
-      ];
-    }
+    const baseWhere = buildAdminCategoryWhere(params);
 
     const [active, inactive, all] = await Promise.all([
       db.productCategory.count({ where: { ...baseWhere, isActive: true } }),
@@ -232,10 +240,9 @@ export const categoryRepository = {
         },
       });
 
-      // Cascade the soft delete to every product under this category, and
-      // from there to their styles ("items" in the storefront) and item
-      // sub-variants, so nothing orphaned stays visible after the category
-      // disappears.
+      // Cascade the soft delete to every product under this category and from
+      // there to its styles, so nothing orphaned stays visible after the
+      // category disappears.
       const now = new Date();
 
       const products = await tx.product.findMany({
@@ -275,27 +282,6 @@ export const categoryRepository = {
             })
           )
         );
-
-        if (styles.length > 0) {
-          const items = await tx.item.findMany({
-            where: { styleId: { in: styles.map((s) => s.id) }, deleted_at: null },
-            select: { id: true, slug: true, sku: true },
-          });
-          await Promise.all(
-            items.map((item) =>
-              tx.item.update({
-                where: { id: item.id },
-                data: {
-                  isActive: false,
-                  deleted_at: now,
-                  slug: retireUniqueValue(item.slug, item.id, 220),
-                  ...(item.sku ? { sku: retireUniqueValue(item.sku, item.id, 100) } : {}),
-                  ...(adminId ? { updated_by: adminId } : {}),
-                },
-              })
-            )
-          );
-        }
       }
 
       return category;

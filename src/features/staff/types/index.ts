@@ -4,11 +4,20 @@ export interface StaffResponse {
   email: string;
   phone: string | null;
   avatar: string | null;
-  role: string; // "STAFF"
+  role: string; // role name, e.g. "STAFF" or a role the admin created
+  roleId: number | null;
   status: string; // "active" | "inactive" | "banned"
   isActive: boolean;
   createdAt: Date;
   updatedAt: Date;
+}
+
+/** A role the Staff screen can assign. */
+export interface StaffAssignableRole {
+  id: number;
+  name: string;
+  slug: string;
+  description: string | null;
 }
 
 export interface GetStaffParams {

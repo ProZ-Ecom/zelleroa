@@ -10,7 +10,9 @@ import {
 export const POST = createApiHandler(
   {
     POST: async (_request, context) => {
-      const sessionUserId = context.session?.user?.id;
+      const sessionUserId =
+        context.session?.user?.id ||
+        (context.session?.user as any)?.email;
       if (!sessionUserId) {
         throw ApiError.unauthorized("Unauthorized");
       }

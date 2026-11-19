@@ -1,8 +1,10 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
+import { toast } from "@/components/ui/Toast";
 import {
   useAdminProducts,
+  useAdminProductsCount,
   useCreateProduct,
   useUpdateProduct,
   useDeleteProduct,
@@ -18,18 +20,28 @@ import {
 import { AdminTableSkeleton } from "@/components/admin/AdminTableSkeleton";
 import { ErrorState } from "@/components/ui/error-state";
 import { Button } from "@/components/ui/button";
+import Image from "next/image";
+import { getImageUrl } from "@/lib/utils";
+import { ExcelImportDialog } from "@/components/common/ExcelImportDialog";
+import { NoImagePlaceholder } from "@/components/common/NoImagePlaceholder";
+import { MissingImageBanner } from "@/components/common/MissingImageBanner";
+import { CatalogChecklistBanner } from "@/components/common/CatalogChecklistBanner";
+import { createAdminProductSchema } from "@/features/products/validations/admin-product.schema";
 import { Select } from "@/components/ui/select";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { FormModal } from "@/components/common/FormModal";
 import { SearchInput } from "@/components/ui/search-input";
 import { ClearFiltersButton } from "@/components/common/clear-filters-button";
+import { ExportButton } from "@/components/common/export-button";
+import { exportDataToCsv } from "@/lib/export-csv";
 import Link from "next/link";
-import { Plus, Pencil, Trash2 } from "lucide-react";
+import { Upload, Plus, Pencil, Trash2 } from "lucide-react";
 import type { ColumnDef } from "@tanstack/react-table";
 import type { AdminProductResponse } from "@/features/products/types";
 import { ProductForm } from "@/features/products/components/ProductForm";
 import { ProductAttributesPanel } from "@/features/products/components/ProductAttributesPanel";
 import { ProductImageUploader } from "@/features/products/components/ProductImageUploader";
+import { CanAct } from "@/features/access";
 
 export default function AdminProductsPage() {
   const [search, setSearch] = useState("");
@@ -40,6 +52,7 @@ export default function AdminProductsPage() {
 
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [isImportOpen, setIsImportOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] =
     useState<AdminProductResponse | null>(null);
@@ -57,8 +70,15 @@ export default function AdminProductsPage() {
     categoryId: selectedCategoryFilter || undefined,
   });
 
+  // Counted across the whole filtered set, not just the page on screen, so the
+  // reminder still shows when the products without an image sit on a later page.
+  const { data: counts, refetch: refetchCounts } = useAdminProductsCount({
+    search: search || undefined,
+    categoryId: selectedCategoryFilter || undefined,
+  });
+
   // Reference queries for categories filter & modal form dropdowns
-  const isModalOpen = isCreateOpen || isEditOpen;
+  const isModalOpen = isCreateOpen || isEditOpen || isImportOpen;
   const { data: categoriesData } = useCategories({ pageSize: 100 });
   const { data: brandsData } = useBrands(
     { limit: 100 },
@@ -90,20 +110,24 @@ export default function AdminProductsPage() {
   const categoryFilterOptions = useMemo(() => {
     return [
       { value: "", label: "All Categories" },
-      ...categories.map((c: any) => ({
-        value: String(c.uuid || c.id),
-        label: c.name,
-      })),
+      ...categories
+        .filter((c: { parentId?: string | number | null }) => !c.parentId)
+        .map((c: { uuid?: string; id?: string | number; name: string }) => ({
+          value: String(c.uuid || c.id),
+          label: c.name,
+        })),
     ];
   }, [categories]);
 
-  // Options for form dropdowns (used only when modal is open)
+  // Options for form dropdowns (strictly the master categories)
   const categoryOptions = useMemo(() => {
-    return categories.map((c: any) => ({
-      value: String(c.id || c.uuid),
-      label: c.name,
-      slug: c.slug,
-    }));
+    return categories
+      .filter((c: { parentId?: string | number | null }) => !c.parentId)
+      .map((c: { id?: string | number; uuid?: string; name: string; slug: string }) => ({
+        value: String(c.id || c.uuid),
+        label: c.name,
+        slug: c.slug,
+      }));
   }, [categories]);
 
   const brandOptions = useMemo(() => {
@@ -122,6 +146,24 @@ export default function AdminProductsPage() {
   }, [hsnCodes]);
 
   const columns: ColumnDef<AdminProductResponse>[] = [
+    {
+      id: "image",
+      header: "Image",
+      cell: ({ row }) =>
+        row.original.imageUrl ? (
+          <div className="h-12 w-12 overflow-hidden rounded-xl bg-[var(--color-neutral-100)] ring-1 ring-black/5 shadow-sm">
+            <Image
+              src={getImageUrl(row.original.imageUrl)}
+              alt={row.original.imageAlt || row.original.name}
+              width={48}
+              height={48}
+              className="h-full w-full object-cover"
+            />
+          </div>
+        ) : (
+          <NoImagePlaceholder size={48} />
+        ),
+    },
     {
       accessorKey: "name",
       header: "Product Name",
@@ -149,6 +191,25 @@ export default function AdminProductsPage() {
       ),
     },
     {
+      accessorKey: "gender",
+      header: "Gender",
+      cell: ({ row }) => {
+        const g = row.original.gender;
+        const labels: Record<string, string> = {
+          men: "Men",
+          women: "Women",
+          kids: "Kids",
+          unisex: "Unisex",
+          not_applicable: "N/A",
+        };
+        return (
+          <span className="text-[var(--color-neutral-700)]">
+            {g ? labels[g] ?? g : "—"}
+          </span>
+        );
+      },
+    },
+    {
       accessorKey: "hsnCodeName",
       header: "HSN Code",
       cell: ({ row }) => (
@@ -171,26 +232,30 @@ export default function AdminProductsPage() {
       header: "Actions",
       cell: ({ row }) => (
         <div className="flex items-center justify-center gap-1.5">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => {
-              setSelectedProduct(row.original);
-              setIsEditOpen(true);
-            }}
-            title="Edit Product"
-          >
-            <Pencil className="h-4 w-4 text-[var(--color-neutral-500)]" />
-          </Button>
+          <CanAct action="UPDATE">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => {
+                setSelectedProduct(row.original);
+                setIsEditOpen(true);
+              }}
+              title="Edit Product"
+            >
+              <Pencil className="h-4 w-4 text-[var(--color-neutral-500)]" />
+            </Button>
+          </CanAct>
 
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setDeleteId(row.original.id)}
-            title="Delete Product"
-          >
-            <Trash2 className="h-4 w-4 text-[var(--color-error-600)]" />
-          </Button>
+          <CanAct action="DELETE">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setDeleteId(row.original.id)}
+              title="Delete Product"
+            >
+              <Trash2 className="h-4 w-4 text-[var(--color-error-600)]" />
+            </Button>
+          </CanAct>
         </div>
       ),
     },
@@ -201,9 +266,14 @@ export default function AdminProductsPage() {
   }
 
   if (error) {
+    const errorMsg =
+      (error as any)?.message ||
+      (error as any)?.response?.data?.message ||
+      "Failed to load products";
     return (
       <ErrorState
-        message="Failed to load products"
+        title={errorMsg.includes("permission") ? "You don't have permission" : "Something went wrong"}
+        message={errorMsg}
         onRetry={() => refetch()}
       />
     );
@@ -216,8 +286,8 @@ export default function AdminProductsPage() {
         description="Manage your product catalog, categories, brands, and taxes."
       />
 
-      <AdminContent className="flex-1 min-h-0 overflow-hidden">
-        <div className="flex h-full flex-col overflow-hidden bg-[var(--color-background)] py-1 rounded-2xl">
+      <AdminContent className="flex-1 min-h-0">
+        <div className="flex h-full flex-col bg-[var(--color-background)] py-1 rounded-2xl">
           <div className="flex-shrink-0 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <div className="flex flex-1 flex-col gap-3 sm:flex-row sm:items-center">
               <SearchInput
@@ -233,29 +303,62 @@ export default function AdminProductsPage() {
               <div className="w-full sm:w-64">
                 <Select
                   value={selectedCategoryFilter}
-                  onChange={(e) => {
-                    setSelectedCategoryFilter(e.target.value);
+                  onValueChange={(val) => {
+                    setSelectedCategoryFilter(val);
                     setPage(1);
                   }}
                   options={categoryFilterOptions}
                   placeholder="All Categories"
-                  className="h-11 rounded-xl"
                 />
               </div>
 
               {hasActiveFilters && <ClearFiltersButton onClick={handleClearFilters} />}
             </div>
+            <div className="flex items-center gap-2">
+              <ExportButton
+                onClick={() =>
+                  exportDataToCsv(
+                    products,
+                    "products",
+                    [
+                      { header: "Product Name", accessor: (p) => p.name },
+                      { header: "Slug", accessor: (p) => p.slug },
+                      { header: "Category", accessor: (p) => p.categoryName || "—" },
+                      { header: "Brand", accessor: (p) => p.brandName || "—" },
+                      { header: "Gender", accessor: (p) => p.gender || "—" },
+                      { header: "HSN Code", accessor: (p) => p.hsnCodeName || "—" },
+                      { header: "Status", accessor: (p) => (p.isActive ? "Active" : "Inactive") },
+                    ]
+                  )
+                }
+                disabled={!products.length}
+              />
 
-            <Button
-              onClick={() => setIsCreateOpen(true)}
-              className="h-11 rounded-xl bg-[var(--color-secondary-600)] px-5 text-sm font-semibold text-white hover:bg-[var(--color-secondary-700)]"
-            >
-              <Plus className="mr-2 h-4 w-4" />
-              Add Product
-            </Button>
+              <Button
+                variant="outline"
+                onClick={() => setIsImportOpen(true)}
+                className="h-11 rounded-xl px-5 text-sm font-semibold"
+              >
+                <Upload className="mr-2 h-4 w-4" />
+                Import
+              </Button>
+
+              <CanAct action="CREATE">
+                <Button
+                  onClick={() => setIsCreateOpen(true)}
+                  className="h-11 rounded-xl bg-stone-900 hover:bg-stone-800 text-[#D4AF37] border border-[#D4AF37]/30 shadow-xs px-5 text-sm font-semibold transition-colors"
+                >
+                  <Plus className="mr-2 h-4 w-4 text-[#D4AF37]" />
+                  Add Product
+                </Button>
+              </CanAct>
+            </div>
           </div>
 
-          <div className="mt-6 flex-1 min-h-0 overflow-hidden flex flex-col">
+          <CatalogChecklistBanner />
+          <MissingImageBanner count={counts?.withoutImage ?? 0} noun="products" />
+
+          <div className="mt-6 flex-1 min-h-0 flex flex-col">
             <DataTable
               columns={columns}
               data={products}
@@ -276,6 +379,57 @@ export default function AdminProductsPage() {
       </AdminContent>
 
       {/* CREATE MODAL */}
+      <ExcelImportDialog
+        open={isImportOpen}
+        onClose={() => setIsImportOpen(false)}
+        title="Products"
+        sampleFileName="products"
+        columns={[
+          { key: "name", header: "Product Name", required: true, info: "Product name, max 200 characters.", samples: ["Cotton Kurti", "Silk Saree", "Kids T-Shirt"] },
+          { key: "slug", header: "Product Code", required: true, info: "Your part of the code (e.g. KURTI_01). Capital letters, spaces become _. The category code is added in front automatically.", samples: ["KURTI_01", "SAREE_01", "TSHIRT_01"] },
+          { key: "category", header: "Category Name", required: true, info: "Must match an existing category name exactly.", samples: ["Women", "Women", "Kids"] },
+          { key: "brand", header: "Brand Name", info: "Must match an existing brand name. First brand is used if blank.", samples: ["Zelleroa Couture", "Zelleroa Couture", "Zelleroa Kids"] },
+          { key: "hsn", header: "HSN Code", required: true, info: "Must match an existing HSN code (e.g. 6109).", samples: ["6104", "5007", "6109"] },
+          { key: "gender", header: "Gender", required: true, info: "One of: men, women, kids, unisex, not_applicable.", samples: ["women", "women", "kids"] },
+        ]}
+        hint="Category, Brand and HSN Code must already exist."
+        imageNotice="Product images cannot be sent in an Excel file. Imported products are created without one — open each product after the import and upload its images, along with its attributes."
+        prepare={(row) => {
+          const find = <T,>(list: T[], key: (item: T) => string, value: unknown) =>
+            list.find((item) => key(item).trim().toLowerCase() === String(value ?? "").trim().toLowerCase());
+
+          const category = find(categoryOptions, (c) => c.label, row.category);
+          if (!category) return { error: `Category "${row.category ?? ""}" not found` };
+
+          let brandId: string | undefined = brandOptions[0]?.value;
+          if (row.brand !== undefined) {
+            const brand = find(brandOptions, (b) => b.label, row.brand);
+            if (!brand) return { error: `Brand "${row.brand}" not found` };
+            brandId = brand.value;
+          }
+
+          const hsn = hsnCodes.find((h) => h.code.trim().toLowerCase() === String(row.hsn ?? "").trim().toLowerCase());
+          if (!hsn) return { error: `HSN code "${row.hsn ?? ""}" not found` };
+
+          const prefix = category.slug ? `${category.slug.toUpperCase()}_` : "";
+          const suffix = String(row.slug ?? "").trim().toUpperCase().replace(/\s+/g, "_");
+          return {
+            name: row.name,
+            slug: suffix ? `${prefix}${suffix}` : "",
+            categoryId: category.value,
+            brandId,
+            hsnCodeId: hsn.id,
+            gender: typeof row.gender === "string" ? row.gender.toLowerCase().replace(/\s+/g, "_") : row.gender,
+          };
+        }}
+        schema={createAdminProductSchema}
+        createRow={(payload) => createMutation.mutateAsync(payload)}
+        onImported={() => {
+          refetch();
+          refetchCounts();
+        }}
+      />
+
       <FormModal
         open={isCreateOpen}
         onClose={() => {
@@ -311,7 +465,7 @@ export default function AdminProductsPage() {
                   setCreatedProductName("");
                   refetch();
                 }}
-                className="h-10 rounded-xl bg-[var(--color-secondary-600)] px-5 text-sm font-semibold text-white hover:bg-[var(--color-secondary-700)]"
+                className="h-10 rounded-xl bg-theme-primary hover:bg-theme-primary-hover px-5 text-sm font-semibold text-white transition-colors"
               >
                 Done
               </Button>
@@ -325,23 +479,28 @@ export default function AdminProductsPage() {
             isLoading={createMutation.isPending}
             submitLabel="Next: Attributes"
             onSubmit={async (formData) => {
-              const payload = {
-                name: formData.name,
-                slug: formData.slug,
-                categoryId: formData.categoryId,
-                brandId: formData.brandId,
-                hsnCodeId: formData.hsnCodeId,
-                gender: formData.gender,
-              };
+              try {
+                const payload = {
+                  name: formData.name,
+                  slug: formData.slug,
+                  categoryId: formData.categoryId,
+                  brandId: formData.brandId,
+                  hsnCodeId: formData.hsnCodeId,
+                  gender: formData.gender,
+                };
 
-              const created = await createMutation.mutateAsync(payload);
+                const created = await createMutation.mutateAsync(payload);
+                toast.success("Product created", `"${formData.name}" is ready for attributes.`);
 
-              if (created?.data?.id) {
-                setCreatedProductId(created.data.id);
-                setCreatedProductName(formData.name);
-              } else {
-                setIsCreateOpen(false);
-                refetch();
+                if (created?.data?.id) {
+                  setCreatedProductId(created.data.id);
+                  setCreatedProductName(formData.name);
+                } else {
+                  setIsCreateOpen(false);
+                  refetch();
+                }
+              } catch (err: any) {
+                toast.error("Failed to create product", err?.message || "Please try again.");
               }
             }}
           />
@@ -377,23 +536,28 @@ export default function AdminProductsPage() {
             isLoading={updateMutation.isPending}
             submitLabel="Update Product"
             onSubmit={async (formData) => {
-              const payload = {
-                name: formData.name,
-                slug: formData.slug,
-                categoryId: formData.categoryId,
-                brandId: formData.brandId,
-                hsnCodeId: formData.hsnCodeId,
-                gender: formData.gender,
-              };
+              try {
+                const payload = {
+                  name: formData.name,
+                  slug: formData.slug,
+                  categoryId: formData.categoryId,
+                  brandId: formData.brandId,
+                  hsnCodeId: formData.hsnCodeId,
+                  gender: formData.gender,
+                };
 
-              await updateMutation.mutateAsync({
-                uuid: selectedProduct.id,
-                data: payload,
-              });
+                await updateMutation.mutateAsync({
+                  uuid: selectedProduct.id,
+                  data: payload,
+                });
+                toast.success("Product updated", `"${formData.name}" was saved successfully.`);
 
-              setIsEditOpen(false);
-              setSelectedProduct(null);
-              refetch();
+                setIsEditOpen(false);
+                setSelectedProduct(null);
+                refetch();
+              } catch (err: any) {
+                toast.error("Failed to update product", err?.message || "Please try again.");
+              }
             }}
           />
         )}
@@ -420,14 +584,16 @@ export default function AdminProductsPage() {
       <ConfirmDialog
         open={!!deleteId}
         onClose={() => setDeleteId(null)}
-        onConfirm={() => {
+        onConfirm={async () => {
           if (deleteId) {
-            deleteMutation.mutate(deleteId, {
-              onSuccess: () => {
-                setDeleteId(null);
-                refetch();
-              },
-            });
+            try {
+              await deleteMutation.mutateAsync(deleteId);
+              toast.success("Product deleted", "The product was removed successfully.");
+              setDeleteId(null);
+              refetch();
+            } catch (err: any) {
+              toast.error("Failed to delete product", err?.message || "Please try again.");
+            }
           }
         }}
         title="Delete Product"

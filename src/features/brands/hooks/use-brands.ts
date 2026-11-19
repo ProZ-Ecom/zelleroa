@@ -14,6 +14,7 @@ export function useBrands(
   if (params?.page) queryParams.page = params.page;
   if (params?.limit) queryParams.limit = params.limit;
   if (params?.isActive !== undefined) queryParams.isActive = params.isActive;
+  if (params?.categorySlug) queryParams.categorySlug = params.categorySlug;
 
   return useQuery({
     queryKey: brandKeys.list(queryParams),

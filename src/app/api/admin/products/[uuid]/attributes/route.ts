@@ -39,7 +39,7 @@ export const PUT = createApiHandler(
 
       const attributes = await attributeService.setAttributesForProduct(
         uuid,
-        body.attributeIds,
+        body.attributes,
         body.force,
         adminEmail
       );

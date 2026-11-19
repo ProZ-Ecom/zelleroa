@@ -9,7 +9,7 @@ export default function AdminCommissionsPage() {
   return (
     <PageContainer
       title="Commission Management"
-      description="Every commission with its rate, status and audit trail. Commissions are approved automatically once the return period ends."
+      description="Every commission with its rate, status and audit trail."
       breadcrumbs={[{ label: "Dashboard", href: "/admin/dashboard" }, { label: "Commissions" }]}
     >
       <div className="flex flex-col gap-5">

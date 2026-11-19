@@ -1,5 +1,5 @@
 import { createApiHandler } from "@/lib/api/api-handler";
-import { apiSuccess } from "@/lib/api/api-response";
+import { apiSuccess} from "@/lib/api/api-response";
 import { categoryRepository } from "@/features/categories/repositories/category.repository";
 import { styleRepository } from "@/features/styles/repositories/style.repository";
 import { adminStyleListQuerySchema, type AdminStyleListQueryInput } from "@/features/styles/validations/admin-style.schema";
@@ -8,9 +8,22 @@ import type { AdminStyleResponse } from "@/features/styles/types";
 type StyleListRow = Awaited<ReturnType<typeof styleRepository.findAdminList>>["data"][number];
 
 function formatStyleListRow(style: StyleListRow, categoryNames: Map<string, string>): AdminStyleResponse {
-  // Brand lives on the Product now; older Items may still carry their own.
+  // Brand lives on the Product now; a Style only overrides it.
   const brand = style.brand ?? style.product?.brand ?? null;
   const primaryImgObj = style.images?.find((img) => img.is_primary) ?? style.images?.[0];
+
+  const colorNames = new Set<string>();
+  let totalStock = 0;
+
+  for (const v of style.variants ?? []) {
+    if (v.color_name && v.color_name.trim()) {
+      colorNames.add(v.color_name.trim());
+    }
+    for (const vup of v.variant_unit_prices ?? []) {
+      totalStock += vup.inventories?.quantity_available ?? 0;
+    }
+  }
+
   return {
     id: style.uuid,
     productId: style.product?.uuid ?? String(style.productId),
@@ -34,11 +47,15 @@ function formatStyleListRow(style: StyleListRow, categoryNames: Map<string, stri
     vegType: (style.veg_type as AdminStyleResponse["vegType"]) || "na",
     basePrice: Number(style.base_price ?? 0),
     isFeatured: Boolean(style.is_featured),
+    isNewArrival: Boolean(style.is_new_arrival),
+    newArrivalUntil: style.new_arrival_until ? style.new_arrival_until.toISOString().slice(0, 10) : null,
     isDefault: Boolean(style.is_default),
     isActive: Boolean(style.isActive),
     outOfStock: Boolean(style.out_of_stock),
     primaryImage: primaryImgObj ? primaryImgObj.image_url : null,
-    itemCount: style._count?.items ?? 0,
+    variantCount: style._count?.variants ?? 0,
+    totalStock,
+    colors: Array.from(colorNames),
     createdAt: style.createdAt,
     updatedAt: style.updatedAt,
   };
@@ -47,6 +64,8 @@ function formatStyleListRow(style: StyleListRow, categoryNames: Map<string, stri
 export const GET = createApiHandler(
   {
     GET: async (_request, context) => {
+      // STAFF users need the STYLE_VIEW permission to access the Styles list.
+      // ADMIN users always have full access.
       const query = context.query as AdminStyleListQueryInput & {
         productId?: string;
         categoryId?: string;

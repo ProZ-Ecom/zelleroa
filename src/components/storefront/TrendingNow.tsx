@@ -17,8 +17,25 @@ export function TrendingNow() {
 
   const { data: categoryTree = [] } = useCategoryTree();
 
+  const selectedCategory = React.useMemo(
+    () => categoryTree.find((c) => c.id === selectedCategoryId),
+    [categoryTree, selectedCategoryId]
+  );
+
+  const isSpecialDiscount = Boolean(
+    selectedCategory?.slug?.toLowerCase().includes("special_discount") ||
+      selectedCategory?.name.toLowerCase() === "special discount"
+  );
+  const isNewCollection = Boolean(
+    selectedCategory?.slug?.toLowerCase().includes("new_collection") ||
+      selectedCategory?.name.toLowerCase() === "new collection"
+  );
+
   const { data: response, isLoading, isError } = useCustomerStyles({
-    categoryIds: selectedCategoryId ? [selectedCategoryId] : undefined,
+    categoryIds:
+      selectedCategoryId && !isSpecialDiscount && !isNewCollection
+        ? [selectedCategoryId]
+        : undefined,
     page: 1,
     pageSize: 4,
     sortBy: "createdAt",

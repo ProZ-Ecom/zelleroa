@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
 import { Loader2 } from "lucide-react";
 import { apiClient, ApiClientError } from "@/lib/api/api-client";
 import { toast } from "@/components/ui/Toast";
@@ -20,6 +21,7 @@ interface Props {
 
 export function RequestPayoutForm({ amount, commissionCount, hasUpi, hasBank, preferredMethod, upiId, bankSummary }: Props) {
   const router = useRouter();
+  const qc = useQueryClient();
   const firstAvailable = preferredMethod === "bank_transfer" && hasBank ? "bank_transfer" : hasUpi ? "upi" : hasBank ? "bank_transfer" : null;
   const [method, setMethod] = useState<"upi" | "bank_transfer" | null>(firstAvailable);
   const [error, setError] = useState<string | null>(null);
@@ -32,6 +34,7 @@ export function RequestPayoutForm({ amount, commissionCount, hasUpi, hasBank, pr
     try {
       await apiClient.post("/api/agent/payouts", { method });
       toast.success("Payout requested", "The admin will review it shortly.");
+      await qc.invalidateQueries({ queryKey: ["agents-admin"] });
       router.refresh();
     } catch (err) {
       setError(err instanceof ApiClientError ? err.message : "Could not request payout. Please try again.");

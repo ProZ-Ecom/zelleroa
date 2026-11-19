@@ -35,7 +35,7 @@ export const POST = createApiHandler(
     },
   },
   {
-    requireAuth: true,
+    requireAuth: true, requiredRole: ["CUSTOMER", "AGENT"],
   }
 );
 
@@ -55,6 +55,6 @@ export const DELETE = createApiHandler(
     },
   },
   {
-    requireAuth: true,
+    requireAuth: true, requiredRole: ["CUSTOMER", "AGENT"],
   }
 );

@@ -131,7 +131,7 @@ export default function WhatsAppTemplatesPage() {
   ];
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto pb-16">
+    <div className="space-y-6 pb-12">
       {/* Header */}
       <AdminPageHeader
         title="WhatsApp Message Templates"
@@ -139,7 +139,7 @@ export default function WhatsAppTemplatesPage() {
       >
         <Button
           onClick={() => setIsModalOpen(true)}
-          className="bg-secondary-600 hover:bg-secondary-700 text-white gap-2 font-semibold text-xs h-9 shadow-xs"
+          className="bg-theme-primary hover:bg-theme-primary-hover text-white gap-2 font-semibold text-xs h-9 transition-colors"
           size="sm"
         >
           <PlusCircle className="w-4 h-4" />
@@ -319,7 +319,7 @@ export default function WhatsAppTemplatesPage() {
               size="sm"
               value={newTmplName}
               onChange={(e) => setNewTmplName(e.target.value)}
-              placeholder="e.g. Diwali Sweets 20% Special"
+              placeholder="e.g. Festive Kurta & Saree 20% Special"
             />
           </div>
 

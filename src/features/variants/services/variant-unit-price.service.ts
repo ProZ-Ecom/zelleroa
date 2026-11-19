@@ -7,6 +7,7 @@ import { variantUnitPriceRepository } from "../repositories/variant-unit-price.r
 import { unitRepository } from "@/features/units/repositories/unit.repository";
 import { userRepository } from "@/features/users/repositories/user.repository";
 import { formatUnitPriceResponse } from "./variant.service";
+import { buildAttributeSignature } from "../utils/attribute-signature.util";
 import type { Prisma } from "@/generated/prisma";
 import type {
   VariantUnitPriceResponse,
@@ -67,25 +68,94 @@ function skuPart(text: string): string {
 }
 
 /**
- * Builds a SKU as {item code}-{Color}-{Size}, skipping whichever parts the
- * variant doesn't have (e.g. no Size on a Watch). Falls back to appending a
+ * Resolves the SKU-axis values a row should carry, in the order the product
+ * configures its attributes - so the primary value (the one that stays on
+ * `attribute_value_id` for labels) is the same pick the generator would make.
+ */
+async function resolveAttributeValues(
+  variantId: bigint,
+  valueUuids: string[]
+): Promise<{ attributeId: bigint; attributeValueId: bigint; value: string }[]> {
+  if (valueUuids.length === 0) return [];
+
+  const values = await db.attributeValue.findMany({
+    where: { uuid: { in: valueUuids }, is_active: true },
+    select: { id: true, value: true, attributeId: true },
+  });
+  if (values.length !== new Set(valueUuids).size) {
+    throw ApiError.badRequest("Invalid size attribute value");
+  }
+  if (new Set(values.map((v) => v.attributeId.toString())).size !== values.length) {
+    throw ApiError.badRequest("Only one value per attribute can be selected for a stock row");
+  }
+
+  const variant = await db.productVariant.findUnique({
+    where: { id: variantId },
+    select: { style: { select: { productId: true } } },
+  });
+  let configs: Array<{ attribute_id: bigint; sort_order: number }> = [];
+  if (variant) {
+    try {
+      configs = await db.product_attribute_configs.findMany({
+        where: {
+          product_id: variant.style.productId,
+          attribute_id: { in: values.map((v) => v.attributeId) },
+        },
+        select: { attribute_id: true, sort_order: true },
+      });
+    } catch {
+      configs = [];
+    }
+  }
+
+  // Only enforce configuration check if product_attribute_configs table has entries
+  if (configs.length > 0) {
+    const configured = new Map(configs.map((c) => [c.attribute_id.toString(), c]));
+    const stray = values.find((v) => !configured.has(v.attributeId.toString()));
+    if (stray) {
+      throw ApiError.badRequest(
+        `"${stray.value}" belongs to an attribute that is not configured on this product`
+      );
+    }
+  }
+
+  const sortOrderOf = new Map(
+    configs.map((c) => [c.attribute_id.toString(), c.sort_order])
+  );
+
+  return values
+    .map((v) => ({
+      attributeId: v.attributeId,
+      attributeValueId: v.id,
+      value: v.value,
+      sortOrder: sortOrderOf.get(v.attributeId.toString()) ?? Number.MAX_SAFE_INTEGER,
+    }))
+    .sort((a, b) => a.sortOrder - b.sortOrder || (a.attributeValueId < b.attributeValueId ? -1 : 1))
+    .map(({ attributeId, attributeValueId, value }) => ({ attributeId, attributeValueId, value }));
+}
+
+/**
+ * Builds a SKU as {style code}-{Color}-{variation values}, skipping whichever parts
+ * the variant doesn't have (e.g. no Size on a Watch). Falls back to appending a
  * numeric suffix if the generated code collides with an existing SKU.
  */
 async function generateSku(
   variant: {
-    item?: { slug?: string | null } | null;
+    style?: { slug?: string | null } | null;
     color_name?: string | null;
   },
-  sizeValue?: string | null
+  sizeValues: string[] = []
 ): Promise<string> {
   const parts: string[] = [];
 
-  if (variant.item?.slug) {
-    parts.push(skuPart(variant.item.slug));
+  if (variant.style?.slug) {
+    parts.push(skuPart(variant.style.slug));
   }
 
   if (variant.color_name) parts.push(skuPart(variant.color_name));
-  if (sizeValue) parts.push(skuPart(sizeValue));
+  for (const value of sizeValues) {
+    if (value) parts.push(skuPart(value));
+  }
 
   const base = parts.filter(Boolean).join("-") || `ITEM-${Date.now()}`;
 
@@ -103,10 +173,10 @@ async function generateSku(
  * A size row created without a price sells at its Item's price - the one
  * place a price is entered. Color/size "add-ons" are no longer part of it.
  */
-function itemPriceOf(variant: {
-  item?: { base_price?: Prisma.Decimal | number | null } | null;
+function stylePriceOf(variant: {
+  style?: { base_price?: Prisma.Decimal | number | null } | null;
 }): number {
-  return Number(variant.item?.base_price ?? 0);
+  return Number(variant.style?.base_price ?? 0);
 }
 
 export const variantUnitPriceService = {
@@ -137,26 +207,26 @@ export const variantUnitPriceService = {
       throw ApiError.badRequest("Invalid or inactive unit");
     }
 
-    let sizeValueInternalId: bigint | null = null;
-    let sizeValue: { value: string } | null = null;
-    if (data.sizeValueId) {
-      const resolved = await db.attributeValue.findFirst({
-        where: { uuid: data.sizeValueId, is_active: true },
-        select: { id: true, value: true },
-      });
-      if (!resolved) {
-        throw ApiError.badRequest("Invalid size attribute value");
-      }
-      sizeValueInternalId = resolved.id;
-      sizeValue = resolved;
-    }
-
-    const duplicateSize = await variantUnitPriceRepository.findByVariantAndSize(
+    // Every SKU-axis value this row carries, in the product's attribute order.
+    const attributeValues = await resolveAttributeValues(
       variant.id,
-      sizeValueInternalId
+      data.attributeValueIds ?? (data.sizeValueId ? [data.sizeValueId] : [])
+    );
+    // The first axis stays on attribute_value_id, which labels and size charts read.
+    const sizeValueInternalId = attributeValues[0]?.attributeValueId ?? null;
+
+    const attributeSignature = buildAttributeSignature(
+      attributeValues.map((v) => v.attributeValueId)
+    );
+
+    const duplicateSize = await variantUnitPriceRepository.findByVariantAndSignature(
+      variant.id,
+      unit.id,
+      data.unitValue,
+      attributeSignature
     );
     if (duplicateSize) {
-      throw ApiError.conflict("This item/color already has a price for that size");
+      throw ApiError.conflict("This style/color already has a price for that size");
     }
 
     let sku = data.sku;
@@ -166,7 +236,10 @@ export const variantUnitPriceService = {
         throw ApiError.conflict(`An active unit price with SKU '${sku}' already exists`);
       }
     } else {
-      sku = await generateSku(variant, sizeValue?.value ?? null);
+      sku = await generateSku(
+        variant,
+        attributeValues.map((v) => v.value)
+      );
     }
 
     const duplicateUnit = await variantUnitPriceRepository.findByVariantAndUnit(
@@ -174,28 +247,26 @@ export const variantUnitPriceService = {
       unit.id,
       data.unitValue
     );
-    if (duplicateUnit && !data.sizeValueId) {
-      throw ApiError.conflict("This item already has a price for that unit and measurement");
+    // A row with no variation of its own is told apart by its unit and measurement,
+    // so a second one of those really is a duplicate.
+    if (duplicateUnit && attributeValues.length === 0) {
+      throw ApiError.conflict("This variant already has a price for that unit and measurement");
     }
 
     if (data.isDefault) {
       await variantUnitPriceRepository.unsetDefaultForVariant(variant.id);
     }
 
-    let basePrice = data.basePrice;
-    if (basePrice === undefined) {
-      basePrice = itemPriceOf(variant);
-      if (basePrice <= 0) {
-        throw ApiError.badRequest(
-          "Enter a price for this size, or set the Item's price first"
-        );
-      }
-    }
+    // A new stock row starts at the Item's price, or at zero when the Item has
+    // none: the catalog no longer asks for a price, so an unpriced SKU is a
+    // normal state and Inventory > Pricing is where it gets one.
+    const basePrice = data.basePrice ?? Math.max(stylePriceOf(variant), 0);
 
     const row = {
       unit_id: unit.id,
       unit_value: data.unitValue,
       attribute_value_id: sizeValueInternalId,
+      attribute_signature: attributeSignature,
       sku,
       base_price: basePrice,
       is_default: data.isDefault ?? false,
@@ -203,39 +274,41 @@ export const variantUnitPriceService = {
       updated_by: adminId,
     };
 
-    // A previously deleted row still holds this (variant, size) pair in
-    // uniq_vup_variant_size, so reuse it rather than inserting a duplicate that
+    // A previously deleted row still holds this combination in
+    // uniq_vup_variant_signature, so reuse it rather than inserting a duplicate that
     // the database would reject.
-    const archived = sizeValueInternalId
-      ? await variantUnitPriceRepository.findDeletedByVariantAndSize(
-          variant.id,
-          sizeValueInternalId
-        )
-      : null;
+    const archived = await variantUnitPriceRepository.findDeletedByVariantAndSignature(
+      variant.id,
+      unit.id,
+      data.unitValue,
+      attributeSignature
+    );
 
     const created = archived
-      ? await variantUnitPriceRepository.reviveById(archived.id, row)
-      : await variantUnitPriceRepository.create({
-          uuid: crypto.randomUUID(),
-          variant_id: variant.id,
-          created_by: adminId,
-          ...row,
-        });
+      ? await variantUnitPriceRepository.reviveById(archived.id, row, attributeValues)
+      : await variantUnitPriceRepository.create(
+          {
+            uuid: crypto.randomUUID(),
+            variant_id: variant.id,
+            created_by: adminId,
+            ...row,
+          },
+          attributeValues
+        );
 
-    // A revived row carries its pre-deletion inventory, which would silently
-    // reappear as stock nobody re-counted, so it restarts at the requested
-    // quantity (zero when the caller sent none).
-    const stock = data.stock ?? (archived ? 0 : undefined);
-
-    if (stock !== undefined) {
-      await db.$transaction((tx) =>
-        setStockLevel(tx, {
+    // A new stock row starts empty: stock only ever arrives through a purchase
+    // or an inventory adjustment, so every level is backed by a ledger movement.
+    // A revived row still carries its pre-deletion inventory, which would
+    // silently reappear as stock nobody re-counted, so that one is reset.
+    if (archived) {
+      await db.$transaction(async (tx) => {
+        await setStockLevel(tx, {
           variantUnitPriceId: created.id,
-          target: stock,
-          reason: "Opening stock",
+          target: 0,
+          reason: "Stock row re-created",
           actorId: adminId,
-        })
-      );
+        });
+      });
     }
 
     const withDetails = await variantUnitPriceRepository.findByUuid(created.uuid);
@@ -259,7 +332,7 @@ export const variantUnitPriceService = {
     }
 
     const adminId = await getAdminInternalId(adminEmail);
-    const updateData: Prisma.VariantUnitPriceUncheckedUpdateInput & { stock?: number } = {};
+    const updateData: Prisma.VariantUnitPriceUncheckedUpdateInput = {};
 
     if (adminId) {
       updateData.updated_by = adminId;
@@ -286,7 +359,7 @@ export const variantUnitPriceService = {
         unitPriceUuid
       );
       if (duplicateUnit) {
-        throw ApiError.conflict("This item already has a price for that unit and measurement");
+        throw ApiError.conflict("This variant already has a price for that unit and measurement");
       }
     }
 
@@ -294,27 +367,30 @@ export const variantUnitPriceService = {
       updateData.unit_value = data.unitValue;
     }
 
-    if (data.sizeValueId !== undefined) {
-      let sizeValueInternalId: bigint | null = null;
-      if (data.sizeValueId) {
-        const resolved = await db.attributeValue.findFirst({
-          where: { uuid: data.sizeValueId, is_active: true },
-          select: { id: true },
-        });
-        if (!resolved) {
-          throw ApiError.badRequest("Invalid size attribute value");
-        }
-        sizeValueInternalId = resolved.id;
-      }
-      const duplicateSize = await variantUnitPriceRepository.findByVariantAndSize(
+    if (data.attributeValueIds !== undefined || data.sizeValueId !== undefined) {
+      const attributeValues = await resolveAttributeValues(
         variant.id,
-        sizeValueInternalId,
+        data.attributeValueIds ?? (data.sizeValueId ? [data.sizeValueId] : [])
+      );
+      const sizeValueInternalId = attributeValues[0]?.attributeValueId ?? null;
+      const attributeSignature = buildAttributeSignature(
+        attributeValues.map((v) => v.attributeValueId)
+      );
+      const duplicateSize = await variantUnitPriceRepository.findByVariantAndSignature(
+        variant.id,
+        effectiveUnitId,
+        Number(effectiveUnitValue),
+        attributeSignature,
         unitPriceUuid
       );
       if (duplicateSize) {
-        throw ApiError.conflict("This item/color already has a price for that size");
+        throw ApiError.conflict("This style/color already has a price for that size");
       }
       updateData.attribute_value_id = sizeValueInternalId;
+      updateData.attribute_signature = attributeSignature;
+      // Changing the row's variation has to replace its join rows, or the old value
+      // would keep claiming this row in a shopper's selection.
+      await variantUnitPriceRepository.replaceAttributeValues(existing.id, attributeValues);
     }
 
     if (data.sku !== undefined && data.sku !== existing.sku) {
@@ -335,10 +411,6 @@ export const variantUnitPriceService = {
 
     if (typeof data.isActive === "boolean") {
       updateData.isActive = data.isActive;
-    }
-
-    if (data.stock !== undefined) {
-      updateData.stock = data.stock;
     }
 
     const updated = await variantUnitPriceRepository.updateByUuid(

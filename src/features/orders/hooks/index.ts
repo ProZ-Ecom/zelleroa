@@ -17,6 +17,8 @@ import {
   packAdminOrder,
   assignOrderDelivery,
   getCheckoutSummary,
+  updateOrderInvoiceNumber,
+  markOrderPaid,
   type AssignDeliveryInput,
 } from "../api/get-orders";
 import type {
@@ -92,6 +94,10 @@ export function useCancelOrderAdmin() {
       reason?: string;
       note?: string;
     }) => cancelOrderAdmin(id, { reason, note }),
+    meta: {
+      successMessage: "Order cancelled successfully",
+      errorMessage: "Failed to cancel order",
+    },
     onSuccess: (_result, variables) => {
       queryClient.invalidateQueries({ queryKey: adminOrderKeys.all });
       queryClient.invalidateQueries({ queryKey: ["admin-orders", "count"] });
@@ -105,12 +111,24 @@ export function useCancelOrderAdmin() {
 
 export const useCancelAdminOrder = useCancelOrderAdmin;
 
+/**
+ * Admin order lists must surface newly placed customer orders without the
+ * operator reloading the page, so these two queries opt out of the app-wide
+ * "fetch once, stay stale" defaults: they poll while the tab is in the
+ * foreground and refetch when the admin comes back to the window.
+ */
+const ADMIN_ORDERS_REFRESH_MS = 30_000;
+
 export function useAdminOrders(params?: AdminOrdersListParams) {
   return useQuery({
     queryKey: adminOrderKeys.list(
       params as Record<string, unknown> | undefined
     ),
     queryFn: () => getAdminOrders(params),
+    refetchInterval: ADMIN_ORDERS_REFRESH_MS,
+    refetchIntervalInBackground: false,
+    refetchOnWindowFocus: true,
+    refetchOnMount: "always",
   });
 }
 
@@ -118,6 +136,10 @@ export function useAdminOrdersCount(params?: Partial<AdminOrdersListParams>) {
   return useQuery({
     queryKey: ["admin-orders", "count", params ?? {}] as const,
     queryFn: () => getAdminOrdersCount(params),
+    refetchInterval: ADMIN_ORDERS_REFRESH_MS,
+    refetchIntervalInBackground: false,
+    refetchOnWindowFocus: true,
+    refetchOnMount: "always",
   });
 }
 
@@ -135,6 +157,10 @@ export function useConfirmAdminOrder() {
   return useMutation({
     mutationFn: ({ id, note }: { id: string | number; note?: string }) =>
       confirmAdminOrder(id, note),
+    meta: {
+      successMessage: "Order confirmed successfully",
+      errorMessage: "Failed to confirm order",
+    },
     onSuccess: (_result, variables) => {
       queryClient.invalidateQueries({ queryKey: adminOrderKeys.all });
       queryClient.invalidateQueries({ queryKey: ["admin-orders", "count"] });
@@ -151,6 +177,10 @@ export function useProcessAdminOrder() {
   return useMutation({
     mutationFn: ({ id, note }: { id: string | number; note?: string }) =>
       processAdminOrder(id, note),
+    meta: {
+      successMessage: "Order processing started successfully",
+      errorMessage: "Failed to start order processing",
+    },
     onSuccess: (_result, variables) => {
       queryClient.invalidateQueries({ queryKey: adminOrderKeys.all });
       queryClient.invalidateQueries({ queryKey: ["admin-orders", "count"] });
@@ -167,6 +197,10 @@ export function usePackAdminOrder() {
   return useMutation({
     mutationFn: ({ id, note }: { id: string | number; note?: string }) =>
       packAdminOrder(id, note),
+    meta: {
+      successMessage: "Order marked as packed successfully",
+      errorMessage: "Failed to mark order as packed",
+    },
     onSuccess: (_result, variables) => {
       queryClient.invalidateQueries({ queryKey: adminOrderKeys.all });
       queryClient.invalidateQueries({ queryKey: ["admin-orders", "count"] });
@@ -209,3 +243,57 @@ export function useCheckoutSummary(
   });
 }
 
+export function useUpdateOrderInvoiceNumber() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ id, invoiceNumber }: { id: string | number; invoiceNumber: string }) =>
+      updateOrderInvoiceNumber(id, invoiceNumber),
+    meta: {
+      successMessage: "Invoice number saved successfully",
+      errorMessage: "Failed to update invoice number",
+    },
+    onSuccess: (_result, variables) => {
+      queryClient.invalidateQueries({ queryKey: adminOrderKeys.all });
+      queryClient.invalidateQueries({
+        queryKey: adminOrderKeys.detail(variables.id),
+      });
+      queryClient.invalidateQueries({ queryKey: orderKeys.all });
+    },
+  });
+}
+
+/**
+ * Admin records the cash collected on a COD order. Invalidates the dashboard
+ * stats too: revenue counts only paid orders, so the number moves on success.
+ */
+export function useMarkOrderPaid() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      id,
+      amount,
+      reference,
+      note,
+    }: {
+      id: string | number;
+      amount?: number;
+      reference?: string;
+      note?: string;
+    }) => markOrderPaid(id, { amount, reference, note }),
+    meta: {
+      successMessage: "Payment recorded successfully",
+      errorMessage: "Failed to record payment",
+    },
+    onSuccess: (_result, variables) => {
+      queryClient.invalidateQueries({ queryKey: adminOrderKeys.all });
+      queryClient.invalidateQueries({ queryKey: ["admin-orders", "count"] });
+      queryClient.invalidateQueries({
+        queryKey: adminOrderKeys.detail(variables.id),
+      });
+      queryClient.invalidateQueries({ queryKey: orderKeys.all });
+      queryClient.invalidateQueries({ queryKey: ["dashboard", "stats"] });
+    },
+  });
+}

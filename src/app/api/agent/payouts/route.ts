@@ -15,7 +15,7 @@ const handler = createApiHandler(
         ),
         payoutService.availableBalance(agentId),
       ]);
-      return apiSuccess({ payouts: result.data, availableForPayout: balance }, "Success", 200, result.meta);
+      return apiSuccess(result.data, "Success", 200, { ...result.meta, availableForPayout: balance });
     },
     POST: async (_request, context) => {
       const { agentId } = await requireSessionAgent(context.session);

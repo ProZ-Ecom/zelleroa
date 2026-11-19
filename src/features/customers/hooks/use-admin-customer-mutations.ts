@@ -9,6 +9,8 @@ import type { AdminCustomerDetailDto } from "../types/admin-customer.types";
 export interface UpdateCustomerStatusVariables {
   uuid: string;
   isActive: boolean;
+  /** Required when blocking (isActive = false). */
+  blockReason?: string;
 }
 
 export function useUpdateCustomerStatus() {
@@ -19,7 +21,8 @@ export function useUpdateCustomerStatus() {
     Error,
     UpdateCustomerStatusVariables
   >({
-    mutationFn: ({ uuid, isActive }) => updateCustomerStatus(uuid, isActive),
+    mutationFn: ({ uuid, isActive, blockReason }) =>
+      updateCustomerStatus(uuid, isActive, blockReason),
     onSuccess: (data, variables) => {
       // Invalidate customer lists, detail, and count queries
       queryClient.invalidateQueries({

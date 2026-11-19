@@ -21,6 +21,14 @@ export interface CreateCustomerOrderPayload {
   notes?: string;
   paymentMethod?: "CARD" | "COD" | "UPI";
   paymentDetails?: Record<string, any>;
+  bankDetails?: {
+    accountHolder: string;
+    bankName: string;
+    accountNumber: string;
+    ifsc: string;
+  };
+  couponCode?: string;
+  deliveryMethod?: "standard" | "express";
 }
 
 export interface CancelCustomerOrderPayload {
@@ -42,7 +50,14 @@ export interface CreateGuestOrderPayload {
   notes?: string;
   paymentMethod?: "COD";
   paymentDetails?: Record<string, any>;
+  bankDetails?: {
+    accountHolder: string;
+    bankName: string;
+    accountNumber: string;
+    ifsc: string;
+  };
   couponCode?: string;
+  deliveryMethod?: "standard" | "express";
 }
 
 export const customerOrdersApi = {
@@ -86,21 +101,7 @@ export const customerOrdersApi = {
   async listOrders(
     payload: Record<string, any> = {}
   ): Promise<OrderListResponse<OrderDetailResponse>> {
-    const response = await apiClient.post<OrderDetailResponse[]>(
-      "/api/customer/orders/list",
-      payload
-    );
-
-    return {
-      data: response.data ?? [],
-      meta: (response.meta as OrderListResponse["meta"]) ?? {
-        page: payload.page ?? 1,
-        limit: payload.limit ?? payload.pageSize ?? 20,
-        pageSize: payload.limit ?? payload.pageSize ?? 20,
-        total: response.data?.length ?? 0,
-        totalPages: 1,
-      },
-    };
+    return this.getOrders(payload);
   },
 
 

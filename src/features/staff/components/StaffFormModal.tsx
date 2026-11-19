@@ -4,13 +4,15 @@ import * as React from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import { emailField } from "@/lib/validations/email";
 import { FormModal } from "@/components/common/FormModal";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/Switch";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/forms/label";
+import { Select, type SelectOption } from "@/components/ui/select";
 import { User, Mail, Phone, Lock, Loader2 } from "lucide-react";
-import { useCreateStaff, useUpdateStaff } from "../hooks/use-staff";
+import { useCreateStaff, useUpdateStaff, useAssignableStaffRoles } from "../hooks/use-staff";
 import type { StaffResponse } from "../types";
 
 const staffSchema = z.object({
@@ -18,12 +20,9 @@ const staffSchema = z.object({
     .string({ message: "Name is required" })
     .trim()
     .min(1, "Name is required")
+    .regex(/^[a-zA-Z\s]+$/, "Name can only contain alphabetic characters and spaces")
     .max(150, "Name cannot exceed 150 characters"),
-  email: z
-    .string({ message: "Email is required" })
-    .trim()
-    .email("Invalid email format")
-    .max(150, "Email cannot exceed 150 characters"),
+  email: emailField,
   phone: z
     .string({ message: "Phone number is required" })
     .trim()
@@ -41,6 +40,10 @@ const staffSchema = z.object({
     .string()
     .max(100, "Password cannot exceed 100 characters")
     .optional(),
+  roleId: z
+    .number({ message: "Please select a role" })
+    .int()
+    .positive("Please select a role"),
   isActive: z.boolean(),
 });
 
@@ -61,6 +64,19 @@ export function StaffFormModal({
 
   const createMutation = useCreateStaff();
   const updateMutation = useUpdateStaff();
+  // Every admin-panel role the admin has created, so a staff member can be put straight
+  // into e.g. "Warehouse Manager" instead of the generic STAFF role.
+  const { data: roles = [], isLoading: rolesLoading } = useAssignableStaffRoles(open);
+  const defaultRoleId = React.useMemo(
+    () => roles.find((role) => role.slug === "staff")?.id ?? roles[0]?.id,
+    [roles]
+  );
+  const roleOptions: SelectOption[] = React.useMemo(() => {
+    return roles.map((role) => ({
+      value: String(role.id),
+      label: role.name,
+    }));
+  }, [roles]);
 
   const isSubmitting =
     createMutation.isPending || updateMutation.isPending;
@@ -79,6 +95,7 @@ export function StaffFormModal({
       email: "",
       phone: "",
       password: "",
+      roleId: 0,
       isActive: true,
     },
   });
@@ -94,6 +111,7 @@ export function StaffFormModal({
           email: staff.email || "",
           phone: cleanPhone,
           password: "",
+          roleId: staff.roleId ?? defaultRoleId ?? 0,
           isActive: staff.isActive ?? true,
         });
       } else {
@@ -102,11 +120,12 @@ export function StaffFormModal({
           email: "",
           phone: "",
           password: "",
+          roleId: defaultRoleId ?? 0,
           isActive: true,
         });
       }
     }
-  }, [open, staff, reset]);
+  }, [open, staff, reset, defaultRoleId]);
 
   const formatPhoneNumber = (val?: string | null) => {
     if (!val) return null;
@@ -152,12 +171,14 @@ export function StaffFormModal({
           name: string;
           email: string;
           phone: string | null;
+          roleId: number;
           isActive: boolean;
           password?: string;
         } = {
           name: values.name.trim(),
           email: values.email.toLowerCase().trim(),
           phone: formattedPhone,
+          roleId: values.roleId,
           isActive: values.isActive,
         };
 
@@ -176,12 +197,33 @@ export function StaffFormModal({
           email: values.email.toLowerCase().trim(),
           phone: formattedPhone,
           password: values.password!.trim(),
+          roleId: values.roleId,
           isActive: values.isActive,
         });
         onClose();
       }
-    } catch {
-      // Error is handled by mutation toast
+    } catch (err: any) {
+      const responseData = err?.response?.data;
+      if (responseData?.errors && Array.isArray(responseData.errors)) {
+        for (const item of responseData.errors) {
+          const field = item.field || item.path?.[0];
+          if (field && ["name", "email", "phone", "password", "roleId"].includes(field)) {
+            setError(field as keyof StaffFormValues, {
+              type: "server",
+              message: item.message,
+            });
+          }
+        }
+      } else if (responseData?.error || err?.message) {
+        const errorMsg = responseData?.error || err?.message || "";
+        if (/email/i.test(errorMsg)) {
+          setError("email", { type: "server", message: errorMsg });
+        } else if (/phone/i.test(errorMsg)) {
+          setError("phone", { type: "server", message: errorMsg });
+        } else if (/name/i.test(errorMsg)) {
+          setError("name", { type: "server", message: errorMsg });
+        }
+      }
     }
   };
 
@@ -275,6 +317,37 @@ export function StaffFormModal({
           )}
         </div>
 
+        {/* Role */}
+        <div>
+          <Label htmlFor="staff-role" className="block mb-1.5 font-medium text-neutral-800">
+            Role <span className="text-red-500">*</span>
+          </Label>
+          <Controller
+            name="roleId"
+            control={control}
+            render={({ field }) => (
+              <Select
+                id="staff-role"
+                value={field.value ? String(field.value) : ""}
+                onValueChange={(val) => field.onChange(val ? Number(val) : undefined)}
+                options={roleOptions}
+                placeholder={rolesLoading ? "Loading roles..." : "Select a role"}
+                disabled={isSubmitting || rolesLoading}
+                portal={true}
+                searchable={roleOptions.length > 5}
+                className="w-full text-sm"
+              />
+            )}
+          />
+          {errors.roleId && (
+            <p className="mt-1 text-xs text-red-500 font-medium">{errors.roleId.message}</p>
+          )}
+          <p className="mt-1 text-xs text-neutral-500">
+            Roles are managed under Team &amp; Access → Roles; the permissions on the role
+            decide what this person can open.
+          </p>
+        </div>
+
         {/* Status Toggle */}
         <div className="pt-2 border-t border-neutral-100">
           <Controller
@@ -310,7 +383,7 @@ export function StaffFormModal({
           <Button
             type="submit"
             disabled={isSubmitting}
-            className="min-w-[120px] bg-[var(--color-secondary-600)] text-white hover:bg-[var(--color-secondary-700)]"
+            className="min-w-[120px] bg-theme-primary hover:bg-theme-primary-hover px-5 text-sm font-semibold text-white transition-colors"
           >
             {isSubmitting ? (
               <div className="flex items-center gap-2">

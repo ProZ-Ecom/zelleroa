@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { toast } from "@/components/ui/Toast";
 import { useBlogs, useCreateBlog, useUpdateBlog, useDeleteBlog } from "@/features/blogs/hooks";
 import { DataTable } from "@/components/admin/data-table/DataTable";
 import { AdminPageHeader, AdminContent } from "@/components/admin/AdminPageHeader";
@@ -11,13 +12,19 @@ import { AdminTableSkeleton } from "@/components/admin/AdminTableSkeleton";
 import { ErrorState } from "@/components/ui/error-state";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Select } from "@/components/ui/select";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { FormModal } from "@/components/common/FormModal";
+import { ExportButton } from "@/components/common/export-button";
+import { exportDataToCsv } from "@/lib/export-csv";
+import { formatDate } from "@/lib/utils";
+import { SearchInput } from "@/components/ui/search-input";
 import { Plus, Pencil, Trash2 } from "lucide-react";
 import { slugify } from "@/lib/utils";
 import { createBlogSchema, type CreateBlogSchemaInput } from "@/features/blogs/validations/blog.schema";
 import type { ColumnDef } from "@tanstack/react-table";
 import type { BlogListItem } from "@/features/blogs/types";
+import { CanAct } from "@/features/access";
 
 const statusBadgeVariant: Record<string, "secondary" | "success" | "warning"> = {
   DRAFT: "secondary",
@@ -45,6 +52,7 @@ export default function AdminBlogsPage() {
     register,
     handleSubmit,
     watch,
+    setValue,
     reset,
     formState: { errors },
   } = useForm<CreateBlogSchemaInput>({
@@ -78,24 +86,25 @@ export default function AdminBlogsPage() {
     }
   }, [editingBlog, reset]);
 
-  const onSubmit = (formData: CreateBlogSchemaInput) => {
+  const onSubmit = async (formData: CreateBlogSchemaInput) => {
     if (editingBlog) {
-      updateMutation.mutate(
-        { id: editingBlog.id, data: formData },
-        {
-          onSuccess: () => {
-            setModalOpen(false);
-            setEditingBlog(null);
-          },
-        }
-      );
+      try {
+        await updateMutation.mutateAsync({ id: editingBlog.id, data: formData });
+        toast.success("Blog updated", `"${formData.title}" was saved successfully.`);
+        setModalOpen(false);
+        setEditingBlog(null);
+      } catch (err: any) {
+        toast.error("Failed to update blog", err?.message || "Please try again.");
+      }
     } else {
-      createMutation.mutate(formData, {
-        onSuccess: () => {
-          setModalOpen(false);
-          reset();
-        },
-      });
+      try {
+        await createMutation.mutateAsync(formData);
+        toast.success("Blog created", `"${formData.title}" was created successfully.`);
+        setModalOpen(false);
+        reset();
+      } catch (err: any) {
+        toast.error("Failed to create blog", err?.message || "Please try again.");
+      }
     }
   };
 
@@ -138,7 +147,7 @@ export default function AdminBlogsPage() {
       header: "Published Date",
       cell: ({ row }) =>
         row.original.publishedAt
-          ? new Date(row.original.publishedAt).toLocaleDateString("en-IN")
+          ? formatDate(row.original.publishedAt)
           : "—",
     },
     {
@@ -174,23 +183,53 @@ export default function AdminBlogsPage() {
       <AdminPageHeader
         title="Blogs"
         description="Manage your blog posts"
-        actions={
-          <Button onClick={() => handleOpenModal()}>
-            <Plus className="mr-2 h-4 w-4" />
-            Add Blog
-          </Button>
-        }
       />
-      <AdminContent className="flex-1 min-h-0 overflow-hidden">
-        <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
-          <DataTable
-            columns={columns}
-            data={blogs}
-            searchKey="title"
-            searchPlaceholder="Search blogs..."
-            pageSize={20}
-            className="bg-white border border-neutral-200"
-          />
+      <AdminContent className="flex-1 min-h-0">
+        <div className="flex h-full flex-col bg-[var(--color-background)] py-1 rounded-2xl">
+          <div className="flex-shrink-0 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            <SearchInput
+              placeholder="Search blogs..."
+              defaultValue={search}
+              onSearch={(val) => setSearch(val)}
+              className="w-full max-w-md"
+            />
+
+            <div className="flex items-center gap-3">
+              <ExportButton
+                onClick={() =>
+                  exportDataToCsv(
+                    blogs.map((b) => ({
+                      Title: b.title,
+                      Slug: b.slug,
+                      Author: b.author?.name || "—",
+                      Status: b.status,
+                      PublishedAt: formatDate(b.publishedAt),
+                    })),
+                    "blogs"
+                  )
+                }
+                disabled={blogs.length === 0}
+              />
+              <CanAct action="CREATE">
+                <Button
+                  onClick={() => handleOpenModal()}
+                  className="h-11 rounded-xl bg-stone-900 hover:bg-stone-800 text-[#D4AF37] border border-[#D4AF37]/30 shadow-xs px-5 text-sm font-semibold transition-colors"
+                >
+                  <Plus className="mr-2 h-4 w-4 text-[#D4AF37]" />
+                  Add Blog
+                </Button>
+              </CanAct>
+            </div>
+          </div>
+
+          <div className="mt-6 flex-1 min-h-0 flex flex-col">
+            <DataTable
+              columns={columns}
+              data={blogs}
+              pageSize={20}
+              className="bg-white border border-neutral-200"
+            />
+          </div>
         </div>
       </AdminContent>
 
@@ -284,14 +323,16 @@ export default function AdminBlogsPage() {
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
-            <select
-              {...register("status")}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
-            >
-              <option value="DRAFT">Draft</option>
-              <option value="PUBLISHED">Published</option>
-              <option value="ARCHIVED">Archived</option>
-            </select>
+            <Select
+              value={watch("status")}
+              onValueChange={(val) => setValue("status", val as "DRAFT" | "PUBLISHED" | "ARCHIVED", { shouldValidate: true })}
+              searchable={false}
+              options={[
+                { value: "DRAFT", label: "Draft" },
+                { value: "PUBLISHED", label: "Published" },
+                { value: "ARCHIVED", label: "Archived" },
+              ]}
+            />
           </div>
 
           <div>
@@ -318,11 +359,15 @@ export default function AdminBlogsPage() {
       <ConfirmDialog
         open={!!deleteId}
         onClose={() => setDeleteId(null)}
-        onConfirm={() => {
+        onConfirm={async () => {
           if (deleteId) {
-            deleteMutation.mutate(deleteId, {
-              onSuccess: () => setDeleteId(null),
-            });
+            try {
+              await deleteMutation.mutateAsync(deleteId);
+              toast.success("Blog deleted", "The blog post was removed successfully.");
+              setDeleteId(null);
+            } catch (err: any) {
+              toast.error("Failed to delete blog", err?.message || "Please try again.");
+            }
           }
         }}
         title="Delete Blog"

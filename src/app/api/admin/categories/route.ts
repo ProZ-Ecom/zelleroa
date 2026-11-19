@@ -1,5 +1,5 @@
 import { createApiHandler } from "@/lib/api/api-handler";
-import { apiSuccess, apiCreated } from "@/lib/api/api-response";
+import { apiSuccess, apiCreated} from "@/lib/api/api-response";
 import { categoryService } from "@/features/categories/services/category.service";
 import {
   createAdminCategorySchema,
@@ -16,6 +16,8 @@ export const GET = createApiHandler(
         page: query?.page ?? 1,
         pageSize: query?.pageSize ?? 10,
         search: query?.search,
+        isActive: query?.isActive,
+        parentId: query?.parentId,
       });
 
       return apiSuccess(result.data, "Categories fetched successfully", 200, result.meta);
@@ -23,7 +25,7 @@ export const GET = createApiHandler(
   },
   {
     requireAuth: true,
-    requiredRole: ["ADMIN"],
+    requiredRole: ["ADMIN", "STAFF"],
     querySchema: adminCategoriesQuerySchema,
   }
 );
@@ -42,7 +44,7 @@ export const POST = createApiHandler(
   {
     method: "POST",
     requireAuth: true,
-    requiredRole: ["ADMIN"],
+    requiredRole: ["ADMIN", "STAFF"],
     bodySchema: createAdminCategorySchema,
   }
 );

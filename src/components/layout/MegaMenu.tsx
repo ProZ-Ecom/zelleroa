@@ -4,16 +4,19 @@ import * as React from "react";
 import Link from "next/link";
 import { ChevronRight } from "lucide-react";
 import type { CategoryTreeNode } from "@/features/categories/types";
-import { categoryHref, withGenderParam } from "@/features/customers/utils/catalog-listing-query";
-import { itemHref } from "@/features/customers/utils/style-default-item";
+import { categoryHref, withGenderParam, withNavParam } from "@/features/customers/utils/catalog-listing-query";
+import { styleHref } from "@/features/customers/utils/style-href";
 import { useCategoryMenu, useCategoryMenus } from "@/features/customers/hooks/use-customer-catalog";
-import { ItemCard } from "@/features/customers/components/catalog/ItemCard";
+import { StyleCard } from "@/features/customers/components/catalog/StyleCard";
+import { toTitleCase } from "@/lib/utils";
 
 /** A CategoryTreeNode, or a synthetic grouping of several categories under one label. */
 export interface NavNode extends CategoryTreeNode {
   href?: string;
   /** Audience this nav item targets - appended as ?gender= to every link resolved under it. */
   gender?: string | null;
+  /** Header nav item id - set on the item's own link so its category strip shows on the page. */
+  navId?: string;
 }
 
 interface MegaMenuTriggerProps {
@@ -39,14 +42,17 @@ export function MegaMenuTrigger({
   onMouseLeave,
   onFocus,
 }: MegaMenuTriggerProps) {
-  const href = withGenderParam(root.href ?? categoryHref(root), root.gender);
+  const href = withNavParam(
+    withGenderParam(root.href ?? categoryHref(root), root.gender),
+    root.navId
+  );
 
   return (
-    <div onMouseEnter={onMouseEnter} onMouseLeave={onMouseLeave}>
+    <div onMouseEnter={onMouseEnter} onMouseLeave={onMouseLeave} className="shrink-0">
       <Link
         href={href}
         onFocus={onFocus}
-        className={`flex items-center gap-1 rounded-full px-3.5 py-2 text-sm font-medium transition-colors ${
+        className={`flex items-center gap-1 rounded-full px-1.5 xl:px-2.5 2xl:px-3.5 py-1 xl:py-1.5 text-[11px] xl:text-xs 2xl:text-sm font-medium transition-colors whitespace-nowrap shrink-0 tracking-tight xl:tracking-normal ${
           isActive || isOpen
             ? "bg-theme-primary text-theme-primary-fg font-semibold"
             : "text-hover-primary hover:text-theme-primary"
@@ -108,7 +114,7 @@ export function MegaMenuPanel({
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
     >
-      <div className="w-full max-w-[1100px] mx-auto px-4 sm:px-6 md:px-8 py-6 flex flex-col gap-6">
+      <div className="w-full max-w-[1100px] mx-auto px-4 sm:px-6 md:px-8 py-6 flex flex-col gap-6 max-h-[calc(100vh-10rem)] overflow-y-auto scrollbar-thin">
         {hasChildren && (
           <div className="shrink-0">
             {hasGrandchildren ? (
@@ -128,9 +134,9 @@ export function MegaMenuPanel({
                           <Link
                             href={withGenderParam(categoryHref(level3), root.gender)}
                             onClick={onNavigate}
-                            className="text-sm text-neutral-600 hover:text-theme-primary"
+                            className="text-sm text-neutral-600 hover:text-theme-primary capitalize"
                           >
-                            {level3.name}
+                            {toTitleCase(level3.name)}
                           </Link>
                         </li>
                       ))}
@@ -163,11 +169,11 @@ export function MegaMenuPanel({
                           {columnProducts.slice(0, 5).map((product) => (
                             <li key={product.id}>
                               <Link
-                                href={product.items[0] ? itemHref(product.items[0].id) : categoryHref(level2)}
+                                href={product.styles[0] ? styleHref(product.styles[0].id) : categoryHref(level2)}
                                 onClick={onNavigate}
-                                className="text-sm text-neutral-600 hover:text-theme-primary whitespace-nowrap"
+                                className="text-sm text-neutral-600 hover:text-theme-primary whitespace-nowrap capitalize"
                               >
-                                {product.name}
+                                {toTitleCase(product.name)}
                               </Link>
                             </li>
                           ))}
@@ -223,24 +229,24 @@ export function MegaMenuPanel({
               <div className="grid grid-cols-3 gap-x-6 gap-y-5">
                 {products.map((product) => (
                   <div key={product.id} className="w-44">
-                    {product.items[0] ? (
+                    {product.styles[0] ? (
                       <Link
-                        href={itemHref(product.items[0].id)}
+                        href={styleHref(product.styles[0].id)}
                         onClick={onNavigate}
-                        className="mb-2 block truncate text-sm font-semibold text-neutral-900 hover:text-theme-primary"
-                        title={product.name}
+                        className="mb-2 block truncate text-sm font-semibold text-neutral-900 hover:text-theme-primary capitalize"
+                        title={toTitleCase(product.name)}
                       >
-                        {product.name}
+                        {toTitleCase(product.name)}
                       </Link>
                     ) : (
-                      <p className="mb-2 truncate text-sm font-semibold text-neutral-900">
-                        {product.name}
+                      <p className="mb-2 truncate text-sm font-semibold text-neutral-900 capitalize">
+                        {toTitleCase(product.name)}
                       </p>
                     )}
                     <ul className="space-y-1.5">
-                      {product.items.map((item) => (
-                        <li key={item.id}>
-                          <ItemCard item={item} variant="compact" onClick={onNavigate} />
+                      {product.styles.map((style) => (
+                        <li key={style.id}>
+                          <StyleCard item={style} variant="compact" onClick={onNavigate} />
                         </li>
                       ))}
                     </ul>

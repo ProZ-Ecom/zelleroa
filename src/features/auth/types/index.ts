@@ -26,3 +26,12 @@ export interface AuthTokensResult {
 export interface RefreshTokenResult {
   accessToken: string;
 }
+
+/** Shown when login is refused because the account is blocked or inactive. */
+export const ACCOUNT_BLOCKED_TITLE = "Unable to sign in";
+export const ACCOUNT_BLOCKED_MESSAGE =
+  "We couldn't sign you in. Please contact support if you believe this is an error.";
+
+/** Error codes for failed-login protection (temporary, not an admin block). */
+export const LOGIN_LOCKED_CODE = "LOGIN_LOCKED";
+export const LOGIN_THROTTLED_CODE = "LOGIN_THROTTLED";

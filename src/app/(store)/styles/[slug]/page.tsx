@@ -1,71 +1,127 @@
 import type { Metadata } from "next";
-import { redirect } from "next/navigation";
+import { cache } from "react";
 import { catalogService } from "@/features/customers/services/catalog.service";
-import { styleDefaultItemId, itemHref } from "@/features/customers/utils/style-default-item";
 import { StyleDetailClient } from "./StyleDetailClient";
+import {
+  constructMetadata,
+  getEntitySeoMetaByUuid,
+  buildProductJsonLd,
+  buildBreadcrumbJsonLd,
+  safeJsonLd,
+} from "@/lib/seo";
 
 interface StyleDetailPageProps {
   params: Promise<{ slug: string }>;
 }
 
-const SITE_URL = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
-const SITE_NAME = "Zellora";
-
-async function getStyleForSeo(slug: string) {
+const getStyleForSeo = cache(async (slug: string) => {
   try {
     return await catalogService.getStyleByUuid(slug);
   } catch {
     return null;
   }
-}
+});
 
 export async function generateMetadata({
   params,
 }: StyleDetailPageProps): Promise<Metadata> {
   const { slug } = await params;
-  const style = await getStyleForSeo(slug);
+  const [style, seoMeta] = await Promise.all([
+    getStyleForSeo(slug),
+    getEntitySeoMetaByUuid("style", slug),
+  ]);
 
   if (!style) {
-    return { title: `Style Not Found | ${SITE_NAME}` };
+    return constructMetadata({
+      title: "Product Not Found",
+      noIndex: true,
+    });
   }
 
-  const title = `${style.name}${style.brand ? ` by ${style.brand.name}` : ""} | ${SITE_NAME}`;
+  // Priority: 1. SEO Table -> 2. Actual Entity Information -> 3. Global Default
+  const title =
+    seoMeta?.meta_title ||
+    `${style.name}${style.brand ? ` by ${style.brand.name}` : ""}`;
   const description =
-    style.shortDescription?.slice(0, 160) ||
-    style.description?.slice(0, 160) ||
-    `Shop ${style.name} at ${SITE_NAME}.`;
-  const canonicalUrl = `${SITE_URL}/styles/${slug}`;
-  const image = style.image || undefined;
+    seoMeta?.meta_description ||
+    style.shortDescription ||
+    style.description ||
+    `Shop ${style.name} at Zellora.`;
+  const image = seoMeta?.og_image || style.image || null;
 
-  return {
+  return constructMetadata({
     title,
     description,
-    alternates: { canonical: canonicalUrl },
-    openGraph: {
-      title,
-      description,
-      url: canonicalUrl,
-      siteName: SITE_NAME,
-      type: "website",
-      images: image ? [{ url: image }] : undefined,
-    },
-    twitter: {
-      card: "summary_large_image",
-      title,
-      description,
-      images: image ? [image] : undefined,
-    },
-  };
+    image,
+    canonicalUrl: `/styles/${slug}`,
+    keywords: seoMeta?.meta_keywords || undefined,
+  });
 }
 
 export default async function StyleDetailPage({ params }: StyleDetailPageProps) {
   const { slug } = await params;
   const style = await getStyleForSeo(slug);
 
-  // A Style has no page of its own to pick Items on - it opens its default
-  // Item. Called outside any try/catch: `redirect` works by throwing.
-  const itemId = style ? styleDefaultItemId(style) : null;
-  if (itemId) redirect(itemHref(itemId));
+  // Every Colour's every Size is separately priced and stocked, so the Style is
+  // described to crawlers as an aggregate offer over those rows.
+  const sizes = style?.colors.flatMap((color) => color.unitPrices) ?? [];
 
-  return <StyleDetailClient slug={slug} />;
+  const productJsonLd = style
+    ? buildProductJsonLd({
+        name: style.name,
+        description: style.shortDescription || style.description || undefined,
+        image: style.image ? [style.image] : undefined,
+        brand: style.brand?.name,
+        category: style.category?.name,
+        sku: sizes[0]?.sku,
+        url: `/styles/${slug}`,
+        offers:
+          sizes.length > 0
+            ? {
+                priceCurrency: "INR",
+                lowPrice: Math.min(...sizes.map((s) => s.sellingPrice)),
+                highPrice: Math.max(...sizes.map((s) => s.sellingPrice)),
+                offerCount: sizes.length,
+                availability: sizes.some((s) => s.inStock) ? "InStock" : "OutOfStock",
+                url: `/styles/${slug}`,
+              }
+            : undefined,
+      })
+    : null;
+
+  const breadcrumbsJsonLd = style
+    ? buildBreadcrumbJsonLd({
+        items: [
+          { name: "Home", item: "/" },
+          { name: "Products", item: "/products" },
+          ...(style.category
+            ? [
+                {
+                  name: style.category.name,
+                  item: `/category/${style.category.id}`,
+                },
+              ]
+            : []),
+          { name: style.name, item: `/styles/${slug}` },
+        ],
+      })
+    : null;
+
+  return (
+    <>
+      {productJsonLd && (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: safeJsonLd(productJsonLd) }}
+        />
+      )}
+      {breadcrumbsJsonLd && (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: safeJsonLd(breadcrumbsJsonLd) }}
+        />
+      )}
+      <StyleDetailClient slug={slug} />
+    </>
+  );
 }

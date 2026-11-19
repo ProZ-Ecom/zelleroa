@@ -21,6 +21,6 @@ export const DELETE = createApiHandler(
     },
   },
   {
-    requireAuth: true,
+    requireAuth: true, requiredRole: ["CUSTOMER", "AGENT"],
   }
 );

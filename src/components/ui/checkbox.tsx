@@ -37,6 +37,7 @@ const Checkbox = React.forwardRef<HTMLInputElement, CheckboxProps>(
                 "peer-focus-visible:ring-2 peer-focus-visible:ring-secondary-600/30",
                 "peer-checked:border-secondary-600 peer-checked:bg-secondary-600 peer-checked:[&>svg]:opacity-100",
                 "group-hover:border-secondary-600",
+                "peer-aria-[invalid=true]:border-error-500 peer-aria-[invalid=true]:ring-2 peer-aria-[invalid=true]:ring-error-500/30",
                 "disabled:cursor-not-allowed disabled:opacity-50",
                 error && "border-error-500",
                 className

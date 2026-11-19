@@ -2,9 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { db } from "@/lib/db/prisma";
 import { apiSuccess, apiValidationError, apiError } from "@/lib/api/api-response";
+import { withApiRoles } from "@/lib/api/api-handler";
 
 const resetDatabaseSchema = z.object({
   excludeTables: z.array(z.string()).optional().default([]),
+  // Must be typed exactly; stops accidental or scripted one-shot wipes.
+  confirm: z.literal("RESET DATABASE"),
 });
 
 const ADMIN_ROLE_ID = 1;
@@ -12,7 +15,12 @@ const ADMIN_ROLE_ID = 1;
 // Tables that must never be wiped by this endpoint, regardless of input.
 const ALWAYS_KEEP = new Set(["_prisma_migrations"]);
 
-export async function POST(request: NextRequest) {
+async function handlePOST(request: NextRequest) {
+  // Wiping the database is opt-in per environment, never reachable by default.
+  if (process.env.ALLOW_DATABASE_RESET !== "true") {
+    return apiError("Database reset is disabled in this environment", 403);
+  }
+
   let body: unknown;
   try {
     body = await request.json();
@@ -92,3 +100,5 @@ export async function POST(request: NextRequest) {
     return apiError("Failed to reset database", 500);
   }
 }
+
+export const POST = withApiRoles(["ADMIN"], handlePOST);

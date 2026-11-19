@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useState } from "react";
+import { Suspense, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { FormProvider, useForm } from "react-hook-form";
@@ -18,6 +18,9 @@ function ForgotPasswordForm() {
   const fromAdmin = searchParams.get("from") === "admin";
   const [success, setSuccess] = useState("");
   const forgotPasswordMutation = useForgotPassword();
+  // Stays pending until the destination route has rendered.
+  const [isNavigating, startNavigation] = useTransition();
+  const busy = forgotPasswordMutation.isPending || isNavigating;
 
   const methods = useForm<ForgotPasswordInput>({
     resolver: zodResolver(forgotPasswordSchema),
@@ -29,6 +32,7 @@ function ForgotPasswordForm() {
   });
 
   const onSubmit = (data: ForgotPasswordInput) => {
+    if (busy) return;
     setSuccess("");
     methods.clearErrors("root");
     const userEmail = data.email.trim();
@@ -43,9 +47,7 @@ function ForgotPasswordForm() {
           const targetUrl = `/forgot-password/verify-otp${
             fromAdmin ? "?from=admin" : ""
           }`;
-          setTimeout(() => {
-            router.push(targetUrl);
-          }, 800);
+          startNavigation(() => router.push(targetUrl));
         },
         onError: (err: any) => {
           methods.setError("root", {
@@ -111,10 +113,10 @@ function ForgotPasswordForm() {
 
             <FormSubmitButton
               size="xl"
-              disabled={forgotPasswordMutation.isPending}
+              disabled={busy}
               className="h-12 w-full rounded-lg bg-secondary-600 text-sm font-semibold text-white hover:bg-secondary-700 cursor-pointer disabled:opacity-50"
             >
-              {forgotPasswordMutation.isPending ? (
+              {busy ? (
                 <Spinner size="sm" className="text-white" />
               ) : (
                 "Send OTP"

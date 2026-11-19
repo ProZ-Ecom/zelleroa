@@ -19,12 +19,12 @@ const faqFormSchema = z.object({
   question: z
     .string({ message: "Question is required" })
     .trim()
-    .min(1, "Please enter the question.")
+    .min(1, "Question is required.")
     .max(255, "Question cannot exceed 255 characters."),
   answer: z
     .string({ message: "Answer is required" })
     .trim()
-    .min(1, "Please enter the answer.")
+    .min(1, "Answer is required.")
     .max(5000, "Answer cannot exceed 5000 characters."),
   category: z
     .string()
@@ -36,7 +36,7 @@ const faqFormSchema = z.object({
   displayOrder: z
     .union([z.number(), z.literal("")])
     .refine((val) => val !== "", {
-      message: "Please enter a display order.",
+      message: "Display order is required.",
     })
     .refine((val) => typeof val === "number" && Number.isInteger(val), {
       message: "Display order must be a whole number.",
@@ -235,7 +235,7 @@ export function FaqForm({
               <div className="flex items-end pb-1">
                 <div className="flex items-center gap-2.5 rounded-xl border border-theme-border bg-theme-surface-muted px-3 py-2.5">
                   <span className="flex h-7 w-7 items-center justify-center rounded-md bg-[var(--color-secondary-100)]">
-                    <IconPreview className="h-4 w-4 text-[var(--color-secondary-600)]" />
+                    <IconPreview className="h-4 w-4 text-[var(--color-primary-500)]" />
                   </span>
                   <span className="text-xs text-theme-text-muted">
                     Preview
@@ -276,7 +276,7 @@ export function FaqForm({
         <div className="flex flex-col-reverse gap-2 border-t border-theme-border pt-4 sm:flex-row sm:items-center sm:justify-between">
           <Button
             type="button"
-            variant="ghost"
+            variant="outline"
             onClick={() => onCancel?.()}
             disabled={isLoading || formState.isSubmitting}
             className="sm:w-auto"

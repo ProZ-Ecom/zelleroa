@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useState, useMemo } from "react";
+import { Suspense, useState, useMemo, useTransition } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowLeft, LockKeyhole, AlertCircle, CheckCircle2 } from "lucide-react";
@@ -19,6 +19,9 @@ function ResetPasswordForm() {
   const fromAdmin = searchParams.get("from") === "admin";
   const [success, setSuccess] = useState("");
   const resetPasswordMutation = useResetPassword();
+  // Stays pending until the destination route has rendered.
+  const [isNavigating, startNavigation] = useTransition();
+  const busy = resetPasswordMutation.isPending || isNavigating;
 
   const methods = useForm<ResetPasswordInput>({
     resolver: zodResolver(resetPasswordSchema),
@@ -83,6 +86,7 @@ function ResetPasswordForm() {
   }, [password]);
 
   const onSubmit = (data: ResetPasswordInput) => {
+    if (busy) return;
     setSuccess("");
     methods.clearErrors("root");
     const activeToken = data.resetToken || tokenFromUrl || "http_only_cookie";
@@ -100,9 +104,7 @@ function ResetPasswordForm() {
           );
           methods.reset();
           const targetLogin = fromAdmin ? "/admin/login" : "/login";
-          setTimeout(() => {
-            router.push(targetLogin);
-          }, 1200);
+          startNavigation(() => router.push(targetLogin));
         },
         onError: (err: any) => {
           methods.setError("root", {
@@ -193,10 +195,10 @@ function ResetPasswordForm() {
 
             <FormSubmitButton
               size="xl"
-              disabled={resetPasswordMutation.isPending}
+              disabled={busy}
               className="mt-2 h-12 w-full rounded-lg bg-secondary-600 text-sm font-semibold text-white hover:bg-secondary-700 cursor-pointer disabled:opacity-50"
             >
-              {resetPasswordMutation.isPending ? (
+              {busy ? (
                 <Spinner size="sm" className="text-white" />
               ) : (
                 "Reset Password"

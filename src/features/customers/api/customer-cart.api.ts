@@ -16,7 +16,8 @@ const EMPTY_CART: CartResponse = {
 };
 
 export interface AddCartItemPayload {
-  variantId: string;
+  variantUnitPriceId?: string;
+  variantId?: string;
   quantity: number;
 }
 
@@ -35,10 +36,19 @@ export const customerCartApi = {
    * Postman: GET /api/customer/cart/count
    */
   async getCartCount(): Promise<CartCountResponse> {
-    const response = await apiClient.get<CartCountResponse>(
-      "/api/customer/cart/count"
-    );
-    return response.data ?? { count: 0, totalQuantity: 0 };
+    try {
+      const cart = await this.getCart();
+      const totalQuantity = (cart.items || []).reduce(
+        (sum, item) => sum + (item.quantity || 0),
+        0
+      );
+      return {
+        count: cart.totalItems ?? cart.items?.length ?? 0,
+        totalQuantity: totalQuantity || cart.totalItems || 0,
+      };
+    } catch {
+      return { count: 0, totalQuantity: 0 };
+    }
   },
 
   /**

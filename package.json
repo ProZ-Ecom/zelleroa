@@ -4,17 +4,25 @@
   "private": true,
   "scripts": {
     "dev": "cross-env NODE_OPTIONS=\"--max-old-space-size=8192\" next dev",
-    "build": "cross-env NODE_OPTIONS=\"--max-old-space-size=8192\" next build --webpack",
+    "build": "prisma generate && cross-env NODE_OPTIONS=\"--max-old-space-size=2560\" next build --webpack",
     "start": "next start",
     "lint": "eslint",
+    "postinstall": "prisma generate",
     "db:generate": "prisma generate",
     "db:push": "node scripts/db-sync.cjs",
     "db:sync": "node scripts/db-sync.cjs",
     "db:migrate": "prisma migrate dev",
-    "db:seed": "node --experimental-strip-types prisma/seed.ts",
+    "db:seed": "node --experimental-strip-types scripts/seed-all-zellora.ts",
+    "db:seed:basic": "node --experimental-strip-types prisma/seed.ts",
+    "db:permissions:sync": "node --experimental-strip-types scripts/sync-permissions.ts",
+    "db:check:pos": "node --experimental-strip-types scripts/check-pos-ready.ts",
     "db:seed:orders": "node --experimental-strip-types scripts/seed-test-orders.ts",
     "db:seed:categories": "node --experimental-strip-types scripts/seed-zellora-categories.ts",
     "db:studio": "prisma studio",
+    "db:clear-data": "node --experimental-strip-types scripts/clear-store-data.ts",
+    "db:backfill-referral-codes": "node --experimental-strip-types --import ./tests/register.mjs scripts/backfill-referral-codes.ts",
+    "test": "node --experimental-strip-types --import ./tests/register.mjs --test tests/referral/*.test.ts tests/returns/*.test.ts",
+    "db:seed:commission-test": "node --experimental-strip-types --import ./tests/register.mjs scripts/seed-agent-commission-test.ts",
     "db:retire-deleted": "node --experimental-strip-types scripts/retire-deleted-unique-values.ts"
   },
   "dependencies": {
@@ -47,8 +55,11 @@
     "react-dom": "19.2.8",
     "react-easy-crop": "^6.2.3",
     "react-hook-form": "^7.84.0",
+    "read-excel-file": "^9.3.12",
     "tailwind-merge": "^3.6.0",
-    "zod": "^4.4.3"
+    "write-excel-file": "^4.1.1",
+    "zod": "^4.4.3",
+    "googleapis": "^189.0.0"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",

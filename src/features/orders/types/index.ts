@@ -108,6 +108,8 @@ export interface OrderListItemResponse {
   customer: OrderCustomerDto;
   status: OrderStatus;
   paymentStatus: PaymentStatus;
+  paymentMethod?: string;
+  orderSource?: "CUSTOMER_DIRECT" | "AGENT_PLACED_FOR_CUSTOMER" | "AGENT_OWN" | string | null;
   subtotal: number;
   discountAmount: number;
   taxAmount: number;
@@ -117,6 +119,9 @@ export interface OrderListItemResponse {
   delivery?: OrderDeliveryDto;
   courierShipment?: OrderCourierShipmentDto | null;
   notes: string | null;
+  invoiceNumber?: string | null;
+  /** Set when a Sales Partner placed this order on the customer's behalf. Safe to show the customer (no commission data). */
+  placedByAgent?: { name: string; agentCode: string | null } | null;
   placedAt: Date | null;
   deliveredAt?: Date | null;
   /** Present once the order has been cancelled. */
@@ -127,6 +132,11 @@ export interface OrderListItemResponse {
 
 /** Order-specific referral attribution. Admin-facing only - never sent to customers. */
 export interface OrderReferralDto {
+  /** CUSTOMER_DIRECT | AGENT_PLACED_FOR_CUSTOMER | AGENT_OWN */
+  orderSource: string;
+  orderedByName: string | null;
+  /** Set when an agent keyed the order in for a buyer without an account. */
+  manualCustomer: { name: string; phone: string | null } | null;
   referralCode: string | null;
   agentName: string;
   agentCode: string | null;
@@ -137,8 +147,24 @@ export interface OrderReferralDto {
   commissionStatus: string;
 }
 
+/** One payment attempt on an order. Admin-facing only. */
+export interface OrderPaymentDto {
+  id: string;
+  methodName: string;
+  methodCode: string;
+  amount: number;
+  currency: string;
+  /** pending | success | failed | refunded */
+  status: string;
+  gateway: string | null;
+  gatewayOrderId: string | null;
+  gatewayPaymentId: string | null;
+  createdAt: Date;
+}
+
 export interface OrderDetailResponse extends OrderListItemResponse {
   referral?: OrderReferralDto | null;
+  payments?: OrderPaymentDto[];
   items: OrderItemResponse[];
   shippingAddress: OrderAddressResponse | null;
   billingAddress: OrderAddressResponse | null;
@@ -149,6 +175,12 @@ export interface OrderDetailResponse extends OrderListItemResponse {
   returnRequests?: RequestSummary[];
   replacementRequests?: RequestSummary[];
   timeline?: TimelineEvent[];
+  bankDetails?: {
+    accountHolder: string | null;
+    bankName: string | null;
+    accountNumberLast4: string | null;
+    ifsc: string | null;
+  } | null;
 }
 
 export interface OrderStatusTransitionResponse {
@@ -262,6 +294,7 @@ export interface AdminOrdersListParams {
   customerId?: string;
   status?: OrderStatus;
   paymentStatus?: PaymentStatus;
+  channel?: "all" | "online" | "pos";
   sortBy?:
     | "orderNumber"
     | "createdAt"
@@ -324,6 +357,15 @@ export interface AdminOrdersCountResponse {
   cancelled: number;
   returned: number;
   total: number;
+  return_requests?: number;
+  replacement_requests?: number;
+  todayOrders?: number;
+  totalRevenue?: number;
+  channelCounts?: {
+    online: number;
+    pos: number;
+    total: number;
+  };
 }
 
 

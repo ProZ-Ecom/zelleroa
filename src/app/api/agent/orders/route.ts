@@ -10,7 +10,7 @@ export const GET = createApiHandler(
       // `agent` is deliberately not whitelisted: the scope always comes from the session.
       const result = await agentService.listOrderLines(
         {
-          ...readQuery(context.searchParams, ["order", "referralCode", "customer", "orderStatus", "commissionStatus", "dateFrom", "dateTo"]),
+          ...readQuery(context.searchParams, ["order", "referralCode", "customer", "view", "orderSource", "orderStatus", "commissionStatus", "dateFrom", "dateTo"]),
           ...readPaging(context.searchParams),
         },
         { agentId }

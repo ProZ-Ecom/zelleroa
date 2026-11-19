@@ -1,5 +1,5 @@
 "use client";
-import { useMemo, Suspense, useState } from "react";
+import { useMemo, Suspense, useState, useRef, useTransition } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { FormProvider, useForm } from "react-hook-form";
@@ -13,6 +13,10 @@ import { Spinner } from "@/components/ui/spinner";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Mail, LockKeyhole, User, Phone, AlertCircle } from "lucide-react";
 import { z } from "zod";
+import { emailField } from "@/lib/validations/email";
+import { NAME_REGEX, NAME_INVALID_MESSAGE } from "@/lib/validations/name";
+import { getMobileError } from "@/lib/validations/mobile";
+import { GoogleAuthButton } from "@/components/auth/GoogleAuthButton";
 
 const registerFormSchema = z
   .object({
@@ -20,23 +24,20 @@ const registerFormSchema = z
       .string({ message: "Full name is required" })
       .trim()
       .min(2, "Full name must be at least 2 characters")
-      .max(100, "Full name must be less than 100 characters"),
-    email: z
-      .string({ message: "Email is required" })
-      .trim()
-      .min(1, "Email is required")
-      .email("Please enter a valid email address")
-      .transform((val) => val.toLowerCase()),
+      .max(100, "Full name must be less than 100 characters")
+      .regex(NAME_REGEX, NAME_INVALID_MESSAGE),
+    email: emailField,
     phone: z
       .string({ message: "Mobile number is required" })
       .trim()
-      .regex(
-        /^[6-9]\d{9}$/,
-        "Mobile number must be a valid 10-digit Indian number"
-      ),
+      .superRefine((val, ctx) => {
+        const message = getMobileError(val);
+        if (message) ctx.addIssue({ code: "custom", message });
+      }),
     password: z
       .string({ message: "Password is required" })
       .min(8, "Password must be at least 8 characters")
+      .max(100, "Password cannot exceed 100 characters")
       .regex(
         /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/,
         "Password must contain at least one uppercase letter, one lowercase letter, and one number"
@@ -58,7 +59,13 @@ function RegisterForm() {
   const callbackUrl = searchParams.get("callbackUrl") || "/";
 
   const [acceptTerms, setAcceptTerms] = useState(false);
+  const [termsError, setTermsError] = useState(false);
+  const termsRef = useRef<HTMLInputElement>(null);
   const sendEmailOtpMutation = useSendEmailOtp();
+  // Stays pending until the destination route has rendered, so the button
+  // keeps spinning after the API call resolves.
+  const [isNavigating, startNavigation] = useTransition();
+  const busy = sendEmailOtpMutation.isPending || isNavigating;
 
   const methods = useForm<RegisterFormData>({
     resolver: zodResolver(registerFormSchema),
@@ -123,13 +130,14 @@ function RegisterForm() {
   }, [password]);
 
   const onSubmit = (data: RegisterFormData) => {
+    if (busy) return;
     methods.clearErrors("root");
 
     if (!acceptTerms) {
-      methods.setError("root", {
-        type: "manual",
-        message: "Please accept Terms & Conditions.",
-      });
+      setTermsError(true);
+      const el = termsRef.current;
+      el?.scrollIntoView({ behavior: "smooth", block: "center" });
+      el?.focus({ preventScroll: true });
       return;
     }
 
@@ -147,7 +155,7 @@ function RegisterForm() {
     authFlowState.setRegistrationEmail(regData.email);
 
     sendEmailOtpMutation.mutate(
-      { email: regData.email },
+      { email: regData.email, phone: regData.phone },
       {
         onSuccess: () => {
           const targetUrl = `/register/verify-otp${
@@ -155,9 +163,20 @@ function RegisterForm() {
               ? `?callbackUrl=${encodeURIComponent(callbackUrl)}`
               : ""
           }`;
-          router.push(targetUrl);
+          startNavigation(() => router.push(targetUrl));
         },
         onError: (err: any) => {
+          // Surface field-level API validation errors ("phone: <message>") on the field
+          const phoneError = (err?.errors as string[] | undefined)?.find((e) =>
+            e.startsWith("phone:")
+          );
+          if (phoneError) {
+            methods.setError("phone", {
+              type: "server",
+              message: phoneError.replace(/^phone:\s*/, ""),
+            });
+            return;
+          }
           methods.setError("root", {
             type: "server",
             message:
@@ -190,11 +209,26 @@ function RegisterForm() {
         </div>
       }
     >
-      <FormProvider {...methods}>
-        <form
-          onSubmit={methods.handleSubmit(onSubmit)}
-          className="space-y-5 md:space-y-6"
-        >
+      <div className="space-y-4">
+        {/* Google One-Click Registration */}
+        <GoogleAuthButton callbackUrl={callbackUrl} text="Continue with Google" />
+
+        {/* Divider */}
+        <div className="relative flex items-center justify-center py-1">
+          <div className="w-full border-t border-neutral-200" />
+          <span className="absolute bg-white px-3 text-xs font-medium uppercase tracking-wider text-neutral-400">
+            Or register with email
+          </span>
+        </div>
+
+        <FormProvider {...methods}>
+          <form
+            onSubmit={methods.handleSubmit(onSubmit, () => {
+              // RHF focuses the first invalid field; also surface the terms error
+              if (!acceptTerms) setTermsError(true);
+            })}
+            className="space-y-5 md:space-y-6"
+          >
           {/* Server Error */}
           {methods.formState.errors.root?.message && (
             <div className="flex items-center gap-2 rounded-lg border border-error-200 bg-error-50 p-3 text-sm text-error-600">
@@ -228,7 +262,6 @@ function RegisterForm() {
             type="tel"
             placeholder="Enter 10-digit mobile number"
             autoComplete="tel"
-            maxLength={10}
             leftIcon={<Phone size={18} />}
             inputPrefix="+91"
             required
@@ -270,10 +303,22 @@ function RegisterForm() {
             required
           />
 
-          <div className="pt-1">
+          <div
+            className={`pt-1 ${
+              termsError
+                ? "rounded-lg border border-error-200 bg-error-50 p-3"
+                : ""
+            }`}
+          >
             <Checkbox
+              ref={termsRef}
               checked={acceptTerms}
-              onChange={(e) => setAcceptTerms(e.target.checked)}
+              aria-invalid={termsError ? true : undefined}
+              aria-describedby={termsError ? "terms-error" : undefined}
+              onChange={(e) => {
+                setAcceptTerms(e.target.checked);
+                if (e.target.checked) setTermsError(false);
+              }}
               label={
                 <>
                   I agree to the{" "}
@@ -287,14 +332,25 @@ function RegisterForm() {
                 </>
               }
             />
+            {termsError && (
+              <p
+                id="terms-error"
+                role="alert"
+                className="mt-2 flex items-center gap-1.5 text-xs font-medium text-error-600"
+              >
+                <AlertCircle className="h-4 w-4 shrink-0" aria-hidden="true" />
+                Please agree to the Terms &amp; Conditions to create your
+                account.
+              </p>
+            )}
           </div>
 
           <FormSubmitButton
             size="xl"
-            disabled={sendEmailOtpMutation.isPending}
+            disabled={busy}
             className="mt-2 h-10 w-full rounded-lg bg-secondary-600 text-sm text-white transition-all hover:bg-secondary-700 cursor-pointer disabled:opacity-50"
           >
-            {sendEmailOtpMutation.isPending ? (
+            {busy ? (
               <Spinner size="sm" className="text-white" />
             ) : (
               "Create Account"
@@ -302,6 +358,7 @@ function RegisterForm() {
           </FormSubmitButton>
         </form>
       </FormProvider>
+      </div>
     </AuthFormLayout>
   );
 }

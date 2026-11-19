@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { BlockReasonDialog } from "@/components/ui/block-reason-dialog";
 import { useUpdateCustomerStatus } from "../../hooks";
 import type {
   AdminCustomerListItemDto,
@@ -64,12 +65,13 @@ export function CustomerTopBar({ customer }: CustomerTopBarProps) {
     };
   }, [isMoreOpen]);
 
-  const handleConfirmStatusChange = () => {
+  const handleConfirmStatusChange = (blockReason?: string) => {
     if (!customerId) return;
     updateStatus(
       {
         uuid: customerId,
         isActive: isBlocked, // If blocked, activate (true). If active, block (false).
+        blockReason,
       },
       {
         onSettled: () => {
@@ -118,10 +120,12 @@ export function CustomerTopBar({ customer }: CustomerTopBarProps) {
         <div className="flex items-center gap-2.5 self-start sm:self-auto">
           {/* Email Button */}
           {customer.email ? (
-            <a
-              href={`mailto:${customer.email}`}
-              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 sm:px-4 sm:py-2 rounded-lg border border-secondary-600 text-secondary-600 bg-white hover:bg-secondary-50 text-xs font-semibold transition-colors shadow-2xs"
-            >
+           <a
+  href={`https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(customer.email)}`}
+  target="_blank"
+  rel="noopener noreferrer"
+  className="inline-flex items-center gap-1.5 px-3.5 py-1.5 sm:px-4 sm:py-2 rounded-lg border border-secondary-600 text-secondary-600 bg-white hover:bg-secondary-50 text-xs font-semibold transition-colors shadow-2xs"
+>
               <Mail className="h-3.5 w-3.5" />
               <span>Email</span>
             </a>
@@ -190,10 +194,18 @@ export function CustomerTopBar({ customer }: CustomerTopBarProps) {
       </div>
 
       {/* Confirmation Dialog for Block / Unblock Action */}
-      <ConfirmDialog
-        open={isConfirmOpen}
+      <BlockReasonDialog
+        open={isConfirmOpen && !isBlocked}
+        subject="User"
+        name={customer.name}
+        isLoading={isUpdatingStatus}
         onClose={() => setIsConfirmOpen(false)}
         onConfirm={handleConfirmStatusChange}
+      />
+      <ConfirmDialog
+        open={isConfirmOpen && isBlocked}
+        onClose={() => setIsConfirmOpen(false)}
+        onConfirm={() => handleConfirmStatusChange()}
         title={
           isBlocked ? "Unblock Customer Account" : "Block Customer Account"
         }
@@ -302,6 +314,13 @@ export function CustomerProfileHeader({
               <MapPin className="h-3.5 w-3.5 text-neutral-400 shrink-0" />
               <span className="truncate">{location || "Seattle, WA"}</span>
             </div>
+
+            {isBlocked && customer.blockReason && (
+              <p className="mt-1 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-800">
+                <span className="font-semibold">Block reason:</span>{" "}
+                {customer.blockReason}
+              </p>
+            )}
 
             {memberSince && (
               <p className="text-xs sm:text-sm text-neutral-500 pt-0.5">

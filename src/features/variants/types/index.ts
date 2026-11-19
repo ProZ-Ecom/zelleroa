@@ -50,9 +50,16 @@ export interface VariantUnitPriceResponse {
   unitValue?: number;
   unitName?: string;
   unitCode?: string;
-  /** The Size this row represents (e.g. "M"), if the Item/Color has a Size axis. */
+  /** The primary variation value of this row (e.g. "M"), used for its one-line label. */
   sizeValueId?: string; // Public AttributeValue UUID
   sizeValue?: string;
+  /** Every SKU-axis value this row represents, in the product's attribute order. */
+  attributeValues: {
+    attributeId: string;
+    attributeName: string;
+    valueId: string;
+    value: string;
+  }[];
   isDefault: boolean;
   isActive: boolean;
   stock?: number;
@@ -71,14 +78,14 @@ export interface AdminVariantAttributeValueResponse {
 
 export interface AdminVariantResponse {
   id: string; // Public Variant UUID (Color level)
-  itemId: string; // Public Item UUID
-  itemName: string;
-  itemSlug: string;
-  /** @deprecated use itemId - kept for callers not yet migrated off the old Product-scoped naming */
+  styleId: string; // Public Style UUID
+  styleName: string;
+  styleSlug: string;
+  /** @deprecated use styleId - kept for callers not yet migrated off the old Product-scoped naming */
   productId: string;
-  /** @deprecated use itemName */
+  /** @deprecated use styleName */
   productName: string;
-  /** @deprecated use itemSlug */
+  /** @deprecated use styleSlug */
   productSlug: string;
   variantName: string; // Stored DB variant_name e.g. "Red"
   slug: string;
@@ -86,18 +93,18 @@ export interface AdminVariantResponse {
   colorHex: string | null;
   /**
    * @deprecated no longer part of any price. A color has no price of its own:
-   * sizes sell at `itemPrice` unless given their own price on the size table.
+   * sizes sell at `stylePrice` unless given their own price on the size table.
    */
   priceAdjustment: number;
-  /** The parent Item's price - what every size of this color sells at by default. */
-  itemPrice?: number;
+  /** The parent Style's price - what every size of this color sells at by default. */
+  stylePrice?: number;
   isFeatured: boolean;
   primaryImage: string | null;
   isActive: boolean;
   outOfStock: boolean;
   createdAt: Date;
   updatedAt: Date;
-  // Item-level list of all sellable (unit, price) combinations for this variant.
+  // Style-level list of all sellable (unit, price) combinations for this variant.
   unitPrices: VariantUnitPriceResponse[];
   // The specific attribute combination this variant represents (e.g. Color=Red, Size=M).
   attributeValues: AdminVariantAttributeValueResponse[];
@@ -136,8 +143,8 @@ export interface GetAdminVariantsParams {
   page?: number;
   pageSize?: number;
   search?: string;
-  itemId?: string;
-  itemUuid?: string;
+  styleId?: string;
+  styleUuid?: string;
   isActive?: boolean;
 }
 
@@ -248,6 +255,7 @@ export type {
   BulkEditVariantsInput,
   BulkEditVariantItemInput,
   GenerateVariantsInput,
+  GenerateVariantsRequest,
   GenerateVariantOptionInput,
   PreviewGenerateVariantsInput,
   ApplyVariantRemovalsInput,

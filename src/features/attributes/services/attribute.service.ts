@@ -3,9 +3,14 @@ import { ApiError } from "@/lib/api/api-error";
 import { attributeRepository } from "../repositories/attribute.repository";
 import { userRepository } from "@/features/users/repositories/user.repository";
 import { productRepository } from "@/features/products/repositories/product.repository";
-import { itemRepository } from "@/features/items/repositories/item.repository";
+import { styleRepository } from "@/features/styles/repositories/style.repository";
 import { db } from "@/lib/db/prisma";
-import type { AttributeListItem, GetAdminAttributesParams } from "../types";
+import type {
+  AttributeListItem,
+  GetAdminAttributesParams,
+  ProductAttributeUsage,
+  VariationLevel,
+} from "../types";
 import type {
   CreateAdminAttributeInput,
   UpdateAdminAttributeInput,
@@ -270,7 +275,7 @@ export const attributeService = {
 
   /**
    * The Product's configured attributes WITH their values (e.g. Color: Black,
-   * White) - powers the single-variant "Add/Edit Item" form and the bulk
+   * White) - powers the single-variant "Add/Edit Variant" form and the bulk
    * "Generate Variants" form, so attribute selection is driven purely by what
    * the Product has configured (no category involved).
    */
@@ -286,6 +291,8 @@ export const attributeService = {
       type: (config.product_attributes.type as "text" | "color") ?? "text",
       isRequired: config.is_required,
       multipleSelection: Boolean(config.product_attributes.multiple_selection),
+      variationLevel: config.variation_level as VariationLevel,
+      sortOrder: config.sort_order,
       values: config.product_attributes.values.map((v) => ({
         id: v.uuid || String(v.id),
         value: v.value,
@@ -326,19 +333,21 @@ export const attributeService = {
         configured: Boolean(config),
         isRequired: config?.is_required ?? false,
         sortOrder: config?.sort_order ?? 0,
+        variationLevel: (config?.variation_level ?? "SKU") as VariationLevel,
       };
     });
   },
 
   /**
-   * Full-replace the set of attributes configured on a Product. Unchecking an
-   * attribute that's already in use by Items/Variants under this Product
-   * requires `force: true` - otherwise this throws with the usage counts so
-   * the admin UI can show a confirmation instead of silently dropping data.
+   * Full-replace the set of attributes configured on a Product, each with the level
+   * it varies at. Two changes can strand existing data and so need `force: true`:
+   * unchecking an attribute Styles/Variants already use, and moving one off the SKU
+   * axis while stock rows still identify themselves by it. Either way this throws
+   * with the counts, so the admin UI can confirm instead of silently dropping data.
    */
   async setAttributesForProduct(
     productUuid: string,
-    attributeIds: string[],
+    entries: { attributeId: string; variationLevel: VariationLevel }[],
     force: boolean,
     _adminEmail?: string
   ) {
@@ -348,40 +357,77 @@ export const attributeService = {
     }
 
     const resolved = await Promise.all(
-      attributeIds.map(async (id) => {
-        const attribute = await attributeRepository.findByUuid(id);
+      entries.map(async (entry) => {
+        const attribute = await attributeRepository.findByUuid(entry.attributeId);
         if (!attribute) {
-          throw ApiError.badRequest(`Attribute not found: ${id}`);
+          throw ApiError.badRequest(`Attribute not found: ${entry.attributeId}`);
         }
-        return attribute;
+        return { attribute, variationLevel: entry.variationLevel };
       })
     );
-    const nextAttributeIdSet = new Set(resolved.map((a) => a.id.toString()));
 
-    const existingConfigs = await attributeRepository.findAttributeConfigsForProduct(product.id);
-    const removedConfigs = existingConfigs.filter(
-      (c) => !nextAttributeIdSet.has(c.attribute_id.toString())
+    const duplicates = resolved.length - new Set(resolved.map((r) => r.attribute.id.toString())).size;
+    if (duplicates > 0) {
+      throw ApiError.badRequest("Each attribute can only be configured once per product");
+    }
+
+    const nextLevelByAttributeId = new Map(
+      resolved.map((r) => [r.attribute.id.toString(), r.variationLevel])
     );
 
-    if (removedConfigs.length && !force) {
-      const usage = await Promise.all(
-        removedConfigs.map(async (c) => {
+    const existingConfigs = await attributeRepository.findAttributeConfigsForProduct(product.id);
+
+    // Every one of these leaves data behind that no longer matches the configuration.
+    // Variants are keyed by their VARIANT-axis values and stock rows by their SKU
+    // signature, so ANY level change re-shapes the key: the existing rows stop
+    // matching what generation would now produce, and the next generate run adds a
+    // parallel set beside them instead of reusing them. Only an unchanged level is safe.
+    type AtRisk = {
+      config: (typeof existingConfigs)[number];
+      change: "removed" | "demoted" | "relevelled";
+      fromLevel?: VariationLevel;
+      toLevel?: VariationLevel;
+    };
+    const atRisk = existingConfigs
+      .map((config): AtRisk | null => {
+        const nextLevel = nextLevelByAttributeId.get(config.attribute_id.toString());
+        if (nextLevel === undefined) return { config, change: "removed" };
+        const fromLevel = config.variation_level as VariationLevel;
+        if (fromLevel === nextLevel) return null;
+        return {
+          config,
+          change: fromLevel === "SKU" ? "demoted" : "relevelled",
+          fromLevel,
+          toLevel: nextLevel,
+        };
+      })
+      .filter((entry): entry is AtRisk => entry !== null);
+
+    if (atRisk.length && !force) {
+      const usage: ProductAttributeUsage[] = await Promise.all(
+        atRisk.map(async ({ config, change, fromLevel, toLevel }) => {
           const counts = await attributeRepository.countProductAttributeUsage(
             product.id,
-            c.attribute_id
+            config.attribute_id
           );
           return {
-            attributeId: c.product_attributes.uuid || String(c.attribute_id),
-            attributeName: c.product_attributes.name,
-            itemCount: counts.itemCount,
+            attributeId: config.product_attributes.uuid || String(config.attribute_id),
+            attributeName: config.product_attributes.name,
+            styleCount: counts.styleCount,
             variantCount: counts.variantCount,
+            skuCount: counts.skuCount,
+            change,
+            fromLevel,
+            toLevel,
           };
         })
       );
-      const inUse = usage.filter((u) => u.itemCount > 0 || u.variantCount > 0);
+      const inUse = usage.filter(
+        (u) => u.styleCount > 0 || u.variantCount > 0 || u.skuCount > 0
+      );
       if (inUse.length) {
         throw ApiError.conflict(
-          "Some attributes being removed are already used by items or variants",
+          "Some attributes being changed are already used by styles, variants or stock rows",
           { usage: inUse }
         );
       }
@@ -389,10 +435,11 @@ export const attributeService = {
 
     await attributeRepository.setAttributesForProduct(
       product.id,
-      resolved.map((a, idx) => ({
-        attributeId: a.id,
+      resolved.map((r, idx) => ({
+        attributeId: r.attribute.id,
         isRequired: false,
         sortOrder: idx,
+        variationLevel: r.variationLevel,
       }))
     );
 
@@ -400,23 +447,23 @@ export const attributeService = {
   },
 
   /**
-   * The Item's currently selected attribute values, grouped by the Product's
+   * The Style's currently selected attribute values, grouped by the Product's
    * configured attributes - only attributes configured on the parent Product
    * are ever offered, enforced here server-side (not just in the UI).
    */
-  async getAttributeValuesForItem(itemUuid: string, productUuid?: string) {
-    const item = await itemRepository.findByUuid(itemUuid);
-    if (!item) {
-      throw ApiError.notFound("Item not found");
+  async getAttributeValuesForStyle(styleUuid: string, productUuid?: string) {
+    const style = await styleRepository.findByUuid(styleUuid);
+    if (!style) {
+      throw ApiError.notFound("Style not found");
     }
 
-    const productId = item.style.productId;
-    if (productUuid && item.style.product?.uuid !== productUuid) {
-      throw ApiError.notFound("Item not found for this product");
+    const productId = style.productId;
+    if (productUuid && style.product?.uuid !== productUuid) {
+      throw ApiError.notFound("Style not found for this product");
     }
     const [configs, selected] = await Promise.all([
       attributeRepository.findAttributeConfigsForProduct(productId),
-      attributeRepository.findAttributeValuesForItem(item.id),
+      attributeRepository.findAttributeValuesForStyle(style.id),
     ]);
 
     const selectedValueIdsByAttribute = new Map<string, Set<string>>();
@@ -448,22 +495,22 @@ export const attributeService = {
   },
 
   /**
-   * Full-replace the Item's selected attribute values. Only values belonging
+   * Full-replace the Style's selected attribute values. Only values belonging
    * to attributes configured on the parent Product are accepted.
    */
-  async setAttributeValuesForItem(
-    itemUuid: string,
+  async setAttributeValuesForStyle(
+    styleUuid: string,
     attributeValueIds: string[],
     productUuid?: string
   ) {
-    const item = await itemRepository.findByUuid(itemUuid);
-    if (!item) {
-      throw ApiError.notFound("Item not found");
+    const style = await styleRepository.findByUuid(styleUuid);
+    if (!style) {
+      throw ApiError.notFound("Style not found");
     }
 
-    const productId = item.style.productId;
-    if (productUuid && item.style.product?.uuid !== productUuid) {
-      throw ApiError.notFound("Item not found for this product");
+    const productId = style.productId;
+    if (productUuid && style.product?.uuid !== productUuid) {
+      throw ApiError.notFound("Style not found for this product");
     }
     const configs = await attributeRepository.findAttributeConfigsForProduct(productId);
     const allowedValueMap = new Map<string, { attributeId: bigint }>();
@@ -490,7 +537,7 @@ export const attributeService = {
     });
 
     // Single-selection attributes (Multiple Selection = OFF in the Attribute
-    // Master) may only ever hold one value per Item - enforce it server-side,
+    // Master) may only ever hold one value per Style - enforce it server-side,
     // not just in the UI.
     const countByAttributeId = new Map<string, number>();
     for (const entry of entries) {
@@ -511,14 +558,14 @@ export const attributeService = {
     });
     const internalIdByUuid = new Map(values.map((v) => [v.uuid, v.id]));
 
-    await attributeRepository.setAttributeValuesForItem(
-      item.id,
+    await attributeRepository.setAttributeValuesForStyle(
+      style.id,
       entries.map((e) => ({
         attributeId: e.attributeId,
         attributeValueId: internalIdByUuid.get(e.valueUuid) ?? BigInt(e.valueUuid),
       }))
     );
 
-    return attributeService.getAttributeValuesForItem(itemUuid, productUuid);
+    return attributeService.getAttributeValuesForStyle(styleUuid, productUuid);
   },
 };

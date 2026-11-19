@@ -1,11 +1,16 @@
 "use client";
 
 import React, { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Check } from "lucide-react";
-import { formatPrice } from "@/lib/utils";
+import { formatPrice, getImageUrl } from "@/lib/utils";
+import { ProductImage } from "@/components/common/ProductImage";
+import { toast } from "@/components/ui/Toast";
 import type { CustomerProfileResponse } from "../../types";
 import type { OrderDetailResponse } from "@/features/orders/types";
 import { useAddToCartMutation } from "../../hooks/use-customer-cart";
+import { ProfileCompletionMeter } from "@/components/ui/ProfileCompletionMeter";
+import { calculateCustomerCompletion } from "../../lib/profile-completion";
 
 interface DashboardTabProps {
   profile?: CustomerProfileResponse | null;
@@ -23,6 +28,7 @@ export function DashboardTab({
   isLoading = false,
   onNavigateTab,
 }: DashboardTabProps) {
+  const router = useRouter();
   const userName = profile?.name || "Customer";
   const addToCartMutation = useAddToCartMutation();
   const [addingVariantId, setAddingVariantId] = useState<string | null>(null);
@@ -105,6 +111,10 @@ export function DashboardTab({
     );
   }
 
+  const completion = calculateCustomerCompletion(
+    profile ?? ({} as CustomerProfileResponse)
+  );
+
   // Calculate live statistics
   const totalOrdersCount = orders.length;
   const lifetimeSpend = orders.reduce((sum, order) => {
@@ -121,38 +131,70 @@ export function DashboardTab({
   );
 
   // Extract past ordered items for "Buy Again"
-  const pastItemsMap = new Map<string, { variantId?: string; name: string; price: number }>();
+  interface BuyAgainItem {
+    variantId?: string;
+    variantUnitPriceId?: string;
+    name: string;
+    price: number;
+    image: string | null;
+    variantName?: string | null;
+  }
+
+  const pastItemsMap = new Map<string, BuyAgainItem>();
   orders.forEach((o) => {
-    o.items?.forEach((item) => {
-      const key = item.productName || "";
+    o.items?.forEach((item: any) => {
+      const key = item.productName || item.product_name_snapshot || "";
       const vId = item.variantId ? String(item.variantId) : undefined;
+      const vUpId = item.variantUnitPriceId ? String(item.variantUnitPriceId) : undefined;
+      const imgSrc =
+        item.primaryImage ||
+        item.image ||
+        item.productImage ||
+        item.variant?.product_variant_images?.[0]?.image_url ||
+        item.product?.images?.[0]?.image_url ||
+        null;
+
       if (key && !pastItemsMap.has(key)) {
         pastItemsMap.set(key, {
           variantId: vId,
+          variantUnitPriceId: vUpId,
           name: key,
           price: typeof item.unitPrice === "number" ? item.unitPrice : Number(item.unitPrice || 0),
+          image: imgSrc || (item as any).primaryImage || (item as any).image || null,
+          variantName: item.variantName || item.variant_snapshot || null,
         });
       }
     });
   });
   const buyAgainItems = Array.from(pastItemsMap.values()).slice(0, 4);
 
-  const handleBuyAgain = async (item: { variantId?: string; name: string; price: number }) => {
-    if (!item.variantId) {
-      onNavigateTab("orders");
+  const handleBuyAgain = async (item: BuyAgainItem) => {
+    const itemKey = item.variantUnitPriceId || item.variantId || item.name;
+    if (!item.variantUnitPriceId && !item.variantId) {
+      toast.error(
+        "Could not reorder item",
+        "Product variant information is unavailable."
+      );
       return;
     }
-    setAddingVariantId(item.variantId);
+
+    setAddingVariantId(itemKey);
     try {
       await addToCartMutation.mutateAsync({
-        variantId: item.variantId,
+        ...(item.variantUnitPriceId ? { variantUnitPriceId: item.variantUnitPriceId } : {}),
+        ...(item.variantId ? { variantId: item.variantId } : {}),
         quantity: 1,
       });
-      setAddedVariantId(item.variantId);
-      setTimeout(() => setAddedVariantId(null), 3000);
-    } catch (err) {
+      setAddedVariantId(itemKey);
+      toast.success(
+        "Added to cart",
+        `${item.name} has been added to your cart.`
+      );
+      router.push("/cart");
+    } catch (err: any) {
       console.error("Failed to add to cart:", err);
-      onNavigateTab("orders");
+      const msg = err?.message || "Failed to add item to cart";
+      toast.error("Could not reorder item", msg);
     } finally {
       setAddingVariantId(null);
     }
@@ -231,6 +273,25 @@ export function DashboardTab({
           )}
         </div>
       </div>
+
+      {/* Profile completion — derived from live profile data, refreshes when the profile query updates */}
+      {profile && (
+        <div className="bg-theme-surface border border-theme-border rounded-2xl p-4 sm:p-5 shadow-2xs">
+          <ProfileCompletionMeter
+            percent={completion.percent}
+            missing={completion.missing}
+            action={
+              <button
+                type="button"
+                onClick={() => onNavigateTab("profile")}
+                className="bg-theme-secondary hover:bg-theme-secondary-hover text-theme-secondary-fg text-xs font-semibold uppercase tracking-wider py-3 px-5 rounded-lg transition-colors cursor-pointer min-h-[44px] w-full sm:w-auto"
+              >
+                Complete Profile
+              </button>
+            }
+          />
+        </div>
+      )}
 
       {/* Quick Stats Grid */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
@@ -450,12 +511,16 @@ export function DashboardTab({
             {buyAgainItems.map((item, idx) => (
               <div
                 key={`${item.name}-${idx}`}
-                className="border border-theme-border-subtle rounded-xl overflow-hidden bg-theme-surface-warm flex flex-col justify-between"
+                className="border border-theme-border-subtle rounded-xl overflow-hidden bg-theme-surface-warm flex flex-col justify-between shadow-2xs hover:shadow-xs transition-shadow"
               >
-                <div className="h-28 bg-[repeating-linear-gradient(45deg,#F6ECDC,#F6ECDC_8px,#EFE2CD_8px,#EFE2CD_16px)] flex items-center justify-center">
-                  <span className="text-[10px] font-mono text-theme-text-muted uppercase tracking-wider">
-                    {item.name.slice(0, 14)}
-                  </span>
+                <div className="relative h-36 w-full overflow-hidden bg-theme-surface-alt border-b border-theme-border-subtle">
+                  <ProductImage
+                    src={item.image ? getImageUrl(item.image) : null}
+                    alt={item.name}
+                    fallbackText={item.name}
+                    containerClassName="w-full h-full"
+                    className="w-full h-full object-cover transition-transform duration-300 hover:scale-105"
+                  />
                 </div>
 
                 <div className="p-3.5 flex flex-col justify-between flex-1 gap-3">
@@ -463,32 +528,44 @@ export function DashboardTab({
                     <div className="text-xs font-semibold uppercase text-theme-text-primary line-clamp-2 min-h-[32px]">
                       {item.name}
                     </div>
+                    {item.variantName && item.variantName !== item.name && (
+                      <div className="text-[11px] text-theme-text-muted truncate mt-0.5">
+                        {item.variantName}
+                      </div>
+                    )}
                     <div className="text-sm font-semibold text-theme-primary mt-1.5">
                       {formatPrice(item.price)}
                     </div>
                   </div>
 
                   <div className="flex flex-col gap-1.5 mt-1">
-                    <button
-                      type="button"
-                      disabled={addingVariantId === item.variantId}
-                      onClick={() => handleBuyAgain(item)}
-                      className={`w-full text-xs font-semibold uppercase tracking-wider py-2.5 rounded-md transition-colors cursor-pointer min-h-[40px] ${
-                        addedVariantId === item.variantId
-                          ? "bg-green-600 text-white"
-                          : "bg-theme-secondary hover:bg-theme-secondary-hover text-theme-secondary-fg"
-                      } disabled:opacity-50`}
-                    >
-                      {addingVariantId === item.variantId ? (
-                        "Adding..."
-                      ) : addedVariantId === item.variantId ? (
-                        <span className="inline-flex items-center gap-1">
-                          <Check className="h-3.5 w-3.5" /> Added to Cart
-                        </span>
-                      ) : (
-                        "Reorder"
-                      )}
-                    </button>
+                    {(() => {
+                      const itemKey = item.variantUnitPriceId || item.variantId || item.name;
+                      const isAdding = addingVariantId === itemKey;
+                      const isAdded = addedVariantId === itemKey;
+                      return (
+                        <button
+                          type="button"
+                          disabled={isAdding}
+                          onClick={() => handleBuyAgain(item)}
+                          className={`w-full text-xs font-semibold uppercase tracking-wider py-2.5 rounded-md transition-colors cursor-pointer min-h-[40px] ${
+                            isAdded
+                              ? "bg-green-600 text-white"
+                              : "bg-theme-secondary hover:bg-theme-secondary-hover text-theme-secondary-fg"
+                          } disabled:opacity-50`}
+                        >
+                          {isAdding ? (
+                            "Adding to Cart..."
+                          ) : isAdded ? (
+                            <span className="inline-flex items-center gap-1">
+                              <Check className="h-3.5 w-3.5" /> Added to Cart
+                            </span>
+                          ) : (
+                            "Reorder"
+                          )}
+                        </button>
+                      );
+                    })()}
 
                     <button
                       type="button"

@@ -5,18 +5,22 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Loader2 } from "lucide-react";
 import { apiClient } from "@/lib/api/api-client";
 import { toast } from "@/components/ui/Toast";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import type { CommissionRow } from "../../types";
-import { errorMessage, useAdminList } from "../../hooks/use-admin-agents";
+import { errorMessage, useAdminList, useAdminObject } from "../../hooks/use-admin-agents";
 import {
-  ButtonPager,
   COMMISSION_STATUS_OPTIONS,
   ORDER_STATUS_OPTIONS,
   Panel,
+  ProductWithQuantity,
   SimpleTable,
   StatusBadge,
   dateOnly,
   money,
-  pct, TableSkeleton } from "../shared";
+  pct,
+  TableSkeleton,
+} from "../shared";
+import { ButtonPager } from "../AdminPagination";
 import { AdminFilterBar, type FilterField } from "./AdminFilterBar";
 import { AuditModal } from "./AuditModal";
 
@@ -25,11 +29,20 @@ export function AdminCommissionsSection({ fixedAgent, allowApprove = true }: { f
   const qc = useQueryClient();
   const [filters, setFilters] = useState<Record<string, string>>({});
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
   const [auditId, setAuditId] = useState<string | null>(null);
   const [approving, setApproving] = useState(false);
+  const [confirmApprove, setConfirmApprove] = useState(false);
 
-  const params = { ...filters, ...(fixedAgent ? { agent: fixedAgent } : {}), page, limit: 20 };
+  const params = { ...filters, ...(fixedAgent ? { agent: fixedAgent } : {}), page, limit: pageSize };
   const { data, isLoading, error } = useAdminList<CommissionRow>("commissions", "/api/admin/commissions", params);
+  const settings = useAdminObject<{ returnPeriodDays: number; autoApprove: boolean }>(
+    "commission-settings",
+    "/api/admin/commission-settings"
+  );
+
+  const isAutoApprove = settings.data?.autoApprove ?? data?.meta.autoApprove ?? false;
+  const canApprove = allowApprove && !isAutoApprove;
 
   const fields: FilterField[] = [
     ...(fixedAgent ? [] : [{ name: "agent", label: "Sales Partner", type: "agent" as const }]),
@@ -42,10 +55,11 @@ export function AdminCommissionsSection({ fixedAgent, allowApprove = true }: { f
     { name: "dateTo", label: "To", type: "date" },
   ];
 
-  const approveEligible = async () => {
+  const approveCommissions = async (ids?: string[]) => {
     setApproving(true);
+    setConfirmApprove(false);
     try {
-      const res = await apiClient.post<{ approved: number }>("/api/admin/commissions/approve-eligible");
+      const res = await apiClient.post<{ approved: number }>("/api/admin/commissions/approve", ids ? { ids } : {});
       toast.success(res.message ?? "Done");
       await qc.invalidateQueries({ queryKey: ["agents-admin"] });
     } catch (err) {
@@ -59,16 +73,16 @@ export function AdminCommissionsSection({ fixedAgent, allowApprove = true }: { f
     <Panel
       title="Commissions"
       action={
-        allowApprove && (
+        canApprove && (
           <button
             type="button"
-            onClick={approveEligible}
+            onClick={() => setConfirmApprove(true)}
             disabled={approving}
             className="inline-flex min-h-[36px] items-center gap-2 rounded-lg border border-neutral-200 px-3 text-xs font-semibold hover:bg-neutral-50 disabled:opacity-60"
-            title="Approve every commission whose return period has ended"
+            title="Approve every commission that is awaiting approval"
           >
             {approving && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-            Approve eligible now
+            Approve all awaiting
           </button>
         )
       }
@@ -97,7 +111,17 @@ export function AdminCommissionsSection({ fixedAgent, allowApprove = true }: { f
               { header: "Order", cell: (r) => <span className="font-mono text-xs">{r.orderNumber}</span> },
               { header: "Referral code", cell: (r) => <span className="font-mono text-xs">{r.referralCode ?? "—"}</span> },
               { header: "Customer", cell: (r) => r.customerName },
-              { header: "Product", cell: (r) => `${r.productName} × ${r.quantity}` },
+              {
+                header: "Product",
+                cell: (r) => (
+                  <ProductWithQuantity
+                    productName={r.productName}
+                    quantity={r.quantity}
+                    originalQuantity={r.originalQuantity}
+                    returnedQuantity={r.returnedQuantity}
+                  />
+                ),
+              },
               { header: "Category", cell: (r) => r.categoryName ?? "—" },
               { header: "Product amount", cell: (r) => money(r.productAmount) },
               { header: "%", cell: (r) => <span title={`Rate source: ${r.rateSource}`}>{pct(r.percentage)}</span> },
@@ -119,17 +143,69 @@ export function AdminCommissionsSection({ fixedAgent, allowApprove = true }: { f
               { header: "Payout", cell: (r) => r.payoutCode ?? "—" },
               {
                 header: "",
-                cell: (r) => (
-                  <button type="button" onClick={() => setAuditId(r.id)} className="text-xs font-semibold text-neutral-700 underline-offset-4 hover:underline">
-                    History
-                  </button>
-                ),
+                cell: (r) => {
+                  const isEligible =
+                    canApprove &&
+                    (r.status === "pending_approval" ||
+                      (r.status === "pending" &&
+                        Boolean(r.eligibleAt && new Date(r.eligibleAt).getTime() <= Date.now())));
+
+                  const isReturnWindowActive =
+                    r.status === "pending" &&
+                    Boolean(r.eligibleAt && new Date(r.eligibleAt).getTime() > Date.now());
+
+                  return (
+                    <div className="flex items-center gap-3">
+                      {isEligible && (
+                        <button
+                          type="button"
+                          disabled={approving}
+                          onClick={() => approveCommissions([r.id])}
+                          className="rounded-md bg-emerald-600 px-2.5 py-1 text-xs font-semibold text-white hover:bg-emerald-700 disabled:opacity-60 shadow-2xs transition-colors"
+                        >
+                          Approve
+                        </button>
+                      )}
+                      {isReturnWindowActive && (
+                        <span className="text-[11px] font-medium text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200 whitespace-nowrap">
+                          Return window active
+                        </span>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => setAuditId(r.id)}
+                        className="text-xs font-semibold text-neutral-700 underline-offset-4 hover:underline"
+                      >
+                        History
+                      </button>
+                    </div>
+                  );
+                },
               },
             ]}
           />
-          <ButtonPager page={page} totalPages={data?.meta.totalPages ?? 1} total={data?.meta.total ?? 0} onPage={setPage} />
+          <ButtonPager
+            page={page}
+            totalPages={data?.meta.totalPages ?? 1}
+            total={data?.meta.total ?? 0}
+            onPage={setPage}
+            pageSize={pageSize}
+            onPageSizeChange={(newSize) => {
+              setPageSize(newSize);
+              setPage(1);
+            }}
+          />
         </>
       )}
+      <ConfirmDialog
+        open={confirmApprove}
+        onClose={() => setConfirmApprove(false)}
+        onConfirm={() => approveCommissions()}
+        variant="default"
+        title="Approve awaiting commissions?"
+        description="Every commission whose return period has ended and is awaiting approval will become approved and available for the Sales Partner to withdraw."
+        confirmText="Approve"
+      />
       <AuditModal type="commission" id={auditId} title="Commission history" onClose={() => setAuditId(null)} />
     </Panel>
   );

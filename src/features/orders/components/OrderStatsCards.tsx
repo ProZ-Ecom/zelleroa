@@ -8,12 +8,10 @@ export function OrderStatsCards() {
   const { data: stats, isLoading: isStatsLoading } = useDashboardStats();
   const { data: orderCounts, isLoading: isCountsLoading } = useAdminOrdersCount();
 
-  const isLoading = isStatsLoading && isCountsLoading;
-
-  const todayOrders = stats?.todayOrders ?? 0;
+  const todayOrders = orderCounts?.todayOrders ?? stats?.todayOrders ?? 0;
   const pendingOrders = orderCounts?.pending ?? stats?.pendingOrders ?? 0;
   const totalOrders = orderCounts?.total ?? stats?.totalOrders ?? 0;
-  const totalRevenue = stats?.totalRevenue ?? 0;
+  const totalRevenue = orderCounts?.totalRevenue ?? stats?.totalRevenue ?? 0;
 
   const cards = [
     {

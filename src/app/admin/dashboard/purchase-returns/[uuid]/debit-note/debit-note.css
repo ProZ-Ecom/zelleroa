@@ -1,0 +1,159 @@
+/* Print-first styling for the vendor debit note (A4 portrait). */
+
+.dn-screen {
+  background: #e5e5e5;
+  min-height: 100vh;
+  padding: 16px 0 40px;
+}
+
+.dn-page {
+  width: 210mm;
+  min-height: 297mm;
+  margin: 0 auto;
+  padding: 12mm;
+  background: #fff;
+  color: #000;
+  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+  font-size: 11px;
+  line-height: 1.5;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.15);
+}
+
+.dn-page p {
+  margin: 0;
+}
+
+.dn-title {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.dn-sub {
+  margin: 2px 0 12px;
+  font-size: 9px;
+  letter-spacing: 1px;
+  text-align: center;
+  color: #555;
+  text-transform: uppercase;
+}
+
+.dn-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  border: 1px solid #000;
+  padding: 8px 10px;
+}
+
+.dn-head h2 {
+  margin: 0 0 2px;
+  font-size: 14px;
+}
+
+.dn-parties {
+  display: flex;
+  border: 1px solid #000;
+  border-top: 0;
+}
+
+.dn-party {
+  flex: 1;
+  padding: 8px 10px;
+}
+
+.dn-party + .dn-party {
+  border-left: 1px solid #000;
+}
+
+.dn-label {
+  font-size: 9px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: #555;
+}
+
+.dn-table {
+  width: 100%;
+  border-collapse: collapse;
+  border: 1px solid #000;
+  border-top: 0;
+}
+
+.dn-table th,
+.dn-table td {
+  border: 1px solid #000;
+  padding: 5px 7px;
+  text-align: left;
+  vertical-align: top;
+}
+
+.dn-table th {
+  background: #f1f1f1;
+  font-size: 9px;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+.dn-num {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.dn-total-row td {
+  font-weight: 700;
+  background: #f7f7f7;
+}
+
+.dn-words {
+  border: 1px solid #000;
+  border-top: 0;
+  padding: 6px 10px;
+  font-style: italic;
+}
+
+.dn-foot {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 28px;
+}
+
+.dn-sign {
+  width: 60mm;
+  border-top: 1px solid #000;
+  padding-top: 4px;
+  text-align: center;
+}
+
+.dn-note {
+  margin-top: 10px;
+  font-size: 10px;
+  color: #444;
+}
+
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 8mm;
+  }
+
+  .dn-screen {
+    background: #fff;
+    padding: 0;
+  }
+
+  .dn-page {
+    width: auto;
+    min-height: 0;
+    box-shadow: none;
+    padding: 0;
+  }
+
+  .no-print {
+    display: none !important;
+  }
+}

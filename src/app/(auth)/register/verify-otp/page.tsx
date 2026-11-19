@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useRef, useState } from "react";
+import { Suspense, useEffect, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -31,6 +31,8 @@ function RegisterVerifyOtpForm() {
   const verifyEmailOtpMutation = useVerifyEmailOtp();
   const resendRegisterOtpMutation = useResendRegisterOtp();
   const registerMutation = useRegister();
+  // Stays pending until the destination route has rendered.
+  const [isNavigating, startNavigation] = useTransition();
 
   useEffect(() => {
     if (!email) {
@@ -117,7 +119,7 @@ function RegisterVerifyOtpForm() {
 
   const handleVerify = () => {
     const code = otp.join("");
-    if (!email || code.length !== 6) return;
+    if (!email || code.length !== 6 || isLoading) return;
 
     setInfoMessage("");
     setErrorMessage("");
@@ -171,13 +173,11 @@ function RegisterVerifyOtpForm() {
                 toast.success("Account created successfully", successMsg);
                 setInfoMessage(successMsg);
 
-                setTimeout(() => {
-                  const loginUrl =
-                    callbackUrl !== "/"
-                      ? `/login?callbackUrl=${encodeURIComponent(callbackUrl)}`
-                      : "/login";
-                  router.push(loginUrl);
-                }, 1000);
+                const loginUrl =
+                  callbackUrl !== "/"
+                    ? `/login?callbackUrl=${encodeURIComponent(callbackUrl)}`
+                    : "/login";
+                startNavigation(() => router.push(loginUrl));
               },
               onError: (regErr: any) => {
                 const msg =
@@ -225,14 +225,19 @@ function RegisterVerifyOtpForm() {
   const isLoading =
     verifyEmailOtpMutation.isPending ||
     registerMutation.isPending ||
-    resendRegisterOtpMutation.isPending;
+    resendRegisterOtpMutation.isPending ||
+    isNavigating;
 
   return (
     <div className="mx-auto w-full max-w-[480px]">
       <div className="w-full rounded-2xl border border-neutral-200 bg-white px-5 py-7 shadow-sm sm:px-8 sm:py-10">
         {/* Logo */}
         <div className="mb-6 flex justify-center">
-          <span className="flex h-16 w-16 items-center justify-center rounded-xl bg-secondary-900 p-2 shadow-sm sm:h-[4.5rem] sm:w-[4.5rem]">
+          <Link
+            href="/"
+            aria-label="Go to home page"
+            className="flex h-16 w-16 items-center justify-center rounded-xl bg-secondary-900 p-2 shadow-sm sm:h-[4.5rem] sm:w-[4.5rem]"
+          >
             <Image
               src="/logo-mark.png"
               alt="Zellora"
@@ -241,7 +246,7 @@ function RegisterVerifyOtpForm() {
               className="h-full w-full object-contain"
               priority
             />
-          </span>
+          </Link>
         </div>
 
         {/* Heading */}

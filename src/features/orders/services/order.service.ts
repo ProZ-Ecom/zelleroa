@@ -8,9 +8,12 @@ import { couponValidationService } from "@/features/coupons/services/coupon-vali
 import { customerAddressService } from "@/features/customers/services/customer-address.service";
 import { cartRepository } from "@/features/cart/repositories/cart.repository";
 import { generateAccessToken, generateRefreshToken } from "@/lib/auth/jwt";
+import { resolveRoleScope } from "@/lib/auth/role-routes";
 import { referralService, type ReferralAgent } from "@/features/agents/services/referral.service";
+import { customerAssignmentService } from "@/features/agents/services/customer-assignment.service";
 import { orderRepository } from "../repositories/order.repository";
 import { getShippingCharge } from "../shipping";
+import { assertMobileVerifiedForOrder } from "../lib/mobile-verification";
 import type {
   OrderDetailResponse,
   OrderListItemResponse,
@@ -28,6 +31,7 @@ import type {
   AdminCancelOrderInput,
   ReturnOrderInput,
   OrderStatusTransitionInput,
+  MarkOrderPaidInput,
 } from "../validations/order.schema";
 import type { orders_order_status } from "@/generated/prisma";
 import {
@@ -50,17 +54,25 @@ export const orderService = {
      * through instead. `undefined` (the default) means "resolve from the
      * request cookie as normal"; `null` explicitly means "no referral".
      */
-    referralOverride?: ReferralAgent | null
+    referralOverride?: ReferralAgent | null,
+    /**
+     * Set ONLY by server-side code that has itself verified a gateway payment
+     * signature. The client-supplied `paymentDetails` is never trusted to mark
+     * an order paid.
+     */
+    options: { gatewayPaymentVerified?: boolean; expectedPaidAmount?: number } = {}
   ): Promise<OrderDetailResponse> {
     const user = await userRepository.findById(sessionUserId);
     if (!user || !user.internalId) {
       throw ApiError.unauthorized("User not found");
     }
     if (!user.isActive || user.is_active === false) {
-      throw ApiError.forbidden("Your account is inactive or blocked. Please contact support.");
+      throw ApiError.accountBlocked("Your account is inactive or blocked. Please contact support.");
     }
 
     const userId = user.internalId;
+
+    await assertMobileVerifiedForOrder(userId);
 
     // 1. Find active cart with active cart items
     const cart = await db.cart.findFirst({
@@ -80,7 +92,6 @@ export const orderService = {
           include: {
             product: true,
             style: true,
-            item: true,
             variant_unit_price: {
               include: {
                 variant: {
@@ -115,7 +126,6 @@ export const orderService = {
     const orderItemsData: Array<{
       productId: bigint;
       styleId: bigint;
-      itemId: bigint | null;
       variantId: bigint;
       variantUnitPriceId: bigint;
       productName: string;
@@ -218,7 +228,6 @@ export const orderService = {
         attributes,
         productId: item.productId,
         styleId: item.styleId,
-        itemId: item.itemId,
         variantId: variant.id,
         variantUnitPriceId: item.variantUnitPriceId!,
         productName: item.product.name,
@@ -322,29 +331,51 @@ export const orderService = {
     const paymentMethod = input.paymentMethod || "CARD";
     const isOnlinePayment = paymentMethod === "CARD" || paymentMethod === "UPI" || (paymentMethod as string) === "ONLINE" || (paymentMethod as string) === "RAZORPAY";
     // If explicitly verified through Razorpay, mark paid and confirmed; if COD, confirm order with payment pending; otherwise pending.
-    const isVerifiedPaid = input.paymentDetails?.isPaid === true || (!isOnlinePayment && input.paymentDetails?.isSimulated === true);
+    const isVerifiedPaid =
+      (options.gatewayPaymentVerified === true || input.paymentDetails?.isPaid === true) &&
+      isOnlinePayment;
     const paymentStatus: "paid" | "pending" = isVerifiedPaid ? "paid" : "pending";
     const orderStatus: "confirmed" | "pending" = paymentMethod === "COD" || isVerifiedPaid ? "confirmed" : "pending";
 
 
 
-    // Delivery is free within Tamil Nadu and a flat charge for every other state.
+    // Standard delivery is free within Tamil Nadu and ₹80 elsewhere; express is flat ₹99.
     const payableBeforeShipping = subtotal - totalDiscount;
-    const shippingCharge = getShippingCharge(shippingAddress.state);
+    const deliveryMethod = input.deliveryMethod || "standard";
+    const shippingCharge = getShippingCharge(shippingAddress.state, deliveryMethod);
     const totalAmount = payableBeforeShipping + shippingCharge;
 
-    // Commission attribution is per ORDER: whichever valid agent referral code is active
-    // right now gets this order. The customer's earlier orders/agents are never consulted.
+    // A verified gateway payment is only valid for the amount that was charged.
+    // If the cart or prices changed after the payment started, do not create a
+    // "paid" order for a different total.
+    if (
+      options.expectedPaidAmount !== undefined &&
+      Math.abs(totalAmount - options.expectedPaidAmount) > 0.01
+    ) {
+      console.error(
+        `[order] paid amount mismatch for user ${userId}: charged ${options.expectedPaidAmount}, order total ${totalAmount}`
+      );
+      throw ApiError.conflict(
+        "Your cart total changed after the payment was started. Please contact support with your payment reference for a refund or reorder."
+      );
+    }
+
+    // Attribution follows the customer's CURRENT agent (set by referral code or an admin transfer),
+    // frozen onto the order here. A referral code only fills an empty assignment - it never moves a
+    // customer between agents. An agent buying for themselves is an AGENT_OWN order.
     const referral =
       referralOverride !== undefined
         ? referralOverride
         : await referralService.resolveForOrder(BigInt(userId), request);
+    const attribution = await customerAssignmentService.resolveOrderAttribution(BigInt(userId), referral);
 
     // 5. Execute creation transaction
     return orderRepository.createCustomerOrderTransaction({
       userId,
-      agentId: referral?.id ?? null,
-      referralCode: referral?.referralCode ?? null,
+      agentId: attribution.agentId,
+      referralCode: attribution.referralCode,
+      orderSource: attribution.orderSource,
+      orderedById: attribution.orderedById,
       cartId: cart.id,
       subtotal,
       discountAmount: totalDiscount,
@@ -355,6 +386,7 @@ export const orderService = {
       paymentStatus,
       paymentMethod,
       notes: input.notes,
+      bankDetails: input.bankDetails,
       shippingAddress: {
         fullName: shippingAddress.full_name,
         phone: shippingAddress.phone,
@@ -416,7 +448,7 @@ export const orderService = {
         );
       }
       if (!shadowUser.isActive) {
-        throw ApiError.forbidden("This account is inactive or blocked. Please contact support.");
+        throw ApiError.accountBlocked("This account is inactive or blocked. Please contact support.");
       }
     } else {
       await db.user.create({
@@ -460,7 +492,9 @@ export const orderService = {
         notes: input.notes,
         paymentMethod: input.paymentMethod || "COD",
         paymentDetails: input.paymentDetails,
+        bankDetails: input.bankDetails,
         couponCode: input.couponCode,
+        deliveryMethod: input.deliveryMethod || "standard",
       },
       request
     );
@@ -470,6 +504,7 @@ export const orderService = {
       userId: shadowUser.uuid,
       email: shadowUser.email ?? "",
       role: userRole,
+      scope: resolveRoleScope(shadowUser.roleScope, userRole),
     });
     const refreshToken = generateRefreshToken({ userId: shadowUser.uuid });
 
@@ -485,7 +520,7 @@ export const orderService = {
       throw ApiError.unauthorized("User not found");
     }
     if (!user.isActive || user.is_active === false) {
-      throw ApiError.forbidden("Your account is inactive or blocked. Please contact support.");
+      throw ApiError.accountBlocked("Your account is inactive or blocked. Please contact support.");
     }
 
     return orderRepository.findCustomerOrders(user.internalId, query);
@@ -500,7 +535,7 @@ export const orderService = {
       throw ApiError.unauthorized("User not found");
     }
     if (!user.isActive || user.is_active === false) {
-      throw ApiError.forbidden("Your account is inactive or blocked. Please contact support.");
+      throw ApiError.accountBlocked("Your account is inactive or blocked. Please contact support.");
     }
 
     const order = await orderRepository.findCustomerOrderByUuid(
@@ -532,7 +567,89 @@ export const orderService = {
     if (!order) {
       throw ApiError.notFound("Order not found");
     }
-    return { ...order, referral: await orderRepository.findOrderReferral(uuid) };
+    const [referral, payments] = await Promise.all([
+      orderRepository.findOrderReferral(uuid),
+      orderRepository.findOrderPayments(uuid),
+    ]);
+    return { ...order, referral, payments };
+  },
+
+  async updateOrderInvoiceNumber(uuid: string, invoiceNumber: string): Promise<OrderDetailResponse> {
+    const trimmed = invoiceNumber.trim();
+    await orderRepository.updateOrderInvoiceNumber(uuid, trimmed || null);
+    return orderService.getAdminOrderByUuid(uuid);
+  },
+
+  /**
+   * Admin confirms the cash on a Cash-on-Delivery order was collected.
+   *
+   * COD orders are created with `payment_status: pending` and no `Payment` row,
+   * and nothing in the delivery flow ever settles them, so this is the only
+   * place that money gets booked: without it a delivered COD order still reads
+   * "pending" and its revenue never reaches the dashboard.
+   */
+  async markOrderPaymentReceived(
+    adminSessionUserId: string,
+    uuid: string,
+    input?: MarkOrderPaidInput
+  ): Promise<OrderDetailResponse> {
+    const adminUser = await userRepository.findById(adminSessionUserId);
+    if (!adminUser || !adminUser.internalId) {
+      throw ApiError.unauthorized("Session expired. Please log in again.");
+    }
+
+    const order = await db.order.findFirst({
+      where: { uuid, is_active: true },
+      select: {
+        id: true,
+        orderNumber: true,
+        order_status: true,
+        payment_status: true,
+        totalAmount: true,
+      },
+    });
+    if (!order) {
+      throw ApiError.notFound("Order not found");
+    }
+
+    if (order.order_status === "cancelled") {
+      throw ApiError.badRequest(
+        "This order is cancelled. Payment cannot be recorded against it."
+      );
+    }
+    if (order.order_status !== "delivered") {
+      throw ApiError.badRequest(
+        "Cash on Delivery payment can only be marked as paid once the order is delivered."
+      );
+    }
+    if (order.payment_status === "paid") {
+      throw ApiError.badRequest("This order is already marked as paid.");
+    }
+    if (order.payment_status === "refunded" || order.payment_status === "partial_refund") {
+      throw ApiError.badRequest(
+        `This order has been refunded (payment status "${order.payment_status}"). Payment cannot be recorded against it.`
+      );
+    }
+
+    const total = Number(order.totalAmount);
+    const amount = input?.amount ?? total;
+    // "Paid" has to mean the whole order was settled - a short collection would
+    // leave the badge lying about what is in hand.
+    if (Math.abs(amount - total) > 0.01) {
+      throw ApiError.badRequest(
+        `Collected amount must match the order total of ${total.toFixed(2)}. Partial collection is not supported.`
+      );
+    }
+
+    await orderRepository.recordCashPaymentReceived({
+      orderId: order.id,
+      amount: total,
+      actorId: BigInt(adminUser.internalId),
+      reference: input?.reference ?? null,
+      note: input?.note ?? null,
+    });
+
+    return orderService.getAdminOrderByUuid(uuid);
   },
 
   async cancelCustomerOrder(
@@ -730,7 +847,8 @@ export const orderService = {
       orderId: order.id,
       status: newStatus,
       note: input?.note,
-      changedBy: adminUser.internalId,
+      changedBy: BigInt(adminUser.internalId),
+      expectedStatus: expectedCurrentStatus,
     });
 
     return {
@@ -804,7 +922,7 @@ export const orderService = {
       orderId: order.id,
       status: body.status,
       note: body.note,
-      changedBy: adminUser.internalId,
+      changedBy: BigInt(adminUser.internalId),
     });
 
     return {
@@ -863,6 +981,7 @@ export const orderService = {
         notes: input.notes,
         paymentMethod: input.paymentMethod || "CARD",
         paymentDetails: input.paymentDetails,
+        deliveryMethod: input.deliveryMethod || "standard",
       },
       request
     );
@@ -896,8 +1015,7 @@ export const orderService = {
     }));
 
     const pricing = await offerService.priceCartItems(lines);
-    // Delivery depends on the destination state; until an address is chosen
-    // there is nothing to charge yet, and order creation recomputes it anyway.
+    // Delivery depends on chosen delivery method (standard = 49, express = 99)
     const isAddressNumeric = !!shippingAddressId && /^\d+$/.test(shippingAddressId);
     const shippingAddress = shippingAddressId
       ? await db.customerAddress.findFirst({
@@ -913,7 +1031,7 @@ export const orderService = {
           select: { state: true },
         })
       : null;
-    const deliveryCharge = shippingAddress ? getShippingCharge(shippingAddress.state) : 0;
+    const deliveryCharge = getShippingCharge(shippingAddress?.state, deliveryMethod || "standard");
 
     let couponResult: { code: string; discount: number } | null = null;
     let couponError: string | null = null;

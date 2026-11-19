@@ -13,7 +13,7 @@ export default function DeliveryPage() {
         title="Deliveries"
         description="View and update your assigned delivery milestones"
       />
-      <AdminContent className="mt-3 flex-1 min-h-0 overflow-hidden">
+      <AdminContent className="mt-3 flex-1 min-h-0">
         <StaffDeliveryListTable />
       </AdminContent>
     </div>

@@ -3,8 +3,61 @@ import { db } from "@/lib/db/prisma";
 import type { CommissionFilters, CommissionRow } from "../types";
 
 export const commissionInclude = {
-  order: { select: { uuid: true, orderNumber: true, referral_code: true } },
-  order_item: { select: { product_name_snapshot: true, quantity: true } },
+  order: {
+    select: {
+      uuid: true,
+      orderNumber: true,
+      referral_code: true,
+      order_status: true,
+      return_requests: {
+        select: {
+          status: true,
+          created_at: true,
+        },
+        orderBy: { created_at: "desc" },
+        take: 1,
+      },
+      replacement_requests: {
+        select: {
+          status: true,
+          requested_at: true,
+        },
+        orderBy: { requested_at: "desc" },
+        take: 1,
+      },
+    },
+  },
+  order_item: {
+    select: {
+      product_name_snapshot: true,
+      quantity: true,
+      total_price: true,
+      return_items: {
+        where: { is_active: true },
+        select: {
+          quantity: true,
+          return_requests: {
+            select: {
+              status: true,
+            },
+          },
+        },
+        orderBy: { created_at: "desc" },
+      },
+      replacement_request_items: {
+        where: { is_active: true },
+        select: {
+          replacement_request: {
+            select: {
+              status: true,
+            },
+          },
+        },
+        orderBy: { created_at: "desc" },
+        take: 1,
+      },
+    },
+  },
   customer: { select: { name: true, email: true, phone: true } },
   agent: { select: { name: true, agent_profile: { select: { agent_code: true } } } },
   payout: { select: { id: true } },
@@ -50,7 +103,7 @@ export async function resolveAgentRef(ref?: string | null): Promise<bigint | nul
 export function customerSearchWhere(term: string): Prisma.UserWhereInput {
   return {
     OR: [
-      { uuid: term },
+      { uuid: { contains: term } },
       { name: { contains: term } },
       { email: { contains: term } },
       { phone: { contains: term } },
@@ -60,6 +113,7 @@ export function customerSearchWhere(term: string): Prisma.UserWhereInput {
 
 const COMMISSION_STATUSES = new Set([
   "pending",
+  "pending_approval",
   "approved",
   "payout_requested",
   "payout_approved",
@@ -91,7 +145,12 @@ export async function buildCommissionWhere(
   if (filters.status && COMMISSION_STATUSES.has(filters.status)) {
     where.status = filters.status as Prisma.commissionsWhereInput["status"];
   }
-  if (filters.orderStatus) where.order_status = filters.orderStatus;
+  if (filters.orderStatus) {
+    where.OR = [
+      { order_status: filters.orderStatus },
+      { order: { order_status: filters.orderStatus as any } },
+    ];
+  }
   if (filters.referralCode?.trim()) where.referral_code = filters.referralCode.trim();
   if (filters.order?.trim()) {
     const term = filters.order.trim();
@@ -106,26 +165,179 @@ export async function buildCommissionWhere(
   return where;
 }
 
+export function resolveProductOrderStatus(c: CommissionWithRelations): string {
+  // 1. Check for return request on this specific item, fallback to order-level return request
+  const returnReq =
+    c.order_item?.return_items?.[0]?.return_requests ??
+    c.order?.return_requests?.[0];
+
+  if (returnReq) {
+    const s = String(returnReq.status).toLowerCase();
+    switch (s) {
+      case "return_requested":
+        return "return_requested";
+      case "under_review":
+        return "under_review";
+      case "approved":
+        return "return_approved";
+      case "pickup_scheduled":
+        return "pickup_scheduled";
+      case "picked_up":
+        return "picked_up";
+      case "shipped_by_customer":
+        return "return_shipped";
+      case "received":
+        return "return_received";
+      case "qc_failed":
+        return "qc_failed";
+      case "returning_to_customer":
+        return "returning_to_customer";
+      case "returned_to_customer":
+        return "returned_to_customer";
+      case "refund_pending":
+        return "refund_pending";
+      case "refunded":
+        return "returned";
+      case "rejected":
+        return "return_rejected";
+      case "expired":
+        return "return_expired";
+      case "cancelled":
+        return "return_cancelled";
+      case "closed":
+        return "return_closed";
+      default:
+        return s;
+    }
+  }
+
+  // 2. Check for replacement request on this specific item, fallback to order-level replacement request
+  const replacementReq =
+    c.order_item?.replacement_request_items?.[0]?.replacement_request ??
+    c.order?.replacement_requests?.[0];
+
+  if (replacementReq) {
+    const s = String(replacementReq.status).toLowerCase();
+    switch (s) {
+      case "replacement_requested":
+        return "replacement_requested";
+      case "under_review":
+        return "under_review";
+      case "approved":
+        return "replacement_approved";
+      case "pickup_scheduled":
+        return "pickup_scheduled";
+      case "picked_up":
+        return "picked_up";
+      case "replacement_processing":
+        return "replacement_processing";
+      case "replacement_shipped":
+        return "replacement_shipped";
+      case "replaced":
+        return "replaced";
+      case "rejected":
+        return "replacement_rejected";
+      case "expired":
+        return "replacement_expired";
+      case "cancelled":
+        return "replacement_cancelled";
+      case "closed":
+        return "replacement_closed";
+      default:
+        return s;
+    }
+  }
+
+  // 3. Fallback to the live order status from the parent order, or snapshot
+  return String(c.order?.order_status ?? c.order_status ?? "pending");
+}
+
+// Return statuses where the return was approved or completed and commission reduced
+const APPROVED_RETURN_STATUSES = new Set([
+  "approved",
+  "pickup_scheduled",
+  "picked_up",
+  "shipped_by_customer",
+  "received",
+  "refund_pending",
+  "refunded",
+  "closed",
+]);
+
+export function calculateItemQuantities(
+  orderItem?: {
+    quantity: number;
+    total_price?: Prisma.Decimal | number | string | null;
+    return_items?: Array<{ quantity: number; return_requests?: { status: string } | null }> | null;
+  } | null,
+  productAmount?: number | null
+): { quantity: number; originalQuantity: number; returnedQuantity: number } {
+  const originalQuantity = orderItem?.quantity ?? 1;
+  let returnedQuantity = 0;
+
+  if (orderItem?.return_items && Array.isArray(orderItem.return_items)) {
+    for (const ri of orderItem.return_items) {
+      const s = String(ri.return_requests?.status ?? "").toLowerCase();
+      if (APPROVED_RETURN_STATUSES.has(s)) {
+        returnedQuantity += Number(ri.quantity) || 0;
+      }
+    }
+  }
+
+  // Cross-check: If returnedQuantity is 0 but product_amount was reduced proportionally
+  if (
+    returnedQuantity === 0 &&
+    productAmount != null &&
+    orderItem?.total_price != null &&
+    originalQuantity > 0
+  ) {
+    const origTotal = Number(orderItem.total_price);
+    const unitPrice = origTotal / originalQuantity;
+    if (unitPrice > 0 && productAmount < origTotal) {
+      const kept = Math.round(productAmount / unitPrice);
+      if (kept >= 0 && kept < originalQuantity) {
+        returnedQuantity = originalQuantity - kept;
+      }
+    }
+  }
+
+  const effectiveReturned = Math.min(returnedQuantity, originalQuantity);
+  const netQuantity = Math.max(0, originalQuantity - effectiveReturned);
+
+  return {
+    quantity: netQuantity,
+    originalQuantity,
+    returnedQuantity: effectiveReturned,
+  };
+}
+
 export function formatCommissionRow(c: CommissionWithRelations): CommissionRow {
+  const { quantity, originalQuantity, returnedQuantity } = calculateItemQuantities(
+    c.order_item,
+    Number(c.product_amount)
+  );
+
   return {
     id: c.uuid,
     code: padCode("CMS", c.id),
-    orderId: c.order.uuid ?? String(c.order_id),
-    orderNumber: c.order.orderNumber,
-    referralCode: c.referral_code ?? c.order.referral_code ?? null,
-    customerName: c.customer.name,
-    customerContact: c.customer.email ?? c.customer.phone ?? null,
-    agentName: c.agent.name,
-    agentCode: c.agent.agent_profile?.agent_code ?? null,
-    productName: c.order_item.product_name_snapshot,
+    orderId: c.order?.uuid ?? String(c.order_id),
+    orderNumber: c.order?.orderNumber ?? "—",
+    referralCode: c.referral_code ?? c.order?.referral_code ?? null,
+    customerName: c.customer?.name ?? "—",
+    customerContact: c.customer?.email ?? c.customer?.phone ?? null,
+    agentName: c.agent?.name ?? "—",
+    agentCode: c.agent?.agent_profile?.agent_code ?? null,
+    productName: c.order_item?.product_name_snapshot ?? "—",
     categoryName: c.category?.name ?? null,
-    quantity: c.order_item.quantity,
+    quantity,
+    originalQuantity,
+    returnedQuantity,
     productAmount: Number(c.product_amount),
     percentage: Number(c.commission_percentage),
     rateSource: c.rate_source,
     amount: Number(c.commission_amount),
     status: c.status,
-    orderStatus: c.order_status,
+    orderStatus: resolveProductOrderStatus(c),
     eligibleAt: c.return_period_ends_at?.toISOString() ?? null,
     approvedAt: c.approved_at?.toISOString() ?? null,
     paidAt: c.paid_at?.toISOString() ?? null,

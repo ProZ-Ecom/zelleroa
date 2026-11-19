@@ -9,7 +9,7 @@ import type {
   AdminCustomerListItemDto,
   AdminCustomerDetailDto,
 } from "../../types/admin-customer.types";
-
+import { formatPhone } from "@/lib/utils/format-phone";
 interface CustomerInfoCardProps {
   customer: AdminCustomerListItemDto | AdminCustomerDetailDto;
 }
@@ -51,7 +51,7 @@ export function CustomerInfoCard({ customer }: CustomerInfoCardProps) {
                 )}
               </div>
               <p className="text-sm font-medium text-neutral-800 leading-snug">
-                {customer.phone || "—"}
+                {formatPhone(customer.phone)}
               </p>
             </div>
           </div>

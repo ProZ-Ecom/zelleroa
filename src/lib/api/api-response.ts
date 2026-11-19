@@ -5,6 +5,8 @@ export interface ApiResponse<T = unknown> {
   success: boolean;
   data: T | null;
   message: string;
+  /** Machine-readable error code (e.g. ACCOUNT_BLOCKED), when the backend supplies one. */
+  code?: string;
   errors?: string[];
   meta?: PaginationMeta;
   details?: unknown;
@@ -16,6 +18,9 @@ export interface PaginationMeta {
   pageSize?: number;
   total: number;
   totalPages: number;
+  autoApprove?: boolean;
+  availableForPayout?: { amount: number; count: number } | number;
+  totalSpend?: number;
 }
 
 export interface PaginationParams {
@@ -59,10 +64,11 @@ export function apiError(
   message = "Something went wrong",
   status = 500,
   errors?: string[],
-  details?: unknown
+  details?: unknown,
+  code?: string
 ): NextResponse<ApiResponse<null>> {
   return NextResponse.json(
-    { success: false, data: null, message, errors, details },
+    { success: false, data: null, message, code, errors, details },
     { status }
   );
 }
@@ -100,7 +106,12 @@ export function apiValidationError(
 
 export function apiFromError(error: unknown): NextResponse<ApiResponse<null>> {
   if (isApiError(error)) {
-    return apiError(error.message, error.statusCode, error.errors, error.details);
+    const res = apiError(error.message, error.statusCode, error.errors, error.details, error.code);
+    const retryAfter = (error.details as { retryAfterSeconds?: number } | undefined)?.retryAfterSeconds;
+    if (error.statusCode === 429 && typeof retryAfter === "number") {
+      res.headers.set("Retry-After", String(retryAfter));
+    }
+    return res;
   }
 
   const prismaError = handlePrismaError(error);

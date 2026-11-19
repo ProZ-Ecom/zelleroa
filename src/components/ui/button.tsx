@@ -12,6 +12,8 @@ const buttonVariants = cva(
           "bg-theme-primary text-theme-primary-fg hover:bg-theme-primary-hover shadow-xs font-semibold",
         primary:
           "bg-theme-primary text-theme-primary-fg hover:bg-theme-primary-hover shadow-xs font-semibold",
+        gradient:
+          "bg-theme-primary text-theme-primary-fg hover:bg-theme-primary-hover font-semibold",
         secondary:
           "bg-theme-secondary text-theme-secondary-fg hover:bg-theme-secondary-hover shadow-xs font-bold",
         outline:

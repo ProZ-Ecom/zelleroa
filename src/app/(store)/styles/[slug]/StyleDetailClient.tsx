@@ -1,18 +1,18 @@
 "use client";
 
-import { redirect } from "next/navigation";
 import { useCustomerStyle } from "@/features/customers/hooks/use-customer-catalog";
-import { ItemViewSkeleton } from "@/features/items/components/storefront/ItemViewSkeleton";
+import { StyleView } from "@/features/styles/components/storefront";
+import { StyleViewSkeleton } from "@/features/styles/components/storefront/StyleViewSkeleton";
 import { ErrorState } from "@/components/ui/error-state";
 import { PageContainer } from "@/components/layout/PageContainer";
-import { styleDefaultItemId, itemHref } from "@/features/customers/utils/style-default-item";
+import { Breadcrumb } from "@/components/ui/breadcrumb";
+import { RelatedItems } from "@/features/customers/components/catalog/RelatedItems";
+import { categoryHref } from "@/features/customers/utils/catalog-listing-query";
+import { styleHref } from "@/features/customers/utils/style-href";
 
 /**
- * Fallback for a Style link the server could not resolve to an Item.
- *
- * There is deliberately no Item picker here: every Item has its own page, so
- * once the Style loads the shopper is sent to its default Item. Anything else
- * is an error or empty state.
+ * The storefront product page. A Style is the lowest level the shopper sees:
+ * it owns the Colours, and each Colour its own Sizes, prices and stock.
  */
 export function StyleDetailClient({
   slug,
@@ -27,7 +27,7 @@ export function StyleDetailClient({
     return (
       <PageContainer>
         <div className="mt-6">
-          <ItemViewSkeleton />
+          <StyleViewSkeleton />
         </div>
       </PageContainer>
     );
@@ -49,12 +49,26 @@ export function StyleDetailClient({
     );
   }
 
-  const itemId = styleDefaultItemId(style);
-  if (itemId) redirect(itemHref(itemId));
-
   return (
     <PageContainer>
-      <ErrorState message="Nothing is available in this product right now" />
+      <Breadcrumb
+        items={[
+          { label: "Shop All", href: "/products" },
+          ...(style.category
+            ? [{ label: style.category.name, href: categoryHref(style.category) }]
+            : []),
+          { label: style.name },
+        ]}
+      />
+      <div className="mt-6">
+        <StyleView
+          style={style}
+          eyebrow={style.product.name}
+          brandName={style.brand?.name}
+          returnUrl={styleHref(style.id)}
+        />
+      </div>
+      <RelatedItems styleId={style.id} categoryId={style.category?.id} />
     </PageContainer>
   );
 }

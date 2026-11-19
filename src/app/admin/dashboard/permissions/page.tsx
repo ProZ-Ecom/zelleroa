@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
@@ -8,6 +8,7 @@ import {
   useCreatePermission,
   useUpdatePermission,
   useDeletePermission,
+  useRoles,
 } from "@/features/roles/hooks";
 import { DataTable } from "@/components/admin/data-table/DataTable";
 import { AdminPageHeader, AdminContent } from "@/components/admin/AdminPageHeader";
@@ -18,6 +19,9 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { FormModal } from "@/components/common/FormModal";
+import { ExportButton } from "@/components/common/export-button";
+import { exportDataToCsv } from "@/lib/export-csv";
+import { SearchInput } from "@/components/ui/search-input";
 import { Plus, Pencil, Trash2 } from "lucide-react";
 import {
   createPermissionSchema,
@@ -25,18 +29,40 @@ import {
 } from "@/features/roles/validations/role.schema";
 import type { ColumnDef } from "@tanstack/react-table";
 import type { PermissionListItem } from "@/features/roles/types";
+import { CanAct } from "@/features/access";
 
 export default function AdminPermissionsPage() {
+  const [search, setSearch] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
   const [editingPermission, setEditingPermission] = useState<PermissionListItem | null>(null);
   const [deleteId, setDeleteId] = useState<number | null>(null);
+  const [selectedRoleIds, setSelectedRoleIds] = useState<number[]>([]);
 
   const { data: permissionsData, isLoading, error, refetch } = usePermissions();
+  const { data: rolesResult } = useRoles({ limit: 100 });
+  const HIDDEN_FORM_ROLES = ["ADMIN", "CUSTOMER"];
+  const assignableRoles = useMemo(() => {
+    return (rolesResult?.data ?? []).filter(
+      (r) => !HIDDEN_FORM_ROLES.includes(r.name?.toUpperCase())
+    );
+  }, [rolesResult?.data]);
+
   const createMutation = useCreatePermission();
   const updateMutation = useUpdatePermission();
   const deleteMutation = useDeletePermission();
 
   const permissions = permissionsData ?? [];
+
+  const filteredPermissions = useMemo(() => {
+    if (!search.trim()) return permissions;
+    const s = search.toLowerCase();
+    return permissions.filter(
+      (p) =>
+        p.name.toLowerCase().includes(s) ||
+        p.module.toLowerCase().includes(s) ||
+        p.description?.toLowerCase().includes(s)
+    );
+  }, [permissions, search]);
 
   const {
     register,
@@ -64,22 +90,48 @@ export default function AdminPermissionsPage() {
     }
   }, [editingPermission, reset]);
 
+  const handleToggleRole = (roleId: number | string) => {
+    const numId = Number(roleId);
+    setSelectedRoleIds((prev) =>
+      prev.includes(numId) ? prev.filter((id) => id !== numId) : [...prev, numId]
+    );
+  };
+
+  const isAllSelected =
+    assignableRoles.length > 0 &&
+    assignableRoles.every((r) => selectedRoleIds.includes(Number(r.id)));
+
+  const handleToggleSelectAll = () => {
+    if (isAllSelected) {
+      setSelectedRoleIds([]);
+    } else {
+      setSelectedRoleIds(assignableRoles.map((r) => Number(r.id)));
+    }
+  };
+
   const onSubmit = (formData: CreatePermissionSchemaInput) => {
+    const payload = {
+      ...formData,
+      roleIds: selectedRoleIds.map((id) => Number(id)),
+    };
+
     if (editingPermission) {
       updateMutation.mutate(
-        { id: editingPermission.id, data: formData },
+        { id: editingPermission.id, data: payload },
         {
           onSuccess: () => {
             setModalOpen(false);
             setEditingPermission(null);
+            setSelectedRoleIds([]);
           },
         }
       );
     } else {
-      createMutation.mutate(formData, {
+      createMutation.mutate(payload, {
         onSuccess: () => {
           setModalOpen(false);
           reset();
+          setSelectedRoleIds([]);
         },
       });
     }
@@ -88,8 +140,14 @@ export default function AdminPermissionsPage() {
   const handleOpenModal = (permission?: PermissionListItem) => {
     if (permission) {
       setEditingPermission(permission);
+      setSelectedRoleIds(
+        (permission.roleIds ?? [])
+          .map((id) => Number(id))
+          .filter((id) => assignableRoles.some((r) => Number(r.id) === id))
+      );
     } else {
       setEditingPermission(null);
+      setSelectedRoleIds([]);
     }
     setModalOpen(true);
   };
@@ -109,6 +167,25 @@ export default function AdminPermissionsPage() {
       accessorKey: "description",
       header: "Description",
       cell: ({ row }) => row.original.description || "-",
+    },
+    {
+      id: "roles",
+      header: "Assigned Roles",
+      cell: ({ row }) => {
+        const roles = row.original.roles ?? [];
+        if (roles.length === 0) {
+          return <span className="text-xs text-neutral-400 font-medium">None</span>;
+        }
+        return (
+          <div className="flex flex-wrap gap-1">
+            {roles.map((r) => (
+              <Badge key={r.id} variant="secondary" className="text-[11px] font-semibold py-0.5 px-2">
+                {r.name}
+              </Badge>
+            ))}
+          </div>
+        );
+      },
     },
     {
       id: "actions",
@@ -142,26 +219,54 @@ export default function AdminPermissionsPage() {
   return (
     <div className="flex flex-1 min-h-0 flex-col">
       <AdminBreadcrumb items={[{ label: "Permissions" }]} />
-      <AdminPageHeader
-        title="Permissions"
-        description="Manage granular permissions for roles"
-        actions={
-          <Button onClick={() => handleOpenModal()}>
-            <Plus className="mr-2 h-4 w-4" />
-            Add Permission
-          </Button>
-        }
-      />
-      <AdminContent className="flex-1 min-h-0 overflow-hidden">
-        <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
-          <DataTable
-            columns={columns}
-            data={permissions}
-            searchKey="name"
-            searchPlaceholder="Search permissions..."
-            pageSize={20}
-            className="bg-white border border-neutral-200"
-          />
+     <AdminPageHeader
+  title="Permissions"
+  description="Manage granular permissions for roles"
+/>
+      <AdminContent className="flex-1 min-h-0">
+        <div className="flex h-full flex-col bg-[var(--color-background)] py-1 rounded-2xl">
+          <div className="flex-shrink-0 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            <SearchInput
+              placeholder="Search permissions..."
+              defaultValue={search}
+              onSearch={(val) => setSearch(val)}
+              className="w-full max-w-md"
+            />
+
+            <div className="flex items-center gap-3">
+              <ExportButton
+                onClick={() =>
+                  exportDataToCsv(
+                    filteredPermissions.map((p) => ({
+                      Name: p.name,
+                      Module: p.module,
+                      Description: p.description || "",
+                    })),
+                    "permissions"
+                  )
+                }
+                disabled={filteredPermissions.length === 0}
+              />
+              <CanAct action="CREATE">
+                <Button
+                  onClick={() => handleOpenModal()}
+                  className="h-11 rounded-xl bg-stone-900 hover:bg-stone-800 text-[#D4AF37] border border-[#D4AF37]/30 shadow-xs px-5 text-sm font-semibold transition-colors"
+                >
+                  <Plus className="mr-2 h-4 w-4 text-[#D4AF37]" />
+                  Add Permission
+                </Button>
+              </CanAct>
+            </div>
+          </div>
+
+          <div className="mt-6 flex-1 min-h-0 flex flex-col">
+            <DataTable
+              columns={columns}
+              data={filteredPermissions}
+              pageSize={20}
+              className="bg-white border border-neutral-200"
+            />
+          </div>
         </div>
       </AdminContent>
 
@@ -188,7 +293,7 @@ export default function AdminPermissionsPage() {
             >
               Cancel
             </Button>
-            <Button onClick={handleSubmit(onSubmit)} disabled={isMutating}>
+            <Button variant="gradient" onClick={handleSubmit(onSubmit)} disabled={isMutating}>
               {editingPermission ? "Update" : "Create"}
             </Button>
           </>
@@ -229,13 +334,60 @@ export default function AdminPermissionsPage() {
             </label>
             <textarea
               {...register("description")}
-              rows={3}
+              rows={2}
               className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
               placeholder="Permission description"
             />
             {errors.description && (
               <p className="mt-1 text-xs text-red-500 font-medium">{errors.description.message}</p>
             )}
+          </div>
+
+          <div>
+            <div className="flex items-center justify-between mb-1">
+              <label className="block text-sm font-medium text-gray-700">
+                Assign to Roles
+              </label>
+              {assignableRoles.length > 0 && (
+                <button
+                  type="button"
+                  onClick={handleToggleSelectAll}
+                  className="text-xs font-semibold text-secondary-700 hover:text-secondary-800 underline cursor-pointer"
+                >
+                  {isAllSelected ? "Deselect All" : "Select All"}
+                </button>
+              )}
+            </div>
+            <p className="text-xs text-muted-foreground mb-2">
+              Select which roles will immediately have this permission
+            </p>
+            <div className="max-h-48 overflow-y-auto rounded-lg border border-gray-200 bg-neutral-50/50 p-2.5 space-y-1.5">
+              {assignableRoles.length === 0 ? (
+                <p className="text-xs text-neutral-400 py-1">No roles available</p>
+              ) : (
+                assignableRoles.map((role) => (
+                  <label
+                    key={role.id}
+                    className="flex items-center gap-2.5 rounded-md p-1.5 hover:bg-white cursor-pointer transition-colors"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={selectedRoleIds.includes(Number(role.id))}
+                      onChange={() => handleToggleRole(role.id)}
+                      className="h-4 w-4 rounded border-gray-300 text-secondary-600 focus:ring-secondary-500"
+                    />
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="text-xs font-semibold text-neutral-900">{role.name}</span>
+                      {role.description && (
+                        <span className="text-[11px] text-neutral-500 truncate">
+                          - {role.description}
+                        </span>
+                      )}
+                    </div>
+                  </label>
+                ))
+              )}
+            </div>
           </div>
         </form>
       </FormModal>

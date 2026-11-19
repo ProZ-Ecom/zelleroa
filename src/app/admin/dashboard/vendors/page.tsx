@@ -12,10 +12,13 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { FormModal } from "@/components/common/FormModal";
+import { ExportButton } from "@/components/common/export-button";
+import { exportDataToCsv } from "@/lib/export-csv";
 import { SearchInput } from "@/components/ui/search-input";
 import { useVendors, useVendorMutations } from "@/features/purchases/hooks";
 import { VendorForm } from "@/features/purchases/components/VendorForm";
 import type { VendorResponse } from "@/features/purchases/types";
+import { CanAct } from "@/features/access";
 
 export default function VendorsPage() {
   const [search, setSearch] = useState("");
@@ -71,7 +74,14 @@ export default function VendorsPage() {
       accessorKey: "isActive",
       header: "Status",
       cell: ({ row }) => (
-        <Badge variant={row.original.isActive ? "success" : "outline"}>
+        <Badge
+          variant={row.original.isActive ? "success" : "destructive"}
+          className={
+            row.original.isActive
+              ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+              : "border-red-200 bg-red-50 text-red-700"
+          }
+        >
           {row.original.isActive ? "Active" : "Inactive"}
         </Badge>
       ),
@@ -96,9 +106,11 @@ export default function VendorsPage() {
               className={`h-4 w-4 ${row.original.isActive ? "text-[var(--color-neutral-500)]" : "text-green-600"}`}
             />
           </Button>
-          <Button variant="ghost" size="icon" title="Edit vendor" onClick={() => setEditing(row.original)}>
-            <Pencil className="h-4 w-4 text-[var(--color-neutral-500)]" />
-          </Button>
+          <CanAct action="UPDATE">
+            <Button variant="ghost" size="icon" title="Edit vendor" onClick={() => setEditing(row.original)}>
+              <Pencil className="h-4 w-4 text-[var(--color-neutral-500)]" />
+            </Button>
+          </CanAct>
           <Button variant="ghost" size="icon" onClick={() => setDeleteId(row.original.id)}>
             <Trash2 className="h-4 w-4 text-[var(--color-error-600)]" />
           </Button>
@@ -114,8 +126,8 @@ export default function VendorsPage() {
     <div className="flex flex-1 min-h-0 flex-col">
       <AdminPageHeader title="Vendors" description="Suppliers you buy stock from." />
 
-      <AdminContent className="flex-1 min-h-0 overflow-hidden">
-        <div className="flex h-full flex-col overflow-hidden bg-[var(--color-background)] py-1 rounded-2xl">
+      <AdminContent className="flex-1 min-h-0">
+        <div className="flex h-full flex-col bg-[var(--color-background)] py-1 rounded-2xl">
           <div className="flex-shrink-0 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <SearchInput
               placeholder="Search vendors..."
@@ -126,16 +138,40 @@ export default function VendorsPage() {
               }}
               className="w-full max-w-md"
             />
-            <Button
-              onClick={() => setIsCreateOpen(true)}
-              className="h-11 rounded-xl bg-[var(--color-secondary-600)] px-5 text-sm font-semibold text-white hover:bg-[var(--color-secondary-700)]"
-            >
-              <Plus className="mr-2 h-4 w-4" />
-              Add Vendor
-            </Button>
+            <div className="flex items-center gap-2">
+              <ExportButton
+                onClick={() =>
+                  exportDataToCsv(
+                    vendors,
+                    "vendors",
+                    [
+                      { header: "Vendor Name", accessor: (v) => v.name },
+                      { header: "Vendor Code", accessor: (v) => v.code },
+                      { header: "Contact Person", accessor: (v) => v.contactPerson || "—" },
+                      { header: "Phone", accessor: (v) => v.phone || "—" },
+                      { header: "Email", accessor: (v) => v.email || "—" },
+                      { header: "GSTIN", accessor: (v) => v.gstin || "—" },
+                      { header: "Address", accessor: (v) => v.address || "—" },
+                      { header: "Status", accessor: (v) => (v.isActive ? "Active" : "Inactive") },
+                    ]
+                  )
+                }
+                disabled={!vendors.length}
+              />
+
+              <CanAct action="CREATE">
+                <Button
+                  onClick={() => setIsCreateOpen(true)}
+                  className="h-11 rounded-xl bg-stone-900 hover:bg-stone-800 text-[#D4AF37] border border-[#D4AF37]/30 shadow-xs px-5 text-sm font-semibold transition-colors"
+                >
+                  <Plus className="mr-2 h-4 w-4 text-[#D4AF37]" />
+                  Add Vendor
+                </Button>
+              </CanAct>
+            </div>
           </div>
 
-          <div className="mt-6 flex-1 min-h-0 overflow-hidden flex flex-col">
+          <div className="mt-6 flex-1 min-h-0 flex flex-col">
             <DataTable
               columns={columns}
               data={vendors}

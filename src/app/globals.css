@@ -156,31 +156,46 @@
   /* ================================================================== */
   /* Multi-Company / Centralized Customer & Account Theme System        */
   /* ================================================================== */
-  --theme-primary: #2563EB;               /* Royal Cobalt / deep header */
+  --theme-primary: #2563EB;
+  /* Royal Cobalt / deep header */
   --theme-primary-hover: #1D4ED8;
   --theme-primary-light: #EFF6FF;
   --theme-primary-fg: #FFFFFF;
 
-  --theme-secondary: #F59E0B;             /* Energetic Saffron / CTA */
+  --theme-secondary: #F59E0B;
+  /* Energetic Saffron / CTA */
   --theme-secondary-hover: #D97706;
   --theme-secondary-fg: #0F172A;
   --theme-secondary-light: #FFFBEB;
 
-  --theme-bg: #F8FAFC;                    /* Customer shell background */
-  --theme-surface: #FFFFFF;               /* Card / container surface */
-  --theme-surface-warm: #FFFFFF;          /* Sub-card surface */
-  --theme-surface-alt: #F8FAFC;           /* Card header background */
+  --theme-bg: #F8FAFC;
+  /* Customer shell background */
+  --theme-surface: #FFFFFF;
+  /* Card / container surface */
+  --theme-surface-warm: #FFFFFF;
+  /* Sub-card surface */
+  --theme-surface-alt: #F8FAFC;
+  /* Card header background */
 
-  --theme-text-primary: #0F172A;          /* Primary body / title text */
-  --theme-text-secondary: #1E293B;        /* Secondary headings */
-  --theme-text-muted: #64748B;            /* Muted / labels / captions */
-  --theme-text-subtle: #475569;           /* Subtle text */
-  --theme-text-gold: #93C5FD;             /* Header breadcrumb accent */
+  --theme-text-primary: #0F172A;
+  /* Primary body / title text */
+  --theme-text-secondary: #1E293B;
+  /* Secondary headings */
+  --theme-text-muted: #64748B;
+  /* Muted / labels / captions */
+  --theme-text-subtle: #475569;
+  /* Subtle text */
+  --theme-text-gold: #93C5FD;
+  /* Header breadcrumb accent */
 
-  --theme-border: #E2E8F0;                /* Card & section borders */
-  --theme-border-subtle: #F1F5F9;         /* Table / divider borders */
-  --theme-border-input: #CBD5E1;          /* Form input borders */
-  --theme-border-accent: #BFDBFE;         /* Highlighted borders */
+  --theme-border: #E2E8F0;
+  /* Card & section borders */
+  --theme-border-subtle: #F1F5F9;
+  /* Table / divider borders */
+  --theme-border-input: #CBD5E1;
+  /* Form input borders */
+  --theme-border-accent: #BFDBFE;
+  /* Highlighted borders */
 
   --theme-status-out-bg: #FFFBEB;
   --theme-status-out-fg: #92400E;
@@ -441,6 +456,51 @@ body {
   }
 }
 
+/*
+ * Cursor affordance for interactive elements. Kept in the base layer so any
+ * explicit Tailwind cursor utility (e.g. cursor-not-allowed, cursor-default)
+ * on a specific element still takes precedence.
+ */
+@layer base {
+
+  button,
+  summary,
+  select,
+  a[href],
+  area[href],
+  [role="button"],
+  [role="link"],
+  [role="tab"],
+  [role="menuitem"],
+  [role="menuitemradio"],
+  [role="menuitemcheckbox"],
+  [role="option"],
+  [role="switch"],
+  [role="checkbox"],
+  [role="radio"],
+  input[type="checkbox"],
+  input[type="radio"],
+  input[type="button"],
+  input[type="submit"],
+  input[type="reset"],
+  input[type="file"],
+  input[type="range"],
+  label:has(> input[type="checkbox"]),
+  label:has(> input[type="radio"]),
+  label:has(> input[type="file"]) {
+    cursor: pointer;
+  }
+
+  button:disabled,
+  select:disabled,
+  input:disabled,
+  [aria-disabled="true"],
+  [role="button"][aria-disabled="true"],
+  label:has(> input:disabled) {
+    cursor: not-allowed;
+  }
+}
+
 @keyframes animateIn {
   from {
     opacity: 0;
@@ -494,35 +554,123 @@ textarea:focus-visible {
   background-color: var(--color-neutral-400);
 }
 
+/* Custom Styled Accessible Scrollbar for Tables */
+.scrollbar-table {
+  scrollbar-width: thin;
+  scrollbar-color: #64748b #e2e8f0;
+}
+
+.scrollbar-table::-webkit-scrollbar {
+  display: block;
+  height: 10px;
+  width: 10px;
+}
+
+.scrollbar-table::-webkit-scrollbar-track {
+  background: #e2e8f0;
+  border-radius: 9999px;
+}
+
+.scrollbar-table::-webkit-scrollbar-thumb {
+  min-height: 24px;
+  min-width: 24px;
+  background-color: #64748b;
+  border-radius: 9999px;
+  border: 2px solid #e2e8f0;
+}
+
+.scrollbar-table::-webkit-scrollbar-thumb:hover {
+  background-color: #334155;
+
+}
+
+.scrollbar-table::-webkit-scrollbar-corner {
+  background: transparent;
+
+}
+
 /* Hide scrollbar but keep scrolling */
 .scrollbar-hide {
-  -ms-overflow-style: none; /* IE and Edge */
-  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none;
+  /* IE and Edge */
+  scrollbar-width: none;
+  /* Firefox */
 }
 
 .scrollbar-hide::-webkit-scrollbar {
-  display: none; /* Chrome, Safari */
+  display: none;
+  /* Chrome, Safari */
 }
 
 /* Storefront Button & Utility Styles */
 .btn-yellow {
   background-color: var(--tertiary-500);
 }
+
 .btn-yellow:hover {
   background-color: var(--tertiary-400);
 }
+
 .btn-brown {
   background-color: var(--secondary-900);
 }
+
 .btn-brown:hover {
   background-color: var(--secondary-800);
 }
+
+/* Return / Replace Action Button (Storefront / My Orders) */
+.btn-return-replace {
+  background-color: var(--theme-secondary-light, #fffbeb);
+  color: var(--tertiary-900, #78350f);
+  border: 1.5px solid var(--theme-secondary, #f59e0b);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.btn-return-replace:hover {
+  background-color: #78350f !important; /* Rich deep brown */
+  border-color: #582407 !important;
+  color: #ffffff !important;
+  box-shadow: 0 4px 14px 0 rgba(120, 53, 15, 0.35) !important;
+  transform: translateY(-1px);
+}
+
+.btn-return-replace:active {
+  transform: translateY(0);
+  background-color: #451a03 !important; /* Dark roasted espresso brown */
+  border-color: #451a03 !important;
+}
+
+.btn-return-replace svg {
+  color: var(--tertiary-700, #b45309);
+  transition: color 0.2s ease;
+}
+
+.btn-return-replace:hover svg {
+  color: #ffffff !important;
+}
+
+.btn-return-replace .return-badge {
+  background-color: var(--tertiary-200, #fde68a);
+  color: var(--tertiary-900, #78350f);
+  border: 1px solid var(--tertiary-300, #fcd34d);
+  transition: all 0.2s ease;
+}
+
+.btn-return-replace:hover .return-badge {
+  background-color: rgba(255, 255, 255, 0.2) !important;
+  border-color: rgba(255, 255, 255, 0.35) !important;
+  color: #ffffff !important;
+}
+
 .drawer-active {
   background-color: var(--secondary-800);
 }
+
 .header-font {
   font-family: var(--font-inter), sans-serif;
 }
+
 .text-hover-primary:hover {
   color: var(--primary-500);
 }
@@ -534,6 +682,7 @@ textarea:focus-visible {
   0% {
     transform: translateX(-100%);
   }
+
   100% {
     transform: translateX(100%);
   }
@@ -543,6 +692,7 @@ textarea:focus-visible {
   0% {
     background-position: 200% 0;
   }
+
   100% {
     background-position: -200% 0;
   }
@@ -562,12 +712,10 @@ textarea:focus-visible {
   bottom: 0;
   left: 0;
   transform: translateX(-100%);
-  background-image: linear-gradient(
-    90deg,
-    rgba(255, 255, 255, 0) 0%,
-    rgba(255, 255, 255, 0.55) 50%,
-    rgba(255, 255, 255, 0) 100%
-  );
+  background-image: linear-gradient(90deg,
+      rgba(255, 255, 255, 0) 0%,
+      rgba(255, 255, 255, 0.55) 50%,
+      rgba(255, 255, 255, 0) 100%);
   animation: shimmerWave 1.6s infinite ease-in-out;
   content: "";
 }
@@ -575,14 +723,12 @@ textarea:focus-visible {
 .skeleton-shimmer {
   position: relative;
   overflow: hidden;
-  background: linear-gradient(
-    90deg,
-    #f3ede6 0%,
-    #faf6f0 35%,
-    #ffffff 50%,
-    #faf6f0 65%,
-    #f3ede6 100%
-  );
+  background: linear-gradient(90deg,
+      #f3ede6 0%,
+      #faf6f0 35%,
+      #ffffff 50%,
+      #faf6f0 65%,
+      #f3ede6 100%);
   background-size: 200% 100%;
   animation: skeletonPulse 1.8s ease-in-out infinite;
 }
@@ -600,12 +746,10 @@ textarea:focus-visible {
   left: 0;
   right: 0;
   bottom: 0;
-  background: linear-gradient(
-    90deg,
-    transparent 0%,
-    rgba(255, 255, 255, 0.6) 50%,
-    transparent 100%
-  );
+  background: linear-gradient(90deg,
+      transparent 0%,
+      rgba(255, 255, 255, 0.6) 50%,
+      transparent 100%);
   animation: shimmerWave 1.6s infinite ease-in-out;
   content: "";
 }
@@ -614,12 +758,15 @@ textarea:focus-visible {
 .rich-text-content {
   line-height: 1.6;
 }
+
 .rich-text-content p {
   margin: 0 0 0.75em;
 }
+
 .rich-text-content p:last-child {
   margin-bottom: 0;
 }
+
 .rich-text-content h2,
 .rich-text-content h3,
 .rich-text-content h4 {
@@ -628,39 +775,49 @@ textarea:focus-visible {
   margin: 1em 0 0.5em;
   line-height: 1.3;
 }
+
 .rich-text-content h2:first-child,
 .rich-text-content h3:first-child,
 .rich-text-content h4:first-child {
   margin-top: 0;
 }
+
 .rich-text-content h2 {
   font-size: 1.25em;
 }
+
 .rich-text-content h3 {
   font-size: 1.125em;
 }
+
 .rich-text-content h4 {
   font-size: 1em;
 }
+
 .rich-text-content ul,
 .rich-text-content ol {
   margin: 0 0 0.75em;
   padding-left: 1.4em;
 }
+
 .rich-text-content ul {
   list-style: disc;
 }
+
 .rich-text-content ol {
   list-style: decimal;
 }
+
 .rich-text-content li {
   margin: 0.15em 0;
 }
+
 .rich-text-content a {
   color: var(--color-secondary-600);
   text-decoration: underline;
   text-underline-offset: 2px;
 }
+
 .rich-text-content blockquote {
   margin: 0 0 0.75em;
   padding-left: 0.9em;
@@ -668,12 +825,14 @@ textarea:focus-visible {
   color: var(--color-neutral-600, inherit);
   font-style: italic;
 }
+
 .rich-text-content code {
   background-color: var(--color-neutral-100, #f5f5f5);
   border-radius: 0.25em;
   padding: 0.15em 0.4em;
   font-size: 0.9em;
 }
+
 .rich-text-content hr {
   border: none;
   border-top: 1px solid var(--color-neutral-200);
@@ -691,8 +850,15 @@ textarea:focus-visible {
 
 /* About page: gentle float for the hero illustration */
 @keyframes aboutFloat {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-8px); }
+
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+
+  50% {
+    transform: translateY(-8px);
+  }
 }
 
 .about-float {
@@ -701,9 +867,19 @@ textarea:focus-visible {
 
 /* About page: drifting background blobs */
 @keyframes aboutBlob {
-  0%, 100% { transform: translate(0, 0) scale(1); }
-  33% { transform: translate(30px, -40px) scale(1.08); }
-  66% { transform: translate(-20px, 20px) scale(0.95); }
+
+  0%,
+  100% {
+    transform: translate(0, 0) scale(1);
+  }
+
+  33% {
+    transform: translate(30px, -40px) scale(1.08);
+  }
+
+  66% {
+    transform: translate(-20px, 20px) scale(0.95);
+  }
 }
 
 .about-blob {
@@ -712,18 +888,18 @@ textarea:focus-visible {
 
 /* About page: shimmering gradient text */
 @keyframes aboutShine {
-  to { background-position: 200% center; }
+  to {
+    background-position: 200% center;
+  }
 }
 
 .about-shine-text {
-  background-image: linear-gradient(
-    90deg,
-    var(--tertiary-100),
-    var(--tertiary-200),
-    #ffffff,
-    var(--tertiary-200),
-    var(--tertiary-100)
-  );
+  background-image: linear-gradient(90deg,
+      var(--tertiary-100),
+      var(--tertiary-200),
+      #ffffff,
+      var(--tertiary-200),
+      var(--tertiary-100));
   background-size: 200% auto;
   -webkit-background-clip: text;
   background-clip: text;
@@ -733,8 +909,13 @@ textarea:focus-visible {
 
 /* About page: infinite highlights ribbon */
 @keyframes aboutMarquee {
-  from { transform: translateX(0); }
-  to { transform: translateX(-50%); }
+  from {
+    transform: translateX(0);
+  }
+
+  to {
+    transform: translateX(-50%);
+  }
 }
 
 .about-marquee {
@@ -754,9 +935,351 @@ textarea:focus-visible {
 }
 
 @media (prefers-reduced-motion: reduce) {
+
   .about-float,
   .about-blob,
   .about-shine-text,
-  .about-marquee { animation: none; }
-  .about-reveal { opacity: 1; transform: none; transition: none; }
+  .about-marquee {
+    animation: none;
+  }
+
+  .about-reveal {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+}
+
+/* ================================================================== */
+/* ================================================================== */
+/* Centralized Dropdown & Select Design System                        */
+/* ================================================================== */
+
+.ui-dropdown-wrapper {
+  position: relative;
+  width: 100%;
+}
+
+.ui-dropdown-trigger {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+  border-width: 1px;
+  border-style: solid;
+  border-color: var(--cream-border, #e2e8f0);
+  background-color: #ffffff;
+  color: var(--neutral-800, #1e293b);
+  text-align: left;
+  cursor: pointer;
+  user-select: none;
+  transition: all 150ms cubic-bezier(0.4, 0, 0.2, 1);
+  outline: none;
+}
+
+.ui-dropdown-trigger:hover:not(:disabled) {
+  border-color: #cbd5e1;
+  background-color: #f8fafc;
+}
+
+.ui-dropdown-trigger:focus-visible,
+.ui-dropdown-trigger[data-state="open"] {
+  border-color: var(--secondary-900, #0f172a);
+  box-shadow: 0 0 0 3px rgba(15, 23, 42, 0.06);
+  background-color: #ffffff;
+}
+
+.ui-dropdown-trigger:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+  background-color: #f8fafc;
+  border-color: #e2e8f0;
+}
+
+.ui-dropdown-trigger-error {
+  border-color: var(--error-600, #dc2626) !important;
+}
+
+.ui-dropdown-trigger-error:focus-visible,
+.ui-dropdown-trigger-error[data-state="open"] {
+  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.1) !important;
+}
+
+/* Sizing variants */
+.ui-dropdown-trigger-sm {
+  height: 2.25rem;
+  /* 36px - table footer & compact filters */
+  padding-left: 0.625rem;
+  padding-right: 0.625rem;
+  border-radius: 0.5rem;
+  /* rounded-lg */
+  font-size: 0.75rem;
+  /* text-xs */
+  font-weight: 500;
+}
+
+.ui-dropdown-trigger-md {
+  height: 2.625rem;
+  /* 42px - standard forms and modals */
+  padding-left: 0.875rem;
+  padding-right: 0.875rem;
+  border-radius: 0.75rem;
+  /* rounded-xl */
+  font-size: 0.875rem;
+  /* text-sm */
+  font-weight: 500;
+}
+
+.ui-dropdown-trigger-lg {
+  height: 2.875rem;
+  /* 46px - prominent forms */
+  padding-left: 1rem;
+  padding-right: 1rem;
+  border-radius: 0.75rem;
+  /* rounded-xl */
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+/* Dropdown Menu Panel */
+.ui-dropdown-menu {
+  position: fixed;
+  z-index: 99999;
+  overflow: hidden;
+  border-radius: 0.75rem;
+  border: 1px solid #e2e8f0;
+  background-color: #ffffff;
+  box-shadow: 0 16px 36px -4px rgba(15, 23, 42, 0.12), 0 6px 12px -2px rgba(15, 23, 42, 0.05), 0 0 0 1px rgba(15, 23, 42, 0.04);
+  min-width: 10rem;
+  transform-origin: top;
+  animation: uiDropdownZoom 140ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Standard Floating Dropdown Menu (Overlay popup that floats over content without expanding container) */
+.ui-dropdown-menu-floating {
+  position: absolute !important;
+  top: calc(100% + 4px) !important;
+  left: 0 !important;
+  right: auto !important;
+  bottom: auto !important;
+  width: 100% !important;
+  min-width: 100% !important;
+  max-width: none !important;
+  z-index: 70 !important;
+  box-shadow: 0 12px 28px -4px rgba(15, 23, 42, 0.12), 0 4px 10px -2px rgba(15, 23, 42, 0.04), 0 0 0 1px rgba(15, 23, 42, 0.05) !important;
+}
+
+/* In-flow Dropdown Menu (used specifically in Add Item modal to expand modal height when open) */
+.ui-dropdown-menu-inline {
+  position: relative !important;
+  top: auto !important;
+  bottom: auto !important;
+  left: auto !important;
+  right: auto !important;
+  margin-top: 0.5rem;
+  width: 100% !important;
+  min-width: 100% !important;
+  max-width: 100% !important;
+  z-index: 10;
+  box-shadow: 0 6px 20px -2px rgba(15, 23, 42, 0.08), 0 0 0 1px rgba(15, 23, 42, 0.05);
+  animation: uiDropdownExpand 160ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.ui-dropdown-menu-up {
+  transform-origin: bottom;
+  animation: uiDropdownZoomUp 140ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes uiDropdownExpand {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes uiDropdownZoom {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.98);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes uiDropdownZoomUp {
+  from {
+    opacity: 0;
+    transform: translateY(4px) scale(0.98);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* Search Box inside Dropdown */
+.ui-dropdown-search-wrapper {
+  border-bottom: 1px solid #f1f5f9;
+  padding: 0.5rem;
+  background-color: #f8fafc;
+}
+
+.ui-dropdown-search-input {
+  height: 2rem;
+  width: 100%;
+  border-radius: 0.375rem;
+  border: 1px solid #e2e8f0;
+  background-color: #ffffff;
+  padding-left: 2rem;
+  padding-right: 0.75rem;
+  font-size: 0.75rem;
+  color: #0f172a;
+  outline: none;
+  transition: all 150ms ease;
+}
+
+.ui-dropdown-search-input:focus {
+  border-color: #0f172a;
+  box-shadow: 0 0 0 2px rgba(15, 23, 42, 0.06);
+}
+
+/* Option List & Items */
+.ui-dropdown-options-list {
+  max-height: 15rem;
+  overflow-y: auto;
+  padding: 0.375rem;
+}
+
+.ui-dropdown-option {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+  border-radius: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: #1e293b;
+  cursor: pointer;
+  user-select: none;
+  transition: all 120ms ease;
+}
+
+.ui-dropdown-option:hover {
+  background-color: #f1f5f9;
+  color: #0f172a;
+}
+
+.ui-dropdown-option-selected {
+  background-color: #f1f5f9;
+  color: #0f172a;
+  font-weight: 600;
+}
+
+.ui-dropdown-option-disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+
+/* Header mega-menu: soft fade + slide so the panel doesn't snap open. */
+@keyframes megaMenuIn {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.mega-menu-enter {
+  animation: megaMenuIn 180ms ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mega-menu-enter {
+    animation: none;
+  }
+}
+
+
+/* ================================================================== */
+/* Admin Global Palette: Dark Stone & Gold Primary Action Buttons     */
+/* ================================================================== */
+.admin-body,
+body.admin-body {
+  --theme-primary: #1C1917;
+  --theme-primary-hover: #292524;
+  --theme-primary-fg: #D4AF37;
+  --theme-primary-light: rgba(212, 175, 55, 0.1);
+  --color-theme-primary: #1C1917;
+  --color-theme-primary-hover: #292524;
+  --color-theme-primary-fg: #D4AF37;
+  --color-theme-primary-light: rgba(212, 175, 55, 0.1);
+}
+
+.admin-body button.bg-theme-primary,
+.admin-body a.bg-theme-primary,
+.admin-body button[class*="bg-theme-primary"],
+.admin-body a[class*="bg-theme-primary"],
+.admin-body button[class*="bg-[var(--color-primary-"],
+.admin-body a[class*="bg-[var(--color-primary-"],
+body.admin-body button.bg-theme-primary,
+body.admin-body a.bg-theme-primary,
+body.admin-body button[class*="bg-theme-primary"],
+body.admin-body a[class*="bg-theme-primary"],
+body.admin-body button[class*="bg-[var(--color-primary-"],
+body.admin-body a[class*="bg-[var(--color-primary-"],
+body.admin-body button.bg-blue-600,
+body.admin-body a.bg-blue-600,
+body.admin-body button.bg-blue-500,
+body.admin-body a.bg-blue-500 {
+  background-color: #1C1917 !important;
+  color: #D4AF37 !important;
+  border: 1px solid rgba(212, 175, 55, 0.3) !important;
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05) !important;
+}
+
+.admin-body button.bg-theme-primary:hover,
+.admin-body a.bg-theme-primary:hover,
+.admin-body button[class*="bg-theme-primary"]:hover,
+.admin-body a[class*="bg-theme-primary"]:hover,
+.admin-body button[class*="bg-[var(--color-primary-"]:hover,
+.admin-body a[class*="bg-[var(--color-primary-"]:hover,
+body.admin-body button.bg-theme-primary:hover,
+body.admin-body a.bg-theme-primary:hover,
+body.admin-body button[class*="bg-theme-primary"]:hover,
+body.admin-body a[class*="bg-theme-primary"]:hover,
+body.admin-body button[class*="bg-[var(--color-primary-"]:hover,
+body.admin-body a[class*="bg-[var(--color-primary-"]:hover,
+body.admin-body button.bg-blue-600:hover,
+body.admin-body a.bg-blue-600:hover,
+body.admin-body button.bg-blue-500:hover,
+body.admin-body a.bg-blue-500:hover {
+  background-color: #292524 !important;
+  color: #D4AF37 !important;
+}
+
+.admin-body button.bg-theme-primary svg,
+.admin-body a.bg-theme-primary svg,
+.admin-body [class*="bg-theme-primary"] svg,
+body.admin-body button.bg-theme-primary svg,
+body.admin-body a.bg-theme-primary svg,
+body.admin-body [class*="bg-theme-primary"] svg,
+body.admin-body button[class*="bg-[var(--color-primary-"] svg,
+body.admin-body a[class*="bg-[var(--color-primary-"] svg {
+  color: #D4AF37 !important;
 }

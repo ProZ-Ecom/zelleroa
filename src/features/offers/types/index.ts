@@ -99,7 +99,7 @@ export interface SaveOfferInput {
   code?: string | null;
   level: OfferLevel;
   type: OfferType;
-  value: number;
+  value?: number | null;
   buyQuantity?: number | null;
   getQuantity?: number | null;
   minQuantity?: number;

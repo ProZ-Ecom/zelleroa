@@ -30,7 +30,26 @@ export const styleInclude = Prisma.validator<Prisma.StyleInclude>()({
     orderBy: [{ is_primary: "desc" }, { sort_order: "asc" }],
   },
   _count: {
-    select: { items: { where: { deleted_at: null } } },
+    select: { variants: { where: { deleted_at: null } } },
+  },
+  variants: {
+    where: { deleted_at: null },
+    select: {
+      id: true,
+      color_name: true,
+      variant_name: true,
+      variant_unit_prices: {
+        where: { deleted_at: null },
+        select: {
+          id: true,
+          inventories: {
+            select: {
+              quantity_available: true,
+            },
+          },
+        },
+      },
+    },
   },
 });
 
@@ -105,6 +124,15 @@ export const styleRepository = {
 
     const where: Prisma.StyleWhereInput = {
       deleted_at: null,
+      product: {
+        deleted_at: null,
+        ...(params.productId
+          ? /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(params.productId)
+            ? { uuid: params.productId }
+            : { id: BigInt(params.productId) }
+          : {}),
+        ...(params.categoryId ? { categoryId: BigInt(params.categoryId) } : {}),
+      },
     };
 
     if (typeof params.isActive === "boolean") {
@@ -113,14 +141,6 @@ export const styleRepository = {
 
     if (params.search) {
       where.name = { contains: params.search };
-    }
-
-    if (params.productId) {
-      where.product = { uuid: params.productId };
-    }
-
-    if (params.categoryId) {
-      where.product = { ...(where.product as object), categoryId: BigInt(params.categoryId) };
     }
 
     const [data, total] = await Promise.all([
@@ -167,6 +187,26 @@ export const styleRepository = {
   async softDeleteByUuid(uuid: string, adminId?: bigint | null) {
     const existing = await this.findByUuid(uuid);
     if (!existing) return null;
+
+    // Soft-delete and retire every Color variant under this Style so their
+    // unique slugs are freed for a future Style that reuses the same names.
+    const variants = await db.productVariant.findMany({
+      where: { styleId: existing.id, deleted_at: null },
+      select: { id: true, slug: true },
+    });
+    for (const variant of variants) {
+      await db.productVariant.update({
+        where: { id: variant.id },
+        data: {
+          isActive: false,
+          deleted_at: new Date(),
+          ...(variant.slug
+            ? { slug: retireUniqueValue(variant.slug, variant.id, 255) }
+            : {}),
+          ...(adminId ? { updated_by: adminId } : {}),
+        },
+      });
+    }
 
     return db.style.update({
       where: { id: existing.id },

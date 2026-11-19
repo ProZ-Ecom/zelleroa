@@ -7,4 +7,4 @@ export const GET = createApiHandler({
     const result = await inventoryService.getLowStock();
     return apiSuccess(result);
   },
-});
+}, { requireAuth: true, requiredRole: ["ADMIN", "STAFF"] });

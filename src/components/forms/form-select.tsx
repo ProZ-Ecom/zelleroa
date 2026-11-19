@@ -11,6 +11,12 @@ interface FormSelectProps {
   placeholder?: string;
   description?: string;
   required?: boolean;
+  searchable?: boolean;
+  expandContainer?: boolean;
+  portal?: boolean;
+  align?: "left" | "right";
+  /** Small action shown on the label row, e.g. "+ Add brand". */
+  labelAction?: React.ReactNode;
 }
 
 function FormSelect({
@@ -20,8 +26,13 @@ function FormSelect({
   placeholder,
   description,
   required,
+  searchable,
+  expandContainer,
+  portal,
+  align,
+  labelAction,
 }: FormSelectProps) {
-  const { control } = useFormContext();
+  const { control, formState } = useFormContext();
 
   return (
     <Controller
@@ -30,15 +41,23 @@ function FormSelect({
       render={({ field, fieldState }) => (
         <div className="space-y-2">
           {label && (
-            <Label htmlFor={name}>
-              {label}
-              {required && <span className="text-error-600 font-bold ml-1">*</span>}
-            </Label>
+            <div className="flex items-center justify-between gap-2">
+              <Label htmlFor={name}>
+                {label}
+                {required && <span className="text-error-600 font-bold ml-1">*</span>}
+              </Label>
+              {labelAction}
+            </div>
           )}
           <Select
             {...field}
+            value={field.value ?? ""}
             options={options}
             placeholder={placeholder}
+            searchable={searchable}
+            expandContainer={expandContainer}
+            portal={portal}
+            align={align}
             error={fieldState.error?.message}
           />
           {description && !fieldState.error && (

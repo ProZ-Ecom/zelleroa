@@ -8,6 +8,7 @@ const schema = z.object({
   shippingAddressId: z.string().uuid("Invalid shippingAddressId UUID"),
   billingAddressId: z.string().uuid().optional(),
   notes: z.string().max(500).optional(),
+  deliveryMethod: z.enum(["standard", "express"]).default("standard").optional(),
 });
 
 /**
@@ -28,7 +29,7 @@ export const POST = createApiHandler(
     },
   },
   {
-    requireAuth: true,
+    requireAuth: true, requiredRole: ["CUSTOMER", "AGENT"],
     bodySchema: schema,
   }
 );

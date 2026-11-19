@@ -6,6 +6,7 @@ import {
   usePublicProductReviews,
   usePublicVariantReviews,
 } from "../hooks/use-public-reviews";
+import { useReviewEligibility } from "../hooks/use-customer-reviews";
 import { WriteReviewModal } from "./WriteReviewModal";
 import type { PublicReviewItem } from "../types/review.types";
 import type { CustomerVariantUnitPriceDto } from "@/features/customers/types/catalog.types";
@@ -66,27 +67,43 @@ export function ProductReviewsSection({
 
   const targetTitle = variantName || productName || "Authentic Snack";
 
+  // Only buyers with a delivered order may review. Guests keep the button so it can lead them to sign in;
+  // the API enforces the same rule regardless of what the UI shows.
+  const { data: eligibility } = useReviewEligibility({
+    variantId,
+    productId: productIdOrSlug,
+  });
+  const canWriteReview =
+    eligibility?.eligible === true || eligibility?.reason === "login_required";
+  const reviewablePackSizes = eligibility?.eligible
+    ? (packSizes ?? []).filter((p) => eligibility.eligibleUnitPriceIds.includes(p.id))
+    : (packSizes ?? []);
+  const reviewableSelectedUnitPriceId =
+    selectedUnitPriceId && reviewablePackSizes.some((p) => p.id === selectedUnitPriceId)
+      ? selectedUnitPriceId
+      : (reviewablePackSizes[0]?.id ?? null);
+
   return (
-    <section id="reviews-section" className="w-full bg-[#FAF7F2] py-16 sm:py-20 my-8 rounded-3xl border border-[#F0EAE1]">
+    <section id="reviews-section" className="w-full bg-gradient-to-b from-white to-slate-50 py-14 sm:py-20 my-8 rounded-3xl border border-slate-200 shadow-sm">
       <div className="container mx-auto px-4 sm:px-6 max-w-7xl">
         {/* Section Header */}
         <div className="text-center max-w-2xl mx-auto mb-10 sm:mb-14">
-          <span className="text-[11px] sm:text-xs font-bold uppercase tracking-[0.2em] text-[#8B1D1D] block mb-2 font-sans">
+          <span className="text-[11px] sm:text-xs font-bold uppercase tracking-[0.2em] text-[var(--primary-base)] block mb-2 font-sans">
             Customer Feedback
           </span>
-          <h2 className="font-serif text-3xl sm:text-4xl lg:text-[42px] font-bold text-[#2B1B17] tracking-tight leading-tight">
-            Loved Across Generations
+          <h2 className="text-3xl sm:text-4xl font-extrabold text-slate-900 tracking-tight leading-tight">
+            What Our Customers Say
           </h2>
-          <p className="text-sm sm:text-base text-stone-600 mt-2.5 leading-relaxed">
+          <p className="text-sm sm:text-base text-slate-600 mt-2.5 leading-relaxed">
             Reviews for{" "}
-            <strong className="text-[#2B1B17] font-bold">{targetTitle}</strong>{" "}
-            from genuine sweet lovers and festive patrons
+            <strong className="text-slate-900 font-bold">{targetTitle}</strong>{" "}
+            from verified customers
           </p>
 
           {/* Social Proof Rating Pill & Write Review Button */}
           <div className="flex flex-wrap items-center justify-center gap-3 mt-4">
             {totalCount > 0 && (
-              <div className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-full bg-white/90 border border-stone-200/80 text-xs font-semibold text-stone-700 shadow-2xs">
+              <div className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-full bg-white/90 border border-slate-200/80 text-xs font-semibold text-slate-700 shadow-2xs">
                 <div className="flex items-center gap-0.5 text-amber-500">
                   {Array.from({ length: 5 }).map((_, i) => (
                     <Star
@@ -94,13 +111,13 @@ export function ProductReviewsSection({
                       className={`w-3.5 h-3.5 ${
                         i < Math.round(avgRating)
                           ? "fill-amber-400 text-amber-400"
-                          : "fill-stone-200 text-stone-200"
+                          : "fill-stone-200 text-slate-200"
                       }`}
                     />
                   ))}
                 </div>
-                <span className="font-bold text-stone-900">{avgRating.toFixed(1)}</span>
-                <span className="text-stone-300">•</span>
+                <span className="font-bold text-slate-900">{avgRating.toFixed(1)}</span>
+                <span className="text-slate-300">•</span>
                 <span>
                   {totalCount} customer {totalCount === 1 ? "review" : "reviews"}
                 </span>
@@ -108,35 +125,39 @@ export function ProductReviewsSection({
             )}
 
             {/* Write a Review Button */}
-            <button
-              type="button"
-              onClick={() => setIsWriteModalOpen(true)}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-[#7A2224] hover:bg-[#5A1911] text-white text-xs font-bold shadow-xs hover:shadow-sm transition-all cursor-pointer group"
-            >
-              <PenLine className="w-3.5 h-3.5 text-white/90 group-hover:scale-110 transition-transform" />
-              <span>Write a Review</span>
-            </button>
+            {canWriteReview && (
+              <button
+                type="button"
+                onClick={() => setIsWriteModalOpen(true)}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-[var(--primary-base)] hover:brightness-90 text-white text-xs font-bold shadow-xs hover:shadow-sm transition-all cursor-pointer group"
+              >
+                <PenLine className="w-3.5 h-3.5 text-white/90 group-hover:scale-110 transition-transform" />
+                <span>Write a Review</span>
+              </button>
+            )}
           </div>
         </div>
 
         {/* Reviews Grid or Clean Empty State */}
         {reviews.length === 0 ? (
-          <div className="text-center py-10 px-6 bg-white/90 rounded-3xl border border-stone-200/70 max-w-md mx-auto shadow-2xs">
-            <div className="w-12 h-12 rounded-full bg-[#F5EDE3] text-[#8B1D1D] flex items-center justify-center mx-auto mb-3.5">
-              <Star className="w-6 h-6 stroke-[1.5] text-[#8B1D1D]" />
+          <div className="text-center py-10 px-6 bg-white/90 rounded-3xl border border-slate-200/70 max-w-md mx-auto shadow-2xs">
+            <div className="w-12 h-12 rounded-full bg-blue-50 text-[var(--primary-base)] flex items-center justify-center mx-auto mb-3.5">
+              <Star className="w-6 h-6 stroke-[1.5] text-[var(--primary-base)]" />
             </div>
-            <h3 className="font-serif text-lg font-bold text-[#2B1B17]">No Reviews Yet</h3>
-            <p className="text-xs sm:text-sm text-stone-500 mt-1.5 leading-relaxed mb-5">
-              Be the first to taste <strong className="text-stone-700">{targetTitle}</strong> and share your thoughts with fellow food connoisseurs!
+            <h3 className="text-lg font-bold text-slate-900">No Reviews Yet</h3>
+            <p className="text-xs sm:text-sm text-slate-500 mt-1.5 leading-relaxed mb-5">
+              Be the first to review <strong className="text-slate-700">{targetTitle}</strong> and share your thoughts with other shoppers!
             </p>
-            <button
-              type="button"
-              onClick={() => setIsWriteModalOpen(true)}
-              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#7A2224] hover:bg-[#5A1911] text-white text-xs font-bold shadow-xs transition-colors cursor-pointer"
-            >
-              <PenLine className="w-3.5 h-3.5" />
-              <span>Write the First Review</span>
-            </button>
+            {canWriteReview && (
+              <button
+                type="button"
+                onClick={() => setIsWriteModalOpen(true)}
+                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[var(--primary-base)] hover:brightness-90 text-white text-xs font-bold shadow-xs transition-colors cursor-pointer"
+              >
+                <PenLine className="w-3.5 h-3.5" />
+                <span>Write the First Review</span>
+              </button>
+            )}
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8">
@@ -147,7 +168,7 @@ export function ProductReviewsSection({
             return (
               <div
                 key={review.id}
-                className="bg-white rounded-2xl sm:rounded-3xl p-6 sm:p-8 border border-stone-200/70 shadow-xs hover:shadow-md transition-shadow duration-300 flex flex-col justify-between animate-in fade-in duration-200"
+                className="bg-white rounded-2xl sm:rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-xs hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300 flex flex-col justify-between animate-in fade-in duration-200"
               >
                 <div>
                   {/* Star Rating */}
@@ -158,26 +179,26 @@ export function ProductReviewsSection({
                         className={`w-4 h-4 ${
                           i < review.rating
                             ? "fill-amber-400 text-amber-400"
-                            : "fill-stone-200 text-stone-200"
+                            : "fill-stone-200 text-slate-200"
                         }`}
                       />
                     ))}
                   </div>
 
                   {/* Comment Quote */}
-                  <p className="text-stone-700 text-sm sm:text-[14.5px] leading-relaxed italic font-normal">
+                  <p className="text-slate-700 text-sm sm:text-[14.5px] leading-relaxed italic font-normal">
                     &ldquo;{review.comment}&rdquo;
                   </p>
                 </div>
 
                 {/* Reviewer Profile */}
-                <div className="mt-7 pt-5 border-t border-stone-100 flex items-center gap-3.5">
-                  <div className="w-10 h-10 rounded-full bg-[#F5EDE3] text-[#8B1D1D] font-bold text-xs flex items-center justify-center shrink-0 shadow-2xs">
+                <div className="mt-7 pt-5 border-t border-slate-100 flex items-center gap-3.5">
+                  <div className="w-10 h-10 rounded-full bg-blue-50 text-[var(--primary-base)] font-bold text-xs flex items-center justify-center shrink-0 shadow-2xs">
                     {initials}
                   </div>
 
                   <div className="flex flex-col min-w-0">
-                    <span className="text-sm font-bold text-[#2B1B17] truncate">
+                    <span className="text-sm font-bold text-slate-900 truncate">
                       {review.customerName}
                     </span>
                     <div className="text-xs text-emerald-700 font-medium flex flex-wrap items-center gap-1 mt-0.5">
@@ -186,7 +207,7 @@ export function ProductReviewsSection({
                         <span>Verified Buyer</span>
                       </span>
                       {location && (
-                        <span className="inline-flex items-center text-stone-500 truncate">
+                        <span className="inline-flex items-center text-slate-500 truncate">
                 
                           <span className="truncate">{location}</span>
                         </span>
@@ -206,7 +227,7 @@ export function ProductReviewsSection({
             <button
               type="button"
               onClick={() => setIsExpanded((prev) => !prev)}
-              className="inline-flex items-center gap-2 px-6 py-3 rounded-xl border border-[#DCC7B7] bg-white hover:bg-[#F5ECE1] text-[#7A2224] text-xs sm:text-sm font-bold shadow-2xs hover:shadow-xs transition-all cursor-pointer group select-none"
+              className="inline-flex items-center gap-2 px-6 py-3 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-[var(--primary-base)] text-xs sm:text-sm font-bold shadow-2xs hover:shadow-xs transition-all cursor-pointer group select-none"
             >
               <span>
                 {isExpanded
@@ -214,7 +235,7 @@ export function ProductReviewsSection({
                   : `View All ${reviews.length} Reviews`}
               </span>
               <ChevronDown
-                className={`w-4 h-4 text-[#7A2224] transition-transform duration-200 ${
+                className={`w-4 h-4 text-[var(--primary-base)] transition-transform duration-200 ${
                   isExpanded ? "rotate-180" : "group-hover:translate-y-0.5"
                 }`}
               />
@@ -225,14 +246,14 @@ export function ProductReviewsSection({
 
       {/* Write a Review Modal */}
       <WriteReviewModal
-        isOpen={isWriteModalOpen}
+        isOpen={isWriteModalOpen && canWriteReview}
         onClose={() => setIsWriteModalOpen(false)}
         variantId={variantId}
         variantName={variantName}
         productName={productName}
         productId={productIdOrSlug}
-        selectedUnitPriceId={selectedUnitPriceId}
-        packSizes={packSizes}
+        selectedUnitPriceId={reviewableSelectedUnitPriceId}
+        packSizes={reviewablePackSizes}
       />
     </section>
   );

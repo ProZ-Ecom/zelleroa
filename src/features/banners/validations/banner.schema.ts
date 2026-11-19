@@ -46,6 +46,7 @@ export const createBannerSchema = z
       .max(500, "Link URL cannot exceed 500 characters")
       .nullable()
       .optional(),
+    offerId: z.string().uuid("Invalid offer UUID").nullable().optional(),
     badgeLabel: z
       .string()
       .trim()
@@ -136,6 +137,7 @@ export const updateBannerSchema = z
       .max(500, "Link URL cannot exceed 500 characters")
       .nullable()
       .optional(),
+    offerId: z.string().uuid("Invalid offer UUID").nullable().optional(),
     badgeLabel: z
       .string()
       .trim()

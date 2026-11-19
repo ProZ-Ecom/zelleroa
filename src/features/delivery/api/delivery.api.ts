@@ -8,6 +8,7 @@ import type {
   DeliveryTransitionResult,
   StaffDeliveriesCountResponse,
   CourierShipmentResult,
+  UpdateCourierStatusResult,
 } from "../types/delivery.types";
 import type {
   StaffDeliveryListInput,
@@ -17,6 +18,7 @@ import type {
   AdminDeliveryStaffListInput,
   AssignDeliveryInput,
   ShipViaCourierInput,
+  UpdateCourierStatusInput,
 } from "../validations/delivery.schema";
 
 export interface PaginatedResult<T> {
@@ -366,6 +368,25 @@ export async function shipViaCourier(
 
   if (!response.data) {
     throw new Error(response.message || "Failed to record India Post shipment");
+  }
+
+  return response.data;
+}
+
+/**
+ * Update courier shipment status (Admin).
+ * Endpoint: POST /api/admin/delivery/update-status
+ */
+export async function updateCourierStatus(
+  input: UpdateCourierStatusInput
+): Promise<UpdateCourierStatusResult> {
+  const response = await apiClient.post<UpdateCourierStatusResult>(
+    "/api/admin/delivery/update-status",
+    input
+  );
+
+  if (!response.data) {
+    throw new Error(response.message || "Failed to update courier status");
   }
 
   return response.data;

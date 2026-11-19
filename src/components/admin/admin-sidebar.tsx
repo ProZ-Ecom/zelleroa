@@ -28,7 +28,8 @@ import {
   Hash,
   type LucideIcon,
   Ruler,
-  Layers,
+  Shapes,
+  Palette,
   UserCheck,
   Mail,
   PackagePlus,
@@ -42,12 +43,19 @@ import {
   Building2,
   ClipboardList,
   SlidersHorizontal,
+  Store,
+  ShoppingBag,
+  Undo2,
+  IndianRupee,
 } from "lucide-react";
 import { cn, getInitials } from "@/lib/utils";
 import { APP_NAME } from "@/lib/constants";
-import { signOut, useSession } from "next-auth/react";
-import { logoutApi } from "@/features/auth/api/auth.api";
+import { useSession } from "next-auth/react";
+import { useLogout } from "@/features/auth/hooks/use-auth-mutations";
 import { Drawer } from "@/components/common/drawer";
+import { LogoutConfirmDialog } from "@/components/common/LogoutConfirmDialog";
+import { useAdminAccess } from "@/features/access";
+import { permissionForAdminPath } from "@/lib/permissions/admin-routes";
 
 interface SidebarItem {
   label: string;
@@ -66,9 +74,22 @@ const sidebarItems: SidebarItem[] = [
     section: "Operations",
     children: [
       { label: "Orders", href: "/admin/dashboard/orders", icon: ShoppingCart },
-      { label: "Bulk Orders", href: "/admin/dashboard/bulk-orders", icon: PackagePlus },
+      { label: "POS Sales", href: "/admin/dashboard/orders/pos", icon: Store },
+      { label: "Return Requests", href: "/admin/dashboard/orders/returns", icon: Undo2 },
+      // { label: "Bulk Orders", href: "/admin/dashboard/bulk-orders", icon: PackagePlus },
       { label: "Customers", href: "/admin/dashboard/customers", icon: Users },
       { label: "Deliveries", href: "/admin/dashboard/delivery", icon: Truck },
+    ],
+  },
+  {
+    label: "Counter (POS)",
+    href: "/admin/dashboard/pos",
+    icon: Store,
+    section: "Operations",
+    children: [
+      { label: "Billing", href: "/admin/dashboard/pos", icon: Store },
+      // { label: "Purchases", href: "/admin/dashboard/pos/purchases", icon: ShoppingBag },
+      { label: "Shifts", href: "/admin/dashboard/pos/shifts", icon: Wallet },
     ],
   },
   {
@@ -78,9 +99,10 @@ const sidebarItems: SidebarItem[] = [
     children: [
       { label: "Categories", href: "/admin/dashboard/categories", icon: FolderTree },
       { label: "Header Menu", href: "/admin/dashboard/header-menu", icon: Menu },
+      { label: "Tags", href: "/admin/dashboard/tags", icon: Tag },
       { label: "Products", href: "/admin/dashboard/products", icon: Package },
-      { label: "Items", href: "/admin/dashboard/styles", icon: Layers },
-      { label: "Colors", href: "/admin/dashboard/variants", icon: Layers },
+      { label: "Models (Styles)", href: "/admin/dashboard/styles", icon: Shapes },
+      { label: "Variants", href: "/admin/dashboard/variants", icon: Palette },
       { label: "Brands", href: "/admin/dashboard/brands", icon: Crown },
       { label: "Attributes", href: "/admin/dashboard/attributes", icon: Tag },
       { label: "Units", href: "/admin/dashboard/units", icon: Ruler },
@@ -93,8 +115,11 @@ const sidebarItems: SidebarItem[] = [
     children: [
       { label: "Dashboard", href: "/admin/dashboard/inventory", icon: LayoutDashboard },
       { label: "Current Stock", href: "/admin/dashboard/inventory/stock", icon: Warehouse },
+      { label: "Pricing", href: "/admin/dashboard/inventory/pricing", icon: Tag },
+      { label: "Valuation & Margin", href: "/admin/dashboard/inventory/valuation", icon: IndianRupee },
       { label: "Vendors", href: "/admin/dashboard/vendors", icon: Building2 },
       { label: "Purchases", href: "/admin/dashboard/purchase-orders", icon: ClipboardList },
+      { label: "Purchase Returns", href: "/admin/dashboard/purchase-returns", icon: Undo2 },
       { label: "Stock Movements", href: "/admin/dashboard/inventory/movements", icon: History },
       { label: "Stock Adjustment", href: "/admin/dashboard/inventory/adjustment", icon: SlidersHorizontal },
     ],
@@ -343,27 +368,37 @@ function SidebarNavigation({
   const { data: session } = useSession();
   const userRole = (session?.user as { role?: string })?.role;
   const isStaff = userRole === "STAFF";
+  const { access } = useAdminAccess();
 
+  // A link is shown only when the role holds the permission that screen needs; a group is
+  // shown only when at least one of its links survives. The permission comes from the same
+  // table the page guard uses, so the sidebar can never offer a page that then refuses.
   const navigationItems = useMemo(() => {
+    const canOpen = (href: string) => {
+      if (access.isOwner) return true;
+      const required = permissionForAdminPath(href);
+      return !required || access.permissions.includes(required);
+    };
+
     return sidebarItems
       .map((item) => {
-        if (!item.children) return item;
+        if (!item.children) return canOpen(item.href) ? item : null;
         const filteredChildren = item.children.filter((child) => {
           if (child.href === "/admin/dashboard/delivery") {
-            return isStaff;
+            return isStaff && canOpen(child.href);
           }
           if (child.href === "/admin/dashboard/orders") {
-            return !isStaff;
+            return !isStaff && canOpen(child.href);
           }
-          return true;
+          return canOpen(child.href);
         });
-        return { ...item, children: filteredChildren };
+        return filteredChildren.length > 0 ? { ...item, children: filteredChildren } : null;
       })
-      .filter((item) => !item.children || item.children.length > 0);
-  }, [isStaff]);
+      .filter((item): item is SidebarItem => item !== null);
+  }, [isStaff, access]);
 
   return (
-    <nav className="flex-1 space-y-0.5 overflow-y-auto overflow-x-hidden scrollbar-hide px-3 pb-4">
+    <nav className="relative flex-1 space-y-0.5 overflow-y-auto overflow-x-hidden scrollbar-hide px-3 pt-2 pb-6 [mask-image:linear-gradient(to_bottom,black_calc(100%-24px),transparent)]">
       {navigationItems.map((item) => (
         <div key={item.href}>
           {item.section &&
@@ -389,23 +424,23 @@ function SidebarNavigation({
 
 function SidebarFooter({ collapsed }: { collapsed?: boolean }) {
   const { data: session } = useSession();
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const name = session?.user?.name || "Admin";
   const role = (session?.user as { role?: string })?.role;
   const roleLabel = role ? role.charAt(0) + role.slice(1).toLowerCase() : "Administrator";
 
-  const handleLogout = async () => {
-    try {
-      await logoutApi();
-    } catch {
-      // ignore network errors on logout
-    }
-    await signOut({ callbackUrl: "/admin/login" });
+  const logout = useLogout("/admin/login");
+  const handleLogout = () => {
+    setShowLogoutConfirm(true);
   };
 
+  const actionBase =
+    "group flex items-center justify-center gap-2 rounded-lg py-2 text-xs font-medium text-neutral-600 transition-all duration-200 hover:bg-white hover:text-secondary-600 hover:shadow-sm";
+
   return (
-    <div className="border-t border-neutral-300/70 p-3">
+    <div className="border-t border-neutral-300/70 bg-secondary-100/80 p-3">
       {!collapsed && (
-        <div className="mb-2 flex items-center gap-2.5 rounded-xl bg-white/70 px-2.5 py-2.5 shadow-sm ring-1 ring-black/[0.04]">
+        <div className="mb-2 flex items-center gap-2.5 rounded-xl bg-white px-2.5 py-2 shadow-sm ring-1 ring-black/[0.04]">
           <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-secondary-600 text-xs font-semibold text-white ring-2 ring-white">
             {getInitials(name)}
           </div>
@@ -415,17 +450,34 @@ function SidebarFooter({ collapsed }: { collapsed?: boolean }) {
           </div>
         </div>
       )}
-      <button
-        onClick={handleLogout}
-        title={collapsed ? "Logout" : undefined}
-        className={cn(
-          "group flex w-full items-center gap-2.5 rounded-lg py-2 text-sm font-medium text-neutral-600 transition-all duration-200 cursor-pointer hover:bg-white/70 hover:text-secondary-600",
-          collapsed ? "justify-center px-0" : "pl-2 pr-3"
-        )}
-      >
-        <LogOut className="h-4 w-4 flex-shrink-0 transition-transform duration-200 group-hover:-translate-x-0.5" />
-        {!collapsed && "Logout"}
-      </button>
+      <div className={cn("gap-1", collapsed ? "flex flex-col" : "grid grid-cols-2")}>
+        <Link
+          href="/"
+          target="_blank"
+          rel="noopener noreferrer"
+          title="View Store"
+          className={actionBase}
+        >
+          <Store className="h-4 w-4 flex-shrink-0" />
+          {!collapsed && "View Store"}
+        </Link>
+        <button
+          onClick={handleLogout}
+          disabled={logout.isPending}
+          title="Logout"
+          className={cn(actionBase, "cursor-pointer hover:text-red-600 disabled:opacity-60")}
+        >
+          <LogOut className="h-4 w-4 flex-shrink-0 transition-transform duration-200 group-hover:-translate-x-0.5" />
+          {!collapsed && "Logout"}
+        </button>
+      </div>
+
+      <LogoutConfirmDialog
+        open={showLogoutConfirm}
+        onClose={() => setShowLogoutConfirm(false)}
+        onConfirm={() => logout.mutate()}
+        isLoading={logout.isPending}
+      />
     </div>
   );
 }

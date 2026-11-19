@@ -9,14 +9,14 @@ export const PUT = createApiHandler(
       const id = context.params?.id;
       if (!id) return apiError("User ID is required", 400);
       const body = context.body as ReturnType<typeof resetPasswordSchema.parse>;
-      await userService.resetPassword(parseInt(id), body.password);
+      await userService.resetPassword(id, body.password);
       return apiSuccess(null, "Password reset successfully");
     },
   },
   {
     method: "PUT",
     requireAuth: true,
-    requiredRole: ["ADMIN"],
+    requiredRole: ["ADMIN", "STAFF"],
     bodySchema: resetPasswordSchema,
   }
 );

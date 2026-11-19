@@ -76,6 +76,17 @@ export async function recordStockMovement(
     data: { quantity_available: newStock, updated_by: input.actorId ?? null },
   });
 
+  // Keep the colour's out_of_stock flag in step with its total stock, so the
+  // storefront and admin badges agree with the stock counts.
+  await tx.$executeRaw`
+    UPDATE product_variants pv
+    SET pv.out_of_stock = (
+      SELECT COALESCE(SUM(i.quantity_available), 0) FROM variant_unit_prices vup
+      JOIN inventories i ON i.variant_unit_price_id = vup.id
+      WHERE vup.variant_id = pv.id AND vup.deleted_at IS NULL
+    ) <= 0
+    WHERE pv.id = (SELECT variant_id FROM variant_unit_prices WHERE id = ${input.variantUnitPriceId})`;
+
   const txn = await tx.inventoryTransaction.create({
     data: {
       variant_unit_price_id: input.variantUnitPriceId,

@@ -21,6 +21,7 @@ import {
 } from "@/features/customers/hooks";
 import { AdminDetailSkeleton } from "@/components/admin/AdminDetailSkeleton";
 import { ErrorState } from "@/components/ui/error-state";
+import { CustomerAgentCard } from "@/features/agents/components/admin/CustomerAgentCard";
 
 type ProfileTab = "orders" | "addresses" | "wishlist" | "cart";
 
@@ -148,6 +149,8 @@ export default function AdminCustomerProfilePage() {
           <CustomerInfoCard customer={customer} />
         </div>
       </div>
+
+      <CustomerAgentCard customerId={customer.id} />
 
       {/* Middle Section: Tabbed Container */}
       <div className="rounded-2xl border border-cream-border bg-white shadow-xs overflow-hidden">

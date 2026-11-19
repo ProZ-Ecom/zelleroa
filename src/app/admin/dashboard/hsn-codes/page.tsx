@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { toast } from "@/components/ui/Toast";
 import {
   useHsnCodes,
   useCreateHsnCode,
@@ -16,13 +17,18 @@ import {
 import { AdminTableSkeleton } from "@/components/admin/AdminTableSkeleton";
 import { ErrorState } from "@/components/ui/error-state";
 import { Button } from "@/components/ui/button";
+import { ExcelImportDialog } from "@/components/common/ExcelImportDialog";
+import { createAdminHsnCodeSchema } from "@/features/hsn-codes/validations/admin-hsn-code.schema";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { FormModal } from "@/components/common/FormModal";
+import { ExportButton } from "@/components/common/export-button";
+import { exportDataToCsv } from "@/lib/export-csv";
 import { SearchInput } from "@/components/ui/search-input";
-import { Plus, Pencil, Trash2 } from "lucide-react";
+import { Upload, Plus, Pencil, Trash2 } from "lucide-react";
 import type { ColumnDef } from "@tanstack/react-table";
 import type { AdminHsnCodeResponse } from "@/features/hsn-codes/types";
 import { HsnCodeForm } from "@/features/hsn-codes/components/HsnCodeForm";
+import { CanAct } from "@/features/access";
 
 export default function AdminHsnCodesPage() {
   const [search, setSearch] = useState("");
@@ -32,6 +38,7 @@ export default function AdminHsnCodesPage() {
 
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [isImportOpen, setIsImportOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [selectedHsn, setSelectedHsn] =
     useState<AdminHsnCodeResponse | null>(null);
@@ -142,8 +149,8 @@ export default function AdminHsnCodesPage() {
         description="Manage HSN codes and GST mappings."
       />
 
-      <AdminContent className="flex-1 min-h-0 overflow-hidden">
-        <div className="flex h-full flex-col overflow-hidden bg-[var(--color-background)] py-1 rounded-2xl">
+      <AdminContent className="flex-1 min-h-0">
+        <div className="flex h-full flex-col bg-[var(--color-background)] py-1 rounded-2xl">
           <div className="flex-shrink-0 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <SearchInput
               placeholder="Search HSN codes..."
@@ -154,17 +161,49 @@ export default function AdminHsnCodesPage() {
               }}
               className="w-full max-w-md"
             />
+            <div className="flex items-center gap-2">
+              <ExportButton
+                onClick={() =>
+                  exportDataToCsv(
+                    hsnCodes,
+                    "hsn-codes",
+                    [
+                      { header: "HSN Code", accessor: (h) => h.code },
+                      { header: "Description", accessor: (h) => h.description || "—" },
+                      {
+                        header: "GST Rate",
+                        accessor: (h) => {
+                          const gst = gstMap.get(h.gstRateId || "");
+                          return gst ? `${gst.name} (${gst.igstPercent}%)` : "—";
+                        },
+                      },
+                    ]
+                  )
+                }
+                disabled={!hsnCodes.length}
+              />
+              <Button
+                variant="outline"
+                onClick={() => setIsImportOpen(true)}
+                className="h-11 rounded-xl px-5 text-sm font-semibold"
+              >
+                <Upload className="mr-2 h-4 w-4" />
+                Import
+              </Button>
 
-            <Button
-              onClick={() => setIsCreateOpen(true)}
-              className="h-11 rounded-xl bg-[var(--color-secondary-600)] px-5 text-sm font-semibold text-white hover:bg-[var(--color-secondary-700)]"
-            >
-              <Plus className="mr-2 h-4 w-4" />
-              Add HSN Code
-            </Button>
+              <CanAct action="CREATE">
+                <Button
+                  onClick={() => setIsCreateOpen(true)}
+                  className="h-11 rounded-xl bg-stone-900 hover:bg-stone-800 text-[#D4AF37] border border-[#D4AF37]/30 shadow-xs px-5 text-sm font-semibold transition-colors"
+                >
+                  <Plus className="mr-2 h-4 w-4 text-[#D4AF37]" />
+                  Add HSN Code
+                </Button>
+              </CanAct>
+            </div>
           </div>
 
-          <div className="mt-6 flex-1 min-h-0 overflow-hidden flex flex-col">
+          <div className="mt-6 flex-1 min-h-0 flex flex-col">
             <DataTable
               columns={columns}
               data={hsnCodes}
@@ -183,6 +222,27 @@ export default function AdminHsnCodesPage() {
           </div>
         </div>
       </AdminContent>
+      <ExcelImportDialog
+        open={isImportOpen}
+        onClose={() => setIsImportOpen(false)}
+        title="HSN Codes"
+        sampleFileName="hsn-codes"
+        columns={[
+          { key: "code", header: "HSN Code", required: true, samples: ["1006", "6109", "3304"] },
+          { key: "description", header: "Description", samples: ["Rice", "T-shirts, knitted", "Beauty or make-up preparations"] },
+          { key: "gstRateName", header: "GST Rate Name", info: "Must match an existing GST rate name exactly (see GST Rates page).", required: true, samples: ["GST 5%", "GST 12%", "GST 18%"] },
+        ]}
+        prepare={(row) => {
+          const name = String(row.gstRateName ?? "").trim().toLowerCase();
+          const gst = gstData?.data.find((g) => g.name.trim().toLowerCase() === name);
+          if (!gst) return { error: `GST rate "${row.gstRateName ?? ""}" not found` };
+          return { code: row.code, description: row.description, gstRateId: gst.id };
+        }}
+        schema={createAdminHsnCodeSchema}
+        createRow={(payload) => createMutation.mutateAsync(payload)}
+        onImported={() => refetch()}
+      />
+
 
       <FormModal
         open={isCreateOpen}
@@ -194,12 +254,17 @@ export default function AdminHsnCodesPage() {
           isLoading={createMutation.isPending}
           submitLabel="Create HSN Code"
           onSubmit={async (formData) => {
-            await createMutation.mutateAsync({
-              code: formData.code,
-              description: formData.description || null,
-              gstRateId: formData.gstRateId,
-            });
-            setIsCreateOpen(false);
+            try {
+              await createMutation.mutateAsync({
+                code: formData.code,
+                description: formData.description || null,
+                gstRateId: formData.gstRateId,
+              });
+              toast.success("HSN Code created", `HSN Code "${formData.code}" was added successfully.`);
+              setIsCreateOpen(false);
+            } catch (err: any) {
+              toast.error("Failed to create HSN code", err?.message || "Please try again.");
+            }
           }}
         />
       </FormModal>
@@ -224,18 +289,22 @@ export default function AdminHsnCodesPage() {
             isLoading={updateMutation.isPending}
             submitLabel="Update HSN Code"
             onSubmit={async (formData) => {
-              await updateMutation.mutateAsync({
-                uuid: selectedHsn.id,
-                data: {
-                  code: formData.code,
-                  description: formData.description || null,
-                  gstRateId: formData.gstRateId,
-                },
-              });
-
-              setIsEditOpen(false);
-              setSelectedHsn(null);
-              refetch();
+              try {
+                await updateMutation.mutateAsync({
+                  uuid: selectedHsn.id,
+                  data: {
+                    code: formData.code,
+                    description: formData.description || null,
+                    gstRateId: formData.gstRateId,
+                  },
+                });
+                toast.success("HSN Code updated", `HSN Code "${formData.code}" was saved successfully.`);
+                setIsEditOpen(false);
+                setSelectedHsn(null);
+                refetch();
+              } catch (err: any) {
+                toast.error("Failed to update HSN code", err?.message || "Please try again.");
+              }
             }}
           />
         )}
@@ -244,11 +313,15 @@ export default function AdminHsnCodesPage() {
       <ConfirmDialog
         open={!!deleteId}
         onClose={() => setDeleteId(null)}
-        onConfirm={() => {
+        onConfirm={async () => {
           if (deleteId) {
-            deleteMutation.mutate(deleteId, {
-              onSuccess: () => setDeleteId(null),
-            });
+            try {
+              await deleteMutation.mutateAsync(deleteId);
+              toast.success("HSN Code deleted", "The HSN code was removed successfully.");
+              setDeleteId(null);
+            } catch (err: any) {
+              toast.error("Failed to delete HSN code", err?.message || "Please try again.");
+            }
           }
         }}
         title="Delete HSN Code"

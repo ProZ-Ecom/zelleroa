@@ -14,6 +14,7 @@ import {
   getAdminDeliveryStaff,
   assignDelivery,
   shipViaCourier,
+  updateCourierStatus,
 } from "../api/delivery.api";
 import type {
   StaffDeliveryListInput,
@@ -23,6 +24,7 @@ import type {
   AdminDeliveryStaffListInput,
   AssignDeliveryInput,
   ShipViaCourierInput,
+  UpdateCourierStatusInput,
 } from "../validations/delivery.schema";
 import type {
   StaffDeliveryDetailResponse,
@@ -30,6 +32,7 @@ import type {
   DeliveryTransitionResult,
   StaffDeliveriesCountResponse,
   CourierShipmentResult,
+  UpdateCourierStatusResult,
 } from "../types/delivery.types";
 
 /* ----------------------- Staff Delivery Queries & Mutations ----------------------- */
@@ -239,6 +242,24 @@ export function useShipViaCourier() {
       queryClient.invalidateQueries({ queryKey: deliveryKeys.all });
       queryClient.invalidateQueries({ queryKey: orderKeys.all });
       queryClient.invalidateQueries({ queryKey: adminOrderKeys.all });
+    },
+  });
+}
+
+export function useUpdateCourierStatus() {
+  const queryClient = useQueryClient();
+
+  return useMutation<UpdateCourierStatusResult, Error, UpdateCourierStatusInput>({
+    mutationFn: (input: UpdateCourierStatusInput) => updateCourierStatus(input),
+    meta: {
+      successMessage: "Delivery status updated successfully.",
+      errorMessage: "Failed to update delivery status",
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: deliveryKeys.all });
+      queryClient.invalidateQueries({ queryKey: orderKeys.all });
+      queryClient.invalidateQueries({ queryKey: adminOrderKeys.all });
+      queryClient.invalidateQueries({ queryKey: ["admin-orders", "count"] });
     },
   });
 }

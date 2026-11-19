@@ -15,12 +15,16 @@ import { AdminPageHeader, AdminContent } from "@/components/admin/AdminPageHeade
 import { DataTable } from "@/components/admin/data-table/DataTable";
 import { StatsCard } from "@/components/admin/StatsCard";
 import { Button } from "@/components/ui/button";
+import { ExportButton } from "@/components/common/export-button";
+import { exportDataToCsv } from "@/lib/export-csv";
+import { formatDate } from "@/lib/utils";
 import { SearchInput } from "@/components/ui/search-input";
 import { Select } from "@/components/ui/select";
 import { AdminTableSkeleton } from "@/components/admin/AdminTableSkeleton";
 import { ErrorState } from "@/components/ui/error-state";
 import { useStaffList, useStaffCount, StaffFormModal } from "@/features/staff";
 import type { StaffResponse } from "@/features/staff/types";
+import { CanAct } from "@/features/access";
 
 export default function AdminStaffPage() {
   const [search, setSearch] = React.useState("");
@@ -145,17 +149,15 @@ export default function AdminStaffPage() {
         header: "Status",
         cell: ({ row }) => {
           const isActive = row.original.isActive;
-          return isActive ? (
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700 border border-emerald-200">
-              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-              Active
-            </span>
-          ) : (
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-neutral-100 px-2.5 py-1 text-xs font-semibold text-neutral-600 border border-neutral-200">
-              <span className="h-1.5 w-1.5 rounded-full bg-neutral-400" />
-              Inactive
-            </span>
-          );
+         return isActive ? (
+  <span className="inline-flex items-center rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700 border border-emerald-200">
+    Active
+  </span>
+) : (
+  <span className="inline-flex items-center rounded-full bg-red-100 px-2.5 py-1 text-xs font-semibold text-red-700 border border-red-300">
+    Inactive
+  </span>
+);
         },
       },
       {
@@ -164,11 +166,7 @@ export default function AdminStaffPage() {
         cell: ({ row }) => {
           const dateVal = row.original.createdAt;
           if (!dateVal) return <span className="text-neutral-400">—</span>;
-          const formatted = new Date(dateVal).toLocaleDateString("en-US", {
-            year: "numeric",
-            month: "short",
-            day: "numeric",
-          });
+          const formatted = formatDate(dateVal);
           return <span className="text-sm text-neutral-600">{formatted}</span>;
         },
       },
@@ -182,11 +180,10 @@ export default function AdminStaffPage() {
               <button
                 type="button"
                 onClick={() => handleOpenEditModal(staff)}
-                className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium text-secondary-700 bg-secondary-50 hover:bg-secondary-100 transition-colors border border-secondary-200/60 cursor-pointer"
+                className="inline-flex items-center justify-center h-8 w-8 rounded-lg text-xs font-medium text-secondary-700 bg-secondary-50 hover:bg-secondary-100 transition-colors border border-secondary-200/60 cursor-pointer"
                 title="Edit staff member"
               >
-                <Pencil className="h-3.5 w-3.5" />
-                <span>Edit</span>
+                <Pencil className="h-4 w-4" />
               </button>
             </div>
           );
@@ -198,6 +195,11 @@ export default function AdminStaffPage() {
 
   return (
     <div className="flex flex-1 min-h-0 flex-col">
+      <AdminBreadcrumb
+        items={[
+          { label: "Staff" },
+        ]}
+      />
 
       <AdminPageHeader
         title="Staff Management"
@@ -271,18 +273,39 @@ export default function AdminStaffPage() {
           )}
         </div>
 
-        <Button
-          type="button"
-          onClick={handleOpenCreateModal}
-          className="h-10 rounded-xl bg-secondary-600 px-4 text-sm font-semibold text-white hover:bg-secondary-700 shadow-xs cursor-pointer shrink-0"
-        >
-          <Plus className="mr-2 h-4 w-4" />
-          Create Staff
-        </Button>
+        <div className="flex items-center gap-2.5 shrink-0">
+          <ExportButton
+            onClick={() =>
+              exportDataToCsv(
+                staffList,
+                "staff-members",
+                [
+                  { header: "Name", accessor: (s) => s.name },
+                  { header: "Email", accessor: (s) => s.email },
+                  { header: "Phone", accessor: (s) => s.phone || "-" },
+                  { header: "Role", accessor: (s) => s.role || "-" },
+                  { header: "Status", accessor: (s) => (s.isActive ? "Active" : "Inactive") },
+                ]
+              )
+            }
+            disabled={!staffList.length}
+          />
+
+          <CanAct action="CREATE">
+            <Button
+              type="button"
+              onClick={handleOpenCreateModal}
+              className="h-10 rounded-xl bg-stone-900 hover:bg-stone-800 text-[#D4AF37] border border-[#D4AF37]/30 shadow-xs px-4 text-sm font-semibold transition-colors cursor-pointer shrink-0"
+            >
+              <Plus className="mr-2 h-4 w-4 text-[#D4AF37]" />
+              Create Staff
+            </Button>
+          </CanAct>
+        </div>
       </div>
 
       {/* Main Content: Fixed viewport height with scrolling table records */}
-      <AdminContent className="flex-1 min-h-0 overflow-hidden mt-4">
+      <AdminContent className="flex-1 min-h-0 mt-4">
         <div className="flex-1 min-h-0 overflow-hidden flex flex-col rounded-2xl border border-neutral-200 bg-white shadow-xs">
           {isLoading && !data ? (
             <div className="flex-1 flex items-center justify-center p-12">

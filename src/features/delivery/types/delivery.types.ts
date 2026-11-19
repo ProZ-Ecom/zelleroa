@@ -136,3 +136,11 @@ export interface CourierShipmentResult {
   trackingUrl: string;
   status: string;
 }
+
+export interface UpdateCourierStatusResult {
+  orderId: string;
+  orderNumber: string;
+  shipmentId?: string | null;
+  status: string;
+  deliveredAt?: Date | string | null;
+}

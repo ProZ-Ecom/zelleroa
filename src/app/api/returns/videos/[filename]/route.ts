@@ -6,10 +6,12 @@ import { createApiHandler } from "@/lib/api/api-handler";
 import { ApiError } from "@/lib/api/api-error";
 import { userRepository } from "@/features/users/repositories/user.repository";
 import { VIDEO_CONTENT_TYPES, videoService } from "@/features/returns/services/video.service";
+import { googleDriveService } from "@/features/returns/services/google-drive.service";
 
 /**
  * GET /api/returns/videos/:filename - streams a private unboxing video.
  * Allowed for the uploader and for admin / staff only; supports Range for seeking.
+ * Streams from local storage or from Google Drive.
  */
 export const GET = createApiHandler(
   {
@@ -28,40 +30,70 @@ export const GET = createApiHandler(
       }
 
       const filePath = videoService.resolvePath(filename);
-      let stat: fs.Stats;
+      let stat: fs.Stats | null = null;
       try {
         stat = await fs.promises.stat(filePath);
-        if (!stat.isFile()) throw new Error("not a file");
+        if (!stat.isFile()) stat = null;
       } catch {
-        throw ApiError.notFound("Video not found");
+        stat = null;
       }
 
-      const headers = new Headers({
-        "Content-Type": VIDEO_CONTENT_TYPES[path.extname(filename)] ?? "application/octet-stream",
-        "Cache-Control": "private, max-age=3600",
-        "Accept-Ranges": "bytes",
-        "X-Content-Type-Options": "nosniff",
-      });
+      // If local file is found, stream with range support
+      if (stat) {
+        const headers = new Headers({
+          "Content-Type": VIDEO_CONTENT_TYPES[path.extname(filename)] ?? "application/octet-stream",
+          "Cache-Control": "private, max-age=3600",
+          "Accept-Ranges": "bytes",
+          "X-Content-Type-Options": "nosniff",
+        });
 
-      const match = /^bytes=(\d*)-(\d*)$/.exec(request.headers.get("range") ?? "");
-      if (match) {
-        const start = match[1] ? parseInt(match[1], 10) : 0;
-        const end = match[2] ? parseInt(match[2], 10) : stat.size - 1;
-        if (start <= end && end < stat.size) {
-          headers.set("Content-Range", `bytes ${start}-${end}/${stat.size}`);
-          headers.set("Content-Length", String(end - start + 1));
-          return new NextResponse(
-            Readable.toWeb(fs.createReadStream(filePath, { start, end })) as unknown as ReadableStream,
-            { status: 206, headers }
-          );
+        const match = /^bytes=(\d*)-(\d*)$/.exec(request.headers.get("range") ?? "");
+        if (match) {
+          const start = match[1] ? parseInt(match[1], 10) : 0;
+          const end = match[2] ? parseInt(match[2], 10) : stat.size - 1;
+          if (start <= end && end < stat.size) {
+            headers.set("Content-Range", `bytes ${start}-${end}/${stat.size}`);
+            headers.set("Content-Length", String(end - start + 1));
+            return new NextResponse(
+              Readable.toWeb(fs.createReadStream(filePath, { start, end })) as unknown as ReadableStream,
+              { status: 206, headers }
+            );
+          }
+        }
+
+        headers.set("Content-Length", String(stat.size));
+        return new NextResponse(
+          Readable.toWeb(fs.createReadStream(filePath)) as unknown as ReadableStream,
+          { status: 200, headers }
+        );
+      }
+
+      // If not on local disk, try streaming from Google Drive
+      if (googleDriveService.isConfigured()) {
+        const driveFile = await googleDriveService.findFileByName(filename);
+        if (driveFile?.id) {
+          const stream = await googleDriveService.downloadStream(driveFile.id);
+          if (stream) {
+            const headers = new Headers({
+              "Content-Type":
+                VIDEO_CONTENT_TYPES[path.extname(filename)] ??
+                driveFile.mimeType ??
+                "application/octet-stream",
+              "Cache-Control": "private, max-age=3600",
+              "X-Content-Type-Options": "nosniff",
+            });
+            if (driveFile.size) {
+              headers.set("Content-Length", String(driveFile.size));
+            }
+            return new NextResponse(Readable.toWeb(stream) as unknown as ReadableStream, {
+              status: 200,
+              headers,
+            });
+          }
         }
       }
 
-      headers.set("Content-Length", String(stat.size));
-      return new NextResponse(
-        Readable.toWeb(fs.createReadStream(filePath)) as unknown as ReadableStream,
-        { status: 200, headers }
-      );
+      throw ApiError.notFound("Video not found");
     },
   },
   { requireAuth: true, rateLimit: false }

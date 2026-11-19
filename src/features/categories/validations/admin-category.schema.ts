@@ -62,6 +62,7 @@ export const adminCategoriesQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(500).optional(),
   search: z.string().trim().optional(),
   isActive: z.boolean().optional(),
+  parentId: z.string().trim().nullable().optional(),
 });
 
 export type AdminCategoriesQueryInput = z.infer<
@@ -75,17 +76,18 @@ export const adminCategoryListSchema = z
       .number()
       .int()
       .min(1, "pageSize must be at least 1")
-      .max(100, "pageSize cannot exceed 100")
+      .max(500, "pageSize cannot exceed 500")
       .default(10)
       .optional(),
     limit: z
       .number()
       .int()
       .min(1, "limit must be at least 1")
-      .max(100, "limit cannot exceed 100")
+      .max(500, "limit cannot exceed 500")
       .optional(),
     search: z.string().trim().optional(),
     isActive: z.boolean().optional(),
+    parentId: z.string().trim().nullable().optional(),
   })
   .strict();
 

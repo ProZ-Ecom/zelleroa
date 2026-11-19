@@ -33,7 +33,7 @@ export const GET = createApiHandler(
       }
     },
   },
-  { requireAuth: true, querySchema: getOrdersQuerySchema }
+  { requireAuth: true, requiredRole: ["CUSTOMER", "AGENT"], querySchema: getOrdersQuerySchema }
 );
 
 export const POST = createApiHandler(
@@ -49,5 +49,5 @@ export const POST = createApiHandler(
       }
     },
   },
-  { requireAuth: true, bodySchema: placeOrderSchema }
+  { requireAuth: true, requiredRole: ["CUSTOMER", "AGENT"], bodySchema: placeOrderSchema }
 );

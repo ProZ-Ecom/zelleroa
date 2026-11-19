@@ -54,7 +54,7 @@ export function HeroSlider() {
         onClick={previous}
         width={50}
         height={50}
-        className="absolute left-2 sm:left-4 md:left-6 lg:left-8 top-1/2 -translate-y-1/2 z-20 hover:scale-110 transition-transform"
+        className="absolute left-2 sm:left-4 md:left-6 lg:left-8 top-1/2 -translate-y-1/2 z-20 cursor-pointer hover:scale-110 transition-transform"
         imageClassName="w-7 sm:w-9 md:w-11 lg:w-14 h-auto drop-shadow-md"
       />
 
@@ -72,7 +72,7 @@ export function HeroSlider() {
         onClick={next}
         width={50}
         height={50}
-        className="absolute right-2 sm:right-4 md:right-6 lg:right-8 top-1/2 -translate-y-1/2 z-20 hover:scale-110 transition-transform"
+        className="absolute right-2 sm:right-4 md:right-6 lg:right-8 top-1/2 -translate-y-1/2 z-20 cursor-pointer hover:scale-110 transition-transform"
         imageClassName="w-7 sm:w-9 md:w-11 lg:w-14 h-auto drop-shadow-md"
       />
     </section>

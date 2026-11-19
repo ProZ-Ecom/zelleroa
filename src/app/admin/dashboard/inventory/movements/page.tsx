@@ -8,9 +8,12 @@ import { AdminTableSkeleton } from "@/components/admin/AdminTableSkeleton";
 import { DataTable } from "@/components/admin/data-table/DataTable";
 import { ErrorState } from "@/components/ui/error-state";
 import { SearchInput } from "@/components/ui/search-input";
+import { Select } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { ClearFiltersButton } from "@/components/common/clear-filters-button";
-import { MovementTypeBadge, SignedQuantity, VariantLabel } from "@/features/inventory/components/StockBadges";
+import { ExportButton } from "@/components/common/export-button";
+import { exportDataToCsv } from "@/lib/export-csv";
+import { MOVEMENT_LABELS, MovementTypeBadge, SignedQuantity, VariantLabel } from "@/features/inventory/components/StockBadges";
 import { useStockMovements } from "@/features/inventory/hooks/use-stock";
 import { formatDateTime } from "@/lib/utils";
 import type { MovementRow, MovementType } from "@/features/inventory/types/stock";
@@ -22,24 +25,53 @@ const TYPES: { value: MovementType | ""; label: string }[] = [
   { value: "RETURN", label: "Return" },
   { value: "REPLACEMENT", label: "Replacement" },
   { value: "ADJUSTMENT", label: "Adjustment" },
+  { value: "PURCHASE_RETURN", label: "Purchase return" },
+  { value: "DAMAGE", label: "Damage" },
 ];
 
 const columns: ColumnDef<MovementRow>[] = [
   {
     id: "date",
     header: "Date",
+    accessorFn: (row) => formatDateTime(row.createdAt),
     cell: ({ row }) => (
       <span className="whitespace-nowrap text-sm">{formatDateTime(row.original.createdAt)}</span>
     ),
   },
-  { id: "product", header: "Product", cell: ({ row }) => <VariantLabel item={row.original} /> },
-  { id: "color", header: "Colour", cell: ({ row }) => row.original.colorName ?? "—" },
-  { id: "size", header: "Size", cell: ({ row }) => row.original.sizeName ?? "—" },
-  { id: "type", header: "Type", cell: ({ row }) => <MovementTypeBadge type={row.original.movementType} /> },
-  { id: "qty", header: "Qty", cell: ({ row }) => <SignedQuantity value={row.original.signedQuantity} /> },
+  {
+    id: "product",
+    header: "Product",
+    accessorFn: (row) => row.productName,
+    cell: ({ row }) => <VariantLabel item={row.original} />,
+  },
+  {
+    id: "color",
+    header: "Colour",
+    accessorFn: (row) => row.colorName ?? "—",
+    cell: ({ row }) => row.original.colorName ?? "—",
+  },
+  {
+    id: "size",
+    header: "Size",
+    accessorFn: (row) => row.sizeName ?? "—",
+    cell: ({ row }) => row.original.sizeName ?? "—",
+  },
+  {
+    id: "type",
+    header: "Type",
+    accessorFn: (row) => (row.movementType ? MOVEMENT_LABELS[row.movementType] : "Legacy"),
+    cell: ({ row }) => <MovementTypeBadge type={row.original.movementType} />,
+  },
+  {
+    id: "qty",
+    header: "Qty",
+    accessorFn: (row) => (row.signedQuantity > 0 ? `+${row.signedQuantity}` : String(row.signedQuantity)),
+    cell: ({ row }) => <SignedQuantity value={row.original.signedQuantity} />,
+  },
   {
     id: "stock",
     header: "Stock",
+    accessorFn: (row) => (row.previousStock === null ? "—" : `${row.previousStock} → ${row.newStock}`),
     cell: ({ row }) =>
       row.original.previousStock === null ? (
         <span className="text-neutral-400">—</span>
@@ -52,18 +84,25 @@ const columns: ColumnDef<MovementRow>[] = [
   {
     id: "reference",
     header: "Reference",
+    accessorFn: (row) => row.referenceNumber ?? "—",
     cell: ({ row }) => <span className="text-sm">{row.original.referenceNumber ?? "—"}</span>,
   },
   {
     id: "reason",
     header: "Reason",
+    accessorFn: (row) => row.reason ?? "—",
     cell: ({ row }) => (
       <span className="block max-w-[260px] truncate text-sm" title={row.original.reason ?? undefined}>
         {row.original.reason ?? "—"}
       </span>
     ),
   },
-  { id: "by", header: "By", cell: ({ row }) => <span className="text-sm">{row.original.createdBy ?? "System"}</span> },
+  {
+    id: "by",
+    header: "By",
+    accessorFn: (row) => row.createdBy ?? "System",
+    cell: ({ row }) => <span className="text-sm">{row.original.createdBy ?? "System"}</span>,
+  },
 ];
 
 function MovementsContent() {
@@ -103,71 +142,91 @@ function MovementsContent() {
             : "Every change to your stock, with the level before and after."
         }
       />
-      <AdminContent className="flex-1 min-h-0 overflow-hidden">
-        <div className="flex h-full flex-col overflow-hidden py-1">
-          <div className="flex-shrink-0 flex flex-col gap-3 lg:flex-row lg:items-center">
-            <SearchInput
-              placeholder="Search product, SKU, order / PO number..."
-              defaultValue={search}
-              onSearch={(v) => {
-                setSearch(v);
-                setPage(1);
-              }}
-              className="w-full max-w-md"
-            />
-            <select
-              value={type}
-              onChange={(e) => {
-                setType(e.target.value as MovementType | "");
-                setPage(1);
-              }}
-              className="h-11 rounded-xl border border-neutral-300 bg-white px-3 text-sm focus:border-secondary-600 focus:outline-none"
-              aria-label="Filter by movement type"
-            >
-              {TYPES.map((t) => (
-                <option key={t.value} value={t.value}>
-                  {t.label}
-                </option>
-              ))}
-            </select>
-            <div className="flex items-center gap-2">
-              <Input
-                type="date"
-                value={from}
-                max={to || undefined}
-                onChange={(e) => {
-                  setFrom(e.target.value);
+      <AdminContent className="flex-1 min-h-0">
+        <div className="flex h-full flex-col py-1">
+          <div className="flex-shrink-0 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex flex-1 flex-col gap-3 lg:flex-row lg:items-center flex-wrap">
+              <SearchInput
+                placeholder="Search product, SKU, order / PO number..."
+                defaultValue={search}
+                onSearch={(v) => {
+                  setSearch(v);
                   setPage(1);
                 }}
-                aria-label="From date"
+                className="w-full max-w-md"
               />
-              <span className="text-sm text-neutral-500">to</span>
-              <Input
-                type="date"
-                value={to}
-                min={from || undefined}
-                onChange={(e) => {
-                  setTo(e.target.value);
+              <Select
+                value={type}
+                onValueChange={(val) => {
+                  setType(val as MovementType | "");
                   setPage(1);
                 }}
-                aria-label="To date"
+                options={TYPES}
+                className="w-full sm:w-48"
+                aria-label="Filter by movement type"
               />
+              <div className="flex items-center gap-2">
+                <Input
+                  type="date"
+                  value={from}
+                  max={to || undefined}
+                  onChange={(e) => {
+                    setFrom(e.target.value);
+                    setPage(1);
+                  }}
+                  aria-label="From date"
+                />
+                <span className="text-sm text-neutral-500">to</span>
+                <Input
+                  type="date"
+                  value={to}
+                  min={from || undefined}
+                  onChange={(e) => {
+                    setTo(e.target.value);
+                    setPage(1);
+                  }}
+                  aria-label="To date"
+                />
+              </div>
+              {hasFilters && (
+                <ClearFiltersButton
+                  onClick={() => {
+                    setSearch("");
+                    setType("");
+                    setFrom("");
+                    setTo("");
+                    setItem(undefined);
+                    setPage(1);
+                  }}
+                />
+              )}
             </div>
-            {hasFilters && (
-              <ClearFiltersButton
-                onClick={() => {
-                  setSearch("");
-                  setType("");
-                  setFrom("");
-                  setTo("");
-                  setItem(undefined);
-                  setPage(1);
-                }}
-              />
-            )}
+
+            <ExportButton
+              onClick={() =>
+                exportDataToCsv(
+                  rows.map((r) => ({
+                    Date: formatDateTime(r.createdAt),
+                    Product: r.productName,
+                    SKU: r.sku,
+                    Color: r.colorName || "—",
+                    Size: r.sizeName || "—",
+                    Type: r.movementType,
+                    Quantity: r.signedQuantity,
+                    PreviousStock: r.previousStock ?? "—",
+                    NewStock: r.newStock,
+                    Reference: r.referenceNumber || "—",
+                    Reason: r.reason || "—",
+                    CreatedBy: r.createdBy || "System",
+                  })),
+                  "stock-movements"
+                )
+              }
+              disabled={rows.length === 0}
+            />
           </div>
 
-          <div className="mt-6 flex-1 min-h-0 overflow-hidden flex flex-col">
+          <div className="mt-6 flex-1 min-h-0 flex flex-col">
             {isLoading && !data ? (
               <AdminTableSkeleton />
             ) : (

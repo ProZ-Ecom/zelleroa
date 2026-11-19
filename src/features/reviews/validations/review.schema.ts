@@ -52,6 +52,20 @@ export const createReviewSchema = z
 
 export type CreateReviewInput = z.infer<typeof createReviewSchema>;
 
+export const reviewEligibilityQuerySchema = z
+  .object({
+    variantUnitPriceId: z.string().uuid("Invalid variant unit price UUID").optional(),
+    variantId: z.string().uuid("Invalid variant UUID").optional(),
+    productId: z.string().uuid("Invalid product UUID").optional(),
+  })
+  .strict()
+  .refine((d) => Boolean(d.variantUnitPriceId || d.variantId || d.productId), {
+    message: "variantUnitPriceId, variantId, or productId is required",
+    path: ["variantId"],
+  });
+
+export type ReviewEligibilityQueryInput = z.infer<typeof reviewEligibilityQuerySchema>;
+
 export const updateReviewSchema = z
   .object({
     rating: z

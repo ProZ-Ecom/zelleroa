@@ -17,6 +17,7 @@ export interface BannerDto {
   videoUrl: string | null;
   thumbnailUrl: string | null;
   linkUrl: string | null;
+  offerId: string | null; // Public Offer UUID, when the banner opens an offer
   badgeLabel: string | null;
   subtitle: string | null;
   priceText: string | null;
@@ -42,6 +43,7 @@ export interface CustomerBannerDto {
   videoUrl: string | null;
   thumbnailUrl: string | null;
   linkUrl: string | null;
+  offerId: string | null; // Public Offer UUID, when the banner opens an offer
   badgeLabel: string | null;
   subtitle: string | null;
   priceText: string | null;

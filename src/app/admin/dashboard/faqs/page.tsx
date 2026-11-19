@@ -16,6 +16,8 @@ import {
   AdminContent,
 } from "@/components/admin/AdminPageHeader";
 import { FormModal } from "@/components/common/FormModal";
+import { ExportButton } from "@/components/common/export-button";
+import { exportDataToCsv } from "@/lib/export-csv";
 import { SearchInput } from "@/components/ui/search-input";
 import { ClearFiltersButton } from "@/components/common/clear-filters-button";
 import {
@@ -29,6 +31,7 @@ import {
 } from "@/features/faqs/hooks";
 import { FaqForm } from "@/features/faqs/components";
 import type { FaqDto, FaqStatus } from "@/features/faqs/types";
+import { CanAct } from "@/features/access";
 
 const STATUS_FILTER_OPTIONS = [
   { value: "", label: "All Statuses" },
@@ -210,8 +213,12 @@ export default function AdminFaqsPage() {
               }
             />
             <Badge
-              variant={isActive ? "success" : "secondary"}
-              className="text-xs"
+              variant={isActive ? "success" : "destructive"}
+              className={
+                isActive
+                  ? "border-emerald-200 bg-emerald-50 text-emerald-700 text-xs font-semibold"
+                  : "border-red-200 bg-red-50 text-red-700 text-xs font-semibold"
+              }
             >
               {isActive ? "Active" : "Inactive"}
             </Badge>
@@ -226,30 +233,34 @@ export default function AdminFaqsPage() {
         const faq = row.original;
         return (
           <div className="flex items-center gap-1">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => {
-                setSelectedFaq(faq);
-                setIsEditOpen(true);
-              }}
-              className="h-8 w-8 text-[var(--color-neutral-500)] hover:bg-[var(--color-neutral-100)] hover:text-[var(--color-neutral-900)]"
-              title="Edit FAQ"
-            >
-              <Pencil className="h-4 w-4" />
-            </Button>
+            <CanAct action="UPDATE">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => {
+                  setSelectedFaq(faq);
+                  setIsEditOpen(true);
+                }}
+                className="h-8 w-8 text-[var(--color-neutral-500)] hover:bg-[var(--color-neutral-100)] hover:text-[var(--color-neutral-900)]"
+                title="Edit FAQ"
+              >
+                <Pencil className="h-4 w-4" />
+              </Button>
+            </CanAct>
 
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() =>
-                setDeleteTarget({ id: faq.id, question: faq.question })
-              }
-              className="h-8 w-8 text-[var(--color-error-500)] hover:bg-[var(--color-error-50)] hover:text-[var(--color-error-700)]"
-              title="Delete FAQ"
-            >
-              <Trash2 className="h-4 w-4" />
-            </Button>
+            <CanAct action="DELETE">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() =>
+                  setDeleteTarget({ id: faq.id, question: faq.question })
+                }
+                className="h-8 w-8 text-[var(--color-error-500)] hover:bg-[var(--color-error-50)] hover:text-[var(--color-error-700)]"
+                title="Delete FAQ"
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </CanAct>
           </div>
         );
       },
@@ -271,7 +282,7 @@ export default function AdminFaqsPage() {
         description="Manage the questions and answers shown on the storefront FAQ page."
       />
 
-      <AdminContent className="min-h-0 flex-1 overflow-hidden">
+      <AdminContent className="min-h-0 flex-1">
         <div className="flex h-full flex-col overflow-hidden rounded-2xl bg-[var(--color-background)] py-1">
           {/* Top Bar: Search, Filters, Add Button */}
           <div className="flex flex-shrink-0 flex-col gap-4 md:flex-row md:items-center md:justify-between">
@@ -317,14 +328,31 @@ export default function AdminFaqsPage() {
               )}
             </div>
 
-            <div className="flex items-center gap-2">
-              <Button
-                onClick={() => setIsCreateOpen(true)}
-                className="h-11 rounded-xl bg-[var(--color-secondary-600)] px-5 text-sm font-semibold text-white hover:bg-[var(--color-secondary-700)]"
-              >
-                <Plus className="mr-2 h-4 w-4" />
-                Add FAQ
-              </Button>
+            <div className="flex items-center gap-3">
+              <ExportButton
+                onClick={() =>
+                  exportDataToCsv(
+                    faqs.map((f) => ({
+                      Order: f.displayOrder,
+                      Question: f.question,
+                      Answer: f.answer,
+                      Category: f.category || "Uncategorised",
+                      Status: f.status,
+                    })),
+                    "faqs"
+                  )
+                }
+                disabled={faqs.length === 0}
+              />
+              <CanAct action="CREATE">
+                <Button
+                  onClick={() => setIsCreateOpen(true)}
+                  className="h-11 rounded-xl bg-stone-900 hover:bg-stone-800 text-[#D4AF37] border border-[#D4AF37]/30 shadow-xs px-5 text-sm font-semibold transition-colors"
+                >
+                  <Plus className="mr-2 h-4 w-4 text-[#D4AF37]" />
+                  Add FAQ
+                </Button>
+              </CanAct>
             </div>
           </div>
 
@@ -335,7 +363,7 @@ export default function AdminFaqsPage() {
           )}
 
           {/* Data Table */}
-          <div className="mt-6 flex min-h-0 flex-1 flex-col overflow-hidden">
+          <div className="mt-6 flex min-h-0 flex-1 flex-col">
             <DataTable
               columns={columns}
               data={faqs}

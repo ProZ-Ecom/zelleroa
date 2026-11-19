@@ -1,5 +1,14 @@
+import type { Metadata } from "next";
 import { Package, Percent, Truck } from "lucide-react";
 import { BulkOrderForm } from "@/features/bulk-orders/components/BulkOrderForm";
+import { constructMetadata } from "@/lib/seo";
+
+export const metadata: Metadata = constructMetadata({
+  title: "Bulk Order Enquiry",
+  description:
+    "Ordering in large quantities for a business, event, or gifting? Inquire about special bulk pricing, custom packaging, and corporate orders at Zellora.",
+  canonicalUrl: "/bulk-order",
+});
 
 export default function BulkOrderPage() {
   return (

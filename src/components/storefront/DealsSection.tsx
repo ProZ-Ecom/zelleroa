@@ -126,7 +126,7 @@ export function OfferCard({ offer }: { offer: OfferListItem }) {
             (offer.code ? "Auto-applies at checkout" : "Valid till stocks last")}
         </span>
         <Link
-          href="/products"
+          href={`/offers/${offer.id}`}
           className="inline-flex items-center gap-1.5 rounded-md bg-theme-primary hover:bg-theme-primary-hover px-4 py-2 text-xs font-bold uppercase tracking-wide text-white transition-colors shrink-0"
         >
           Shop Now

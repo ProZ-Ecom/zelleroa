@@ -27,7 +27,7 @@ export const GET = createApiHandler(
     },
   },
   {
-    requireAuth: true,
+    requireAuth: true, requiredRole: ["CUSTOMER", "AGENT"],
     querySchema: customerAddressQuerySchema,
   }
 );
@@ -51,7 +51,7 @@ export const POST = createApiHandler(
     },
   },
   {
-    requireAuth: true,
+    requireAuth: true, requiredRole: ["CUSTOMER", "AGENT"],
     bodySchema: createCustomerAddressSchema,
   }
 );

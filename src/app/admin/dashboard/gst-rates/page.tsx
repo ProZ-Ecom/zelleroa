@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { toast } from "@/components/ui/Toast";
 import { useGstRates } from "@/features/gst-rates/hooks/use-gst-rates";
 import {
   useCreateGstRate,
@@ -16,13 +17,18 @@ import {
 import { AdminTableSkeleton } from "@/components/admin/AdminTableSkeleton";
 import { ErrorState } from "@/components/ui/error-state";
 import { Button } from "@/components/ui/button";
+import { ExcelImportDialog } from "@/components/common/ExcelImportDialog";
+import { createAdminGstRateSchema } from "@/features/gst-rates/validations/admin-gst-rate.schema";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { FormModal } from "@/components/common/FormModal";
+import { ExportButton } from "@/components/common/export-button";
+import { exportDataToCsv } from "@/lib/export-csv";
 import { SearchInput } from "@/components/ui/search-input";
-import { Plus, Pencil, Trash2 } from "lucide-react";
+import { Upload, Plus, Pencil, Trash2 } from "lucide-react";
 import type { ColumnDef } from "@tanstack/react-table";
 import type { AdminGstRateResponse } from "@/features/gst-rates/types";
 import { GstRateForm } from "@/features/gst-rates/components/GstRateForm";
+import { CanAct } from "@/features/access";
 
 export default function AdminGstRatesPage() {
   const [search, setSearch] = useState("");
@@ -32,6 +38,7 @@ export default function AdminGstRatesPage() {
 
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [isImportOpen, setIsImportOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [selectedGst, setSelectedGst] =
     useState<AdminGstRateResponse | null>(null);
@@ -142,8 +149,8 @@ export default function AdminGstRatesPage() {
         description="Manage GST rates for products."
       />
 
-      <AdminContent className="flex-1 min-h-0 overflow-hidden">
-        <div className="flex h-full flex-col overflow-hidden bg-[var(--color-background)] py-1 rounded-2xl">
+      <AdminContent className="flex-1 min-h-0">
+        <div className="flex h-full flex-col bg-[var(--color-background)] py-1 rounded-2xl">
           <div className="flex-shrink-0 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <SearchInput
               placeholder="Search GST rates..."
@@ -154,17 +161,44 @@ export default function AdminGstRatesPage() {
               }}
               className="w-full max-w-md"
             />
+            <div className="flex items-center gap-2">
+              <ExportButton
+                onClick={() =>
+                  exportDataToCsv(
+                    gstRates,
+                    "gst-rates",
+                    [
+                      { header: "GST Name", accessor: (g) => g.name },
+                      { header: "CGST %", accessor: (g) => `${g.cgstPercent}%` },
+                      { header: "SGST %", accessor: (g) => `${g.sgstPercent}%` },
+                      { header: "IGST %", accessor: (g) => `${g.igstPercent}%` },
+                    ]
+                  )
+                }
+                disabled={!gstRates.length}
+              />
+              <Button
+                variant="outline"
+                onClick={() => setIsImportOpen(true)}
+                className="h-11 rounded-xl px-5 text-sm font-semibold"
+              >
+                <Upload className="mr-2 h-4 w-4" />
+                Import
+              </Button>
 
-            <Button
-              onClick={() => setIsCreateOpen(true)}
-              className="h-11 rounded-xl bg-[var(--color-secondary-600)] px-5 text-sm font-semibold text-white hover:bg-[var(--color-secondary-700)]"
-            >
-              <Plus className="mr-2 h-4 w-4" />
-              Add GST Rate
-            </Button>
+              <CanAct action="CREATE">
+                <Button
+                  onClick={() => setIsCreateOpen(true)}
+                  className="h-11 rounded-xl bg-stone-900 hover:bg-stone-800 text-[#D4AF37] border border-[#D4AF37]/30 shadow-xs px-5 text-sm font-semibold transition-colors"
+                >
+                  <Plus className="mr-2 h-4 w-4 text-[#D4AF37]" />
+                  Add GST Rate
+                </Button>
+              </CanAct>
+            </div>
           </div>
 
-          <div className="mt-6 flex-1 min-h-0 overflow-hidden flex flex-col">
+          <div className="mt-6 flex-1 min-h-0 flex flex-col">
             <DataTable
               columns={columns}
               data={gstRates}
@@ -183,6 +217,22 @@ export default function AdminGstRatesPage() {
           </div>
         </div>
       </AdminContent>
+      <ExcelImportDialog
+        open={isImportOpen}
+        onClose={() => setIsImportOpen(false)}
+        title="GST Rates"
+        sampleFileName="gst-rates"
+        columns={[
+          { key: "name", header: "GST Rate Name", required: true, samples: ["GST 5%", "GST 12%", "GST 18%"] },
+          { key: "cgstPercent", header: "CGST %", info: "0-100 (e.g. 2.5).", required: true, type: "number", samples: [2.5, 6, 9] },
+          { key: "sgstPercent", header: "SGST %", info: "0-100 (e.g. 2.5).", required: true, type: "number", samples: [2.5, 6, 9] },
+          { key: "igstPercent", header: "IGST %", info: "0-100, usually CGST + SGST (e.g. 5).", required: true, type: "number", samples: [5, 12, 18] },
+        ]}
+        schema={createAdminGstRateSchema}
+        createRow={(payload) => createMutation.mutateAsync(payload)}
+        onImported={() => refetch()}
+      />
+
 
       <FormModal
         open={isCreateOpen}
@@ -194,8 +244,13 @@ export default function AdminGstRatesPage() {
           isLoading={createMutation.isPending}
           submitLabel="Create GST Rate"
           onSubmit={async (formData) => {
-            await createMutation.mutateAsync(formData);
-            setIsCreateOpen(false);
+            try {
+              await createMutation.mutateAsync(formData);
+              toast.success("GST Rate created", `"${formData.name}" was added successfully.`);
+              setIsCreateOpen(false);
+            } catch (err: any) {
+              toast.error("Failed to create GST rate", err?.message || "Please try again.");
+            }
           }}
         />
       </FormModal>
@@ -221,14 +276,18 @@ export default function AdminGstRatesPage() {
             isLoading={updateMutation.isPending}
             submitLabel="Update GST Rate"
             onSubmit={async (formData) => {
-              await updateMutation.mutateAsync({
-                uuid: selectedGst.id,
-                data: formData,
-              });
-
-              setIsEditOpen(false);
-              setSelectedGst(null);
-              refetch();
+              try {
+                await updateMutation.mutateAsync({
+                  uuid: selectedGst.id,
+                  data: formData,
+                });
+                toast.success("GST Rate updated", `"${formData.name}" was saved successfully.`);
+                setIsEditOpen(false);
+                setSelectedGst(null);
+                refetch();
+              } catch (err: any) {
+                toast.error("Failed to update GST rate", err?.message || "Please try again.");
+              }
             }}
           />
         )}
@@ -237,11 +296,15 @@ export default function AdminGstRatesPage() {
       <ConfirmDialog
         open={!!deleteId}
         onClose={() => setDeleteId(null)}
-        onConfirm={() => {
+        onConfirm={async () => {
           if (deleteId) {
-            deleteMutation.mutate(deleteId, {
-              onSuccess: () => setDeleteId(null),
-            });
+            try {
+              await deleteMutation.mutateAsync(deleteId);
+              toast.success("GST Rate deleted", "The GST rate was removed successfully.");
+              setDeleteId(null);
+            } catch (err: any) {
+              toast.error("Failed to delete GST rate", err?.message || "Please try again.");
+            }
           }
         }}
         title="Delete GST Rate"

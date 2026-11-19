@@ -1,10 +1,9 @@
 "use client";
 
-import { useState, Suspense } from "react";
+import { useState, useEffect, Suspense } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { signIn } from "next-auth/react";
-import { FormProvider, useForm } from "react-hook-form";
+import { FormProvider, useForm, type FieldErrors } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Mail, LockKeyhole, AlertCircle } from "lucide-react";
 
@@ -17,12 +16,29 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Spinner } from "@/components/ui/spinner";
 
 import { loginSchema, type LoginInput } from "@/lib/validations/auth";
-import { useLogin } from "@/features/auth";
+import {
+  useLogin,
+  useLoginCooldown,
+  logoutApi,
+  ACCOUNT_BLOCKED_MESSAGE,
+  ACCOUNT_BLOCKED_TITLE,
+} from "@/features/auth";
+import { toast, suppressPendingSuccessToast } from "@/components/ui/Toast";
+import { resolveRoleScope } from "@/lib/auth/role-routes";
 
 function AdminLoginForm() {
-  const router = useRouter();
   const [rememberMe, setRememberMe] = useState(false);
   const loginMutation = useLogin();
+  const [phase, setPhase] = useState<"idle" | "signing-in" | "redirecting">("idle");
+  const [redirectSlow, setRedirectSlow] = useState(false);
+  const cooldown = useLoginCooldown();
+  const busy = phase !== "idle" || loginMutation.isPending;
+
+  useEffect(() => {
+    if (phase !== "redirecting") return;
+    const t = setTimeout(() => setRedirectSlow(true), 15000);
+    return () => clearTimeout(t);
+  }, [phase]);
 
   const methods = useForm<LoginInput>({
     resolver: zodResolver(loginSchema),
@@ -34,7 +50,24 @@ function AdminLoginForm() {
     },
   });
 
+  const onInvalid = (errors: FieldErrors<LoginInput>) => {
+    if (errors.email?.message) {
+      toast.error("Invalid Email", String(errors.email.message));
+    } else if (errors.password?.message) {
+      toast.error("Password Required", String(errors.password.message));
+    } else {
+      toast.error("Validation Error", "Please fill in all required fields correctly.");
+    }
+  };
+
   const onSubmit = (data: LoginInput) => {
+    if (busy) return;
+    if (cooldown.coolingDown) {
+      toast.warning("Please wait", `Please wait ${cooldown.label} before trying again.`);
+      return;
+    }
+    methods.clearErrors();
+    setPhase("signing-in");
     loginMutation.mutate(
       {
         email: data.email.trim(),
@@ -43,7 +76,16 @@ function AdminLoginForm() {
       {
         onSuccess: async (response) => {
           const userRole = response.data?.user?.role;
-          if (userRole !== "ADMIN" && userRole !== "STAFF") {
+          // Any role in the ADMIN scope may use the admin portal, including roles
+          // an admin created themselves — not just the built-in ADMIN/STAFF names.
+          if (resolveRoleScope(response.data?.user?.scope, userRole) !== "ADMIN") {
+            suppressPendingSuccessToast();
+            setPhase("idle");
+            try {
+              await logoutApi();
+            } catch {
+              // Ignore logout cleanup error
+            }
             methods.setError("root", {
               type: "manual",
               message: "Access denied. You are not authorized to access the Admin portal.",
@@ -51,26 +93,61 @@ function AdminLoginForm() {
             return;
           }
 
+          toast.success("Success", "Login successful");
+
+          // Keep the loader up through session sync and the page navigation.
+          setPhase("redirecting");
           try {
-            await signIn("credentials", {
-              email: data.email.trim(),
-              password: data.password,
-              redirect: false,
-            });
+            // Bounded wait: a stalled NextAuth request must not block the redirect.
+            await Promise.race([
+              signIn("credentials", {
+                email: data.email.trim(),
+                password: data.password,
+                redirect: false,
+              }),
+              new Promise((resolve) => setTimeout(resolve, 4000)),
+            ]);
           } catch {
             // Cookie auth is primary
           }
 
-          router.push("/admin/dashboard");
-          router.refresh();
+          // Full navigation so middleware sees the fresh auth cookies.
+          window.location.assign("/admin/dashboard");
         },
         onError: (err: any) => {
-          methods.setError("root", {
-            type: "server",
-            message:
-              err?.message ||
-              "Invalid email or password. Please check your credentials.",
-          });
+          setPhase("idle");
+          cooldown.startFromError(err);
+          const field = (err?.details as { field?: string } | undefined)?.field;
+          const msg = err?.message || "";
+          const isBlocked =
+            msg === ACCOUNT_BLOCKED_MESSAGE ||
+            err?.code === "ACCOUNT_BLOCKED";
+
+          if (isBlocked) {
+            methods.setError("root", {
+              type: "server",
+              message: ACCOUNT_BLOCKED_MESSAGE,
+            });
+            toast.error("Account Blocked", ACCOUNT_BLOCKED_MESSAGE);
+          } else if (field === "email" || msg.toLowerCase().includes("email")) {
+            methods.setError("email", {
+              type: "server",
+              message: "Invalid email address",
+            });
+            toast.error("Invalid Email", "The email address you entered was not found.");
+          } else if (field === "password" || msg.toLowerCase().includes("password")) {
+            methods.setError("password", {
+              type: "server",
+              message: "Incorrect password",
+            });
+            toast.error("Incorrect Password", "The password you entered is incorrect. Please try again.");
+          } else {
+            methods.setError("root", {
+              type: "server",
+              message: msg || "Invalid email or password. Please check your credentials.",
+            });
+            toast.error("Login Failed", msg || "Invalid email or password. Please check your credentials.");
+          }
         },
       }
     );
@@ -85,14 +162,21 @@ function AdminLoginForm() {
     >
       <FormProvider {...methods}>
         <form
-          onSubmit={methods.handleSubmit(onSubmit)}
+          onSubmit={methods.handleSubmit(onSubmit, onInvalid)}
           className="space-y-5 md:space-y-6"
         >
           {/* Server Error */}
           {methods.formState.errors.root?.message && (
             <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-600">
               <AlertCircle className="h-4 w-4 shrink-0" />
-              {methods.formState.errors.root.message}
+              {methods.formState.errors.root.message === ACCOUNT_BLOCKED_MESSAGE ? (
+                <div>
+                  <p className="font-semibold">{ACCOUNT_BLOCKED_TITLE}</p>
+                  <p>{ACCOUNT_BLOCKED_MESSAGE}</p>
+                </div>
+              ) : (
+                methods.formState.errors.root.message
+              )}
             </div>
           )}
 
@@ -100,7 +184,7 @@ function AdminLoginForm() {
             name="email"
             label="Email Address"
             type="email"
-            placeholder="admin@zellora.com"
+            placeholder="Enter your email"
             autoComplete="email"
             leftIcon={<Mail size={18} />}
             required
@@ -133,17 +217,45 @@ function AdminLoginForm() {
 
           <FormSubmitButton
             size="xl"
-            disabled={loginMutation.isPending}
+            disabled={busy || cooldown.coolingDown}
             className="mt-2 h-10 w-full rounded-lg bg-secondary-600 text-sm text-white transition-all hover:bg-secondary-700 cursor-pointer disabled:opacity-50"
           >
-            {loginMutation.isPending ? (
-              <Spinner size="sm" className="text-white" />
+            {busy ? (
+              <span className="flex items-center gap-2">
+                <Spinner size="sm" className="text-white" />
+                {phase === "redirecting" ? "Loading dashboard..." : "Signing in..."}
+              </span>
             ) : (
-              "Sign In to Admin"
+              cooldown.coolingDown ? `Try again in ${cooldown.label}` : "Sign In to Admin"
             )}
           </FormSubmitButton>
         </form>
       </FormProvider>
+
+      {phase === "redirecting" && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-4 bg-white/95 px-6 text-center"
+        >
+          <Spinner size="lg" />
+          {redirectSlow ? (
+            <>
+              <p className="text-sm text-neutral-700">
+                You&apos;re signed in, but this is taking longer than usual.
+              </p>
+              <a
+                href="/admin/dashboard"
+                className="text-sm font-medium text-secondary-600 hover:underline"
+              >
+                Continue manually
+              </a>
+            </>
+          ) : (
+            <p className="text-sm text-neutral-700">Login successful. Loading dashboard...</p>
+          )}
+        </div>
+      )}
     </AuthFormLayout>
   );
 }

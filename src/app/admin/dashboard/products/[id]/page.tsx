@@ -6,6 +6,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { useParams, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
+import { ExportButton } from "@/components/common/export-button";
 import {
   ChevronRight,
   Package,
@@ -45,9 +46,9 @@ import {
 import { useUpdateProduct } from "@/features/products/hooks/use-product-mutations";
 import { useCategories } from "@/features/categories/hooks";
 import { useBrands } from "@/features/brands/hooks";
+import { QuickAddBrandModal } from "@/features/brands/components/QuickAddBrandModal";
 import { useHsnCodes } from "@/features/hsn-codes/hooks";
 import { useUnits } from "@/features/units/hooks";
-import { ProductPriceEditModal } from "@/features/products/components/ProductPriceEditModal";
 import { ProductForm, type ProductFormValues } from "@/features/products/components/ProductForm";
 import { ProductAttributesPanel } from "@/features/products/components/ProductAttributesPanel";
 import { ProductImageUploader } from "@/features/products/components/ProductImageUploader";
@@ -70,9 +71,7 @@ import type { AdminVariantResponse } from "@/features/variants/types";
 import { useStyles, useCreateStyle, useUpdateStyle, useDeleteStyle } from "@/features/styles/hooks";
 import { StyleForm, StyleCard, type StyleFormValues } from "@/features/styles/components";
 import type { AdminStyleResponse } from "@/features/styles/types";
-import { useItems, useCreateItem, useUpdateItem, useDeleteItem } from "@/features/items/hooks";
-import { ItemForm, ItemColorsPanel, type ItemFormValues } from "@/features/items/components";
-import type { AdminItemResponse } from "@/features/items/types";
+import { StyleVariantsPanel } from "@/features/styles/components";
 
 type VariantFilter = "active" | "inactive";
 
@@ -127,11 +126,11 @@ export default function AdminProductDetailsPage() {
     /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val);
 
   // Safely determine the product UUID so we never send invalid non-UUID strings to the backend API
-  const productUuid:string| null = isUuid(product?.id)
+  const productUuid: string | null = isUuid(product?.id)
     ? product.id
     : isUuid(productId)
-    ? productId
-    : undefined;
+      ? productId
+      : undefined;
 
   const canonicalProductId = productUuid || product?.id || productId;
 
@@ -149,12 +148,12 @@ export default function AdminProductDetailsPage() {
   } = useVariants(
     productUuid
       ? {
-          productIds: [productUuid],
-          isActive: variantFilter === "active",
-          pageSize: 100,
-          page: 1,
-          
-        }
+        productIds: [productUuid],
+        isActive: variantFilter === "active",
+        pageSize: 100,
+        page: 1,
+
+      }
       : undefined,
     { enabled: !!productUuid }
   );
@@ -192,107 +191,14 @@ export default function AdminProductDetailsPage() {
   const updateStyleMutation = useUpdateStyle();
   const deleteStyleMutation = useDeleteStyle();
 
-  // 2c. Items under the selected Style - the admin-only "Regular Fit / Slim
-  // Fit / Oversized" sub-variants. Never shown to customers; only used here
-  // to scope which Colors/Sizes show below.
-  const { data: itemsResponse, isLoading: isLoadingItems } = useItems(
-    productUuid || null,
-    selectedStyleUuid || null,
-    { pageSize: 100 }
-  );
-  const items = React.useMemo<AdminItemResponse[]>(
-    () => itemsResponse?.data ?? [],
-    [itemsResponse]
-  );
-
-  const [selectedItemUuid, setSelectedItemUuid] = React.useState<string | null>(null);
-  React.useEffect(() => {
-    if (selectedItemUuid && items.some((i) => i.id === selectedItemUuid)) return;
-    const fallback = items.find((i) => i.isDefault) ?? items[0] ?? null;
-    setSelectedItemUuid(fallback?.id ?? null);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [items]);
-
-  const [isAddItemOpen, setIsAddItemOpen] = React.useState(false);
-  const [isPickBrandOpen, setIsPickBrandOpen] = React.useState(false);
-  const [pickedBrandId, setPickedBrandId] = React.useState("");
-  const [newlyCreatedItem, setNewlyCreatedItem] = React.useState<AdminItemResponse | null>(null);
-  const [editingItem, setEditingItem] = React.useState<AdminItemResponse | null>(null);
-  const [deletingItem, setDeletingItem] = React.useState<AdminItemResponse | null>(null);
-  const [isPreparingItemForm, setIsPreparingItemForm] = React.useState(false);
-
-  const createItemMutation = useCreateItem();
-  const updateItemMutation = useUpdateItem();
-  const deleteItemMutation = useDeleteItem();
-
-  // Items always need a parent Style in the database. Most products only
-  // ever need one, so "Add Sub-variant" silently creates a hidden default Style
-  // the first time it's needed - the admin only ever sees "Item".
-  // Creates the hidden default Style (Items always need a parent Style) and
-  // opens the Add Type form. `brandId` is the Product's brand when set, or
-  // whatever the admin picked in the "Select Brand" step below.
-  const createHiddenStyleAndOpenItemForm = async (brandId: string) => {
-    setIsPreparingItemForm(true);
-    try {
-      const res = await createStyleMutation.mutateAsync({
-        productUuid: canonicalProductId,
-        data: {
-          brandId,
-          name: product.name,
-          slug: `${product.slug}-default`,
-          sku: null,
-          shortDescription: null,
-          description: null,
-          ingredients: null,
-          isReadyToMix: false,
-          cookingRecipe: null,
-          shelfLife: null,
-          vegType: "na",
-          basePrice: 0,
-          isFeatured: false,
-          isDefault: true,
-          isActive: true,
-        },
-      });
-      const created = (res as any)?.data as AdminStyleResponse | undefined;
-      if (created) {
-        setSelectedStyleUuid(created.id);
-        setIsAddItemOpen(true);
-      }
-    } catch (err: any) {
-      console.error("Failed to prepare product for Items", err);
-      toast.error("Failed to add item", err?.message || "Please try again.");
-    } finally {
-      setIsPreparingItemForm(false);
-    }
-  };
-
-  const handleAddItemClick = async () => {
-    if (selectedStyleUuid) {
-      setIsAddItemOpen(true);
-      return;
-    }
-    // The hidden Style still needs a Brand; use the Product's if set,
-    // otherwise ask the admin to pick one right here.
-    if (!product.brandId) {
-      setPickedBrandId("");
-      setIsPickBrandOpen(true);
-      return;
-    }
-    await createHiddenStyleAndOpenItemForm(product.brandId);
-  };
-
-  // The Colors/Sizes section below is scoped to whichever Item is selected
-  // above - with only one Item under the Style (the common case) this is
-  // every variant belonging to that Style, exactly as before.
-  const itemIds = React.useMemo(() => new Set(items.map((i) => i.id)), [items]);
+  // The Colors/Sizes section below is scoped to whichever Style is selected
+  // above - with one Style under the Product (the common case) that is every
+  // variant of the Product.
+  const styleIds = React.useMemo(() => new Set(styles.map((s) => s.id)), [styles]);
   const variants = React.useMemo<AdminVariantResponse[]>(() => {
-    if (items.length <= 1) {
-      return allVariants.filter((v) => itemIds.has(v.itemId));
-    }
-    if (!selectedItemUuid) return allVariants.filter((v) => itemIds.has(v.itemId));
-    return allVariants.filter((v) => v.itemId === selectedItemUuid);
-  }, [allVariants, items.length, itemIds, selectedItemUuid]);
+    if (!selectedStyleUuid) return allVariants.filter((v) => styleIds.has(v.styleId));
+    return allVariants.filter((v) => v.styleId === selectedStyleUuid);
+  }, [allVariants, styleIds, selectedStyleUuid]);
 
   // Reference queries for modal form dropdowns (lazy-loaded when modals open)
   const [isEditProductOpen, setIsEditProductOpen] = React.useState(false);
@@ -310,7 +216,6 @@ export default function AdminProductDetailsPage() {
     rect: DOMRect;
   } | null>(null);
   const [isStatusUpdating, setIsStatusUpdating] = React.useState(false);
-  const [isPriceEditOpen, setIsPriceEditOpen] = React.useState(false);
 
   // Close action dropdown menu when clicking outside, scrolling, or pressing Escape
   React.useEffect(() => {
@@ -381,21 +286,19 @@ export default function AdminProductDetailsPage() {
   const hsnCodeInfo =
     product?.hsnCodeName ||
     (product?.product_hsn_codes?.code
-      ? `${product.product_hsn_codes.code}${
-          product.product_hsn_codes.description
-            ? ` (${product.product_hsn_codes.description})`
-            : ""
-        }`
+      ? `${product.product_hsn_codes.code}${product.product_hsn_codes.description
+        ? ` (${product.product_hsn_codes.description})`
+        : ""
+      }`
       : null) ||
     (product?.hsnCode?.code
-      ? `${product.hsnCode.code}${
-          product.hsnCode.description ? ` (${product.hsnCode.description})` : ""
-        }`
+      ? `${product.hsnCode.code}${product.hsnCode.description ? ` (${product.hsnCode.description})` : ""
+      }`
       : null) ||
     (typeof product?.hsnCode === "string" ? product.hsnCode : null);
 
   const currentTabCount =
-    items.length > 1 ? variants.length : (variantsResponse?.meta?.total ?? variants.length);
+    styles.length > 1 ? variants.length : (variantsResponse?.meta?.total ?? variants.length);
 
   // Selection helpers
   const selectedIds = React.useMemo(
@@ -433,8 +336,8 @@ export default function AdminProductDetailsPage() {
     }
 
     const headers = [
-      "Item ID",
-      "Item Name",
+      "Variant ID",
+      "Variant Name",
       "Default SKU",
       "Default Pack Size",
       "Default Price",
@@ -473,7 +376,7 @@ export default function AdminProductDetailsPage() {
       });
       setVariantToDeactivate(null);
     } catch (err: any) {
-      console.error("Failed to make item inactive", err);
+      console.error("Failed to make variant inactive", err);
     } finally {
       setIsStatusUpdating(false);
     }
@@ -490,7 +393,7 @@ export default function AdminProductDetailsPage() {
       });
       setVariantToActivate(null);
     } catch (err: any) {
-      console.error("Failed to activate item", err);
+      console.error("Failed to activate variant", err);
     } finally {
       setIsStatusUpdating(false);
     }
@@ -520,18 +423,18 @@ export default function AdminProductDetailsPage() {
   const stats = React.useMemo(() => {
     const lastUpdatedDate = product?.updatedAt
       ? new Date(product.updatedAt).toLocaleDateString("en-IN", {
-          day: "numeric",
-          month: "short",
-          year: "numeric",
-        })
+        day: "numeric",
+        month: "short",
+        year: "numeric",
+      })
       : "—";
 
     const lastUpdatedTime = product?.updatedAt
       ? new Date(product.updatedAt).toLocaleTimeString("en-IN", {
-          hour: "2-digit",
-          minute: "2-digit",
-          hour12: true,
-        })
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: true,
+      })
       : "";
 
     return {
@@ -546,13 +449,21 @@ export default function AdminProductDetailsPage() {
 
   // Options for Dropdowns
   const categoryOptions = React.useMemo(
-    () => (categoriesData?.data ?? []).map((c: any) => ({ value: c.id || c.uuid, label: c.name, slug: c.slug })),
+    () =>
+      (categoriesData?.data ?? [])
+        .filter((c: { parentId?: string | number | null }) => !c.parentId)
+        .map((c: { id?: string | number; uuid?: string; name: string; slug: string }) => ({
+          value: String(c.id || c.uuid),
+          label: c.name,
+          slug: c.slug,
+        })),
     [categoriesData]
   );
   const brandOptions = React.useMemo(
     () => (brandsData?.data ?? []).map((b: any) => ({ value: b.uuid || b.id, label: b.name, slug: b.slug })),
     [brandsData]
   );
+
   const hsnOptions = React.useMemo(
     () =>
       (hsnData?.data ?? []).map((h: any) => ({
@@ -615,8 +526,8 @@ export default function AdminProductDetailsPage() {
       </div>
 
       {/* Section 1: Hero Overview + Specifications Card */}
-        <section className="bg-white border border-cream-border rounded-lg overflow-hidden">
-          <div className="p-4 sm:p-5 flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
+      <section className="bg-white border border-cream-border rounded-lg overflow-hidden">
+        <div className="p-4 sm:p-5 flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
           <div className="flex gap-4 items-center min-w-0">
             {/* Product Image Thumbnail */}
             <div className="w-[84px] h-[84px] rounded-lg flex-none bg-cream-100 border border-cream-border relative overflow-hidden flex items-center justify-center">
@@ -645,16 +556,14 @@ export default function AdminProductDetailsPage() {
                 </h1>
                 {/* Active/Inactive badge */}
                 <span
-                  className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-bold ${
-                    product.isActive
-                      ? "bg-success-50 text-success-700"
-                      : "bg-cream-200 text-neutral-400"
-                  }`}
+                  className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-bold ${product.isActive
+                    ? "bg-success-50 text-success-700"
+                    : "bg-cream-200 text-neutral-400"
+                    }`}
                 >
                   <span
-                    className={`w-1.5 h-1.5 rounded-full ${
-                      product.isActive ? "bg-success-600" : "bg-neutral-400"
-                    }`}
+                    className={`w-1.5 h-1.5 rounded-full ${product.isActive ? "bg-success-600" : "bg-neutral-400"
+                      }`}
                   />
                   {product.isActive ? "Active" : "Inactive"}
                 </span>
@@ -683,10 +592,10 @@ export default function AdminProductDetailsPage() {
                   <span className="font-semibold text-neutral-700">
                     {product.createdAt
                       ? new Date(product.createdAt).toLocaleDateString("en-IN", {
-                          day: "numeric",
-                          month: "short",
-                          year: "numeric",
-                        })
+                        day: "numeric",
+                        month: "short",
+                        year: "numeric",
+                      })
                       : "—"}
                   </span>
                 </span>
@@ -713,11 +622,11 @@ export default function AdminProductDetailsPage() {
               <span>Edit</span>
             </button>
           </div>
-          </div>
-        </section>
+        </div>
+      </section>
 
-        {/* Section 2: Stats Cards Grid (3 Cards) */}
-        {/* <section className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
+      {/* Section 2: Stats Cards Grid (3 Cards) */}
+      {/* <section className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
           <div className="bg-white border border-cream-border rounded-2xl p-4 sm:p-5 flex flex-col gap-1.5 shadow-xs">
             <div className="text-[11px] font-bold tracking-wider text-neutral-400 uppercase">
               Price Range
@@ -750,698 +659,529 @@ export default function AdminProductDetailsPage() {
           </div>
         </section> */}
 
-        {/* Section 3.4: Product Attributes - which attributes (Color, Size,
-            Material...) apply to this product. Items below only ever offer
-            value-selection for whatever is checked here. */}
-        <section className="bg-white border border-cream-border rounded-lg overflow-hidden">
-          <div className="p-3.5 sm:p-4 border-b border-cream-border flex items-center gap-2.5">
-            <h2 className="text-base font-bold text-neutral-900 tracking-tight">Attributes</h2>
-          </div>
-          <div className="p-4">
-            <ProductAttributesPanel productUuid={canonicalProductId} />
-          </div>
-        </section>
+      {/* Section 3.4: Product Attributes - which attributes (Color, Size,
+            Material...) apply to this product. The Style's variants panel below
+            only ever offers value-selection for whatever is checked here. */}
+      <section className="bg-white border border-cream-border rounded-lg overflow-hidden">
+        <div className="p-3.5 sm:p-4 border-b border-cream-border flex items-center gap-2.5">
+          <h2 className="text-base font-bold text-neutral-900 tracking-tight">Attributes</h2>
+        </div>
+        <div className="p-4">
+          <ProductAttributesPanel productUuid={canonicalProductId} />
+        </div>
+      </section>
 
-        {/* Section 3.5: Product Styles - only shown once a product actually has
-            more than one Style to manage (e.g. "V Neck T-Shirt" vs "Solo
-            T-Shirt"). Single-style products (the common case) skip this
-            entirely - Items below are added directly via a hidden default
-            Style, created on demand by "Add Sub-variant". */}
-        {styles.length > 1 && (
-          <section className="bg-white border border-cream-border rounded-lg overflow-hidden">
-            <div className="p-3.5 sm:p-4 border-b border-cream-border flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <div className="flex items-center gap-2.5">
-                <h2 className="text-base font-bold text-neutral-900 tracking-tight">Step 1 &middot; Items</h2>
-                <span className="px-2.5 py-0.5 rounded-full bg-cream-200 border border-cream-border text-xs font-bold text-neutral-500">
-                  {styles.length}
-                </span>
-                <span className="text-xs text-neutral-400 hidden sm:inline">
-                  Each Item (e.g. &ldquo;V Neck&rdquo;, &ldquo;Solo&rdquo;) gets its own Models, Colors &amp; Sizes below.
-                </span>
-              </div>
-              <button
-                type="button"
-                onClick={() => setIsAddStyleOpen(true)}
-                className="px-3.5 py-1.5 rounded-md border border-secondary-700 bg-secondary-600 hover:bg-secondary-700 text-cream-white text-xs font-bold transition-colors flex items-center gap-1.5 cursor-pointer self-start sm:self-auto"
-              >
-                <Plus className="w-3.5 h-3.5" />
-                <span>Add Item</span>
-              </button>
-            </div>
-
-            <div className="p-4">
-              {isLoadingStyles ? (
-                <AdminTableSkeleton bare rows={1} columns={4} />
-              ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
-                  {styles.map((style) => (
-                    <StyleCard
-                      key={style.id}
-                      item={style}
-                      isSelected={style.id === selectedStyleUuid}
-                      onSelect={(s) => setSelectedStyleUuid(s.id)}
-                      onEdit={(s) => setEditingStyle(s)}
-                      onDelete={(s) => setDeletingStyle(s)}
-                    />
-                  ))}
-                </div>
-              )}
-            </div>
-          </section>
-        )}
-
-        {/* Section 3.6: Items - admin-only sub-variant (e.g. "Regular Fit",
-            "Slim Fit", "Oversized"). Never shown to customers; only used to
-            scope which Colors/Sizes show below. Clicking "Add Sub-variant" with no
-            Style yet creates a hidden default Style automatically. */}
+      {/* Section 3.5: Styles - the first step. A Style (e.g. "V Neck T-Shirt"
+            vs "Solo T-Shirt") owns its own description, images, Variants and
+            Sizes; the panel below is scoped to whichever Style is selected
+            here. */}
+      {(
         <section className="bg-white border border-cream-border rounded-lg overflow-hidden">
           <div className="p-3.5 sm:p-4 border-b border-cream-border flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div className="flex items-center gap-2.5">
-              <h2 className="text-base font-bold text-neutral-900 tracking-tight">Step 2 &middot; Models</h2>
+              <h2 className="text-base font-bold text-neutral-900 tracking-tight">Step 1 &middot; Styles</h2>
               <span className="px-2.5 py-0.5 rounded-full bg-cream-200 border border-cream-border text-xs font-bold text-neutral-500">
-                {items.length}
+                {styles.length}
               </span>
               <span className="text-xs text-neutral-400 hidden sm:inline">
-                Admin-only Models (e.g. Regular/Slim/Oversized Fit) - never shown to customers.
+                Each Style (e.g. &ldquo;V Neck&rdquo;, &ldquo;Solo&rdquo;) gets its own Variants &amp; Sizes below.
               </span>
             </div>
             <button
               type="button"
-              onClick={handleAddItemClick}
-              disabled={isPreparingItemForm}
-              className="px-3.5 py-1.5 rounded-md border border-secondary-700 bg-secondary-600 hover:bg-secondary-700 text-cream-white text-xs font-bold transition-colors flex items-center gap-1.5 cursor-pointer self-start sm:self-auto disabled:opacity-60 disabled:cursor-not-allowed"
+              onClick={() => setIsAddStyleOpen(true)}
+              className="px-3.5 py-1.5 rounded-md border border-secondary-700 bg-secondary-600 hover:bg-secondary-700 text-cream-white text-xs font-bold transition-colors flex items-center gap-1.5 cursor-pointer self-start sm:self-auto"
             >
               <Plus className="w-3.5 h-3.5" />
-              <span>{isPreparingItemForm ? "Preparing..." : "Add Model"}</span>
+              <span>Add Style</span>
             </button>
           </div>
 
           <div className="px-4 pt-3 space-y-2">
             <p className="text-xs text-neutral-500">
-              Setup order: <strong>1 Item</strong> &rarr; <strong>2 Model</strong> &rarr; <strong>3 Color</strong> &rarr; <strong>4 Size &amp; Price</strong>
+              Setup order: <strong>1 Style</strong> &rarr; <strong>2 Variant</strong> &rarr;{" "}
+              <strong>3 Size &amp; Price</strong>
             </p>
-            {!isLoadingItems && items.length === 0 && (
+            {!isLoadingStyles && styles.length === 0 && (
               <p className="text-xs rounded-md border border-amber-300 bg-amber-50 text-amber-800 px-3 py-2">
-                Not visible on the store yet: add a Model, then a Color with a priced Size.
+                Not visible on the store yet: add a Style, then a Variant with a priced Size.
               </p>
             )}
           </div>
 
           <div className="p-4">
-            {isLoadingItems && selectedStyleUuid ? (
+            {isLoadingStyles ? (
               <AdminTableSkeleton bare rows={1} columns={4} />
-            ) : items.length === 0 ? (
+            ) : styles.length === 0 ? (
               <div className="text-center py-10 px-4">
                 <Layers className="mx-auto h-8 w-8 text-neutral-300" />
-                <h3 className="mt-2 text-sm font-semibold text-neutral-900">No Models yet</h3>
+                <h3 className="mt-2 text-sm font-semibold text-neutral-900">No Styles yet</h3>
                 <p className="mt-1 text-xs text-neutral-500 max-w-sm mx-auto">
-                  Add at least one Model before creating Colors and Sizes for this product.
+                  Add at least one Style before creating Variants and Sizes for this product.
                 </p>
                 <button
                   type="button"
-                  onClick={handleAddItemClick}
-                  disabled={isPreparingItemForm}
-                  className="mt-4 inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-secondary-600 text-cream-white text-xs font-semibold cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+                  onClick={() => setIsAddStyleOpen(true)}
+                  className="mt-4 inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-secondary-600 text-cream-white text-xs font-semibold cursor-pointer"
                 >
                   <Plus className="w-3.5 h-3.5" />
-                  <span>{isPreparingItemForm ? "Preparing..." : "Add first Model"}</span>
+                  <span>Add first Style</span>
                 </button>
               </div>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-sm border-collapse">
-                  <thead className="text-[11px] font-bold tracking-wider text-neutral-400 uppercase">
-                    <tr>
-                      <th className="px-3.5 py-2.5 min-w-[200px] border-b border-cream-border">Type</th>
-                      <th className="px-3.5 py-2.5 min-w-[220px] border-b border-cream-border">Attributes</th>
-                      <th className="px-3.5 py-2.5 min-w-[110px] text-right border-b border-cream-border">Price</th>
-                      <th className="px-3.5 py-2.5 min-w-[95px] text-center border-b border-cream-border">Status</th>
-                      <th className="px-3.5 py-2.5 min-w-[90px] text-center border-b border-cream-border">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-cream-border-subtle">
-                    {items.map((item) => {
-                      const isSelected = item.id === selectedItemUuid;
-                      return (
-                        <tr
-                          key={item.id}
-                          onClick={() => setSelectedItemUuid(item.id)}
-                          className={`cursor-pointer transition-colors ${
-                            isSelected ? "bg-secondary-50" : "hover:bg-cream-50"
-                          }`}
-                        >
-                          <td className="px-3.5 py-2.5 min-w-[200px]">
-                            <div className="flex items-center gap-1.5">
-                              <span className="font-semibold text-neutral-900">{item.name}</span>
-                              {item.isDefault && (
-                                <span title="Default Model">
-                                  <Star className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
-                                </span>
-                              )}
-                            </div>
-                            <span className="font-mono text-[11px] text-neutral-400">{item.slug}</span>
-                          </td>
-                          <td className="px-3.5 py-2.5 min-w-[220px] text-neutral-700">
-                            {item.selectedAttributes && item.selectedAttributes.length > 0 ? (
-                              <div className="space-y-1.5">
-                                {item.selectedAttributes.map((group) => (
-                                  <div
-                                    key={group.id}
-                                    className="flex flex-wrap items-center gap-1.5"
-                                  >
-                                    <span className="text-[10px] font-semibold text-neutral-500 w-14 shrink-0 uppercase">
-                                      {group.name}
-                                    </span>
-                                    <div className="flex flex-wrap gap-1">
-                                      {group.values.map((value) => (
-                                        <span
-                                          key={value.id}
-                                          className="inline-flex items-center gap-1 rounded-full bg-secondary-50 text-secondary-700 border border-secondary-200 px-2 py-0.5 text-[11px] font-semibold"
-                                        >
-                                          {group.type === "color" &&
-                                            (value.imageUrl ? (
-                                              <img
-                                                src={value.imageUrl}
-                                                alt=""
-                                                className="h-3 w-3 rounded-full border border-white/60 object-cover"
-                                              />
-                                            ) : (
-                                              value.colorHex && (
-                                                <span
-                                                  className="h-3 w-3 rounded-full border border-white/60"
-                                                  style={{ backgroundColor: value.colorHex }}
-                                                />
-                                              )
-                                            ))}
-                                          {value.value}
-                                        </span>
-                                      ))}
-                                    </div>
-                                  </div>
-                                ))}
-                              </div>
-                            ) : (
-                              <span className="text-neutral-400">—</span>
-                            )}
-                          </td>
-                          <td className="px-3.5 py-2.5 min-w-[110px] text-right tabular-nums text-neutral-900 font-semibold">
-                            {item.basePrice > 0 ? `₹${item.basePrice.toFixed(0)}` : "—"}
-                          </td>
-                          <td className="px-3.5 py-2.5 min-w-[95px] text-center">
-                            <span
-                              className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold ${
-                                item.isActive
-                                  ? "bg-success-50 text-success-700 border border-success-200"
-                                  : "bg-cream-200 text-neutral-500 border border-cream-border"
-                              }`}
-                            >
-                              <span
-                                className={`w-1.5 h-1.5 rounded-full ${
-                                  item.isActive ? "bg-success-600" : "bg-neutral-400"
-                                }`}
-                              />
-                              {item.isActive ? "Active" : "Inactive"}
-                            </span>
-                          </td>
-                          <td className="px-3.5 py-2.5 min-w-[90px]">
-                            <div className="flex items-center justify-center gap-1">
-                              <Button
-                                type="button"
-                                variant="outline"
-                                size="icon-sm"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setEditingItem(item);
-                                }}
-                                aria-label="Edit model"
-                                title="Edit model"
-                              >
-                                <Pencil className="w-3.5 h-3.5" />
-                              </Button>
-                              <Button
-                                type="button"
-                                variant="outline"
-                                size="icon-sm"
-                                className="text-red-500 hover:text-red-600 border-red-200 hover:bg-red-50"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setDeletingItem(item);
-                                }}
-                                aria-label="Delete model"
-                                title="Delete model"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </Button>
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
+                {styles.map((style) => (
+                  <StyleCard
+                    key={style.id}
+                    item={style}
+                    isSelected={style.id === selectedStyleUuid}
+                    onSelect={(s) => setSelectedStyleUuid(s.id)}
+                    onEdit={(s) => setEditingStyle(s)}
+                    onDelete={(s) => setDeletingStyle(s)}
+                  />
+                ))}
               </div>
             )}
           </div>
         </section>
+      )}
 
-        {/* Section 3.7: Attribute values for the selected Item - which Color/Size/etc.
-            values (from the attributes configured on the product above) this specific
-            Item comes in, plus the trigger to generate its Colors/Sizes from that selection. */}
-        {selectedItemUuid && (
-          <section className="bg-white border border-cream-border rounded-lg overflow-hidden">
-            <div className="p-3.5 sm:p-4 border-b border-cream-border flex items-center gap-2.5">
-              <h2 className="text-base font-bold text-neutral-900 tracking-tight">
-                Step 3 &amp; 4 &middot; Colors &amp; Sizes
-              </h2>
-              <span className="text-xs text-neutral-400 hidden sm:inline">
-                For &ldquo;{items.find((i) => i.id === selectedItemUuid)?.name || "this item"}&rdquo;
-              </span>
-            </div>
-            <div className="p-4">
-              <ItemColorsPanel
-                productUuid={canonicalProductId}
-                itemUuid={selectedItemUuid}
-                itemName={items.find((i) => i.id === selectedItemUuid)?.name}
-                categoryUuid={product?.categoryId ?? null}
-                onChanged={() => refetchVariants()}
-                onBulkEditPrices={() => setIsPriceEditOpen(true)}
-              />
-            </div>
-          </section>
-        )}
-
-        {/* Section 4: Product Variants Section with FIXED ACTION COLUMN */}
+      {/* Section 3.6: Attribute values for the selected Style - which
+            Color/Size/etc. values (from the attributes configured on the product
+            above) this Style comes in, plus the trigger to generate its
+            Colors/Sizes from that selection. */}
+      {selectedStyleUuid && (
         <section className="bg-white border border-cream-border rounded-lg overflow-hidden">
-          {/* Header & Controls */}
-          <div className="p-3.5 sm:p-4 border-b border-cream-border flex flex-col md:flex-row md:items-center justify-between gap-3">
-            {/* Left: Title, Counter Badge & Segmented Filter Tabs */}
-            <div className="flex items-center gap-3 sm:gap-4 flex-wrap">
-              <div className="flex items-center gap-2.5">
-                <h2 className="text-base font-bold text-neutral-900 tracking-tight">
-                  Variants
-                </h2>
-                <span className="px-2.5 py-0.5 rounded-full bg-cream-200 border border-cream-border text-xs font-bold text-neutral-500">
-                  {currentTabCount}
-                </span>
-              </div>
-
-              {/* Filter Tabs with Count Pills */}
-              <div className="flex p-1 bg-cream-200 border border-cream-border rounded-md gap-1">
-                <button
-                  type="button"
-                  onClick={() => setVariantFilter("active")}
-                  className={`px-3 py-1.5 rounded-sm text-xs font-semibold transition-colors cursor-pointer flex items-center gap-1.5 ${
-                    variantFilter === "active"
-                      ? "bg-secondary-600 text-cream-white"
-                      : "text-neutral-500 hover:text-neutral-900 hover:bg-white"
-                  }`}
-                >
-                  <span>Active</span>
-                  {variantFilter === "active" && (
-                    <span className="px-1.5 py-0.5 text-[10.5px] rounded-full font-bold leading-none bg-white/20 text-cream-white">
-                      {currentTabCount}
-                    </span>
-                  )}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setVariantFilter("inactive")}
-                  className={`px-3 py-1.5 rounded-sm text-xs font-semibold transition-colors cursor-pointer flex items-center gap-1.5 ${
-                    variantFilter === "inactive"
-                      ? "bg-secondary-600 text-cream-white"
-                      : "text-neutral-500 hover:text-neutral-900 hover:bg-white"
-                  }`}
-                >
-                  <span>Inactive</span>
-                  {variantFilter === "inactive" && (
-                    <span className="px-1.5 py-0.5 text-[10.5px] rounded-full font-bold leading-none bg-white/20 text-cream-white">
-                      {currentTabCount}
-                    </span>
-                  )}
-                </button>
-              </div>
-            </div>
-
-            {/* Right: Actions (View Mode Switcher, Export, Edit prices, Add variant) */}
-            <div className="flex items-center gap-2 sm:gap-2.5 flex-wrap sm:flex-nowrap justify-end">
-              {/* Table / Card View Mode Toggle */}
-              <div className="flex items-center bg-cream-200 border border-cream-border p-1 rounded-md">
-                <button
-                  type="button"
-                  onClick={() => setVariantViewMode("table")}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-sm text-xs font-semibold transition-colors cursor-pointer ${
-                    variantViewMode === "table"
-                      ? "bg-secondary-600 text-cream-white"
-                      : "text-neutral-500 hover:text-neutral-900 hover:bg-white"
-                  }`}
-                  title="Table View"
-                >
-                  <LayoutList className="w-3.5 h-3.5" />
-                  <span>Table</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setVariantViewMode("cards")}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-sm text-xs font-semibold transition-colors cursor-pointer ${
-                    variantViewMode === "cards"
-                      ? "bg-secondary-600 text-cream-white"
-                      : "text-neutral-500 hover:text-neutral-900 hover:bg-white"
-                  }`}
-                  title="Customer Card View"
-                >
-                  <LayoutGrid className="w-3.5 h-3.5" />
-                  <span>Card View</span>
-                </button>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => setIsPriceEditOpen(true)}
-                className="px-3.5 py-1.5 rounded-md border border-secondary-200 bg-secondary-50 hover:bg-secondary-100 text-secondary-600 text-xs font-bold transition-colors flex items-center gap-1.5 cursor-pointer"
-                title="Bulk edit prices"
-              >
-                <IndianRupee className="w-3.5 h-3.5" />
-                <span>Edit prices</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setIsAddVariantOpen(true)}
-                className="px-3.5 py-1.5 rounded-md border border-secondary-700 bg-secondary-600 hover:bg-secondary-700 text-cream-white text-xs font-bold transition-colors flex items-center gap-1.5 cursor-pointer"
-              >
-                <Plus className="w-3.5 h-3.5" />
-                <span>Add Variant</span>
-              </button>
-            </div>
-          </div>
-
-          {/* Bulk Selection Action Bar */}
-          {hasSelection && variantViewMode === "table" && (
-            <div className="px-4 py-2.5 bg-secondary-50 border-b border-secondary-200 flex items-center justify-between gap-3 text-xs">
-              <span className="font-bold text-secondary-600">
-                {selectedIds.length} variant{selectedIds.length > 1 ? "s" : ""} selected
-              </span>
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => setSelectedVariants({})}
-                  className="px-2.5 py-1 rounded-md border border-secondary-200 bg-white hover:bg-secondary-100 text-secondary-600 font-semibold cursor-pointer"
-                >
-                  Clear
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleBulkStatusChange(true)}
-                  className="px-2.5 py-1 rounded-md border border-secondary-200 bg-white hover:bg-secondary-100 text-success-700 font-semibold cursor-pointer"
-                >
-                  Activate
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleBulkStatusChange(false)}
-                  className="px-2.5 py-1 rounded-md border border-secondary-200 bg-white hover:bg-secondary-100 text-neutral-400 font-semibold cursor-pointer"
-                >
-                  Deactivate
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* Variants Rendering: Table vs Cards */}
-          {isLoadingVariants ? (
-            <AdminTableSkeleton bare rows={4} columns={4} />
-          ) : variants.length === 0 ? (
-            <div className="text-center py-16 px-4">
-              <Package className="mx-auto h-10 w-10 text-neutral-300" />
-              <h3 className="mt-3 text-sm font-semibold text-neutral-900">
-                No {variantFilter} variant found
-              </h3>
-              <p className="mt-1 text-xs text-neutral-500 max-w-sm mx-auto">
-                {variantFilter === "active"
-                  ? "This product currently has no active variants."
-                  : "No variants are currently marked as inactive."}
-              </p>
-              <button
-                type="button"
-                onClick={() => setIsAddVariantOpen(true)}
-                className="mt-4 inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-secondary-600 text-cream-white text-xs font-semibold cursor-pointer"
-              >
-                <Plus className="w-3.5 h-3.5" />
-                <span>Add first Variant</span>
-              </button>
-            </div>
-          ) : variantViewMode === "cards" ? (
-            <div className="p-5 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-5">
-              {variants.map((variant) => (
-                <VariantCard
-                  key={variant.id}
-                  variant={variant}
-                  productUuid={canonicalProductId}
-                  onEdit={(v) => setEditingVariant(v)}
-                  onManageImages={(v) => setManagingImagesVariant(v)}
-                  onDelete={(v) => setDeletingVariant(v)}
-                  onPreview={(v) => setPreviewVariant(v)}
-                  onToggleStatus={(v, nextActive) => {
-                    if (nextActive) {
-                      setVariantToActivate(v);
-                    } else {
-                      setVariantToDeactivate(v);
-                    }
-                  }}
-                  onToggleStock={async (v, nextOutOfStock) => {
-                    try {
-                      await updateVariantMutation.mutateAsync({
-                        productUuid: canonicalProductId,
-                        variantUuid: v.id,
-                        data: { outOfStock: nextOutOfStock },
-                      });
-                      toast.success(
-                        nextOutOfStock ? "Marked Out of Stock" : "Marked In Stock",
-                        `"${v.variantName}" is now ${nextOutOfStock ? "Out of Stock" : "In Stock"}.`
-                      );
-                      refetchVariants();
-                    } catch (err: any) {
-                      toast.error("Failed to update stock status", err?.message || "Please try again.");
-                    }
-                  }}
-                />
-              ))}
-            </div>
-          ) : (
-            <div className="overflow-x-auto overflow-y-auto max-h-[560px] relative scrollbar-thin">
-              <table className="w-full text-left text-sm border-collapse">
-                <thead className="sticky top-0 z-30 bg-cream-50 text-[11px] font-bold tracking-wider text-neutral-400 uppercase shadow-[0_1px_0_var(--cream-border)]">
-                  <tr>
-                    {/* Checkbox */}
-                    <th className="px-3.5 py-2.5 w-[44px] min-w-[44px] text-center border-b border-cream-border">
-                      <input
-                        type="checkbox"
-                        checked={isAllSelected}
-                        onChange={toggleSelectAll}
-                        className="w-4 h-4 rounded border-cream-border-hover text-secondary-600 focus:ring-secondary-600 cursor-pointer"
-                      />
-                    </th>
-
-                    <th className="px-4 py-2.5 min-w-[200px] border-b border-cream-border">Item</th>
-                    <th className="px-4 py-2.5 min-w-[120px] border-b border-cream-border">SKU</th>
-                    <th className="px-4 py-2.5 min-w-[150px] border-b border-cream-border">Sizes</th>
-                    <th className="px-4 py-2.5 min-w-[140px] border-b border-cream-border">Color</th>
-                    <th className="px-4 py-2.5 min-w-[120px] text-right border-b border-cream-border">Price</th>
-                    <th className="px-3 py-2.5 min-w-[95px] text-center border-b border-cream-border">Status</th>
-
-                    {/* FIXED ACTION COLUMN (Sticky top & right corner) */}
-                    <th className="sticky top-0 right-0 z-40 bg-cream-50 text-center px-2 py-2.5 w-[72px] min-w-[72px] border-b border-cream-border shadow-[-4px_0_6px_-2px_rgba(0,0,0,0.05),0_1px_0_var(--cream-border)]">
-                      Actions
-                    </th>
-                  </tr>
-                </thead>
-
-                <tbody className="divide-y divide-cream-border-subtle bg-white">
-                  {variants.map((variant) => {
-                    const isPicked = !!selectedVariants[variant.id];
-                    const unitPrices = variant.unitPrices ?? [];
-                    const priceValues = unitPrices.map((p) => p.basePrice);
-                    const minPrice = priceValues.length ? Math.min(...priceValues) : 0;
-                    const maxPrice = priceValues.length ? Math.max(...priceValues) : 0;
-                    const extraSizes = unitPrices.length > 1 ? unitPrices.length - 1 : 0;
-
-                    return (
-                      <tr
-                        key={variant.id}
-                        className={`group transition-colors ${
-                          isPicked ? "bg-cream-50" : "hover:bg-cream-50"
-                        }`}
-                      >
-                        {/* Checkbox */}
-                        <td className="px-3.5 py-2.5 w-[44px] min-w-[44px] text-center">
-                          <input
-                            type="checkbox"
-                            checked={isPicked}
-                            onChange={() => toggleSelectOne(variant.id)}
-                            className="w-4 h-4 rounded border-cream-border-hover text-secondary-600 focus:ring-secondary-600 cursor-pointer"
-                          />
-                        </td>
-
-                        {/* Variant Name & Image */}
-                        <td className="px-4 py-2.5 min-w-[200px]">
-                          <Link
-                            href={`/admin/dashboard/variants/${encodeURIComponent(variant.id)}?productId=${encodeURIComponent(canonicalProductId)}`}
-                            className="group/variant flex items-center gap-3 min-w-0 hover:opacity-95"
-                          >
-                            <div className="w-[36px] h-[36px] rounded-md flex-none bg-cream-100 border border-cream-border relative overflow-hidden flex items-center justify-center">
-                              {variant.primaryImage ? (
-                                <Image
-                                  src={variant.primaryImage}
-                                  alt={variant.variantName}
-                                  fill
-                                  className="object-cover"
-                                />
-                              ) : (
-                                <Package className="w-4 h-4 text-neutral-400 opacity-70" />
-                              )}
-                            </div>
-                            <div className="min-w-0">
-                              <span className="font-semibold text-neutral-900 group-hover/variant:text-secondary-600 group-hover/variant:underline block leading-snug truncate transition-colors">
-                                {variant.variantName}
-                              </span>
-                              <span className="font-mono text-[11px] text-neutral-400 block truncate">
-                                {variant.id ? `ID: ${variant.id.slice(0, 8)}...` : "—"}
-                              </span>
-                            </div>
-                          </Link>
-                        </td>
-
-                        {/* SKU */}
-                        <td className="px-4 py-2.5 min-w-[120px] font-mono text-[11.5px] text-neutral-600 truncate">
-                          {variant.sku}
-                        </td>
-
-                        {/* Pack Sizes */}
-                        <td className="px-4 py-2.5 min-w-[150px] text-xs font-medium text-neutral-700 whitespace-nowrap">
-                          {unitPrices.length === 0 ? (
-                            <span className="text-neutral-400 italic">No sizes added</span>
-                          ) : (
-                            <span className="inline-flex items-center gap-1.5">
-                              <span>{formatMeasurement(variant.measurement)}</span>
-                              {extraSizes > 0 && (
-                                <span
-                                  className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-neutral-100 text-neutral-600 border border-neutral-200"
-                                  title={unitPrices
-                                    .map((p) => `${p.measurement.value} ${p.measurement.unit}`)
-                                    .join(", ")}
-                                >
-                                  +{extraSizes} more
-                                </span>
-                              )}
-                            </span>
-                          )}
-                        </td>
-
-                        {/* Color & Featured */}
-                        <td className="px-4 py-2.5 min-w-[140px] whitespace-nowrap">
-                          <div className="flex items-center gap-1.5 flex-wrap">
-                            {renderColorBadge(variant.colorName, variant.colorHex)}
-                            {variant.isFeatured && (
-                              <span className="px-2 py-0.5 rounded-full bg-amber-50 text-amber-800 text-[10.5px] font-bold border border-amber-200">
-                                Featured
-                              </span>
-                            )}
-                          </div>
-                        </td>
-
-                        {/* Price (range across pack sizes, if more than one) */}
-                        <td className="px-4 py-2.5 min-w-[120px] text-right whitespace-nowrap tabular-nums">
-                          {unitPrices.length === 0 ? (
-                            <span className="text-neutral-400 italic text-xs">—</span>
-                          ) : (
-                            <span className="font-bold text-neutral-900 text-xs sm:text-sm">
-                              {minPrice === maxPrice
-                                ? `₹${minPrice.toLocaleString("en-IN")}`
-                                : `₹${minPrice.toLocaleString("en-IN")} – ₹${maxPrice.toLocaleString("en-IN")}`}
-                            </span>
-                          )}
-                        </td>
-
-                        {/* Status */}
-                        <td className="px-3 py-2.5 min-w-[95px] text-center whitespace-nowrap">
-                          <span
-                            className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold ${
-                              variant.isActive
-                                ? "bg-success-50 text-success-700 border border-success-200"
-                                : "bg-cream-200 text-neutral-500 border border-cream-border"
-                            }`}
-                          >
-                            <span
-                              className={`w-1.5 h-1.5 rounded-full ${
-                                variant.isActive ? "bg-success-600" : "bg-neutral-400"
-                              }`}
-                            />
-                            {variant.isActive ? "Active" : "Inactive"}
-                          </span>
-                        </td>
-
-                        {/* FIXED ACTION COLUMN (Sticky right) */}
-                        <td
-                          className={`sticky right-0 transition-colors px-2 py-2.5 text-center shadow-[-4px_0_6px_-2px_rgba(0,0,0,0.05)] z-20 ${
-                            isPicked
-                              ? "bg-cream-50"
-                              : "bg-white group-hover:bg-cream-50"
-                          }`}
-                        >
-                          <div className="flex items-center justify-center">
-                            {variant.isActive ? (
-                              <button
-                                type="button"
-                                data-action-trigger
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  if (activeMenu?.variant.id === variant.id) {
-                                    setActiveMenu(null);
-                                  } else {
-                                    const rect = e.currentTarget.getBoundingClientRect();
-                                    setActiveMenu({ variant, rect });
-                                  }
-                                }}
-                                className={`w-8 h-8 rounded-md border flex items-center justify-center transition-colors cursor-pointer ${
-                                  activeMenu?.variant.id === variant.id
-                                    ? "bg-secondary-600 text-cream-white border-secondary-600"
-                                    : "border-cream-border bg-white hover:bg-secondary-50 text-neutral-700 hover:text-secondary-600"
-                                }`}
-                                title="More actions"
-                                aria-label="More actions"
-                              >
-                                <MoreHorizontal className="w-4 h-4" />
-                              </button>
-                            ) : (
-                              <button
-                                type="button"
-                                onClick={() => setVariantToActivate(variant)}
-                                className="px-2.5 py-1 text-xs font-semibold rounded-md border border-success-200 bg-success-50 hover:bg-success-100 text-success-700 transition-colors flex items-center gap-1 cursor-pointer"
-                                title="Make Active"
-                              >
-                                <Power className="w-3.5 h-3.5" />
-                                <span>Active</span>
-                              </button>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
-
-          {/* Variants Table Footer */}
-          <div className="px-4 py-2.5 border-t border-cream-border bg-cream-50/50 flex items-center justify-between text-xs text-neutral-400 flex-wrap gap-2">
-            <span>
-              Showing <strong className="text-neutral-900">{variants.length}</strong> of{" "}
-              <strong className="text-neutral-900">{currentTabCount}</strong>{" "}
-              {variantFilter} variants
+          <div className="p-3.5 sm:p-4 border-b border-cream-border flex items-center gap-2.5">
+            <h2 className="text-base font-bold text-neutral-900 tracking-tight">
+              Step 2 &amp; 3 &middot; Variants, Sizes &amp; Prices
+            </h2>
+            <span className="text-xs text-neutral-400 hidden sm:inline">
+              For &ldquo;{styles.find((s) => s.id === selectedStyleUuid)?.name || "this style"}&rdquo;
             </span>
           </div>
+          <div className="p-4">
+            <StyleVariantsPanel
+              productUuid={canonicalProductId}
+              styleUuid={selectedStyleUuid}
+              styleName={styles.find((s) => s.id === selectedStyleUuid)?.name}
+              categoryUuid={product?.categoryId ?? null}
+              onChanged={() => refetchVariants()}
+            />
+          </div>
         </section>
+      )}
+
+      {/* Section 4: Product Variants Section with FIXED ACTION COLUMN */}
+      <section className="bg-white border border-cream-border rounded-lg overflow-hidden">
+        {/* Header & Controls */}
+        <div className="p-3.5 sm:p-4 border-b border-cream-border flex flex-col md:flex-row md:items-center justify-between gap-3">
+          {/* Left: Title, Counter Badge & Segmented Filter Tabs */}
+          <div className="flex items-center gap-3 sm:gap-4 flex-wrap">
+            <div className="flex items-center gap-2.5">
+              <h2 className="text-base font-bold text-neutral-900 tracking-tight">
+                Variants
+              </h2>
+              <span className="px-2.5 py-0.5 rounded-full bg-cream-200 border border-cream-border text-xs font-bold text-neutral-500">
+                {currentTabCount}
+              </span>
+            </div>
+
+            {/* Filter Tabs with Count Pills */}
+            <div className="flex p-1 bg-cream-200 border border-cream-border rounded-md gap-1">
+              <button
+                type="button"
+                onClick={() => setVariantFilter("active")}
+                className={`px-3 py-1.5 rounded-sm text-xs font-semibold transition-colors cursor-pointer flex items-center gap-1.5 ${variantFilter === "active"
+                  ? "bg-secondary-600 text-cream-white"
+                  : "text-neutral-500 hover:text-neutral-900 hover:bg-white"
+                  }`}
+              >
+                <span>Active</span>
+                {variantFilter === "active" && (
+                  <span className="px-1.5 py-0.5 text-[10.5px] rounded-full font-bold leading-none bg-white/20 text-cream-white">
+                    {currentTabCount}
+                  </span>
+                )}
+              </button>
+              <button
+                type="button"
+                onClick={() => setVariantFilter("inactive")}
+                className={`px-3 py-1.5 rounded-sm text-xs font-semibold transition-colors cursor-pointer flex items-center gap-1.5 ${variantFilter === "inactive"
+                  ? "bg-secondary-600 text-cream-white"
+                  : "text-neutral-500 hover:text-neutral-900 hover:bg-white"
+                  }`}
+              >
+                <span>Inactive</span>
+                {variantFilter === "inactive" && (
+                  <span className="px-1.5 py-0.5 text-[10.5px] rounded-full font-bold leading-none bg-white/20 text-cream-white">
+                    {currentTabCount}
+                  </span>
+                )}
+              </button>
+            </div>
+          </div>
+
+          {/* Right: Actions (View Mode Switcher, Export, Edit prices, Add variant) */}
+          <div className="flex items-center gap-2 sm:gap-2.5 flex-wrap sm:flex-nowrap justify-end">
+            {/* Table / Card View Mode Toggle */}
+            <div className="flex items-center bg-cream-200 border border-cream-border p-1 rounded-md">
+              <button
+                type="button"
+                onClick={() => setVariantViewMode("table")}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-sm text-xs font-semibold transition-colors cursor-pointer ${variantViewMode === "table"
+                  ? "bg-secondary-600 text-cream-white"
+                  : "text-neutral-500 hover:text-neutral-900 hover:bg-white"
+                  }`}
+                title="Table View"
+              >
+                <LayoutList className="w-3.5 h-3.5" />
+                <span>Table</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setVariantViewMode("cards")}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-sm text-xs font-semibold transition-colors cursor-pointer ${variantViewMode === "cards"
+                  ? "bg-secondary-600 text-cream-white"
+                  : "text-neutral-500 hover:text-neutral-900 hover:bg-white"
+                  }`}
+                title="Customer Card View"
+              >
+                <LayoutGrid className="w-3.5 h-3.5" />
+                <span>Card View</span>
+              </button>
+            </div>
+
+            <ExportButton
+              onClick={handleExportVariants}
+              disabled={!variants.length}
+              className="h-8 rounded-md"
+            />
+
+            {/* Prices belong to Inventory, not the catalog: that screen shows
+                cost and margin beside the price and records every change. */}
+            <Link
+              href={`/admin/dashboard/inventory/pricing?search=${encodeURIComponent(product.name)}`}
+              className="px-3.5 py-1.5 rounded-md border border-secondary-200 bg-secondary-50 hover:bg-secondary-100 text-secondary-600 text-xs font-bold transition-colors flex items-center gap-1.5 cursor-pointer"
+              title="Set prices in Inventory › Pricing"
+            >
+              <IndianRupee className="w-3.5 h-3.5" />
+              <span>Edit prices</span>
+            </Link>
+
+            <button
+              type="button"
+              onClick={() => setIsAddVariantOpen(true)}
+              className="px-3.5 py-1.5 rounded-md border border-secondary-700 bg-secondary-600 hover:bg-secondary-700 text-cream-white text-xs font-bold transition-colors flex items-center gap-1.5 cursor-pointer"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>Add Variant</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Bulk Selection Action Bar */}
+        {hasSelection && variantViewMode === "table" && (
+          <div className="px-4 py-2.5 bg-secondary-50 border-b border-secondary-200 flex items-center justify-between gap-3 text-xs">
+            <span className="font-bold text-secondary-600">
+              {selectedIds.length} variant{selectedIds.length > 1 ? "s" : ""} selected
+            </span>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setSelectedVariants({})}
+                className="px-2.5 py-1 rounded-md border border-secondary-200 bg-white hover:bg-secondary-100 text-secondary-600 font-semibold cursor-pointer"
+              >
+                Clear
+              </button>
+              <button
+                type="button"
+                onClick={() => handleBulkStatusChange(true)}
+                className="px-2.5 py-1 rounded-md border border-secondary-200 bg-white hover:bg-secondary-100 text-success-700 font-semibold cursor-pointer"
+              >
+                Activate
+              </button>
+              <button
+                type="button"
+                onClick={() => handleBulkStatusChange(false)}
+                className="px-2.5 py-1 rounded-md border border-secondary-200 bg-white hover:bg-secondary-100 text-neutral-400 font-semibold cursor-pointer"
+              >
+                Deactivate
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Variants Rendering: Table vs Cards */}
+        {isLoadingVariants ? (
+          <AdminTableSkeleton bare rows={4} columns={4} />
+        ) : variants.length === 0 ? (
+          <div className="text-center py-16 px-4">
+            <Package className="mx-auto h-10 w-10 text-neutral-300" />
+            <h3 className="mt-3 text-sm font-semibold text-neutral-900">
+              No {variantFilter} variant found
+            </h3>
+            <p className="mt-1 text-xs text-neutral-500 max-w-sm mx-auto">
+              {variantFilter === "active"
+                ? "This product currently has no active variants."
+                : "No variants are currently marked as inactive."}
+            </p>
+            <button
+              type="button"
+              onClick={() => setIsAddVariantOpen(true)}
+              className="mt-4 inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-secondary-600 text-cream-white text-xs font-semibold cursor-pointer"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>Add first Variant</span>
+            </button>
+          </div>
+        ) : variantViewMode === "cards" ? (
+          <div className="p-5 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-5">
+            {variants.map((variant) => (
+              <VariantCard
+                key={variant.id}
+                variant={variant}
+                productUuid={canonicalProductId}
+                onEdit={(v) => setEditingVariant(v)}
+                onManageImages={(v) => setManagingImagesVariant(v)}
+                onDelete={(v) => setDeletingVariant(v)}
+                onPreview={(v) => setPreviewVariant(v)}
+                onToggleStatus={(v, nextActive) => {
+                  if (nextActive) {
+                    setVariantToActivate(v);
+                  } else {
+                    setVariantToDeactivate(v);
+                  }
+                }}
+                onToggleStock={async (v, nextOutOfStock) => {
+                  try {
+                    await updateVariantMutation.mutateAsync({
+                      productUuid: canonicalProductId,
+                      variantUuid: v.id,
+                      data: { outOfStock: nextOutOfStock },
+                    });
+                    toast.success(
+                      nextOutOfStock ? "Marked Out of Stock" : "Marked In Stock",
+                      `"${v.variantName}" is now ${nextOutOfStock ? "Out of Stock" : "In Stock"}.`
+                    );
+                    refetchVariants();
+                  } catch (err: any) {
+                    toast.error("Failed to update stock status", err?.message || "Please try again.");
+                  }
+                }}
+              />
+            ))}
+          </div>
+        ) : (
+          <div className="overflow-x-auto overflow-y-auto max-h-[560px] relative scrollbar-thin">
+            <table className="w-full text-left text-sm border-collapse">
+              <thead className="sticky top-0 z-30 bg-cream-50 text-[11px] font-bold tracking-wider text-neutral-400 uppercase shadow-[0_1px_0_var(--cream-border)]">
+                <tr>
+                  {/* Checkbox */}
+                  <th className="px-3.5 py-2.5 w-[44px] min-w-[44px] text-center border-b border-cream-border">
+                    <input
+                      type="checkbox"
+                      checked={isAllSelected}
+                      onChange={toggleSelectAll}
+                      className="w-4 h-4 rounded border-cream-border-hover text-secondary-600 focus:ring-secondary-600 cursor-pointer"
+                    />
+                  </th>
+
+                  <th className="px-4 py-2.5 min-w-[200px] border-b border-cream-border">Variant</th>
+                  <th className="px-4 py-2.5 min-w-[120px] border-b border-cream-border">SKU</th>
+                  <th className="px-4 py-2.5 min-w-[150px] border-b border-cream-border">Sizes</th>
+                  <th className="px-4 py-2.5 min-w-[140px] border-b border-cream-border">Color</th>
+                  <th className="px-4 py-2.5 min-w-[120px] text-right border-b border-cream-border">Price</th>
+                  <th className="px-3 py-2.5 min-w-[95px] text-center border-b border-cream-border">Status</th>
+
+                  {/* FIXED ACTION COLUMN (Sticky top & right corner) */}
+                  <th className="sticky top-0 right-0 z-40 bg-cream-50 text-center px-2 py-2.5 w-[72px] min-w-[72px] border-b border-cream-border shadow-[-4px_0_6px_-2px_rgba(0,0,0,0.05),0_1px_0_var(--cream-border)]">
+                    Actions
+                  </th>
+                </tr>
+              </thead>
+
+              <tbody className="divide-y divide-cream-border-subtle bg-white">
+                {variants.map((variant) => {
+                  const isPicked = !!selectedVariants[variant.id];
+                  const unitPrices = variant.unitPrices ?? [];
+                  const priceValues = unitPrices.map((p) => p.basePrice);
+                  const minPrice = priceValues.length ? Math.min(...priceValues) : 0;
+                  const maxPrice = priceValues.length ? Math.max(...priceValues) : 0;
+                  const extraSizes = unitPrices.length > 1 ? unitPrices.length - 1 : 0;
+
+                  return (
+                    <tr
+                      key={variant.id}
+                      className={`group transition-colors ${isPicked ? "bg-cream-50" : "hover:bg-cream-50"
+                        }`}
+                    >
+                      {/* Checkbox */}
+                      <td className="px-3.5 py-2.5 w-[44px] min-w-[44px] text-center">
+                        <input
+                          type="checkbox"
+                          checked={isPicked}
+                          onChange={() => toggleSelectOne(variant.id)}
+                          className="w-4 h-4 rounded border-cream-border-hover text-secondary-600 focus:ring-secondary-600 cursor-pointer"
+                        />
+                      </td>
+
+                      {/* Variant Name & Image */}
+                      <td className="px-4 py-2.5 min-w-[200px]">
+                        <Link
+                          href={`/admin/dashboard/variants/${encodeURIComponent(variant.id)}?productId=${encodeURIComponent(canonicalProductId)}`}
+                          className="group/variant flex items-center gap-3 min-w-0 hover:opacity-95"
+                        >
+                          <div className="w-[36px] h-[36px] rounded-md flex-none bg-cream-100 border border-cream-border relative overflow-hidden flex items-center justify-center">
+                            {variant.primaryImage ? (
+                              <Image
+                                src={variant.primaryImage}
+                                alt={variant.variantName}
+                                fill
+                                className="object-cover"
+                              />
+                            ) : (
+                              <Package className="w-4 h-4 text-neutral-400 opacity-70" />
+                            )}
+                          </div>
+                          <div className="min-w-0">
+                            <span className="font-semibold text-neutral-900 group-hover/variant:text-secondary-600 group-hover/variant:underline block leading-snug truncate transition-colors">
+                              {variant.variantName}
+                            </span>
+                            <span className="font-mono text-[11px] text-neutral-400 block truncate">
+                              {variant.id ? `ID: ${variant.id.slice(0, 8)}...` : "—"}
+                            </span>
+                          </div>
+                        </Link>
+                      </td>
+
+                      {/* SKU */}
+                      <td className="px-4 py-2.5 min-w-[120px] font-mono text-[11.5px] text-neutral-600 truncate">
+                        {variant.sku}
+                      </td>
+
+                      {/* Pack Sizes */}
+                      <td className="px-4 py-2.5 min-w-[150px] text-xs font-medium text-neutral-700 whitespace-nowrap">
+                        {unitPrices.length === 0 ? (
+                          <span className="text-neutral-400 italic">No sizes added</span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1.5">
+                            <span>{formatMeasurement(variant.measurement)}</span>
+                            {extraSizes > 0 && (
+                              <span
+                                className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-neutral-100 text-neutral-600 border border-neutral-200"
+                                title={unitPrices
+                                  .map((p) => `${p.measurement.value} ${p.measurement.unit}`)
+                                  .join(", ")}
+                              >
+                                +{extraSizes} more
+                              </span>
+                            )}
+                          </span>
+                        )}
+                      </td>
+
+                      {/* Color & Featured */}
+                      <td className="px-4 py-2.5 min-w-[140px] whitespace-nowrap">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          {renderColorBadge(variant.colorName, variant.colorHex)}
+                          {variant.isFeatured && (
+                            <span className="px-2 py-0.5 rounded-full bg-amber-50 text-amber-800 text-[10.5px] font-bold border border-amber-200">
+                              Featured
+                            </span>
+                          )}
+                        </div>
+                      </td>
+
+                      {/* Price (range across pack sizes, if more than one) */}
+                      <td className="px-4 py-2.5 min-w-[120px] text-right whitespace-nowrap tabular-nums">
+                        {unitPrices.length === 0 ? (
+                          <span className="text-neutral-400 italic text-xs">—</span>
+                        ) : (
+                          <span className="font-bold text-neutral-900 text-xs sm:text-sm">
+                            {minPrice === maxPrice
+                              ? `₹${minPrice.toLocaleString("en-IN")}`
+                              : `₹${minPrice.toLocaleString("en-IN")} – ₹${maxPrice.toLocaleString("en-IN")}`}
+                          </span>
+                        )}
+                      </td>
+
+                      {/* Status */}
+                      <td className="px-3 py-2.5 min-w-[95px] text-center whitespace-nowrap">
+                        <span
+                          className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold ${variant.isActive
+                            ? "bg-success-50 text-success-700 border border-success-200"
+                            : "bg-cream-200 text-neutral-500 border border-cream-border"
+                            }`}
+                        >
+                          <span
+                            className={`w-1.5 h-1.5 rounded-full ${variant.isActive ? "bg-success-600" : "bg-neutral-400"
+                              }`}
+                          />
+                          {variant.isActive ? "Active" : "Inactive"}
+                        </span>
+                      </td>
+
+                      {/* FIXED ACTION COLUMN (Sticky right) */}
+                      <td
+                        className={`sticky right-0 transition-colors px-2 py-2.5 text-center shadow-[-4px_0_6px_-2px_rgba(0,0,0,0.05)] z-20 ${isPicked
+                          ? "bg-cream-50"
+                          : "bg-white group-hover:bg-cream-50"
+                          }`}
+                      >
+                        <div className="flex items-center justify-center">
+                          {variant.isActive ? (
+                            <button
+                              type="button"
+                              data-action-trigger
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (activeMenu?.variant.id === variant.id) {
+                                  setActiveMenu(null);
+                                } else {
+                                  const rect = e.currentTarget.getBoundingClientRect();
+                                  setActiveMenu({ variant, rect });
+                                }
+                              }}
+                              className={`w-8 h-8 rounded-md border flex items-center justify-center transition-colors cursor-pointer ${activeMenu?.variant.id === variant.id
+                                ? "bg-secondary-600 text-cream-white border-secondary-600"
+                                : "border-cream-border bg-white hover:bg-secondary-50 text-neutral-700 hover:text-secondary-600"
+                                }`}
+                              title="More actions"
+                              aria-label="More actions"
+                            >
+                              <MoreHorizontal className="w-4 h-4" />
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => setVariantToActivate(variant)}
+                              className="px-2.5 py-1 text-xs font-semibold rounded-md border border-success-200 bg-success-50 hover:bg-success-100 text-success-700 transition-colors flex items-center gap-1 cursor-pointer"
+                              title="Make Active"
+                            >
+                              <Power className="w-3.5 h-3.5" />
+                              <span>Active</span>
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {/* Variants Table Footer */}
+        <div className="px-4 py-2.5 border-t border-cream-border bg-cream-50/50 flex items-center justify-between text-xs text-neutral-400 flex-wrap gap-2">
+          <span>
+            Showing <strong className="text-neutral-900">{variants.length}</strong> of{" "}
+            <strong className="text-neutral-900">{currentTabCount}</strong>{" "}
+            {variantFilter} variants
+          </span>
+        </div>
+      </section>
 
       {/* Floating Portal Action Dropdown Menu (Guaranteed Zero Clipping & Viewport Clamping) */}
       {activeMenu &&
@@ -1489,7 +1229,7 @@ export default function AdminProductDetailsPage() {
                       <span>View Variant</span>
                     </Link>
 
-                    {/* 2. Price Change — same Units & Pricing flow as the Edit Item modal */}
+                    {/* 2. Price Change — same Units & Pricing flow as the Edit Variant modal */}
                     <button
                       type="button"
                       onClick={() => {
@@ -1581,20 +1321,6 @@ export default function AdminProductDetailsPage() {
       {/* MODALS AND DIALOGS                                                       */}
       {/* ========================================================================= */}
 
-      {/* 1. Bulk Price Edit Modal (Existing & Enhanced) */}
-      <ProductPriceEditModal
-        open={isPriceEditOpen}
-        onClose={() => setIsPriceEditOpen(false)}
-        productUuid={canonicalProductId}
-        productName={product.name}
-        variants={variants}
-        onSuccess={() => {
-          setIsPriceEditOpen(false);
-          refetchVariants();
-          refetchProduct();
-        }}
-      />
-
       {/* 4. Edit Product Modal */}
       <FormModal
         open={isEditProductOpen}
@@ -1674,7 +1400,7 @@ export default function AdminProductDetailsPage() {
               try {
                 const res = await createVariantMutation.mutateAsync({
                   productUuid: canonicalProductId,
-                  itemUuid: items.length > 1 ? selectedItemUuid || undefined : undefined,
+                  styleUuid: styles.length > 1 ? selectedStyleUuid || undefined : undefined,
                   data: {
                     variantName: formData.variantName,
                     slug: formData.slug,
@@ -1688,7 +1414,8 @@ export default function AdminProductDetailsPage() {
                   setNewlyCreatedVariant((res as any).data);
                 }
               } catch (err: any) {
-                console.error("Failed to create Item", err);
+                console.error("Failed to create variant", err);
+                toast.error(err?.message || "Failed to create variant");
               }
             }}
           />
@@ -1696,7 +1423,7 @@ export default function AdminProductDetailsPage() {
           <div className="space-y-4">
 
 
-     
+
 
             <VariantUnitPriceList
               productUuid={canonicalProductId}
@@ -1733,7 +1460,7 @@ export default function AdminProductDetailsPage() {
                     setIsAddVariantOpen(false);
                     setNewlyCreatedVariant(null);
                   }}
-                  className="h-10 rounded-xl bg-[var(--color-secondary-600)] px-5 text-sm font-semibold text-white hover:bg-[var(--color-secondary-700)] cursor-pointer"
+                  className="h-10 rounded-xl bg-theme-primary hover:bg-theme-primary-hover px-5 text-sm font-semibold text-white transition-colors cursor-pointer"
                 >
                   Save & Activate
                 </Button>
@@ -1760,22 +1487,20 @@ export default function AdminProductDetailsPage() {
               <button
                 type="button"
                 onClick={() => setEditVariantTab("details")}
-                className={`px-4 py-2.5 text-sm font-semibold border-b-2 transition-colors cursor-pointer ${
-                  editVariantTab === "details"
-                    ? "border-[var(--color-secondary-600)] text-[var(--color-secondary-600)]"
-                    : "border-transparent text-[var(--color-neutral-500)] hover:text-[var(--color-neutral-800)]"
-                }`}
+                className={`px-4 py-2.5 text-sm font-semibold border-b-2 transition-colors cursor-pointer ${editVariantTab === "details"
+                  ? "border-[var(--color-primary-500)] text-[var(--color-primary-500)]"
+                  : "border-transparent text-[var(--color-neutral-500)] hover:text-[var(--color-neutral-800)]"
+                  }`}
               >
                 Variant Details
               </button>
               <button
                 type="button"
                 onClick={() => setEditVariantTab("pricing")}
-                className={`px-4 py-2.5 text-sm font-semibold border-b-2 transition-colors cursor-pointer ${
-                  editVariantTab === "pricing"
-                    ? "border-[var(--color-secondary-600)] text-[var(--color-secondary-600)]"
-                    : "border-transparent text-[var(--color-neutral-500)] hover:text-[var(--color-neutral-800)]"
-                }`}
+                className={`px-4 py-2.5 text-sm font-semibold border-b-2 transition-colors cursor-pointer ${editVariantTab === "pricing"
+                  ? "border-[var(--color-primary-500)] text-[var(--color-primary-500)]"
+                  : "border-transparent text-[var(--color-neutral-500)] hover:text-[var(--color-neutral-800)]"
+                  }`}
               >
                 Units & Pricing
               </button>
@@ -1816,7 +1541,8 @@ export default function AdminProductDetailsPage() {
                     });
                     setEditingVariant(null);
                   } catch (err: any) {
-                    console.error("Failed to update Item", err);
+                    console.error("Failed to update variant", err);
+                    toast.error(err?.message || "Failed to update variant");
                   }
                 }}
               />
@@ -1882,7 +1608,7 @@ export default function AdminProductDetailsPage() {
               variantUuid: target.id,
             });
           } catch (err: any) {
-            console.error("Failed to delete item", err);
+            console.error("Failed to delete variant", err);
           }
         }}
         title="Delete Variant"
@@ -1898,7 +1624,7 @@ export default function AdminProductDetailsPage() {
         open={Boolean(managingImagesVariant)}
         onClose={() => setManagingImagesVariant(null)}
         title={`Manage Images: ${managingImagesVariant?.variantName || ""}`}
-        description="Upload and crop product item images (500 × 500 px)"
+        description="Upload and crop product images (500 × 500 px)"
         size="lg"
       >
         {managingImagesVariant && (
@@ -1924,14 +1650,13 @@ export default function AdminProductDetailsPage() {
       <FormModal
         open={isAddStyleOpen}
         onClose={() => setIsAddStyleOpen(false)}
-        title="Add Item"
-        description={`Create a new sellable item for ${product.name} (e.g. "V Neck", "Solo")`}
+        title="Add Style"
+        description={`Create a new style for ${product.name} (e.g. "V Neck", "Solo")`}
         size="lg"
       >
         <StyleForm
-          defaultBrandId={product.brandId}
           isLoading={createStyleMutation.isPending}
-          submitLabel="Create Item"
+          submitLabel="Create Style"
           onSubmit={async (formData: StyleFormValues) => {
             try {
               const res = await createStyleMutation.mutateAsync({
@@ -1950,8 +1675,11 @@ export default function AdminProductDetailsPage() {
                   vegType: "na",
                   basePrice: formData.basePrice ?? 0,
                   isFeatured: formData.isFeatured,
+                  isNewArrival: formData.isNewArrival ?? false,
+                  newArrivalUntil: formData.isNewArrival ? formData.newArrivalUntil || null : null,
                   isDefault: formData.isDefault ?? false,
                   isActive: formData.isActive,
+                  outOfStock: formData.outOfStock ?? false,
                 },
               });
               const created = (res as any)?.data as AdminStyleResponse | undefined;
@@ -1959,10 +1687,10 @@ export default function AdminProductDetailsPage() {
                 setSelectedStyleUuid(created.id);
               }
               setIsAddStyleOpen(false);
-              toast.success("Item created", `"${formData.name}" is ready for Models, Colors & Sizes.`);
+              toast.success("Style created", `"${formData.name}" is ready for Variants & Sizes.`);
             } catch (err: any) {
               console.error("Failed to create style", err);
-              toast.error("Failed to create item", err?.message || "Please try again.");
+              toast.error("Failed to create style", err?.message || "Please try again.");
             }
           }}
         />
@@ -1972,7 +1700,7 @@ export default function AdminProductDetailsPage() {
       <FormModal
         open={Boolean(editingStyle)}
         onClose={() => setEditingStyle(null)}
-        title="Edit Item"
+        title="Edit Style"
         description={`Update information for ${editingStyle?.name || ""}`}
         size="lg"
       >
@@ -1989,8 +1717,11 @@ export default function AdminProductDetailsPage() {
               cookingRecipe: editingStyle.cookingRecipe || "",
               basePrice: editingStyle.basePrice ?? 0,
               isFeatured: editingStyle.isFeatured,
+              isNewArrival: editingStyle.isNewArrival,
+              newArrivalUntil: editingStyle.newArrivalUntil ?? "",
               isDefault: editingStyle.isDefault,
               isActive: editingStyle.isActive,
+              outOfStock: editingStyle.outOfStock ?? false,
             }}
             isLoading={updateStyleMutation.isPending}
             submitLabel="Save Changes"
@@ -2014,8 +1745,11 @@ export default function AdminProductDetailsPage() {
                     vegType: editingStyle.vegType || "na",
                     basePrice: formData.basePrice ?? 0,
                     isFeatured: formData.isFeatured,
+                    isNewArrival: formData.isNewArrival ?? false,
+                    newArrivalUntil: formData.isNewArrival ? formData.newArrivalUntil || null : null,
                     isDefault: formData.isDefault ?? false,
                     isActive: formData.isActive,
+                    outOfStock: formData.outOfStock ?? editingStyle.outOfStock ?? false,
                   },
                 });
                 setEditingStyle(null);
@@ -2051,216 +1785,14 @@ export default function AdminProductDetailsPage() {
             toast.error("Failed to delete item", err?.message || "Please try again.");
           }
         }}
-        title="Delete Item"
-        description={`Are you sure you want to delete the item "${deletingStyle?.name}"? Its Models, Colors and Sizes will no longer be manageable. This action cannot be undone.`}
+        title="Delete Style"
+        description={`Are you sure you want to delete the style "${deletingStyle?.name}"? Its Variants and Sizes will no longer be manageable. This action cannot be undone.`}
         confirmText="Delete"
         cancelText="Cancel"
         variant="destructive"
         isLoading={deleteStyleMutation.isPending}
       />
 
-      {/* 14b. Select Brand Modal - shown instead of a blocking toast when the
-           Product has no Brand yet and the admin clicks "Add Model". The
-           chosen Brand is used only for the hidden default Style. */}
-      <FormModal
-        open={isPickBrandOpen}
-        onClose={() => setIsPickBrandOpen(false)}
-        title="Select Brand"
-        description={`This product has no Brand yet. Pick one to continue adding items to "${product.name}".`}
-        size="sm"
-      >
-        <div className="space-y-4">
-          <Select
-            options={brandOptions}
-            value={pickedBrandId}
-            onValueChange={setPickedBrandId}
-            placeholder="Select a brand"
-          />
-          <div className="flex justify-end gap-2">
-            <Button
-              type="button"
-              onClick={() => setIsPickBrandOpen(false)}
-              className="h-10 rounded-xl bg-neutral-100 text-neutral-800 border border-neutral-300 hover:bg-neutral-200 px-5 text-sm font-semibold cursor-pointer"
-            >
-              Cancel
-            </Button>
-            <Button
-              type="button"
-              disabled={!pickedBrandId || isPreparingItemForm}
-              onClick={async () => {
-                setIsPickBrandOpen(false);
-                await createHiddenStyleAndOpenItemForm(pickedBrandId);
-              }}
-              className="h-10 rounded-xl bg-primary-600 text-white hover:bg-primary-700 px-5 text-sm font-semibold cursor-pointer disabled:opacity-50"
-            >
-              {isPreparingItemForm ? "Preparing..." : "Continue"}
-            </Button>
-          </div>
-        </div>
-      </FormModal>
-
-      {/* 15. Add Item Modal (admin-only sub-variant under the selected Style).
-           Two steps like the "Add Variant" flow: create the Item,
-           then immediately pick which attribute values (Color, Size, etc.)
-           it comes in, right here, instead of hunting for it below later. */}
-      <FormModal
-        open={isAddItemOpen}
-        onClose={() => {
-          setIsAddItemOpen(false);
-          setNewlyCreatedItem(null);
-        }}
-        title={newlyCreatedItem ? "Choose Attribute Values" : "Add Model"}
-        description={
-          newlyCreatedItem
-            ? `Pick which Color/Size/etc. values "${newlyCreatedItem.name}" comes in`
-            : `Create a new Model under "${styles.find((s) => s.id === selectedStyleUuid)?.name || "this item"}" (e.g. "Regular Fit", "Slim Fit")`
-        }
-        size="lg"
-      >
-        {!newlyCreatedItem ? (
-          selectedStyleUuid && (
-            <ItemForm
-              isLoading={createItemMutation.isPending}
-              submitLabel="Next: Attribute Values"
-              onSubmit={async (formData: ItemFormValues) => {
-                try {
-                  const res = await createItemMutation.mutateAsync({
-                    productUuid: canonicalProductId,
-                    styleUuid: selectedStyleUuid,
-                    data: {
-                      name: formData.name,
-                      slug: formData.slug,
-                      sku: formData.sku || null,
-                      shortDescription: formData.shortDescription || null,
-                      description: formData.description || null,
-                      basePrice: formData.basePrice ?? 0,
-                      isFeatured: formData.isFeatured,
-                      isDefault: formData.isDefault ?? false,
-                      isActive: formData.isActive,
-                    },
-                  });
-                  const created = (res as any)?.data as AdminItemResponse | undefined;
-                  if (created) {
-                    setSelectedItemUuid(created.id);
-                    setNewlyCreatedItem(created);
-                  }
-                  toast.success("Model created", `"${formData.name}" is ready for Colors & Sizes.`);
-                } catch (err: any) {
-                  console.error("Failed to create item", err);
-                  toast.error("Failed to create model", err?.message || "Please try again.");
-                }
-              }}
-            />
-          )
-        ) : (
-          <div className="space-y-4">
-            <ItemColorsPanel
-              productUuid={canonicalProductId}
-              itemUuid={newlyCreatedItem.id}
-              itemName={newlyCreatedItem.name}
-              categoryUuid={product?.categoryId ?? null}
-              onChanged={() => refetchVariants()}
-            />
-            <div className="flex justify-end">
-              <Button
-                type="button"
-                onClick={() => {
-                  setIsAddItemOpen(false);
-                  setNewlyCreatedItem(null);
-                }}
-                className="h-10 rounded-xl bg-neutral-100 text-neutral-800 border border-neutral-300 hover:bg-neutral-200 px-5 text-sm font-semibold cursor-pointer"
-              >
-                Done
-              </Button>
-            </div>
-          </div>
-        )}
-      </FormModal>
-
-      {/* 16. Edit Item Modal */}
-      <FormModal
-        open={Boolean(editingItem)}
-        onClose={() => setEditingItem(null)}
-        title="Edit Model"
-        description={`Update information for ${editingItem?.name || ""}`}
-        size="lg"
-      >
-        {editingItem && (
-          <ItemForm
-            isEditing
-            initialData={{
-              name: editingItem.name,
-              slug: editingItem.slug,
-              sku: editingItem.sku || "",
-              shortDescription: editingItem.shortDescription || "",
-              description: editingItem.description || "",
-              basePrice: editingItem.basePrice ?? 0,
-              isFeatured: editingItem.isFeatured,
-              isDefault: editingItem.isDefault,
-              isActive: editingItem.isActive,
-            }}
-            isLoading={updateItemMutation.isPending}
-            submitLabel="Save Changes"
-            onSubmit={async (formData: ItemFormValues) => {
-              if (!editingItem || !selectedStyleUuid) return;
-              try {
-                await updateItemMutation.mutateAsync({
-                  productUuid: canonicalProductId,
-                  styleUuid: selectedStyleUuid,
-                  itemUuid: editingItem.id,
-                  data: {
-                    name: formData.name,
-                    slug: formData.slug,
-                    sku: formData.sku || null,
-                    shortDescription: formData.shortDescription || null,
-                    description: formData.description || null,
-                    basePrice: formData.basePrice ?? 0,
-                    isFeatured: formData.isFeatured,
-                    isDefault: formData.isDefault ?? false,
-                    isActive: formData.isActive,
-                  },
-                });
-                setEditingItem(null);
-                toast.success("Model updated", `"${formData.name}" was saved.`);
-              } catch (err: any) {
-                console.error("Failed to update item", err);
-                toast.error("Failed to update model", err?.message || "Please try again.");
-              }
-            }}
-          />
-        )}
-      </FormModal>
-
-      {/* 17. Delete Item Confirmation Dialog */}
-      <ConfirmDialog
-        open={!!deletingItem}
-        onClose={() => setDeletingItem(null)}
-        onConfirm={async () => {
-          if (!deletingItem || !selectedStyleUuid) return;
-          const target = deletingItem;
-          setDeletingItem(null);
-          try {
-            await deleteItemMutation.mutateAsync({
-              productUuid: canonicalProductId,
-              styleUuid: selectedStyleUuid,
-              itemUuid: target.id,
-            });
-            if (selectedItemUuid === target.id) {
-              setSelectedItemUuid(null);
-            }
-            toast.success("Model deleted", `"${target.name}" was removed.`);
-          } catch (err: any) {
-            console.error("Failed to delete item", err);
-            toast.error("Failed to delete model", err?.message || "Please try again.");
-          }
-        }}
-        title="Delete Model"
-        description={`Are you sure you want to delete the Model "${deletingItem?.name}"? Its Colors and Sizes will no longer be manageable. This action cannot be undone.`}
-        confirmText="Delete"
-        cancelText="Cancel"
-        variant="destructive"
-        isLoading={deleteItemMutation.isPending}
-      />
     </div>
   );
 }

@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useEffect } from "react";
 import Image from "next/image";
-import { Plus, Pencil, Trash2, Calendar } from "lucide-react";
+import { Plus, Pencil, Trash2, Calendar, Eye } from "lucide-react";
 import type { ColumnDef } from "@tanstack/react-table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -16,6 +16,9 @@ import {
   AdminContent,
 } from "@/components/admin/AdminPageHeader";
 import { FormModal } from "@/components/common/FormModal";
+import { ExportButton } from "@/components/common/export-button";
+import { exportDataToCsv } from "@/lib/export-csv";
+import { formatDate } from "@/lib/utils";
 import { SearchInput } from "@/components/ui/search-input";
 import { ClearFiltersButton } from "@/components/common/clear-filters-button";
 import {
@@ -25,7 +28,7 @@ import {
   useUpdateBanner,
   useDeleteBanner,
 } from "@/features/banners/hooks";
-import { BannerForm } from "@/features/banners/components";
+import { BannerForm, BannerPreviewModal } from "@/features/banners/components";
 import {
   parseVideoUrl,
   getVideoThumbnailUrl,
@@ -36,6 +39,7 @@ import {
 } from "@/features/banners/constants/banner-types";
 import type { BannerDto } from "@/features/banners/types";
 import { Video } from "lucide-react";
+import { CanAct } from "@/features/access";
 
 export default function AdminBannersPage() {
   const [search, setSearch] = useState("");
@@ -46,6 +50,7 @@ export default function AdminBannersPage() {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [selectedBanner, setSelectedBanner] = useState<BannerDto | null>(null);
+  const [previewBanner, setPreviewBanner] = useState<BannerDto | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<{
     uuid: string;
     title: string;
@@ -94,18 +99,7 @@ export default function AdminBannersPage() {
   }, [positionOptions]);
 
   const formatDateDisplay = (dateVal: unknown): string => {
-    if (!dateVal) return "";
-    try {
-      const d = new Date(dateVal as string | Date);
-      if (isNaN(d.getTime())) return "";
-      return d.toLocaleDateString("en-IN", {
-        day: "numeric",
-        month: "short",
-        year: "numeric",
-      });
-    } catch {
-      return "";
-    }
+    return formatDate(dateVal as string | Date);
   };
 
   const columns: ColumnDef<BannerDto>[] = [
@@ -184,8 +178,11 @@ export default function AdminBannersPage() {
       accessorKey: "title",
       header: "Title",
       cell: ({ row }) => (
-        <div className="min-w-[160px]">
-          <p className="font-semibold text-[var(--color-neutral-900)]">
+        <div className="w-[200px] max-w-[260px]">
+          <p
+            className="truncate font-semibold text-[var(--color-neutral-900)]"
+            title={row.original.title || "Untitled Banner"}
+          >
             {row.original.title || "Untitled Banner"}
           </p>
         </div>
@@ -204,25 +201,32 @@ export default function AdminBannersPage() {
       ),
     },
     {
-      accessorKey: "schedule",
-      header: "Schedule",
+      accessorKey: "sortOrder",
+      header: "Sort Order",
+      cell: ({ row }) => (
+        <span className="text-sm font-medium text-[var(--color-neutral-700)]">
+          {row.original.sortOrder ?? 0}
+        </span>
+      ),
+    },
+    {
+      id: "floatingCard",
+      header: "Floating Card",
       cell: ({ row }) => {
-        const starts = formatDateDisplay(row.original.startsAt);
-        const ends = formatDateDisplay(row.original.endsAt);
-
-        if (!starts && !ends) {
+        const { badgeLabel, subtitle, priceText } = row.original;
+        const summary = badgeLabel || subtitle;
+        if (!summary && !priceText) {
           return (
-            <span className="text-xs text-[var(--color-neutral-500)]">
-              Always Active
-            </span>
+            <span className="text-[var(--color-neutral-400)]">—</span>
           );
         }
-
         return (
-          <div className="flex items-center gap-1.5 text-xs text-[var(--color-neutral-600)]">
-            <Calendar className="h-3.5 w-3.5 text-[var(--color-neutral-400)]" />
-            <span>
-              {starts || "Now"} — {ends || "Forever"}
+          <div className="flex w-[160px] max-w-[200px] items-center">
+            <span
+              className="truncate text-xs text-[var(--color-neutral-700)]"
+              title={[badgeLabel, subtitle, priceText].filter(Boolean).join(" · ")}
+            >
+              {summary || priceText}
             </span>
           </div>
         );
@@ -233,12 +237,51 @@ export default function AdminBannersPage() {
       header: "Status",
       cell: ({ row }) => (
         <Badge
-          variant={row.original.isActive ? "success" : "secondary"}
-          className="text-xs"
+          variant={row.original.isActive ? "success" : "destructive"}
+          className={`text-xs ${
+            row.original.isActive
+              ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+              : "border-red-200 bg-red-50 text-red-700"
+          }`}
+          title={
+            row.original.isActive
+              ? "Visible on the storefront"
+              : "Hidden from the storefront"
+          }
         >
           {row.original.isActive ? "Active" : "Inactive"}
         </Badge>
       ),
+    },
+    {
+      accessorKey: "schedule",
+      header: "Schedule",
+      cell: ({ row }) => {
+        const starts = formatDateDisplay(row.original.startsAt);
+        const ends = formatDateDisplay(row.original.endsAt);
+
+        if (!starts && !ends) {
+          return (
+            <span className="text-xs text-[var(--color-neutral-500)]">
+              Always Live
+            </span>
+          );
+        }
+
+        const text =
+          starts && ends
+            ? `${starts} – ${ends}`
+            : starts
+              ? `Starts ${starts}`
+              : `Ends ${ends}`;
+
+        return (
+          <div className="flex items-center gap-1.5 whitespace-nowrap text-xs text-[var(--color-neutral-600)]">
+            <Calendar className="h-3.5 w-3.5 text-[var(--color-neutral-400)]" />
+            <span>{text}</span>
+          </div>
+        );
+      },
     },
     {
       id: "actions",
@@ -250,30 +293,44 @@ export default function AdminBannersPage() {
             <Button
               variant="ghost"
               size="icon"
-              onClick={() => {
-                setSelectedBanner(banner);
-                setIsEditOpen(true);
-              }}
+              onClick={() => setPreviewBanner(banner)}
               className="h-8 w-8 text-[var(--color-neutral-500)] hover:text-[var(--color-neutral-900)] hover:bg-[var(--color-neutral-100)]"
-              title="Edit Banner"
+              title="Preview Banner"
             >
-              <Pencil className="h-4 w-4" />
+              <Eye className="h-4 w-4" />
             </Button>
 
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() =>
-                setDeleteTarget({
-                  uuid: banner.id,
-                  title: banner.title || "Untitled Banner",
-                })
-              }
-              className="h-8 w-8 text-[var(--color-error-500)] hover:bg-[var(--color-error-50)] hover:text-[var(--color-error-700)]"
-              title="Delete Banner"
-            >
-              <Trash2 className="h-4 w-4" />
-            </Button>
+            <CanAct action="UPDATE">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => {
+                  setSelectedBanner(banner);
+                  setIsEditOpen(true);
+                }}
+                className="h-8 w-8 text-[var(--color-neutral-500)] hover:text-[var(--color-neutral-900)] hover:bg-[var(--color-neutral-100)]"
+                title="Edit Banner"
+              >
+                <Pencil className="h-4 w-4" />
+              </Button>
+            </CanAct>
+
+            <CanAct action="DELETE">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() =>
+                  setDeleteTarget({
+                    uuid: banner.id,
+                    title: banner.title || "Untitled Banner",
+                  })
+                }
+                className="h-8 w-8 text-[var(--color-error-500)] hover:bg-[var(--color-error-50)] hover:text-[var(--color-error-700)]"
+                title="Delete Banner"
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </CanAct>
           </div>
         );
       },
@@ -300,8 +357,8 @@ export default function AdminBannersPage() {
         description="Manage hero, offer, popup and reels banners shown across the storefront."
       />
 
-      <AdminContent className="flex-1 min-h-0 overflow-hidden">
-        <div className="flex h-full flex-col overflow-hidden bg-[var(--color-background)] py-1 rounded-2xl">
+      <AdminContent className="flex-1 min-h-0">
+        <div className="flex h-full flex-col bg-[var(--color-background)] py-1 rounded-2xl">
           {/* Top Bar: Search, Position Filter, Add Button */}
           <div className="flex-shrink-0 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <div className="flex flex-1 flex-col gap-3 sm:flex-row sm:items-center">
@@ -331,19 +388,58 @@ export default function AdminBannersPage() {
               {hasActiveFilters && <ClearFiltersButton onClick={handleClearFilters} />}
             </div>
 
-            <div className="flex items-center gap-2">
-              <Button
-                onClick={() => setIsCreateOpen(true)}
-                className="h-11 rounded-xl bg-[var(--color-secondary-600)] px-5 text-sm font-semibold text-white hover:bg-[var(--color-secondary-700)]"
-              >
-                <Plus className="mr-2 h-4 w-4" />
-                Add Banner
-              </Button>
+            <div className="flex items-center gap-3">
+              <ExportButton
+                onClick={() =>
+                  exportDataToCsv(
+                    banners.map((b) => {
+                      const starts = formatDateDisplay(b.startsAt);
+                      const ends = formatDateDisplay(b.endsAt);
+                      const scheduleText =
+                        !starts && !ends
+                          ? "Always Live"
+                          : starts && ends
+                          ? `${starts} – ${ends}`
+                          : starts
+                          ? `Starts ${starts}`
+                          : `Ends ${ends}`;
+
+                      return {
+                        "Banner Title": b.title || "Untitled",
+                        "Banner Type": getBannerTypeLabel(b.bannerPosition?.slug, b.bannerPosition?.name),
+                        "Media Type": b.mediaType === "video" ? "Video" : "Image",
+                        "Media URL": b.mediaType === "video" ? (b.videoUrl || b.imageUrl || "—") : (b.imageUrl || "—"),
+                        "Target Link": b.linkUrl || "—",
+                        "Floating Card": [b.badgeLabel, b.subtitle, b.priceText].filter(Boolean).join(" · ") || "—",
+                        "Badge Label": b.badgeLabel || "—",
+                        "Subtitle": b.subtitle || "—",
+                        "Price Text": b.priceText || "—",
+                        "Sort Order": b.sortOrder ?? 0,
+                        "Status": b.isActive ? "Active" : "Inactive",
+                        "Schedule": scheduleText,
+                        "Start Date": starts || "—",
+                        "End Date": ends || "—",
+                      };
+                    }),
+                    "banners"
+                  )
+                }
+                disabled={banners.length === 0}
+              />
+              <CanAct action="CREATE">
+                <Button
+                  onClick={() => setIsCreateOpen(true)}
+                  className="h-11 rounded-xl bg-stone-900 hover:bg-stone-800 text-[#D4AF37] border border-[#D4AF37]/30 shadow-xs px-5 text-sm font-semibold transition-colors"
+                >
+                  <Plus className="mr-2 h-4 w-4 text-[#D4AF37]" />
+                  Add Banner
+                </Button>
+              </CanAct>
             </div>
           </div>
 
           {/* Data Table */}
-          <div className="mt-6 flex-1 min-h-0 overflow-hidden flex flex-col">
+          <div className="mt-6 flex-1 min-h-0 flex flex-col">
             <DataTable
               columns={columns}
               data={banners}
@@ -415,6 +511,12 @@ export default function AdminBannersPage() {
           />
         )}
       </FormModal>
+
+      {/* PREVIEW MODAL */}
+      <BannerPreviewModal
+        banner={previewBanner}
+        onClose={() => setPreviewBanner(null)}
+      />
 
       {/* DELETE CONFIRMATION DIALOG */}
       <ConfirmDialog

@@ -2,19 +2,21 @@
 
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Loader2 } from "lucide-react";
+import { BadgeCheck, Ban, CheckCircle2, History, Landmark, Loader2 } from "lucide-react";
 import { apiClient } from "@/lib/api/api-client";
 import { Modal } from "@/components/ui/modal";
 import { toast } from "@/components/ui/Toast";
 import type { PayoutRow } from "../../types";
 import { errorMessage, useAdminList } from "../../hooks/use-admin-agents";
-import { ButtonPager, PAYOUT_STATUS_OPTIONS, Panel, SimpleTable, StatusBadge, TableSkeleton, dateOnly, fieldCls, money } from "../shared";
+import { PAYOUT_STATUS_OPTIONS, Panel, SimpleTable, StatusBadge, TableSkeleton, Tooltip, dateOnly, fieldCls, money } from "../shared";
+import { ButtonPager } from "../AdminPagination";
 import { AdminFilterBar, type FilterField } from "./AdminFilterBar";
 import { AuditModal } from "./AuditModal";
 
 type Dialog =
   | { kind: "reject"; payout: PayoutRow }
-  | { kind: "paid"; payout: PayoutRow }
+  /** `approve-and-pay` for a requested payout, `mark-paid` for one already approved. */
+  | { kind: "paid"; payout: PayoutRow; alsoApprove: boolean }
   | { kind: "details"; payout: PayoutRow }
   | null;
 
@@ -28,33 +30,20 @@ interface Destination {
 }
 
 const btn =
-  "inline-flex min-h-[32px] items-center rounded-lg px-2.5 text-xs font-semibold transition-colors disabled:opacity-50";
+  "inline-flex h-8 w-8 items-center justify-center rounded-lg transition-colors disabled:opacity-50";
 
 export function AdminPayoutsSection({ fixedAgent }: { fixedAgent?: string }) {
   const qc = useQueryClient();
   const [filters, setFilters] = useState<Record<string, string>>({});
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
   const [dialog, setDialog] = useState<Dialog>(null);
   const [auditId, setAuditId] = useState<string | null>(null);
-  const [busyId, setBusyId] = useState<string | null>(null);
 
-  const params = { ...filters, ...(fixedAgent ? { agent: fixedAgent } : {}), page, limit: 20 };
+  const params = { ...filters, ...(fixedAgent ? { agent: fixedAgent } : {}), page, limit: pageSize };
   const { data, isLoading, error } = useAdminList<PayoutRow>("payouts", "/api/admin/agent-payouts", params);
 
   const refresh = () => qc.invalidateQueries({ queryKey: ["agents-admin"] });
-
-  const approve = async (p: PayoutRow) => {
-    setBusyId(p.id);
-    try {
-      await apiClient.post(`/api/admin/agent-payouts/${p.id}/approve`);
-      toast.success("Payout approved", "Now transfer the money and mark it as paid.");
-      await refresh();
-    } catch (err) {
-      toast.error("Could not approve", errorMessage(err));
-    } finally {
-      setBusyId(null);
-    }
-  };
 
   const fields: FilterField[] = [
     ...(fixedAgent ? [] : [{ name: "agent", label: "Sales Partner", type: "agent" as const }]),
@@ -105,37 +94,83 @@ export function AdminPayoutsSection({ fixedAgent }: { fixedAgent?: string }) {
               },
               {
                 header: "Actions",
+                stickyRight: true,
                 cell: (r) => (
                   <div className="flex flex-wrap items-center gap-1.5">
                     {r.status === "requested" && (
-                      <button type="button" disabled={busyId === r.id} onClick={() => approve(r)} className={`${btn} bg-emerald-600 text-white hover:bg-emerald-700`}>
-                        {busyId === r.id ? "…" : "Approve"}
-                      </button>
+                      <Tooltip content="Approve & mark as paid" side="top">
+                        <button
+                          type="button"
+                          onClick={() => setDialog({ kind: "paid", payout: r, alsoApprove: true })}
+                          aria-label="Approve payout and mark it as paid"
+                          className={`${btn} bg-emerald-600 text-white hover:bg-emerald-700`}
+                        >
+                          <CheckCircle2 className="h-4 w-4" />
+                        </button>
+                      </Tooltip>
                     )}
                     {r.status === "approved" && (
-                      <button type="button" onClick={() => setDialog({ kind: "paid", payout: r })} className={`${btn} bg-neutral-900 text-white hover:bg-neutral-800`}>
-                        Mark paid
-                      </button>
+                      <Tooltip content="Mark payout as paid" side="top">
+                        <button
+                          type="button"
+                          onClick={() => setDialog({ kind: "paid", payout: r, alsoApprove: false })}
+                          aria-label="Mark payout as paid"
+                          className={`${btn} bg-theme-primary hover:bg-theme-primary-hover text-white transition-colors`}
+                        >
+                          <BadgeCheck className="h-4 w-4" />
+                        </button>
+                      </Tooltip>
                     )}
                     {(r.status === "requested" || r.status === "approved") && (
-                      <button type="button" onClick={() => setDialog({ kind: "reject", payout: r })} className={`${btn} border border-red-200 text-red-700 hover:bg-red-50`}>
-                        Reject
-                      </button>
+                      <Tooltip content="Reject payout request" side="top">
+                        <button
+                          type="button"
+                          onClick={() => setDialog({ kind: "reject", payout: r })}
+                          aria-label="Reject payout request"
+                          className={`${btn} border border-red-200 text-red-700 hover:bg-red-50`}
+                        >
+                          <Ban className="h-4 w-4" />
+                        </button>
+                      </Tooltip>
                     )}
                     {(r.status === "requested" || r.status === "approved") && (
-                      <button type="button" onClick={() => setDialog({ kind: "details", payout: r })} className={`${btn} border border-neutral-200 hover:bg-neutral-50`}>
-                        Pay-to details
-                      </button>
+                      <Tooltip content="View bank & UPI pay-to details" side="top">
+                        <button
+                          type="button"
+                          onClick={() => setDialog({ kind: "details", payout: r })}
+                          aria-label="View bank and UPI pay-to details"
+                          className={`${btn} border border-neutral-200 hover:bg-neutral-50`}
+                        >
+                          <Landmark className="h-4 w-4" />
+                        </button>
+                      </Tooltip>
                     )}
-                    <button type="button" onClick={() => setAuditId(r.id)} className={`${btn} text-neutral-700 underline-offset-4 hover:underline`}>
-                      History
-                    </button>
+                    <Tooltip content="View payout audit history" side="top">
+                      <button
+                        type="button"
+                        onClick={() => setAuditId(r.id)}
+                        aria-label="View payout audit history"
+                        className={`${btn} text-neutral-700 hover:bg-neutral-100`}
+                      >
+                        <History className="h-4 w-4" />
+                      </button>
+                    </Tooltip>
                   </div>
                 ),
               },
             ]}
           />
-          <ButtonPager page={page} totalPages={data?.meta.totalPages ?? 1} total={data?.meta.total ?? 0} onPage={setPage} />
+          <ButtonPager
+            page={page}
+            totalPages={data?.meta.totalPages ?? 1}
+            total={data?.meta.total ?? 0}
+            onPage={setPage}
+            pageSize={pageSize}
+            onPageSizeChange={(newSize) => {
+              setPageSize(newSize);
+              setPage(1);
+            }}
+          />
         </>
       )}
 
@@ -197,16 +232,17 @@ function PaidDialog({ dialog, onClose, onDone }: { dialog: Dialog; onClose: () =
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   if (dialog?.kind !== "paid") return null;
+  const { alsoApprove } = dialog;
 
   const submit = async () => {
     setBusy(true);
     setErr(null);
     try {
-      await apiClient.post(`/api/admin/agent-payouts/${dialog.payout.id}/mark-paid`, {
-        transactionReference: reference,
-        note: note || undefined,
-      });
-      toast.success("Marked as paid");
+      await apiClient.post(
+        `/api/admin/agent-payouts/${dialog.payout.id}/${alsoApprove ? "approve-and-pay" : "mark-paid"}`,
+        { transactionReference: reference, note: note || undefined }
+      );
+      toast.success(alsoApprove ? "Payout approved and marked as paid" : "Marked as paid");
       setReference("");
       setNote("");
       await onDone();
@@ -219,9 +255,20 @@ function PaidDialog({ dialog, onClose, onDone }: { dialog: Dialog; onClose: () =
   };
 
   return (
-    <Modal open onClose={onClose} title={`Mark ${dialog.payout.code} as paid`} description={`${money(dialog.payout.amount)} to ${dialog.payout.agentName}`}>
+    <Modal
+      open
+      onClose={onClose}
+      title={alsoApprove ? `Approve & pay ${dialog.payout.code}` : `Mark ${dialog.payout.code} as paid`}
+      description={`${money(dialog.payout.amount)} to ${dialog.payout.agentName}`}
+    >
       <div className="flex flex-col gap-3">
         {err && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{err}</p>}
+        {alsoApprove && (
+          <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">
+            Transfer the money first — use the pay-to details — then enter the reference here. This approves the
+            request and marks it paid in one step.
+          </p>
+        )}
         <label className="flex flex-col gap-1 text-xs font-medium text-neutral-600">
           Transaction / reference ID
           <input className={fieldCls} value={reference} onChange={(e) => setReference(e.target.value)} maxLength={100} />
@@ -234,9 +281,9 @@ function PaidDialog({ dialog, onClose, onDone }: { dialog: Dialog; onClose: () =
           <button type="button" onClick={onClose} className="h-10 rounded-xl border border-neutral-200 px-4 text-sm font-medium hover:bg-neutral-50">
             Cancel
           </button>
-          <button type="button" disabled={busy || reference.trim().length < 3} onClick={submit} className="inline-flex h-10 items-center gap-2 rounded-xl bg-neutral-900 px-4 text-sm font-semibold text-white hover:bg-neutral-800 disabled:opacity-50">
+          <button type="button" disabled={busy || reference.trim().length < 3} onClick={submit} className="inline-flex h-10 items-center gap-2 rounded-xl bg-theme-primary hover:bg-theme-primary-hover px-4 text-sm font-semibold text-white transition-colors disabled:opacity-50">
             {busy && <Loader2 className="h-4 w-4 animate-spin" />}
-            Confirm payment
+            {alsoApprove ? "Approve & confirm payment" : "Confirm payment"}
           </button>
         </div>
       </div>
@@ -295,7 +342,7 @@ function DetailsDialog({ dialog, onClose }: { dialog: Dialog; onClose: () => voi
             ))}
           </dl>
         ) : (
-          <button type="button" onClick={reveal} disabled={busy} className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-neutral-900 px-4 text-sm font-semibold text-white hover:bg-neutral-800 disabled:opacity-50">
+          <button type="button" onClick={reveal} disabled={busy} className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-theme-primary hover:bg-theme-primary-hover px-4 text-sm font-semibold text-white transition-colors disabled:opacity-50">
             {busy && <Loader2 className="h-4 w-4 animate-spin" />}
             Reveal full details
           </button>

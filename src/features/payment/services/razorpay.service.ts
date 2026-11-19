@@ -9,6 +9,7 @@ import { getRazorpayClient, getRazorpayPublicKey } from "../config/razorpay.conf
 import { paymentRepository } from "../repositories/payment.repository";
 import { referralService, findAgentByReferralCode } from "@/features/agents/services/referral.service";
 import { getShippingCharge } from "@/features/orders/shipping";
+import { assertMobileVerifiedForOrder } from "@/features/orders/lib/mobile-verification";
 import type {
   CreateRazorpayOrderInput,
   VerifyRazorpayPaymentInput,
@@ -16,10 +17,56 @@ import type {
 } from "../validations/payment.schema";
 
 /**
+ * Compare two hex signatures without leaking, through how long the comparison
+ * takes, how much of a forged signature was right.
+ */
+function signatureMatches(expected: string, received: string | null | undefined) {
+  const expectedBuffer = Buffer.from(expected, "utf8");
+  const receivedBuffer = Buffer.from(received || "", "utf8");
+  return (
+    expectedBuffer.length === receivedBuffer.length &&
+    crypto.timingSafeEqual(expectedBuffer, receivedBuffer)
+  );
+}
+
+/**
+ * The money is already captured by the time the order is written, so a failure
+ * there (stock gone, cart total moved) must hand the money back rather than
+ * leave the customer paid up with nothing to show for it. A refund that itself
+ * fails is logged loudly and still reported to the customer, because support
+ * has to be able to find it.
+ */
+async function refundCapturedPayment(
+  razorpayPaymentId: string,
+  razorpayOrderId: string,
+  reason: string
+) {
+  try {
+    await getRazorpayClient().payments.refund(razorpayPaymentId, {
+      notes: { reason, razorpay_order_id: razorpayOrderId },
+    });
+    console.warn(
+      `[Razorpay] Auto-refunded payment ${razorpayPaymentId} after order placement failed: ${reason}`
+    );
+    return true;
+  } catch (refundErr: unknown) {
+    console.error(
+      `[Razorpay] CRITICAL: auto-refund failed for payment ${razorpayPaymentId} (order ${razorpayOrderId}):`,
+      refundErr
+    );
+    return false;
+  }
+}
+
+/**
  * Delivery charge for the customer's chosen address - must match what
  * orderService.createCustomerOrder charges once the payment is verified.
  */
-async function resolveShippingCharge(userId: number | bigint, shippingAddressId?: string) {
+async function resolveShippingCharge(
+  userId: number | bigint,
+  shippingAddressId?: string,
+  deliveryMethod?: string
+) {
   if (!shippingAddressId) {
     throw ApiError.badRequest("Please select a delivery address before paying.");
   }
@@ -39,7 +86,7 @@ async function resolveShippingCharge(userId: number | bigint, shippingAddressId?
   if (!address) {
     throw ApiError.badRequest("Shipping address not found or does not belong to customer");
   }
-  return getShippingCharge(address.state);
+  return getShippingCharge(address.state, deliveryMethod);
 }
 
 export const razorpayService = {
@@ -61,6 +108,9 @@ export const razorpayService = {
     const userId = user.internalId;
     const isCartCheckout = !input.orderId || input.orderId === "cart";
 
+    // Refuse before any payment is taken; the order is only created after payment.
+    await assertMobileVerifiedForOrder(userId);
+
     // A. Cart-First Flow: Create Razorpay Order directly from active cart (No internal order created yet)
     if (isCartCheckout) {
       const cart = await cartService.getCart({ sessionUserId });
@@ -68,8 +118,58 @@ export const razorpayService = {
         throw ApiError.badRequest("Your cart is empty. Please add items before checking out.");
       }
 
+      // Check real-time stock before creating Razorpay order
+      for (const item of cart.items) {
+        if (!item.variantUnitPriceId) continue;
+        const vup = await db.variantUnitPrice.findFirst({
+          where: {
+            OR: [
+              { uuid: item.variantUnitPriceId },
+              ...(isNaN(Number(item.variantUnitPriceId)) ? [] : [{ id: BigInt(item.variantUnitPriceId) }]),
+            ],
+            deleted_at: null,
+          },
+          include: {
+            variant: true,
+            inventories: {
+              select: { quantity_available: true, quantity_reserved: true },
+            },
+          },
+        });
+
+        if (!vup || !vup.isActive || vup.deleted_at !== null) {
+          throw ApiError.badRequest(
+            `"${item.productName}" is no longer available. Please remove it from your cart.`
+          );
+        }
+
+        const variant = vup.variant;
+        if (!variant || !variant.isActive || variant.deleted_at !== null || variant.out_of_stock) {
+          throw ApiError.badRequest(
+            `"${item.productName}" is out of stock. Please remove it from your cart.`
+          );
+        }
+
+        // If numerical inventory is explicitly tracked and positive, ensure sufficient available stock
+        if (vup.inventories && typeof vup.inventories.quantity_available === "number") {
+          const rawAvailable = vup.inventories.quantity_available;
+          const reserved = vup.inventories.quantity_reserved || 0;
+          const effectiveStock = Math.max(0, rawAvailable - reserved);
+
+          if (rawAvailable > 0 && effectiveStock < item.quantity) {
+            throw ApiError.badRequest(
+              `Only ${effectiveStock} unit${effectiveStock === 1 ? "" : "s"} left for "${item.productName}". Please update your cart.`
+            );
+          }
+        }
+      }
+
       const payableBeforeShipping = cart.total;
-      const shippingCharge = await resolveShippingCharge(userId, input.shippingAddressId);
+      const shippingCharge = await resolveShippingCharge(
+        userId,
+        input.shippingAddressId,
+        input.deliveryMethod
+      );
       const payableAmount = payableBeforeShipping + shippingCharge;
       if (payableAmount <= 0) {
         throw ApiError.badRequest("Invalid cart payable amount.");
@@ -87,6 +187,7 @@ export const razorpayService = {
             userId: String(userId),
             checkoutType: "cart",
             shippingAddressId: input.shippingAddressId || "",
+            deliveryMethod: input.deliveryMethod || "standard",
           },
         });
       } catch (err: any) {
@@ -122,6 +223,21 @@ export const razorpayService = {
 
     if (order.order_status === "cancelled") {
       throw ApiError.badRequest("Cannot pay for a cancelled order.");
+    }
+
+    // For COD orders, allow payment only after delivery.
+    // Restrict payment during Processing, Packing, and Shipped stages.
+    const payment = order.payments?.[0];
+    const paymentMethodCode = payment?.payment_methods?.code?.toUpperCase();
+    const isCodOrder = !payment || paymentMethodCode === "COD" || payment.gateway === "COD";
+
+    if (isCodOrder) {
+      const allowedCodPayStatuses = ["delivered"];
+      if (!allowedCodPayStatuses.includes(order.order_status.toLowerCase())) {
+        throw ApiError.badRequest(
+          `For Cash on Delivery orders, payment is allowed only after delivery. Payment cannot be made during ${order.order_status} stage.`
+        );
+      }
     }
 
     const payableAmount = Number(order.totalAmount);
@@ -224,9 +340,7 @@ export const razorpayService = {
       .update(`${input.razorpay_order_id}|${input.razorpay_payment_id}`)
       .digest("hex");
 
-    const isSignatureValid = expectedSignature === input.razorpay_signature;
-
-    if (!isSignatureValid) {
+    if (!signatureMatches(expectedSignature, input.razorpay_signature)) {
       throw ApiError.badRequest("Invalid payment signature. Verification rejected.");
     }
 
@@ -237,19 +351,64 @@ export const razorpayService = {
         throw ApiError.badRequest("Shipping address is required to complete the order.");
       }
 
-      const createdOrder = await orderService.createCustomerOrder(sessionUserId, {
-        shippingAddressId: input.shippingAddressId,
-        billingAddressId: input.billingAddressId || input.shippingAddressId,
-        notes: input.notes,
-        paymentMethod: "CARD",
-        paymentDetails: {
-          gateway: "RAZORPAY",
-          isPaid: true,
-          razorpay_order_id: input.razorpay_order_id,
-          razorpay_payment_id: input.razorpay_payment_id,
-          razorpay_signature: input.razorpay_signature,
-        },
-      }, request);
+      // Replay guard: one verified Razorpay order may only ever produce one order.
+      const alreadyUsed = await db.payment.findFirst({
+        where: { gateway_order_id: input.razorpay_order_id, status: "success" },
+        select: { id: true },
+      });
+      if (alreadyUsed) {
+        throw ApiError.conflict("This payment has already been used for an order.");
+      }
+
+      // Amount that was actually charged, straight from Razorpay.
+      let chargedAmount: number | undefined;
+      try {
+        const rzpOrder: any = await getRazorpayClient().orders.fetch(input.razorpay_order_id);
+        chargedAmount = Number(rzpOrder.amount) / 100;
+      } catch (err) {
+        console.error("Razorpay orders.fetch failed during verification:", err);
+        throw ApiError.badRequest("Could not confirm the payment amount. Please contact support.");
+      }
+
+      let createdOrder;
+      try {
+        createdOrder = await orderService.createCustomerOrder(
+          sessionUserId,
+          {
+            shippingAddressId: input.shippingAddressId,
+            billingAddressId: input.billingAddressId || input.shippingAddressId,
+            notes: input.notes,
+            deliveryMethod: (input.deliveryMethod as "standard" | "express") || "standard",
+            paymentMethod: "CARD",
+            paymentDetails: {
+              gateway: "RAZORPAY",
+              isPaid: true,
+              razorpay_order_id: input.razorpay_order_id,
+              razorpay_payment_id: input.razorpay_payment_id,
+              razorpay_signature: input.razorpay_signature,
+            },
+          },
+          request,
+          undefined,
+          { gatewayPaymentVerified: true, expectedPaidAmount: chargedAmount }
+        );
+      } catch (orderErr: unknown) {
+        // Stock reservation or order creation failed after payment capture.
+        const baseMsg =
+          orderErr instanceof Error
+            ? orderErr.message
+            : "Could not complete order due to stock unavailability.";
+        const refunded = await refundCapturedPayment(
+          input.razorpay_payment_id,
+          input.razorpay_order_id,
+          baseMsg
+        );
+        throw ApiError.badRequest(
+          refunded
+            ? `${baseMsg} A full refund has been automatically initiated to your payment method.`
+            : `${baseMsg} We could not complete the refund automatically - please contact support with payment reference ${input.razorpay_payment_id}.`
+        );
+      }
 
       // Find the created order to retrieve internal BigInt ID
       const dbOrder = await db.order.findFirst({
@@ -363,7 +522,7 @@ export const razorpayService = {
       .update(rawBody)
       .digest("hex");
 
-    if (expectedSignature !== signatureHeader) {
+    if (!signatureMatches(expectedSignature, signatureHeader)) {
       throw ApiError.badRequest("Invalid webhook signature");
     }
 
@@ -429,6 +588,42 @@ export const razorpayService = {
     }
 
     return { received: true, unhandledEvent: eventType };
+  },
+
+  /**
+   * The captured Razorpay payment behind an order, or null when nothing was
+   * paid online (COD orders, or a gateway attempt that never succeeded).
+   * Callers use it to choose between an automatic refund and a manual payout.
+   */
+  async findCapturedPayment(orderId: bigint) {
+    return db.payment.findFirst({
+      where: {
+        orderId,
+        status: "success",
+        gateway: "RAZORPAY",
+        is_active: true,
+        gateway_payment_id: { not: null },
+      },
+      orderBy: { createdAt: "desc" },
+    });
+  },
+
+  /**
+   * Refunds part or all of a captured payment at the gateway and nothing more.
+   * Unlike `refundPayment` this writes no rows: a partial return refund must
+   * not flip the whole order to `refunded`, so the caller records the outcome
+   * against its own refund row.
+   */
+  async createGatewayRefund(params: {
+    gatewayPaymentId: string;
+    amount: number;
+    notes?: Record<string, string>;
+  }) {
+    const razorpay = getRazorpayClient();
+    return razorpay.payments.refund(params.gatewayPaymentId, {
+      amount: Math.round(params.amount * 100),
+      ...(params.notes ? { notes: params.notes } : {}),
+    });
   },
 
   /**
@@ -508,7 +703,12 @@ export const razorpayService = {
    */
   async initiateRedirectPayment(
     sessionUserId: string,
-    input: { shippingAddressId: string; billingAddressId?: string; notes?: string },
+    input: {
+      shippingAddressId: string;
+      billingAddressId?: string;
+      notes?: string;
+      deliveryMethod?: "standard" | "express";
+    },
     request?: NextRequest
   ): Promise<{ paymentUrl: string; token: string }> {
     const user = await userRepository.findById(sessionUserId);
@@ -518,13 +718,20 @@ export const razorpayService = {
 
     const userId = user.internalId;
 
+    // Refuse before any payment is taken; the order is only created after payment.
+    await assertMobileVerifiedForOrder(userId);
+
     // 1. Compute amount from active cart
     const cart = await cartService.getCart({ sessionUserId });
     if (!cart || cart.items.length === 0)
       throw ApiError.badRequest("Your cart is empty. Please add items before checking out.");
 
     const payableBeforeShipping = cart.total;
-    const shippingCharge = await resolveShippingCharge(userId, input.shippingAddressId);
+    const shippingCharge = await resolveShippingCharge(
+      userId,
+      input.shippingAddressId,
+      input.deliveryMethod
+    );
     const payableAmount = payableBeforeShipping + shippingCharge;
     if (payableAmount <= 0) throw ApiError.badRequest("Invalid cart amount.");
 
@@ -542,6 +749,7 @@ export const razorpayService = {
           userId: String(userId),
           checkoutType: "redirect",
           shippingAddressId: input.shippingAddressId,
+          deliveryMethod: input.deliveryMethod || "standard",
         },
       });
     } catch (err: any) {
@@ -557,6 +765,9 @@ export const razorpayService = {
     // this browser's cookies, so the referral active right now must be frozen
     // onto the token and carried through to order creation at verify time.
     const referral = await referralService.resolveForOrder(BigInt(userId), request);
+    const encodedNotes = input.deliveryMethod === "express"
+      ? `[DELIVERY:express] ${input.notes || ""}`.trim()
+      : input.notes;
 
     await paymentRepository.createPaymentToken({
       token,
@@ -564,7 +775,7 @@ export const razorpayService = {
       internalOrderRef: "cart",
       shippingAddressId: input.shippingAddressId,
       billingAddressId: input.billingAddressId,
-      notes: input.notes,
+      notes: encodedNotes,
       referralCode: referral?.referralCode ?? null,
       amount: payableAmount,
       currency: "INR",
@@ -608,12 +819,20 @@ export const razorpayService = {
       .update(`${input.razorpay_order_id}|${input.razorpay_payment_id}`)
       .digest("hex");
 
-    if (expectedSignature !== input.razorpay_signature) {
+    if (!signatureMatches(expectedSignature, input.razorpay_signature)) {
       throw ApiError.badRequest("Invalid payment signature. Verification rejected.");
     }
 
-    // 3. Mark token as used immediately (prevent replay)
-    await paymentRepository.markTokenUsed(input.token);
+    // The signed Razorpay order must be the one this token was issued for;
+    // otherwise a cheap, genuinely-paid order could unlock a costlier cart.
+    if (input.razorpay_order_id !== tokenData.razorpayOrderId) {
+      throw ApiError.badRequest("Payment does not match this checkout session.");
+    }
+
+    // 3. Claim the token atomically (prevent replay / double submit)
+    if (!(await paymentRepository.markTokenUsed(input.token))) {
+      throw ApiError.badRequest("Payment token is invalid, expired, or already used.");
+    }
 
     // 4. Reconstruct sessionUserId from stored userId
     const userRows = await db.$queryRaw<any[]>`
@@ -631,25 +850,52 @@ export const razorpayService = {
       : null;
     const validReferral = referral && referral.id !== tokenData.userId ? referral : null;
 
-    // 5. Create internal order — only now, after verified payment
-    const createdOrder = await orderService.createCustomerOrder(
-      sessionUserId,
-      {
-        shippingAddressId: tokenData.shippingAddressId,
-        billingAddressId: tokenData.billingAddressId || tokenData.shippingAddressId,
-        notes: tokenData.notes || undefined,
-        paymentMethod: "CARD",
-        paymentDetails: {
-          gateway: "RAZORPAY",
-          isPaid: true,
-          razorpay_order_id: input.razorpay_order_id,
-          razorpay_payment_id: input.razorpay_payment_id,
-          razorpay_signature: input.razorpay_signature,
+    const rawNotes = tokenData.notes || "";
+    const isExpress = rawNotes.includes("[DELIVERY:express]");
+    const cleanNotes = rawNotes.replace(/\[DELIVERY:(express|standard)\]\s*/g, "").trim() || undefined;
+    const deliveryMethod: "standard" | "express" = isExpress ? "express" : "standard";
+
+    // 5. Create internal order — only now, after verified payment. The money is
+    // already captured, so anything that stops the order here has to be paid
+    // back; the token stays used, since the charge it stood for is reversed.
+    let createdOrder;
+    try {
+      createdOrder = await orderService.createCustomerOrder(
+        sessionUserId,
+        {
+          shippingAddressId: tokenData.shippingAddressId,
+          billingAddressId: tokenData.billingAddressId || tokenData.shippingAddressId,
+          notes: cleanNotes,
+          deliveryMethod,
+          paymentMethod: "CARD",
+          paymentDetails: {
+            gateway: "RAZORPAY",
+            isPaid: true,
+            razorpay_order_id: input.razorpay_order_id,
+            razorpay_payment_id: input.razorpay_payment_id,
+            razorpay_signature: input.razorpay_signature,
+          },
         },
-      },
-      undefined,
-      validReferral
-    );
+        undefined,
+        validReferral,
+        { gatewayPaymentVerified: true, expectedPaidAmount: tokenData.amount }
+      );
+    } catch (orderErr: unknown) {
+      const baseMsg =
+        orderErr instanceof Error
+          ? orderErr.message
+          : "Could not complete your order after the payment went through.";
+      const refunded = await refundCapturedPayment(
+        input.razorpay_payment_id,
+        input.razorpay_order_id,
+        baseMsg
+      );
+      throw ApiError.badRequest(
+        refunded
+          ? `${baseMsg} A full refund has been automatically initiated to your payment method.`
+          : `${baseMsg} We could not complete the refund automatically - please contact support with payment reference ${input.razorpay_payment_id}.`
+      );
+    }
 
     // 6. Record payment in DB
     const dbOrder = await db.order.findFirst({

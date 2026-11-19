@@ -7,7 +7,7 @@ export interface PrimaryButtonProps {
   onClick?: () => void;
   className?: string;
   type?: "button" | "submit" | "reset";
-  variant?: "yellow" | "brown";
+  variant?: "yellow" | "brown" | "blue" | "primary";
   disabled?: boolean;
 }
 
@@ -16,12 +16,14 @@ export function PrimaryButton({
   onClick,
   className = "",
   type = "button",
-  variant = "yellow",
+  variant = "primary",
   disabled = false,
 }: PrimaryButtonProps) {
-  const variants = {
-    yellow: "btn-yellow text-[var(--brown-900)]",
-    brown: "btn-brown text-white",
+  const variants: Record<string, string> = {
+    yellow: "bg-theme-primary hover:bg-theme-primary-hover text-white rounded-lg",
+    brown: "bg-theme-primary hover:bg-theme-primary-hover text-white rounded-lg",
+    blue: "bg-theme-primary hover:bg-theme-primary-hover text-white rounded-lg",
+    primary: "bg-theme-primary hover:bg-theme-primary-hover text-white rounded-lg",
   };
 
   return (
@@ -31,12 +33,13 @@ export function PrimaryButton({
       disabled={disabled}
       className={`
         h-[40px]
+        px-4
         font-semibold
         text-sm
         transition-all
         duration-150
         ${disabled ? "opacity-50 cursor-not-allowed" : "hover:scale-105 active:scale-95 cursor-pointer"}
-        ${variants[variant]}
+        ${variants[variant] || variants.primary}
         ${className}
       `}
     >

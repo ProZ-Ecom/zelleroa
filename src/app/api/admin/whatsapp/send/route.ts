@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { sendWhatsAppMessage } from "@/lib/whatsapp/whatsapp-client";
 import { apiSuccess, apiError } from "@/lib/api/api-response";
+import { withApiRoles } from "@/lib/api/api-handler";
 
-export async function POST(request: NextRequest) {
+async function handlePOST(request: NextRequest) {
   try {
     const body = await request.json();
     const { phone, message } = body || {};
@@ -29,3 +30,5 @@ export async function POST(request: NextRequest) {
     );
   }
 }
+
+export const POST = withApiRoles(["ADMIN", "STAFF"], handlePOST);

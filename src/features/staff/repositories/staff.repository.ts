@@ -8,9 +8,22 @@ const staffInclude = Prisma.validator<Prisma.UserInclude>()({
       id: true,
       name: true,
       slug: true,
+      scope: true,
     },
   },
 });
+
+/** Role slugs that belong to the store owners, not to the staff list. */
+const OWNER_ROLE_SLUGS = ["admin", "super-admin", "super_admin"];
+
+/**
+ * A staff member is any back-office user (role scope ADMIN) other than the owners —
+ * so roles an admin created themselves, e.g. "Warehouse Manager", count as staff.
+ */
+export const STAFF_ROLE_FILTER: Prisma.RoleWhereInput = {
+  scope: "ADMIN",
+  slug: { notIn: OWNER_ROLE_SLUGS },
+};
 
 export const staffRepository = {
   async getStaffRole() {
@@ -19,11 +32,27 @@ export const staffRepository = {
     });
   },
 
+  /** The role to put a new/edited staff member in, when the admin picked one explicitly. */
+  async findAssignableStaffRole(roleId: number | bigint) {
+    return db.role.findFirst({
+      where: { id: BigInt(roleId), is_active: true, ...STAFF_ROLE_FILTER },
+    });
+  },
+
+  /** Every role a staff member may be given, for the role picker on the Staff screen. */
+  async findAssignableStaffRoles() {
+    return db.role.findMany({
+      where: { is_active: true, ...STAFF_ROLE_FILTER },
+      select: { id: true, name: true, slug: true, description: true },
+      orderBy: { name: "asc" },
+    });
+  },
+
   async findStaffByUuid(uuid: string) {
     return db.user.findFirst({
       where: {
         uuid,
-        role: { slug: "staff" },
+        role: STAFF_ROLE_FILTER,
         deleted_at: null,
       },
       include: staffInclude,
@@ -34,7 +63,7 @@ export const staffRepository = {
     return db.user.findFirst({
       where: {
         id: BigInt(id),
-        role: { slug: "staff" },
+        role: STAFF_ROLE_FILTER,
         deleted_at: null,
       },
       include: staffInclude,
@@ -63,7 +92,7 @@ export const staffRepository = {
 
   buildStaffWhere(params: GetStaffParams = {}): Prisma.UserWhereInput {
     const where: Prisma.UserWhereInput = {
-      role: { slug: "staff" },
+      role: STAFF_ROLE_FILTER,
       deleted_at: null,
     };
 
@@ -87,7 +116,7 @@ export const staffRepository = {
     params: GetStaffParams = {}
   ): Promise<AdminStaffCountResponse> {
     const baseWhere: Prisma.UserWhereInput = {
-      role: { slug: "staff" },
+      role: STAFF_ROLE_FILTER,
       deleted_at: null,
     };
 

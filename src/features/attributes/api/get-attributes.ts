@@ -2,8 +2,9 @@ import { apiClient } from "@/lib/api/api-client";
 import type {
   AttributeListItem,
   ProductAttributeConfigOption,
-  ItemAttributeGroup,
+  StyleAttributeGroup,
   ConfiguredProductAttribute,
+  VariationLevel,
 } from "../types";
 
 export interface GetAttributesResult {
@@ -96,12 +97,12 @@ export async function getAttributesForProduct(productUuid: string) {
 
 export async function setAttributesForProduct(
   productUuid: string,
-  attributeIds: string[],
+  attributes: { attributeId: string; variationLevel: VariationLevel }[],
   force = false
 ) {
   const response = await apiClient.put<ProductAttributeConfigOption[]>(
     `/api/admin/products/${productUuid}/attributes`,
-    { attributeIds, force }
+    { attributes, force }
   );
   return response.data ?? [];
 }
@@ -113,20 +114,20 @@ export async function getConfiguredAttributesForProduct(productUuid: string) {
   return response.data ?? [];
 }
 
-export async function getAttributeValuesForItem(productUuid: string, itemUuid: string) {
-  const response = await apiClient.get<ItemAttributeGroup[]>(
-    `/api/admin/products/${productUuid}/items/${itemUuid}/attribute-values`
+export async function getAttributeValuesForStyle(productUuid: string, styleUuid: string) {
+  const response = await apiClient.get<StyleAttributeGroup[]>(
+    `/api/admin/products/${productUuid}/styles/${styleUuid}/attribute-values`
   );
   return response.data ?? [];
 }
 
-export async function setAttributeValuesForItem(
+export async function setAttributeValuesForStyle(
   productUuid: string,
-  itemUuid: string,
+  styleUuid: string,
   attributeValueIds: string[]
 ) {
-  const response = await apiClient.put<ItemAttributeGroup[]>(
-    `/api/admin/products/${productUuid}/items/${itemUuid}/attribute-values`,
+  const response = await apiClient.put<StyleAttributeGroup[]>(
+    `/api/admin/products/${productUuid}/styles/${styleUuid}/attribute-values`,
     { attributeValueIds }
   );
   return response.data ?? [];

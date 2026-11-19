@@ -22,5 +22,5 @@ export const PATCH = createApiHandler(
       }
     },
   },
-  { requireAuth: true, bodySchema: cancelOrderSchema }
+  { requireAuth: true, requiredRole: ["CUSTOMER", "AGENT"], bodySchema: cancelOrderSchema }
 );

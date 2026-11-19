@@ -3,6 +3,10 @@ export interface PaginationMeta {
   limit: number;
   total: number;
   totalPages: number;
+  /** Optional extras some lists add (e.g. own purchases total spend). */
+  totalSpend?: number;
+  autoApprove?: boolean;
+  availableForPayout?: { amount: number; count: number } | number;
 }
 
 export interface PaginatedResult<T> {
@@ -40,6 +44,8 @@ export interface CommissionRow {
   productName: string;
   categoryName: string | null;
   quantity: number;
+  originalQuantity?: number;
+  returnedQuantity?: number;
   productAmount: number;
   percentage: number;
   rateSource: string;
@@ -57,7 +63,14 @@ export interface CommissionRow {
 
 export interface AgentSummary {
   totalReferredCustomers: number;
+  /** Assigned customers whose account is active. */
+  activeCustomers: number;
   totalOrders: number;
+  customerDirectOrders: number;
+  agentPlacedOrders: number;
+  agentOwnOrders: number;
+  /** Cancelled + reversed commission (not part of totalCommission). */
+  cancelledCommission: number;
   totalSales: number;
   pendingCommission: number;
   approvedCommission: number;

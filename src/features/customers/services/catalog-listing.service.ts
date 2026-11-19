@@ -1,4 +1,5 @@
 import { ApiError } from "@/lib/api/api-error";
+import { toTitleCase } from "@/lib/utils";
 import type { PaginationMeta } from "@/lib/api/api-response";
 import { offerService } from "@/features/offers/services/offer.service";
 import {
@@ -14,29 +15,30 @@ import type {
   ListingAttributeFilterDto,
   ListingCategoryDto,
   ListingCategoryRefDto,
+  ListingSubcategoryDto,
   ListingFilterValueDto,
   ListingFiltersDto,
   ListingStockStatus,
-  ListingItemCardDto,
+  ListingStyleCardDto,
 } from "../types/catalog-listing.types";
 
 /**
  * Category listing: cards + the filters that apply to the category.
  *
- * One card per Item - Items under the same Style are separate products to
- * the shopper, each opening its own Item page (`/items/:id`), so they are
- * never merged into one card.
+ * One card per Style - Styles under the same Product are separate products to
+ * the shopper, each opening its own page (`/styles/:id`), so they are never
+ * merged into one card.
  *
- * Every Item is flattened into its sellable units - one per Size row
+ * Every Style is flattened into its sellable units - one per Size row
  * (VariantUnitPrice) - and each unit carries the attribute values that
- * describe it. Filters are then checked against units, not Items, so
- * "Colour: Black + Size: M + ₹500-₹1500" only matches an Item that sells a
+ * describe it. Filters are then checked against units, not Styles, so
+ * "Colour: Black + Size: M + ₹500-₹1500" only matches a Style that sells a
  * black M within that price, not one with a black S and a red M.
  *
  * A unit's values come from three places, most specific first:
  *   1. its Size row's `attribute_value_id` (Size = M),
  *   2. its Colour's `variant_attribute_values` pins (Colour = Black),
- *   3. its Item's `item_attribute_values` pool, for attributes 1-2 don't
+ *   3. its Style's `style_attribute_values` pool, for attributes 1-2 don't
  *      cover (Fabric = Cotton). A colour-type pool is narrowed to the value
  *      matching the Colour's own `color_name` where there is one.
  */
@@ -44,7 +46,14 @@ import type {
 const DEFAULT_PAGE_SIZE = 24;
 const MAX_PAGE_SIZE = 60;
 const LOW_STOCK_THRESHOLD = 5;
-const NEW_ARRIVAL_DAYS = 30;
+
+/** A Style is a "New Arrival" only when an admin ticked it, and the optional end date hasn't passed. */
+function isNewArrival(row: { is_new_arrival: boolean; new_arrival_until: Date | null }): boolean {
+  if (!row.is_new_arrival) return false;
+  if (!row.new_arrival_until) return true;
+  const endOfLastDay = row.new_arrival_until.getTime() + 86_400_000;
+  return Date.now() < endOfLastDay;
+}
 
 // ---------------------------------------------------------------------------
 // Sellable units
@@ -69,11 +78,8 @@ interface SellableUnit {
   defaultRank: number;
 }
 
-type ListingItemRow = ListingStyleRow["items"][number];
-
 interface Candidate {
   row: ListingStyleRow;
-  item: ListingItemRow;
   units: SellableUnit[];
   brand: { id: string; key: string; name: string } | null;
   gender: ListingGender | null;
@@ -107,101 +113,94 @@ function buildCandidates(
   const needle = search.trim().toLowerCase();
 
   return rows
-    .flatMap((row) => {
-      // When the search hit the Style or Product, every Item under it is a
-      // match; when it only hit Item names, only those Items are.
-      const parentMatches =
+    .filter(
+      (row) =>
         !needle ||
         row.name.toLowerCase().includes(needle) ||
-        row.product.name.toLowerCase().includes(needle);
-      const items = parentMatches
-        ? row.items
-        : row.items.filter((item) => item.name.toLowerCase().includes(needle));
-
+        row.product.name.toLowerCase().includes(needle)
+    )
+    .map((row): Candidate => {
       const brand = row.brand ?? row.product.brand;
       const brandRef =
         brand && brand.isActive && !brand.deleted_at
           ? { id: brand.uuid || String(brand.id), key: brand.slug.toLowerCase(), name: brand.name }
           : null;
 
-      return items.map((item): Candidate => {
-        const units: SellableUnit[] = [];
-        const colours = new Map<string, Colour>();
+      const units: SellableUnit[] = [];
+      const colours = new Map<string, Colour>();
 
-        // Item pool grouped by attribute, active values only.
-        const pool = new Map<string, ListingAttributeValueRow[]>();
-        for (const iav of item.item_attribute_values) {
-          const value = valuesById.get(iav.attribute_value_id.toString());
-          if (!value) continue;
-          const attrId = value.attribute.id.toString();
-          pool.set(attrId, [...(pool.get(attrId) ?? []), value]);
+      // Style pool grouped by attribute, active values only.
+      const pool = new Map<string, ListingAttributeValueRow[]>();
+      for (const sav of row.style_attribute_values) {
+        const value = valuesById.get(sav.attribute_value_id.toString());
+        if (!value) continue;
+        const attrId = value.attribute.id.toString();
+        pool.set(attrId, [...(pool.get(attrId) ?? []), value]);
+      }
+
+      row.variants.forEach((variant, variantIdx) => {
+        const pinned = variant.variant_attribute_values
+          .map((vav) => valuesById.get(vav.attribute_value_id.toString()))
+          .filter((v): v is ListingAttributeValueRow => Boolean(v));
+
+        const colourAttr = pinned.find((v) => v.attribute.type === "color");
+        const colourName = variant.color_name?.trim() || colourAttr?.value || null;
+        const colour: Colour | null = colourName
+          ? { name: colourName, hex: variant.color_hex || colourAttr?.colorHex || null }
+          : null;
+        if (colour && !colours.has(colour.name.toLowerCase())) {
+          colours.set(colour.name.toLowerCase(), colour);
         }
 
-        item.variants.forEach((variant, variantIdx) => {
-          const pinned = variant.variant_attribute_values
-            .map((vav) => valuesById.get(vav.attribute_value_id.toString()))
-            .filter((v): v is ListingAttributeValueRow => Boolean(v));
+        variant.variant_unit_prices.forEach((up, upIdx) => {
+          const values = new Set<string>();
+          const covered = new Set<string>();
+          const add = (v: ListingAttributeValueRow) => {
+            values.add(facetKey(v.attribute.id, v.value));
+            covered.add(v.attribute.id.toString());
+          };
 
-          const colourAttr = pinned.find((v) => v.attribute.type === "color");
-          const colourName = variant.color_name?.trim() || colourAttr?.value || null;
-          const colour: Colour | null = colourName
-            ? { name: colourName, hex: variant.color_hex || colourAttr?.colorHex || null }
-            : null;
-          if (colour && !colours.has(colour.name.toLowerCase())) {
-            colours.set(colour.name.toLowerCase(), colour);
+          const size = up.attribute_value_id
+            ? valuesById.get(up.attribute_value_id.toString())
+            : undefined;
+          if (size) add(size);
+          pinned.forEach(add);
+
+          for (const [attrId, poolValues] of pool) {
+            if (covered.has(attrId)) continue;
+            const isColour = poolValues[0].attribute.type === "color";
+            const narrowed =
+              isColour && colourName
+                ? poolValues.filter((v) => v.value.trim().toLowerCase() === colourName.toLowerCase())
+                : poolValues;
+            narrowed.forEach((v) => values.add(facetKey(v.attribute.id, v.value)));
           }
 
-          variant.variant_unit_prices.forEach((up, upIdx) => {
-            const values = new Set<string>();
-            const covered = new Set<string>();
-            const add = (v: ListingAttributeValueRow) => {
-              values.add(facetKey(v.attribute.id, v.value));
-              covered.add(v.attribute.id.toString());
-            };
-
-            const size = up.attribute_value_id
-              ? valuesById.get(up.attribute_value_id.toString())
-              : undefined;
-            if (size) add(size);
-            pinned.forEach(add);
-
-            for (const [attrId, poolValues] of pool) {
-              if (covered.has(attrId)) continue;
-              const isColour = poolValues[0].attribute.type === "color";
-              const narrowed =
-                isColour && colourName
-                  ? poolValues.filter((v) => v.value.trim().toLowerCase() === colourName.toLowerCase())
-                  : poolValues;
-              narrowed.forEach((v) => values.add(facetKey(v.attribute.id, v.value)));
-            }
-
-            const basePrice = Number(up.base_price);
-            const stock = up.inventories?.quantity_available ?? 0;
-            units.push({
-              id: up.uuid,
-              basePrice,
-              sellingPrice: basePrice,
-              stock,
-              inStock: stock > 0 && !variant.out_of_stock && !item.out_of_stock,
-              values,
-              colour,
-              image: variant.product_variant_images[0]?.image_url ?? null,
-              defaultRank:
-                (variant.is_default ? 0 : 1 + variantIdx) * 1_000 +
-                (up.is_default ? 0 : 1 + upIdx),
-            });
+          const basePrice = Number(up.base_price);
+          const stock = up.inventories?.quantity_available ?? 0;
+          units.push({
+            id: up.uuid,
+            basePrice,
+            sellingPrice: basePrice,
+            stock,
+            inStock: stock > 0 && !variant.out_of_stock && !row.out_of_stock,
+            values,
+            colour,
+            image: variant.product_variant_images[0]?.image_url ?? null,
+            defaultRank:
+              (variant.is_default ? 0 : 1 + variantIdx) * 1_000 +
+              (up.is_default ? 0 : 1 + upIdx),
           });
         });
-
-        return {
-          row,
-          item,
-          units,
-          brand: brandRef,
-          gender: (row.product.gender as unknown as string) === "na" ? null : (row.product.gender ?? null),
-          colours: [...colours.values()],
-        };
       });
+
+      return {
+        row,
+        units,
+        brand: brandRef,
+        gender: ((row.product.gender as string) === "not_applicable" ? null : (row.product.gender as ListingGender | null)) ?? null,
+        colours: [...colours.values()],
+      };
     })
     .filter((c) => c.units.length > 0);
 }
@@ -270,7 +269,9 @@ function resolveFilters(
   };
 }
 
-/** A men's/women's/kids' filter also includes unisex products (matches /api/customer/styles). */
+/**
+ * A men's/women's/kids' filter also includes unisex products (matches /api/customer/styles).
+ */
 function genderMatches(gender: ListingGender | null, selected: Set<ListingGender>): boolean {
   if (selected.size === 0) return true;
   if (!gender) return false;
@@ -329,7 +330,7 @@ function buildFilters(
       .filter(([, meta]) => meta.attributeId === attribute.id)
       .sort(([, a], [, b]) => compareLabels(a, b));
 
-    // How many Items carry each value at all, and with the other filters applied.
+    // How many Styles carry each value at all, and with the other filters applied.
     const coverage = new Map<string, number>();
     const counts = new Map<string, number>();
     let stylesWithAttribute = 0;
@@ -357,7 +358,7 @@ function buildFilters(
         selected: selected.has(k),
       }));
 
-    // A single value every Item shares can't narrow anything down.
+    // A single value every Style shares can't narrow anything down.
     const narrowsNothing =
       values.length === 1 && (coverage.get(facetKey(attribute.id, values[0].label)) ?? 0) === candidates.length;
     if (values.length === 0 || (narrowsNothing && selected.size === 0)) continue;
@@ -454,9 +455,9 @@ function buildFilters(
 // Cards & sorting
 // ---------------------------------------------------------------------------
 
-interface ListedItem {
+interface ListedStyle {
   candidate: Candidate;
-  card: ListingItemCardDto;
+  card: ListingStyleCardDto;
   rating: { average: number; count: number } | null;
   unitsSold: number;
   createdAt: number;
@@ -470,7 +471,7 @@ function toCard(
   colourFilterActive: boolean,
   categoryNames: Map<string, ListingCategoryRow>,
   rating: { average: number; count: number } | null
-): ListingItemCardDto {
+): ListingStyleCardDto {
   const cheapest = units.reduce((best, u) => (u.sellingPrice < best.sellingPrice ? u : best), units[0]);
   const representative = [...units].sort(
     (a, b) => Number(b.inStock) - Number(a.inStock) || a.defaultRank - b.defaultRank
@@ -478,9 +479,8 @@ function toCard(
   const styleImage = c.row.images[0]?.image_url ?? null;
   const anyVariantImage = c.units.find((u) => u.image)?.image ?? null;
 
-  // Items of one Style share the Style's cover, so the card leads with the
-  // Item's own Colour photo (the filtered Colour's, when a Colour filter is
-  // on) and only falls back to the Style cover when the Item has none.
+  // The card leads with the Colour photo (the filtered Colour's, when a
+  // Colour filter is on) and falls back to the Style's own cover image.
   const image = colourFilterActive
     ? representative.image ?? anyVariantImage ?? styleImage
     : representative.image ?? anyVariantImage ?? styleImage;
@@ -499,10 +499,10 @@ function toCard(
     : undefined;
 
   return {
-    id: c.item.uuid || String(c.item.id),
-    name: c.item.name,
-    styleName: c.row.name,
-    description: c.item.short_description || c.row.short_description || null,
+    id: c.row.uuid || String(c.row.id),
+    name: toTitleCase(c.row.name),
+    productName: toTitleCase(c.row.product.name),
+    description: c.row.short_description || c.row.description || null,
     image,
     brand: c.brand ? { id: c.brand.id, name: c.brand.name } : null,
     category: category ? { id: category.uuid || String(category.id), name: category.name } : null,
@@ -516,7 +516,7 @@ function toCard(
     colors: c.colours,
     rating,
     stockStatus,
-    isNew: Date.now() - c.item.createdAt.getTime() < NEW_ARRIVAL_DAYS * 86_400_000,
+    isNew: isNewArrival(c.row),
   };
 }
 
@@ -530,19 +530,18 @@ function searchScore(name: string, search: string): number {
   return n.includes(s) ? 1 : 0;
 }
 
-function sortListed(listed: ListedItem[], query: ListingQuery): void {
-  const byNewest = (a: ListedItem, b: ListedItem) => b.createdAt - a.createdAt;
-  const byId = (a: ListedItem, b: ListedItem) => a.card.id.localeCompare(b.card.id);
-  const byRating = (a: ListedItem, b: ListedItem) =>
+function sortListed(listed: ListedStyle[], query: ListingQuery): void {
+  const byNewest = (a: ListedStyle, b: ListedStyle) => b.createdAt - a.createdAt;
+  const byId = (a: ListedStyle, b: ListedStyle) => a.card.id.localeCompare(b.card.id);
+  const byRating = (a: ListedStyle, b: ListedStyle) =>
     (b.rating?.average ?? 0) - (a.rating?.average ?? 0) || (b.rating?.count ?? 0) - (a.rating?.count ?? 0);
 
-  const comparators: Record<ListingQuery["sort"], (a: ListedItem, b: ListedItem) => number> = {
+  const comparators: Record<ListingQuery["sort"], (a: ListedStyle, b: ListedStyle) => number> = {
     relevance: (a, b) =>
-      Math.max(searchScore(b.card.name, query.search), searchScore(b.card.styleName, query.search)) -
-        Math.max(searchScore(a.card.name, query.search), searchScore(a.card.styleName, query.search)) ||
+      Math.max(searchScore(b.card.name, query.search), searchScore(b.card.productName, query.search)) -
+        Math.max(searchScore(a.card.name, query.search), searchScore(a.card.productName, query.search)) ||
       Number(b.inStock) - Number(a.inStock) ||
-      Number(b.candidate.item.is_featured || b.candidate.row.is_featured) -
-        Number(a.candidate.item.is_featured || a.candidate.row.is_featured) ||
+      Number(b.candidate.row.is_featured) - Number(a.candidate.row.is_featured) ||
       b.unitsSold - a.unitsSold ||
       byRating(a, b) ||
       byNewest(a, b),
@@ -566,6 +565,8 @@ const toRef = (c: ListingCategoryRow): ListingCategoryRefDto => ({
   name: c.name,
   slug: c.slug,
 });
+
+const toTile = (c: ListingCategoryRow): ListingSubcategoryDto => ({ ...toRef(c), image: c.image });
 
 function describeCategory(category: ListingCategoryRow, all: ListingCategoryRow[]): {
   dto: ListingCategoryDto;
@@ -624,7 +625,8 @@ export const catalogListingService = {
     const allCategories = await catalogListingRepository.findActiveCategories();
     let category: ListingCategoryDto | null = null;
     let categoryIds: bigint[] | null = null;
-    let subcategories = allCategories.filter((c) => c.parentId === null).map(toRef);
+    let subcategories = allCategories.filter((c) => c.parentId === null).map(toTile);
+    let activeSubcategoryId: string | null = null;
 
     if (params.categoryKey && params.categoryKey.toLowerCase() !== "all") {
       const row = catalogListingRepository.resolveCategoryKey(allCategories, params.categoryKey);
@@ -632,7 +634,16 @@ export const catalogListingService = {
       const described = describeCategory(row, allCategories);
       category = described.dto;
       categoryIds = described.subtreeIds;
-      subcategories = allCategories.filter((c) => c.parentId === row.id).map(toRef);
+      const children = allCategories.filter((c) => c.parentId === row.id);
+      if (children.length > 0) {
+        subcategories = children.map(toTile);
+      } else if (row.parentId !== null) {
+        // Leaf: show its siblings with this one highlighted.
+        subcategories = allCategories.filter((c) => c.parentId === row.parentId).map(toTile);
+        activeSubcategoryId = toRef(row).id;
+      } else {
+        subcategories = [];
+      }
     }
 
     const rows = await catalogListingRepository.findListingStyles({
@@ -643,21 +654,19 @@ export const catalogListingService = {
     // Every attribute value referenced anywhere in the candidate set.
     const valueIds = new Set<bigint>();
     for (const row of rows) {
-      for (const item of row.items) {
-        item.item_attribute_values.forEach((v) => valueIds.add(v.attribute_value_id));
-        for (const variant of item.variants) {
-          variant.variant_attribute_values.forEach((v) => valueIds.add(v.attribute_value_id));
-          variant.variant_unit_prices.forEach(
-            (up) => up.attribute_value_id !== null && valueIds.add(up.attribute_value_id)
-          );
-        }
+      row.style_attribute_values.forEach((v) => valueIds.add(v.attribute_value_id));
+      for (const variant of row.variants) {
+        variant.variant_attribute_values.forEach((v) => valueIds.add(v.attribute_value_id));
+        variant.variant_unit_prices.forEach(
+          (up) => up.attribute_value_id !== null && valueIds.add(up.attribute_value_id)
+        );
       }
     }
 
     const [attributeValues, ratings, unitsSold] = await Promise.all([
       catalogListingRepository.findAttributeValues([...valueIds]),
       catalogListingRepository.findRatings([...new Set(rows.map((r) => r.product.id))]),
-      catalogListingRepository.findUnitsSold(rows.flatMap((r) => r.items.map((i) => i.id))),
+      catalogListingRepository.findUnitsSold(rows.map((r) => r.id)),
     ]);
 
     const valuesById = new Map(attributeValues.map((v) => [v.id.toString(), v]));
@@ -699,7 +708,7 @@ export const catalogListingService = {
     );
     const categoryById = new Map(allCategories.map((c) => [c.id.toString(), c]));
 
-    const listed: ListedItem[] = [];
+    const listed: ListedStyle[] = [];
     for (const candidate of candidates) {
       const units = matchingUnits(candidate, filters, null);
       if (units.length === 0) continue;
@@ -708,8 +717,8 @@ export const catalogListingService = {
         candidate,
         card: toCard(candidate, units, colourFilterActive, categoryById, rating),
         rating,
-        unitsSold: unitsSold.get(candidate.item.id.toString()) ?? 0,
-        createdAt: candidate.item.createdAt.getTime(),
+        unitsSold: unitsSold.get(candidate.row.id.toString()) ?? 0,
+        createdAt: candidate.row.createdAt.getTime(),
         inStock: units.some((u) => u.inStock),
         maxPrice: Math.max(...units.map((u) => u.sellingPrice)),
       });
@@ -721,6 +730,8 @@ export const catalogListingService = {
       data: {
         category,
         subcategories,
+        activeSubcategoryId,
+        categoryImages: Object.fromEntries(allCategories.map((c) => [toRef(c).id, c.image])),
         items: listed.slice((page - 1) * pageSize, page * pageSize).map((l) => l.card),
         filters: buildFilters(candidates, filters, [...attributesById.values()], facetValues),
       },
@@ -736,12 +747,12 @@ export const catalogListingService = {
 
   /**
    * Header menu preview for a category (and its subcategories): a handful of
-   * Products, each with the Items sold under it.
+   * Products, each with the Styles sold under it.
    */
   async getCategoryMenu(params: {
     categoryKey: string;
     productLimit: number;
-    itemLimit: number;
+    styleLimit: number;
     gender?: "men" | "women" | "kids" | "unisex";
   }): Promise<CategoryMenuDto> {
     const allCategories = await catalogListingRepository.findActiveCategories();
@@ -758,19 +769,17 @@ export const catalogListingService = {
     return {
       products: products.map((product) => ({
         id: product.uuid || String(product.id),
-        name: product.name,
-        items: product.styles
-          .flatMap((style) =>
-            style.items.map((item) => ({
-              id: item.uuid,
-              name: item.name,
-              image:
-                item.variants[0]?.product_variant_images[0]?.image_url ||
-                style.images[0]?.image_url ||
-                null,
-            }))
-          )
-          .slice(0, params.itemLimit),
+        name: toTitleCase(product.name),
+        styles: product.styles
+          .map((style) => ({
+            id: style.uuid,
+            name: toTitleCase(style.name),
+            image:
+              style.variants[0]?.product_variant_images[0]?.image_url ||
+              style.images[0]?.image_url ||
+              null,
+          }))
+          .slice(0, params.styleLimit),
       })),
     };
   },

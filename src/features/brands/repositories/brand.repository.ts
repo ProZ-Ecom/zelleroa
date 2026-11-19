@@ -20,7 +20,7 @@ const brandDetailInclude = Prisma.validator<Prisma.ProductBrandInclude>()({
   _count: { select: { products: true } },
 });
 
-function buildBrandWhere(params: GetBrandsParams): Prisma.ProductBrandWhereInput {
+async function buildBrandWhere(params: GetBrandsParams): Promise<Prisma.ProductBrandWhereInput> {
   const where: Prisma.ProductBrandWhereInput = { isActive: true, deleted_at: null };
 
   if (params.search) {
@@ -30,6 +30,33 @@ function buildBrandWhere(params: GetBrandsParams): Prisma.ProductBrandWhereInput
     ];
   }
 
+  if (params.categorySlug) {
+    const root = await db.productCategory.findFirst({
+      where: { slug: params.categorySlug, deleted_at: null },
+      select: { id: true },
+    });
+    if (root) {
+      const all: bigint[] = [root.id];
+      let frontier: bigint[] = [root.id];
+      while (frontier.length > 0) {
+        const children = await db.productCategory.findMany({
+          where: { parentId: { in: frontier }, deleted_at: null },
+          select: { id: true },
+        });
+        frontier = children.map((c) => c.id);
+        all.push(...frontier);
+      }
+      where.products = {
+        some: {
+          categoryId: { in: all },
+          deleted_at: null,
+        },
+      };
+    } else {
+      where.id = { in: [] };
+    }
+  }
+
   return where;
 }
 
@@ -37,7 +64,7 @@ export const brandRepository = {
   async findAll(params: GetBrandsParams = {}) {
     const page = params.page ?? 1;
     const limit = params.limit ?? 10;
-    const where = buildBrandWhere(params);
+    const where = await buildBrandWhere(params);
 
     const [data, total] = await Promise.all([
       db.productBrand.findMany({

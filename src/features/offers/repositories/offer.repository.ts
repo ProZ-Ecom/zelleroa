@@ -36,29 +36,14 @@ const unitPriceTargetSelect = {
       uuid: true,
       variant_name: true,
       out_of_stock: true,
-      item: {
-        select: {
-          id: true,
-          uuid: true,
-          name: true,
-          style: {
-            select: {
-              id: true,
-              uuid: true,
-              name: true,
-              productId: true,
-              product: {
+      style: { select: { id: true, uuid: true, name: true, productId: true, product: {
                 select: {
                   id: true,
                   uuid: true,
                   name: true,
                   categoryId: true,
                 },
-              },
-            },
-          },
-        },
-      },
+              } } },
     },
   },
 } satisfies Prisma.VariantUnitPriceSelect;
@@ -97,7 +82,7 @@ function stockOf(row: UnitPriceTargetRow): { inStock: boolean; quantity: number 
 export function toOfferItemTarget(row: UnitPriceTargetRow): OfferItemTarget {
   const measurement = formatVariantMeasurement(row.product_units, row.unit_value ?? 0);
   const variantName = row.variant?.variant_name || "";
-  const productName = row.variant?.item?.style?.product?.name || "";
+  const productName = row.variant?.style?.product?.name || "";
   const packLabel = formatMeasurementLabel(measurement);
   const stock = stockOf(row);
 
@@ -107,7 +92,7 @@ export function toOfferItemTarget(row: UnitPriceTargetRow): OfferItemTarget {
     label: [productName, variantName, packLabel].filter(Boolean).join(" - "),
     measurement,
     basePrice: Number(row.base_price),
-    productId: row.variant?.item?.style?.product?.uuid || "",
+    productId: row.variant?.style?.product?.uuid || "",
     productName,
     variantId: row.variant?.uuid || "",
     variantName,
@@ -253,7 +238,7 @@ function buildOfferWhere(params: OfferWhereParams, now: Date): Prisma.OfferWhere
         {
           offer_items: {
             some: {
-              variant_unit_price: { variant: { item: { style: { product: { uuid: params.productId } } } } },
+              variant_unit_price: { variant: { style: { product: { uuid: params.productId } } } },
             },
           },
         },
@@ -270,7 +255,7 @@ function buildOfferWhere(params: OfferWhereParams, now: Date): Prisma.OfferWhere
         { offer_products: { some: { products: { categoryId } } } },
         {
           offer_items: {
-            some: { variant_unit_price: { variant: { item: { style: { product: { categoryId } } } } } },
+            some: { variant_unit_price: { variant: { style: { product: { categoryId } } } } },
           },
         },
       ],
@@ -650,7 +635,7 @@ export const offerRepository = {
         deleted_at: null,
         variant: {
           deleted_at: null,
-          item: { deleted_at: null, style: { deleted_at: null, product: { deleted_at: null } } },
+          style: { deleted_at: null, product: { deleted_at: null } },
         },
       },
       select: { id: true, uuid: true },
@@ -685,14 +670,7 @@ export const offerRepository = {
         isActive: true,
         variant: {
           deleted_at: null,
-          item: {
-            deleted_at: null,
-            style: {
-              productId: { in: productIds },
-              deleted_at: null,
-              product: { deleted_at: null },
-            },
-          },
+          style: { deleted_at: null, productId: { in: productIds }, product: { deleted_at: null } },
         },
       },
       select: { uuid: true, sku: true, base_price: true },
@@ -749,20 +727,12 @@ export const offerRepository = {
         variant: {
           deleted_at: null,
           isActive: true,
-          item: {
-            deleted_at: null,
-            isActive: true,
-            style: {
-              deleted_at: null,
-              isActive: true,
-              product: {
+          style: { deleted_at: null, isActive: true, product: {
                 deleted_at: null,
                 isActive: true,
                 ...(params.productId ? { uuid: params.productId } : {}),
                 ...(categoryInternalId != null ? { categoryId: categoryInternalId } : {}),
-              },
-            },
-          },
+              } },
         },
         ...(params.search
           ? {
@@ -771,7 +741,7 @@ export const offerRepository = {
                 { variant: { variant_name: { contains: params.search } } },
                 {
                   variant: {
-                    item: { style: { product: { name: { contains: params.search } } } },
+                    style: { product: { name: { contains: params.search } } },
                   },
                 },
               ],
@@ -818,7 +788,7 @@ export const offerRepository = {
       select: {
         id: true,
         uuid: true,
-        variant: { select: { item: { select: { style: { select: { productId: true } } } } } },
+        variant: { select: { style: { select: { productId: true } } } },
       },
     });
     if (items.length === 0) return result;
@@ -827,7 +797,7 @@ export const offerRepository = {
 
     const itemIds = items.map((i) => i.id);
     const productIds = [
-      ...new Set(items.map((i) => i.variant?.item?.style?.productId).filter(Boolean) as bigint[]),
+      ...new Set(items.map((i) => i.variant?.style?.productId).filter(Boolean) as bigint[]),
     ];
 
     const [itemOffers, productOffers] = await Promise.all([
@@ -874,7 +844,7 @@ export const offerRepository = {
     }
 
     for (const item of items) {
-      const productId = item.variant?.item?.style?.productId;
+      const productId = item.variant?.style?.productId;
       result.set(item.uuid, [
         ...(offersByItemId.get(String(item.id)) ?? []),
         ...(productId ? offersByProductId.get(String(productId)) ?? [] : []),
@@ -895,7 +865,7 @@ export const offerRepository = {
         uuid: true,
         base_price: true,
         variant: {
-          select: { item: { select: { style: { select: { product: { select: { uuid: true } } } } } } },
+          select: { style: { select: { product: { select: { uuid: true } } } } },
         },
       },
     });
@@ -905,7 +875,7 @@ export const offerRepository = {
         r.uuid,
         {
           unitPrice: Number(r.base_price),
-          productId: r.variant?.item?.style?.product?.uuid ?? "",
+          productId: r.variant?.style?.product?.uuid ?? "",
         },
       ])
     );
@@ -946,12 +916,8 @@ export const offerRepository = {
                 products: {
                   styles: {
                     some: {
-                      items: {
-                        some: {
-                          variants: {
-                            some: { variant_unit_prices: { some: { uuid: itemUuid } } },
-                          },
-                        },
+                      variants: {
+                        some: { variant_unit_prices: { some: { uuid: itemUuid } } },
                       },
                     },
                   },

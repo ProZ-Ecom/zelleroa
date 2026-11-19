@@ -26,6 +26,14 @@ const productAdminInclude = Prisma.validator<Prisma.ProductInclude>()({
       is_active: true,
     },
   },
+  // Primary image only: the admin list shows one thumbnail, and an empty slot where
+  // a product still has none (bulk-imported products start out without any).
+  images: {
+    where: { is_active: true },
+    select: { image_url: true, altText: true },
+    orderBy: [{ isPrimary: "desc" }, { sortOrder: "asc" }, { id: "asc" }],
+    take: 1,
+  },
 });
 
 export const productRepository = {
@@ -195,16 +203,20 @@ export const productRepository = {
       resolvedHsnCodeInternalId
     );
 
-    const [active, inactive, all] = await Promise.all([
+    const [active, inactive, all, withoutImage] = await Promise.all([
       db.product.count({ where: { ...baseWhere, isActive: true } }),
       db.product.count({ where: { ...baseWhere, isActive: false } }),
       db.product.count({ where: baseWhere }),
+      db.product.count({
+        where: { ...baseWhere, images: { none: { is_active: true } } },
+      }),
     ]);
 
     return {
       active,
       inactive,
       all,
+      withoutImage,
     };
   },
 
@@ -281,15 +293,44 @@ export const productRepository = {
     const existing = await this.findByUuid(uuid);
     if (!existing) return null;
 
+    const now = new Date();
+
     // Carts must not keep lines for a product that can no longer be bought,
     // otherwise checkout fails with "no longer available".
     await db.cartItem.deleteMany({ where: { productId: existing.id } });
+
+    // Cascade soft-delete styles & items
+    const styles = await db.style.findMany({
+      where: { productId: existing.id, deleted_at: null },
+      select: { id: true, slug: true },
+    });
+
+    for (const style of styles) {
+      await db.style.update({
+        where: { id: style.id },
+        data: {
+          isActive: false,
+          deleted_at: now,
+          slug: retireUniqueValue(style.slug, style.id, 220),
+          ...(adminId ? { updated_by: adminId } : {}),
+        },
+      });
+
+      await db.productVariant.updateMany({
+        where: { styleId: style.id, deleted_at: null },
+        data: {
+          isActive: false,
+          deleted_at: now,
+          ...(adminId ? { updated_by: adminId } : {}),
+        },
+      });
+    }
 
     return db.product.update({
       where: { id: existing.id },
       data: {
         isActive: false,
-        deleted_at: new Date(),
+        deleted_at: now,
         // Free the unique slug so a new product can reuse it; the archived row
         // keeps a namespaced slug instead of blocking the insert.
         slug: retireUniqueValue(existing.slug, existing.id, 220),

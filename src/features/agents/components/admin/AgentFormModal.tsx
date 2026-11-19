@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { EMAIL_MAX_LENGTH } from "@/lib/validations/email";
 import { useQueryClient } from "@tanstack/react-query";
 import { Loader2 } from "lucide-react";
 import { apiClient } from "@/lib/api/api-client";
@@ -15,6 +16,8 @@ export interface EditableAgent {
   name: string;
   phone: string | null;
   notes: string | null;
+  isActive?: boolean;
+  blockReason?: string | null;
 }
 
 interface Props {
@@ -93,38 +96,95 @@ function Form({ onClose, agent, onSaved }: Omit<Props, "open">) {
     <Modal open onClose={onClose} title={editing ? "Edit Sales Partner" : "Create Sales Partner"} description={editing ? undefined : "The Sales Partner ID and referral code are generated automatically."}>
       <form onSubmit={submit} className="flex flex-col gap-3" noValidate>
         {banner && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{banner}</p>}
+        {editing && agent?.isActive === false && agent?.blockReason && (
+          <div className="rounded-xl border border-red-200 bg-red-50 px-3.5 py-2.5 text-xs text-red-800">
+            <span className="font-semibold">Account Blocked:</span> {agent.blockReason}
+          </div>
+        )}
         <label className="flex flex-col gap-1 text-xs font-medium text-neutral-600">
-          Full name
-          <input className={fieldCls} value={name} onChange={(e) => setName(e.target.value)} />
+          <span>
+            Full name <span className="text-red-500 font-bold">*</span>
+          </span>
+          <input
+            className={`${fieldCls} ${errors.name ? "!border-red-500 focus:!ring-red-100" : ""}`}
+            value={name}
+            onChange={(e) => {
+              setName(e.target.value);
+              if (errors.name) setErrors((prev) => ({ ...prev, name: "" }));
+            }}
+            placeholder="e.g. Ramesh Kumar"
+          />
           {err("name")}
         </label>
         {!editing && (
           <label className="flex flex-col gap-1 text-xs font-medium text-neutral-600">
-            Email (used to sign in)
-            <input className={fieldCls} type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+            <span>
+              Email (used to sign in) <span className="text-red-500 font-bold">*</span>
+            </span>
+            <input
+              className={`${fieldCls} ${errors.email ? "!border-red-500 focus:!ring-red-100" : ""}`}
+              type="email"
+              maxLength={EMAIL_MAX_LENGTH}
+              value={email}
+              onChange={(e) => {
+                setEmail(e.target.value);
+                if (errors.email) setErrors((prev) => ({ ...prev, email: "" }));
+              }}
+              placeholder="e.g. partner@example.com"
+            />
             {err("email")}
           </label>
         )}
         <label className="flex flex-col gap-1 text-xs font-medium text-neutral-600">
-          Phone (optional)
-          <input className={fieldCls} value={phone} onChange={(e) => setPhone(e.target.value)} />
+          <span>Phone (optional)</span>
+          <input
+            className={`${fieldCls} ${errors.phone ? "!border-red-500 focus:!ring-red-100" : ""}`}
+            value={phone}
+            onChange={(e) => {
+              setPhone(e.target.value);
+              if (errors.phone) setErrors((prev) => ({ ...prev, phone: "" }));
+            }}
+            placeholder="e.g. 9876543210"
+          />
           {err("phone")}
         </label>
         <label className="flex flex-col gap-1 text-xs font-medium text-neutral-600">
-          {editing ? "Reset password (leave blank to keep)" : "Temporary password"}
-          <input className={fieldCls} type="password" autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} />
+          <span>
+            {editing ? "Reset password (leave blank to keep)" : "Temporary password"}{" "}
+            {!editing && <span className="text-red-500 font-bold">*</span>}
+          </span>
+          <input
+            className={`${fieldCls} ${errors.password ? "!border-red-500 focus:!ring-red-100" : ""}`}
+            type="password"
+            autoComplete="new-password"
+            value={password}
+            onChange={(e) => {
+              setPassword(e.target.value);
+              if (errors.password) setErrors((prev) => ({ ...prev, password: "" }));
+            }}
+            placeholder={editing ? "Leave blank to keep current password" : "At least 8 characters"}
+          />
           {err("password")}
         </label>
         <label className="flex flex-col gap-1 text-xs font-medium text-neutral-600">
-          Internal notes (optional)
-          <textarea className={`${fieldCls} h-20 py-2`} value={notes} onChange={(e) => setNotes(e.target.value)} maxLength={500} />
+          <span>Internal notes (optional)</span>
+          <textarea
+            className={`${fieldCls} h-20 py-2 ${errors.notes ? "!border-red-500 focus:!ring-red-100" : ""}`}
+            value={notes}
+            onChange={(e) => {
+              setNotes(e.target.value);
+              if (errors.notes) setErrors((prev) => ({ ...prev, notes: "" }));
+            }}
+            maxLength={500}
+            placeholder="Optional internal remarks for admin reference"
+          />
           {err("notes")}
         </label>
         <div className="flex justify-end gap-2 pt-1">
           <button type="button" onClick={onClose} className="h-10 rounded-xl border border-neutral-200 px-4 text-sm font-medium hover:bg-neutral-50">
             Cancel
           </button>
-          <button type="submit" disabled={busy} className="inline-flex h-10 items-center gap-2 rounded-xl bg-neutral-900 px-4 text-sm font-semibold text-white hover:bg-neutral-800 disabled:opacity-60">
+          <button type="submit" disabled={busy} className="inline-flex h-10 items-center gap-2 rounded-xl bg-stone-900 hover:bg-stone-800 text-[#D4AF37] border border-[#D4AF37]/30 shadow-xs px-4 text-sm font-semibold transition-colors disabled:opacity-60">
             {busy && <Loader2 className="h-4 w-4 animate-spin" />}
             {editing ? "Save changes" : "Create Sales Partner"}
           </button>

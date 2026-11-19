@@ -55,7 +55,7 @@ export function ManageBannerPositionsModal({
               setEditing(null);
               setIsFormOpen(true);
             }}
-            className="h-10 rounded-xl bg-[var(--color-secondary-600)] px-4 text-sm font-semibold text-white hover:bg-[var(--color-secondary-700)]"
+            className="h-10 rounded-xl bg-theme-primary hover:bg-theme-primary-hover px-4 text-sm font-semibold text-white transition-colors"
           >
             <Plus className="mr-2 h-4 w-4" />
             Add Position
@@ -91,8 +91,12 @@ export function ManageBannerPositionsModal({
                       </span>
                     )}
                     <Badge
-                      variant={position.isActive ? "success" : "secondary"}
-                      className="text-xs"
+                      variant={position.isActive ? "success" : "destructive"}
+                      className={
+                        position.isActive
+                          ? "border-emerald-200 bg-emerald-50 text-emerald-700 text-xs font-semibold"
+                          : "border-red-200 bg-red-50 text-red-700 text-xs font-semibold"
+                      }
                     >
                       {position.isActive ? "Active" : "Inactive"}
                     </Badge>

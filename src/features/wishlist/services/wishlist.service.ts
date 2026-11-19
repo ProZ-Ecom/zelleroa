@@ -15,7 +15,7 @@ async function resolveInternalUser(sessionUserId: string) {
     throw ApiError.unauthorized("User not found or unauthorized");
   }
   if (!user.isActive || user.is_active === false) {
-    throw ApiError.forbidden("Your account is inactive or blocked. Please contact support.");
+    throw ApiError.accountBlocked("Your account is inactive or blocked. Please contact support.");
   }
   return user;
 }
@@ -28,7 +28,7 @@ async function validateActiveVariantUnitPrice(identifier: string) {
     },
     include: {
       variant: {
-        include: { item: { include: { style: { include: { product: true } } } } },
+        include: { style: { include: { product: true } } },
       },
     },
   });
@@ -43,7 +43,7 @@ async function validateActiveVariantUnitPrice(identifier: string) {
       orderBy: [{ is_default: "desc" }, { createdAt: "asc" }],
       include: {
         variant: {
-          include: { item: { include: { style: { include: { product: true } } } } },
+          include: { style: { include: { product: true } } },
         },
       },
     });
@@ -60,13 +60,12 @@ async function validateActiveVariantUnitPrice(identifier: string) {
     !variant ||
     !variant.isActive ||
     variant.deleted_at !== null ||
-    !variant.item ||
-    !variant.item.isActive ||
-    variant.item.deleted_at !== null ||
-    !variant.item.style ||
-    !variant.item.style.product ||
-    !variant.item.style.product.isActive ||
-    variant.item.style.product.deleted_at !== null
+    !variant.style ||
+    !variant.style.isActive ||
+    variant.style.deleted_at !== null ||
+    !variant.style.product ||
+    !variant.style.product.isActive ||
+    variant.style.product.deleted_at !== null
   ) {
     throw ApiError.badRequest("Product variant is inactive or unavailable");
   }
@@ -96,9 +95,8 @@ export const wishlistService = {
 
     return wishlistRepository.addOrReactivateWishlistItem({
       userId: BigInt(user.internalId),
-      productId: unitPrice.variant.item.style.productId,
-      styleId: unitPrice.variant.item.styleId,
-      itemId: unitPrice.variant.itemId,
+      productId: unitPrice.variant.style.productId,
+      styleId: unitPrice.variant.styleId,
       variantId: unitPrice.variant_id,
       variantUnitPriceId: unitPrice.id,
       userInternalId: BigInt(user.internalId),

@@ -2,7 +2,8 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
-import { Check, Package, X, CreditCard, Loader2, AlertCircle } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Check, Package, X, CreditCard, Loader2, AlertCircle, Undo2, PackageCheck, Clock, Truck } from "lucide-react";
 import { formatPrice } from "@/lib/utils";
 import type { OrderDetailResponse } from "@/features/orders/types";
 import { useCustomerOrders, useCancelCustomerOrder } from "../../hooks/use-customer-orders";
@@ -14,7 +15,10 @@ import { SearchInput } from "@/components/common/search-input";
 import { ProductImage } from "@/components/common/ProductImage";
 import { toast } from "@/components/ui/Toast";
 import { CancelOrderDialog } from "@/features/orders/components/CancelOrderDialog";
-import { isOrderCancellable } from "@/features/returns/lib/policy";
+import { isOrderCancellable, getShipWindow, formatStoreDate } from "@/features/returns/lib/policy";
+import { RequestWizard } from "@/features/returns/components/RequestWizard";
+import { ShipReturnModal } from "@/features/returns/components/ShipReturnModal";
+import type { RequestSummary } from "@/features/returns/lib/summary";
 
 const STATUS_OPTIONS: DropdownOption[] = [
   { value: "all", label: "All Orders" },
@@ -42,16 +46,19 @@ export function OrdersTab({
   error: initialError,
   onRefetch,
 }: OrdersTabProps) {
+  const router = useRouter();
   const [selectedStatus, setSelectedStatus] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [trackingOrder, setTrackingOrder] = useState<OrderDetailResponse | null>(null);
   const [reorderingId, setReorderingId] = useState<string | null>(null);
   const [reorderSuccessId, setReorderSuccessId] = useState<string | null>(null);
   const [payingOrderId, setPayingOrderId] = useState<string | null>(null);
-  const [paymentError, setPaymentError] = useState<string | null>(null);
+  const [paymentError, setPaymentError] = useState<{ orderId: string; message: string } | null>(null);
 
   const [cancelTarget, setCancelTarget] = useState<OrderDetailResponse | null>(null);
   const [cancelError, setCancelError] = useState<string | null>(null);
+  const [returnTarget, setReturnTarget] = useState<{ orderId: string; mode: "return" | "replacement" } | null>(null);
+  const [shippingReturn, setShippingReturn] = useState<RequestSummary | null>(null);
   const cancelMutation = useCancelCustomerOrder();
   const addToCartMutation = useAddToCartMutation();
   const createRazorpayOrderMutation = useCreateRazorpayOrder();
@@ -72,7 +79,29 @@ export function OrdersTab({
     ...(searchQuery.trim() ? { search: searchQuery.trim() } : {}),
   });
 
-  const orders = ordersResponse?.data ?? initialOrders;
+  const isFiltered = selectedStatus !== "all" || Boolean(searchQuery.trim());
+  const rawOrders = ordersResponse?.data ?? (isFiltered ? [] : initialOrders);
+
+  const orders = React.useMemo(() => {
+    let list = rawOrders;
+    if (selectedStatus !== "all") {
+      list = list.filter((o) => o.status?.toLowerCase() === selectedStatus.toLowerCase());
+    }
+    if (searchQuery.trim()) {
+      const q = searchQuery.trim().toLowerCase().replace(/^#/, "");
+      list = list.filter((o) => {
+        const orderNum = (o.orderNumber || "").toLowerCase();
+        const idStr = String(o.id).toLowerCase();
+        const matchesOrder = orderNum.includes(q) || idStr.includes(q);
+        const matchesItem = o.items?.some((it) =>
+          it.productName?.toLowerCase().includes(q)
+        );
+        return matchesOrder || matchesItem;
+      });
+    }
+    return list;
+  }, [rawOrders, selectedStatus, searchQuery]);
+
   const isLoading = isOrdersLoading || (initialLoading && !ordersResponse) || isFetching;
   const error = ordersQueryError || initialError;
 
@@ -103,6 +132,66 @@ export function OrdersTab({
     }
   };
 
+  const getReturnStatusMeta = (status?: string) => {
+    switch (status?.toLowerCase()) {
+      case "approved":
+        return { label: "Return Approved", bg: "bg-blue-50 text-blue-700 border-blue-200", dot: "bg-blue-500" };
+      case "shipped_by_customer":
+        return { label: "Item Shipped", bg: "bg-sky-50 text-sky-700 border-sky-200", dot: "bg-sky-500" };
+      case "received":
+        return { label: "Return Received", bg: "bg-indigo-50 text-indigo-700 border-indigo-200", dot: "bg-indigo-500" };
+      case "refund_pending":
+        return { label: "Refund Pending", bg: "bg-emerald-50 text-emerald-700 border-emerald-200", dot: "bg-emerald-500" };
+      case "refunded":
+        return { label: "Refunded", bg: "bg-purple-50 text-purple-700 border-purple-200", dot: "bg-purple-500" };
+      case "return_requested":
+        return { label: "Return Requested", bg: "bg-orange-50 text-orange-700 border-orange-200", dot: "bg-orange-500" };
+      case "under_review":
+        return { label: "Return Under Review", bg: "bg-amber-50 text-amber-700 border-amber-200", dot: "bg-amber-500" };
+      case "qc_failed":
+        return { label: "QC Failed", bg: "bg-red-50 text-red-700 border-red-200", dot: "bg-red-500" };
+      case "returning_to_customer":
+        return { label: "Returning to Customer", bg: "bg-amber-50 text-amber-700 border-amber-200", dot: "bg-amber-500" };
+      case "returned_to_customer":
+        return { label: "Returned to Customer", bg: "bg-slate-50 text-slate-700 border-slate-200", dot: "bg-slate-500" };
+      case "rejected":
+        return { label: "Return Rejected", bg: "bg-red-50 text-red-700 border-red-200", dot: "bg-red-500" };
+      case "cancelled":
+        return { label: "Return Cancelled", bg: "bg-neutral-100 text-neutral-700 border-neutral-300", dot: "bg-neutral-400" };
+      case "expired":
+        return { label: "Return Expired", bg: "bg-neutral-100 text-neutral-700 border-neutral-300", dot: "bg-neutral-400" };
+      case "closed":
+        return { label: "Return Closed", bg: "bg-neutral-100 text-neutral-600 border-neutral-200", dot: "bg-neutral-400" };
+      default:
+        return null;
+    }
+  };
+
+  const getReturnShipDaysLeft = (ret?: RequestSummary | null) => {
+    if (!ret || ret.status !== "approved") return null;
+
+    if (ret.shipDeadlineAt) {
+      const deadline = new Date(ret.shipDeadlineAt);
+      if (!Number.isNaN(deadline.getTime())) {
+        const now = new Date();
+        const expired = now.getTime() > deadline.getTime();
+        const diffMs = deadline.getTime() - now.getTime();
+        const daysLeft = expired
+          ? 0
+          : Math.max(0, Math.ceil(diffMs / (1000 * 60 * 60 * 24)));
+        return { daysLeft, expired, deadline };
+      }
+    }
+
+    if (ret.approvedAt) {
+      const sw = getShipWindow(ret.approvedAt);
+      return { daysLeft: sw.daysLeft, expired: sw.expired, deadline: sw.deadline };
+    }
+
+    const sw = getShipWindow(new Date());
+    return { daysLeft: sw.daysLeft, expired: sw.expired, deadline: sw.deadline };
+  };
+
   // 4 Breakpoint Stepper (Placed -> Packed by Admin, Out for Delivery by Staff, Delivered / Returned / Cancelled)
   const getTrackingStepIndex = (status?: string) => {
     switch (status?.toLowerCase()) {
@@ -125,22 +214,50 @@ export function OrdersTab({
   };
 
   const handleReorder = async (order: OrderDetailResponse) => {
-    if (!order.items || order.items.length === 0) return;
+    if (!order.items || order.items.length === 0) {
+      toast.error("No items found in this order to reorder.");
+      return;
+    }
     setReorderingId(order.id);
+    let addedCount = 0;
+    let lastError: string | null = null;
+
     try {
       for (const item of order.items) {
-        const variantId = item.variantId || item.productId;
-        if (variantId) {
+        if (!item.variantUnitPriceId && !item.variantId) continue;
+
+        try {
           await addToCartMutation.mutateAsync({
-            variantId: String(variantId),
+            ...(item.variantUnitPriceId ? { variantUnitPriceId: item.variantUnitPriceId } : {}),
+            ...(item.variantId ? { variantId: item.variantId } : {}),
             quantity: item.quantity || 1,
           });
+          addedCount++;
+        } catch (itemErr: any) {
+          lastError = itemErr?.message || "Failed to add item to cart";
+          console.error("Failed to reorder item into cart:", itemErr);
         }
       }
-      setReorderSuccessId(order.id);
-      setTimeout(() => setReorderSuccessId(null), 4000);
-    } catch (err) {
+
+      if (addedCount > 0) {
+        setReorderSuccessId(order.id);
+        toast.success(
+          "Added to cart",
+          `${addedCount} item${addedCount > 1 ? "s" : ""} added to your cart.`
+        );
+        router.push("/cart");
+      } else {
+        toast.error(
+          "Could not reorder items",
+          lastError || "The ordered items are currently unavailable or out of stock."
+        );
+      }
+    } catch (err: any) {
       console.error("Failed to reorder items into cart:", err);
+      toast.error(
+        "Could not reorder items",
+        err?.message || "Failed to reorder items into cart"
+      );
     } finally {
       setReorderingId(null);
     }
@@ -177,6 +294,17 @@ export function OrdersTab({
         theme: {
           color: "#7A211B",
         },
+        config: {
+          display: {
+            hide: [
+              { method: "emi" },
+              { method: "paylater" },
+            ],
+            preferences: {
+              show_default_blocks: true,
+            },
+          },
+        },
         modal: {
           ondismiss: () => {
             setPayingOrderId(null);
@@ -204,9 +332,10 @@ export function OrdersTab({
             }
           } catch (verifyErr: any) {
             setPayingOrderId(null);
-            setPaymentError(
-              verifyErr.message || "Payment verification failed. Please contact support."
-            );
+            setPaymentError({
+              orderId: order.id,
+              message: verifyErr.message || "Payment verification failed. Please contact support.",
+            });
           }
         },
       };
@@ -214,17 +343,19 @@ export function OrdersTab({
       const rzpInstance = new RazorpayConstructor(options);
       rzpInstance.on("payment.failed", (failRes: any) => {
         setPayingOrderId(null);
-        setPaymentError(
-          failRes.error?.description || "Payment failed. Please try again."
-        );
+        setPaymentError({
+          orderId: order.id,
+          message: failRes.error?.description || "Payment failed. Please try again.",
+        });
       });
 
       rzpInstance.open();
     } catch (err: any) {
       setPayingOrderId(null);
-      setPaymentError(
-        err.message || "Failed to launch payment checkout. Please try again."
-      );
+      setPaymentError({
+        orderId: order.id,
+        message: err.message || "Failed to launch payment checkout. Please try again.",
+      });
     }
   };
 
@@ -246,6 +377,7 @@ export function OrdersTab({
         <div className="flex items-center gap-2.5 flex-wrap sm:flex-nowrap">
           <div className="w-full sm:w-56">
             <SearchInput
+              value={searchQuery}
               placeholder="Search order number..."
               onSearch={(val) => setSearchQuery(val)}
               debounceMs={400}
@@ -335,7 +467,7 @@ export function OrdersTab({
             ) : selectedStatus !== "all" ? (
               `No ${selectedStatus.replace(/_/g, " ")} orders`
             ) : (
-              "No orders yet"
+              "No orders placed yet"
             )}
           </h3>
           <p className="text-xs sm:text-sm text-theme-text-muted max-w-sm mx-auto mt-3 mb-6 leading-relaxed break-words [overflow-wrap:anywhere]">
@@ -368,7 +500,7 @@ export function OrdersTab({
                 type="button"
                 className="bg-theme-secondary hover:bg-theme-secondary-hover text-theme-secondary-fg text-xs font-semibold uppercase tracking-wider py-3.5 px-7 rounded-lg transition-colors cursor-pointer min-h-[44px]"
               >
-                Start Shopping
+                Shop Now
               </button>
             </Link>
           )}
@@ -383,6 +515,27 @@ export function OrdersTab({
             const statusMeta = getStatusMeta(order.status);
             const itemCount = order.items?.length ?? 0;
 
+            const activeReturn =
+              order.returnRequests?.find((r) =>
+                [
+                  "return_requested",
+                  "under_review",
+                  "approved",
+                  "shipped_by_customer",
+                  "received",
+                  "qc_failed",
+                  "returning_to_customer",
+                  "returned_to_customer",
+                  "refund_pending",
+                  "refunded",
+                ].includes(r.status)
+              ) || order.returnRequests?.[0];
+
+            const returnMeta = activeReturn ? getReturnStatusMeta(activeReturn.status) : null;
+            const effectiveStatusMeta = returnMeta ?? statusMeta;
+            const effectiveStatusLabel = returnMeta?.label ?? order.status.replace(/_/g, " ");
+            const shipDaysInfo = activeReturn ? getReturnShipDaysLeft(activeReturn) : null;
+
             return (
               <div
                 key={order.id}
@@ -395,9 +548,13 @@ export function OrdersTab({
                       <div className="text-[10px] uppercase tracking-wider font-semibold text-theme-text-muted">
                         Order
                       </div>
-                      <div className="text-xs sm:text-sm font-bold text-theme-text-primary mt-0.5 font-mono">
+                      <Link
+                        href={`/orders/${order.id}`}
+                        className="text-xs sm:text-sm font-bold text-theme-text-primary mt-0.5 font-mono hover:text-theme-primary hover:underline transition-colors block"
+                        title="View order details"
+                      >
                         {order.orderNumber || `#${String(order.id).slice(0, 8)}`}
-                      </div>
+                      </Link>
                     </div>
 
                     <div>
@@ -436,13 +593,71 @@ export function OrdersTab({
                     )}
                   </div>
 
-                  <span
-                    className={`inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider px-3 py-1.5 rounded-full border ${statusMeta.bg}`}
-                  >
-                    <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${statusMeta.dot}`} />
-                    {order.status.replace(/_/g, " ")}
-                  </span>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {activeReturn?.returnNumber && (
+                      <span className="inline-flex items-center gap-1 font-mono text-[11px] font-bold text-emerald-800 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200 shadow-2xs">
+                        Return ID: {activeReturn.returnNumber}
+                      </span>
+                    )}
+                    <span
+                      className={`inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider px-3 py-1.5 rounded-full border ${effectiveStatusMeta.bg}`}
+                    >
+                      <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${effectiveStatusMeta.dot}`} />
+                      {effectiveStatusLabel}
+                    </span>
+
+                    {/* Time left for customer shipment badge in card header */}
+                    {activeReturn?.status === "approved" && shipDaysInfo && (
+                      <span
+                        suppressHydrationWarning
+                        className={`inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-full border shadow-2xs ${
+                          shipDaysInfo.expired
+                            ? "bg-red-50 text-red-700 border-red-200"
+                            : shipDaysInfo.daysLeft <= 1
+                            ? "bg-amber-50 text-amber-800 border-amber-300 animate-pulse"
+                            : "bg-blue-50 text-blue-800 border-blue-200"
+                        }`}
+                        title={shipDaysInfo.deadline ? `Courier return deadline: ${formatStoreDate(shipDaysInfo.deadline)}` : undefined}
+                      >
+                        <Clock className="h-3 w-3" />
+                        {shipDaysInfo.expired
+                          ? "Shipment window expired"
+                          : `${shipDaysInfo.daysLeft} ${shipDaysInfo.daysLeft === 1 ? "day" : "days"} left to ship`}
+                      </span>
+                    )}
+                  </div>
                 </div>
+
+                {/* Shipment Alert Banner when return is approved */}
+                {activeReturn?.status === "approved" && (
+                  <div className="mx-5 mt-3.5 rounded-xl border border-blue-200 bg-blue-50/70 p-3 text-xs text-blue-950 flex items-start gap-2.5">
+                    <Truck className="h-4 w-4 text-blue-700 shrink-0 mt-0.5" />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between gap-2 flex-wrap">
+                        <span className="font-bold text-blue-950">Return Approved — Please Courier Item</span>
+                        {shipDaysInfo && (
+                          <span
+                            suppressHydrationWarning
+                            className={`font-semibold px-2 py-0.5 rounded text-[11px] ${
+                              shipDaysInfo.expired
+                                ? "bg-red-100 text-red-800 font-bold"
+                                : shipDaysInfo.daysLeft <= 1
+                                ? "bg-amber-100 text-amber-900 font-bold"
+                                : "bg-blue-100 text-blue-800 font-bold"
+                            }`}
+                          >
+                            {shipDaysInfo.expired
+                              ? "Shipping deadline passed"
+                              : `${shipDaysInfo.daysLeft} ${shipDaysInfo.daysLeft === 1 ? "day" : "days"} left to ship${shipDaysInfo.deadline ? ` (by ${formatStoreDate(shipDaysInfo.deadline)})` : ""}`}
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-[11px] text-blue-800 mt-1">
+                        Please pack the item and courier it to the seller. Then click <strong>&quot;I have shipped the item&quot;</strong> below to enter your tracking details.
+                      </p>
+                    </div>
+                  </div>
+                )}
 
                 {/* Ordered Items List */}
                 <div className="px-5 py-4 flex flex-col divide-y divide-theme-border-subtle">
@@ -493,8 +708,28 @@ export function OrdersTab({
 
                 {/* Card Action Buttons */}
                 <div className="px-5 pb-4 pt-1 flex items-center gap-2.5 flex-wrap border-t border-theme-border-subtle">
-                  {/* Pay Now button — shown when order exists but payment is still pending */}
-                  {order.paymentStatus === "pending" && order.status !== "cancelled" && (
+                  {/* Pay Now button — ONLY for online payment orders (Card/UPI/Razorpay) when payment is pending */}
+                  {(() => {
+                    const method = String((order as any).paymentMethod || "").toUpperCase();
+                    const paymentDetailsMethod = String((order as any).paymentDetails?.method || "").toUpperCase();
+                    const notes = String((order as any).notes || "").toUpperCase();
+
+                    const isCod =
+                      method === "COD" ||
+                      method.includes("CASH") ||
+                      paymentDetailsMethod.includes("COD") ||
+                      paymentDetailsMethod.includes("CASH") ||
+                      notes.includes("COD") ||
+                      notes.includes("CASH ON DELIVERY") ||
+
+
+                      Boolean((order as any).bankDetails?.accountHolder);
+                    const canPay =
+                      order.paymentStatus === "pending" &&
+                      order.status !== "cancelled" &&
+                      !isCod;
+                    return canPay;
+                  })() && (
                     <button
                       type="button"
                       disabled={payingOrderId === order.id}
@@ -556,6 +791,69 @@ export function OrdersTab({
                     Invoice
                   </button>
 
+                  <Link href={`/orders/${order.id}`}>
+                    <button
+                      type="button"
+                      className="border border-theme-border hover:bg-theme-surface-alt text-theme-text-subtle text-xs font-semibold uppercase tracking-wider py-2.5 px-4 rounded-lg transition-colors cursor-pointer min-h-[40px]"
+                    >
+                      View Details
+                    </button>
+                  </Link>
+
+                  {order.status === "delivered" && (
+                    order.returnWindow && !order.returnWindow.eligible ? (
+                      <span
+                        className="border border-theme-border bg-theme-surface-alt text-theme-text-muted text-xs font-semibold uppercase tracking-wider py-2.5 px-4 rounded-lg inline-flex items-center gap-1.5 cursor-not-allowed select-none opacity-70"
+                        title="Return period expired (only allowed within 3 days of delivery)"
+                      >
+                        <Undo2 className="h-3.5 w-3.5 text-theme-text-muted" />
+                        Return Expired (3-Day Limit)
+                      </span>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setReturnTarget({ orderId: order.id, mode: "return" })
+                        }
+                        className="btn-return-replace text-xs font-bold uppercase tracking-wider py-2.5 px-4 rounded-lg cursor-pointer min-h-[40px] inline-flex items-center gap-1.5 shadow-xs"
+                      >
+                        <Undo2 className="h-3.5 w-3.5 stroke-[2.5]" />
+                        <span>Return / Replace</span>
+                        {order.returnWindow?.daysLeft ? (
+                          <span className="return-badge ml-1 rounded px-1.5 py-0.5 text-[10px] font-extrabold tracking-normal">
+                            {order.returnWindow.daysLeft}d left
+                          </span>
+                        ) : null}
+                      </button>
+                    )
+                  )}
+
+                  {/* "I have shipped the item" button shown after return/replace button, ONLY when return status is approved */}
+                  {activeReturn?.status === "approved" && (
+                    <button
+                      type="button"
+                      onClick={() => setShippingReturn(activeReturn)}
+                      className="inline-flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold uppercase tracking-wider py-2.5 px-4 rounded-lg transition-colors cursor-pointer min-h-[40px] shadow-xs"
+                    >
+                      <PackageCheck className="h-3.5 w-3.5" />
+                      <span>I have shipped the item</span>
+                      {shipDaysInfo && (
+                        <span
+                          suppressHydrationWarning
+                          className={`ml-1 rounded px-1.5 py-0.5 text-[10px] font-extrabold tracking-normal ${
+                            shipDaysInfo.expired
+                              ? "bg-red-500 text-white"
+                              : shipDaysInfo.daysLeft <= 1
+                              ? "bg-amber-400 text-amber-950 font-black"
+                              : "bg-white/25 text-white"
+                          }`}
+                        >
+                          {shipDaysInfo.expired ? "Expired" : `${shipDaysInfo.daysLeft}d left`}
+                        </span>
+                      )}
+                    </button>
+                  )}
+
                   <Link href="/contact">
                     <button
                       type="button"
@@ -580,11 +878,11 @@ export function OrdersTab({
                   )}
                 </div>
 
-                {/* Payment error banner */}
-                {paymentError && payingOrderId === null && (
+                {/* Payment error banner - only shown on the specific order that failed */}
+                {paymentError && paymentError.orderId === order.id && payingOrderId === null && (
                   <div className="mx-5 mb-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 flex items-start gap-2 text-xs text-red-700">
                     <AlertCircle className="h-3.5 w-3.5 flex-shrink-0 mt-0.5 text-red-500" />
-                    <span>{paymentError}</span>
+                    <span>{paymentError.message}</span>
                     <button
                       type="button"
                       onClick={() => setPaymentError(null)}
@@ -838,6 +1136,30 @@ export function OrdersTab({
               }
             )
           }
+        />
+      )}
+
+      {returnTarget && (
+        <RequestWizard
+          open
+          orderUuid={returnTarget.orderId}
+          initialMode={returnTarget.mode}
+          onClose={() => {
+            setReturnTarget(null);
+            handleRefetch();
+          }}
+        />
+      )}
+
+      {shippingReturn && (
+        <ShipReturnModal
+          open={Boolean(shippingReturn)}
+          request={shippingReturn}
+          onClose={() => setShippingReturn(null)}
+          onSuccess={() => {
+            setShippingReturn(null);
+            handleRefetch();
+          }}
         />
       )}
     </div>

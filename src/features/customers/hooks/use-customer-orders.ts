@@ -14,7 +14,7 @@ export const CUSTOMER_ORDERS_QUERY_KEY = ["customer", "orders"] as const;
 export function useCustomerOrders(params: CustomerOrdersQueryParams = {}) {
   return useQuery({
     queryKey: [...CUSTOMER_ORDERS_QUERY_KEY, params],
-    queryFn: () => customerOrdersApi.listOrders(params),
+    queryFn: () => customerOrdersApi.getOrders(params),
     staleTime: 1000 * 30, // 30 seconds
     placeholderData: keepPreviousData,
   });

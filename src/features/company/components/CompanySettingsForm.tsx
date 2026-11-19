@@ -6,6 +6,7 @@ import { Building2, Upload, Loader2, Save, MapPin, FileText, Globe, Mail, Phone 
 import { useCompany, useUpdateCompany, useUploadCompanyLogo } from "../hooks/use-company";
 import { Button, Input, Card, Switch, Skeleton, Textarea } from "@/components/ui";
 import { getImageUrl } from "@/lib/utils";
+import { usePincodeLookup } from "@/features/addresses/hooks/use-pincode-lookup";
 import type { UpdateCompanyInput } from "../types";
 
 export function CompanySettingsForm() {
@@ -31,6 +32,27 @@ export function CompanySettingsForm() {
   });
 
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
+  const { isLoading: isPincodeLoading, lookupError: pincodeLookupError, triggerLookup, resetLookup } = usePincodeLookup();
+
+  const handlePincodeChange = (raw: string) => {
+    const clean = raw.replace(/\D/g, "").slice(0, 6);
+    setFormData((prev) => ({
+      ...prev,
+      pincode: clean,
+      ...(clean.length < 6 ? { city: "", state: "" } : {}),
+    }));
+
+    if (clean.length < 6) {
+      resetLookup();
+      return;
+    }
+
+    triggerLookup(clean, {
+      onSuccess: ({ city, state }) => {
+        setFormData((prev) => ({ ...prev, city, state, country: "India" }));
+      },
+    });
+  };
 
   useEffect(() => {
     if (company) {
@@ -305,20 +327,44 @@ export function CompanySettingsForm() {
           </div>
 
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-neutral-700">City</label>
+            <div className="flex items-center justify-between">
+              <label className="text-sm font-medium text-neutral-700">PIN Code</label>
+              {isPincodeLoading && <span className="text-xs text-primary font-medium">Checking directory...</span>}
+            </div>
+            <Input
+              value={formData.pincode || ""}
+              onChange={(e) => handlePincodeChange(e.target.value)}
+              placeholder="e.g. 637002"
+              maxLength={6}
+            />
+            {pincodeLookupError && <p className="text-xs text-red-500 font-medium">{pincodeLookupError}</p>}
+          </div>
+
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between">
+              <label className="text-sm font-medium text-neutral-700">City</label>
+              <span className="text-xs text-neutral-400">Auto-filled</span>
+            </div>
             <Input
               value={formData.city || ""}
-              onChange={(e) => handleInputChange("city", e.target.value)}
-              placeholder="Namakkal"
+              readOnly
+              tabIndex={-1}
+              className="bg-neutral-100 text-neutral-600 cursor-not-allowed select-none shadow-none focus:outline-none"
+              placeholder={isPincodeLoading ? "Fetching city..." : "Auto-filled from PIN Code"}
             />
           </div>
 
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-neutral-700">State</label>
+            <div className="flex items-center justify-between">
+              <label className="text-sm font-medium text-neutral-700">State</label>
+              <span className="text-xs text-neutral-400">Auto-filled</span>
+            </div>
             <Input
               value={formData.state || ""}
-              onChange={(e) => handleInputChange("state", e.target.value)}
-              placeholder="Tamil Nadu"
+              readOnly
+              tabIndex={-1}
+              className="bg-neutral-100 text-neutral-600 cursor-not-allowed select-none shadow-none focus:outline-none"
+              placeholder={isPincodeLoading ? "Fetching state..." : "Auto-filled from PIN Code"}
             />
           </div>
 
@@ -326,18 +372,10 @@ export function CompanySettingsForm() {
             <label className="text-sm font-medium text-neutral-700">Country</label>
             <Input
               value={formData.country || "India"}
-              onChange={(e) => handleInputChange("country", e.target.value)}
+              readOnly
+              tabIndex={-1}
+              className="bg-neutral-100 text-neutral-600 cursor-not-allowed select-none shadow-none focus:outline-none"
               placeholder="India"
-            />
-          </div>
-
-          <div className="space-y-1.5">
-            <label className="text-sm font-medium text-neutral-700">PIN Code</label>
-            <Input
-              value={formData.pincode || ""}
-              onChange={(e) => handleInputChange("pincode", e.target.value)}
-              placeholder="637002"
-              maxLength={6}
             />
           </div>
         </div>

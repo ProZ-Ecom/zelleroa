@@ -18,9 +18,12 @@ export const createAdminUnitSchema = z
     type: unitTypeEnum,
     baseUnitId: z
       .string()
+      .trim()
       .uuid("Invalid Base Unit UUID format")
+      .or(z.literal(""))
       .optional()
-      .nullable(),
+      .nullable()
+      .transform((val) => (val === "" ? null : val)),
     conversionFactor: z
       .number({ message: "Conversion factor is required" })
       .gt(0, "Conversion factor must be greater than 0")

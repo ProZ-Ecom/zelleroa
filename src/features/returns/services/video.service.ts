@@ -7,12 +7,12 @@ import {
   UNBOXING_VIDEO_MAX_BYTES,
   UNBOXING_VIDEO_URL_PREFIX,
 } from "../lib/policy";
+import { googleDriveService, isUnboxingVideoFilename } from "./google-drive.service";
 
 /**
- * Unboxing videos are private customer evidence, so they live in their own
- * folder (never the public /document route) and are streamed through an
- * authenticated endpoint. File names embed the uploader's user id, which is
- * how ownership is enforced both at serve time and at submission time.
+ * Unboxing videos are private customer evidence. They can be stored in Google Drive
+ * and/or on local disk (never in public/ document root) and are streamed through
+ * an authenticated endpoint.
  */
 export const VIDEO_FOLDER = "return-videos";
 
@@ -66,8 +66,10 @@ export const videoService = {
     }
 
     if (file.size > UNBOXING_VIDEO_MAX_BYTES) {
+      const sizeMb = (file.size / (1024 * 1024)).toFixed(1);
+      const maxMb = UNBOXING_VIDEO_MAX_BYTES / (1024 * 1024);
       throw ApiError.badRequest(
-        `Video is too large. Maximum size is ${UNBOXING_VIDEO_MAX_BYTES / (1024 * 1024)} MB.`
+        `Video is too large (${sizeMb} MB). Maximum size is ${maxMb} MB.`
       );
     }
 
@@ -76,9 +78,25 @@ export const videoService = {
       throw ApiError.badRequest("The uploaded file is not a valid video.");
     }
 
-    await fs.mkdir(videoDir(), { recursive: true });
     const filename = `u${userId}-${crypto.randomUUID()}${extension}`;
+
+    // Always cache locally so video playback is fast
+    await fs.mkdir(videoDir(), { recursive: true });
     await fs.writeFile(path.join(videoDir(), filename), buffer);
+
+    // Upload to Google Drive if configured
+    if (googleDriveService.isConfigured()) {
+      try {
+        await googleDriveService.uploadVideo({
+          filename,
+          mimeType: mime,
+          buffer,
+          description: `Customer ${userId} return unboxing video (${filename})`,
+        });
+      } catch (err) {
+        console.error("[GoogleDrive] Video upload to Google Drive failed:", err);
+      }
+    }
 
     return {
       url: `${UNBOXING_VIDEO_URL_PREFIX}${filename}`,
@@ -89,8 +107,7 @@ export const videoService = {
 
   /**
    * A submitted video URL must be one this user uploaded (prefix check) and it
-   * must still exist on disk. Prevents pointing a request at someone else's
-   * video, at an external URL, or at an arbitrary path.
+   * must exist in Google Drive or on local disk.
    */
   async assertOwnedVideo(userId: bigint, url: string): Promise<string> {
     if (!url || !url.startsWith(UNBOXING_VIDEO_URL_PREFIX)) {
@@ -105,6 +122,11 @@ export const videoService = {
       const stat = await fs.stat(path.join(videoDir(), filename));
       if (!stat.isFile()) throw new Error("not a file");
     } catch {
+      // If not on local disk, check Google Drive
+      if (googleDriveService.isConfigured()) {
+        const file = await googleDriveService.findFileByName(filename);
+        if (file?.id) return url;
+      }
       throw ApiError.badRequest(
         "The uploaded unboxing video could not be found. Please upload it again."
       );
@@ -122,9 +144,126 @@ export const videoService = {
     } catch {
       // already gone
     }
+    if (googleDriveService.isConfigured()) {
+      await googleDriveService.deleteFileByName(filename);
+    }
   },
 
   resolvePath(filename: string) {
     return path.join(videoDir(), filename);
+  },
+
+  /**
+   * Calculates total video storage consumed in MB (local disk + Google Drive),
+   * compares against 50 MB limit, and flags when reached 80% (40 MB).
+   */
+  async getStorageUsage(): Promise<{
+    totalBytes: number;
+    totalMb: number;
+    limitMb: number;
+    thresholdMb: number;
+    thresholdPercent: number;
+    usedPercent: number;
+    fileCount: number;
+    isReached: boolean;
+    storageType: "google_drive" | "local" | "both";
+  }> {
+    const limitMb = 50;
+    const thresholdPercent = 80;
+    const thresholdMb = (limitMb * thresholdPercent) / 100; // 40 MB
+    let localBytes = 0;
+    let localCount = 0;
+
+    try {
+      const files = await fs.readdir(videoDir());
+      for (const f of files) {
+        // Only count return unboxing video files
+        if (!isUnboxingVideoFilename(f)) continue;
+        try {
+          const stat = await fs.stat(path.join(videoDir(), f));
+          if (stat.isFile()) {
+            localBytes += stat.size;
+            localCount++;
+          }
+        } catch {
+          // ignore
+        }
+      }
+    } catch {
+      // dir doesn't exist yet
+    }
+
+    let driveBytes = 0;
+    let driveCount = 0;
+    if (googleDriveService.isConfigured()) {
+      const driveUsage = await googleDriveService.getFolderStorageUsage();
+      driveBytes = driveUsage.totalBytes;
+      driveCount = driveUsage.fileCount;
+    }
+
+    const totalBytes = Math.max(localBytes, driveBytes) || localBytes || driveBytes;
+    const fileCount = Math.max(localCount, driveCount);
+    const totalMb = Number((totalBytes / (1024 * 1024)).toFixed(2));
+    const usedPercent = Math.min(100, Math.round((totalMb / limitMb) * 100));
+    // Flag alert when 80% or more of storage is used
+    const isReached = totalMb >= thresholdMb || usedPercent >= thresholdPercent;
+
+    let storageType: "google_drive" | "local" | "both" = "local";
+    if (googleDriveService.isConfigured() && driveBytes > 0) {
+      storageType = localBytes > 0 ? "both" : "google_drive";
+    }
+
+    return {
+      totalBytes,
+      totalMb,
+      limitMb,
+      thresholdMb,
+      thresholdPercent,
+      usedPercent,
+      fileCount,
+      isReached,
+      storageType,
+    };
+  },
+
+  /**
+   * Admin action to safely clear unboxing video storage.
+   * STRICT SAFETY RULE: Only touches files matching return unboxing video patterns!
+   * Any other files in Google Drive or local storage are completely untouched.
+   */
+  async clearStorage(): Promise<{
+    clearedLocalCount: number;
+    clearedDriveCount: number;
+    totalCleared: number;
+  }> {
+    let clearedLocalCount = 0;
+    try {
+      const files = await fs.readdir(videoDir());
+      for (const f of files) {
+        // STRICT SAFETY CHECK: ONLY touch return unboxing video files
+        if (isUnboxingVideoFilename(f)) {
+          try {
+            await fs.unlink(path.join(videoDir(), f));
+            clearedLocalCount++;
+          } catch {
+            // ignore
+          }
+        }
+      }
+    } catch {
+      // ignore
+    }
+
+    let clearedDriveCount = 0;
+    if (googleDriveService.isConfigured()) {
+      const res = await googleDriveService.clearFolderStorage();
+      clearedDriveCount = res.deletedCount;
+    }
+
+    return {
+      clearedLocalCount,
+      clearedDriveCount,
+      totalCleared: clearedLocalCount + clearedDriveCount,
+    };
   },
 };

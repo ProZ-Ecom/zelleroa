@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
+import { EMAIL_MAX_LENGTH, emailField } from "@/lib/validations/email";
+import { getMobileError } from "@/lib/validations/mobile";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
@@ -23,31 +25,49 @@ import {
   Phone,
   Clock,
   Check,
+  Building2,
+  Pencil,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { formatPrice } from "@/lib/utils";
+import { Select } from "@/components/ui/select";
+import { formatPrice, cn } from "@/lib/utils";
+import {
+  MOBILE_VERIFICATION_PATH,
+  MOBILE_VERIFICATION_REQUIRED_CODE,
+  MOBILE_VERIFICATION_REQUIRED_MESSAGE,
+} from "@/lib/constants/mobile-verification";
 import { formatMeasurementLabel } from "@/features/variants/utils/measurement.util";
 import { useCustomerCart } from "@/features/customers/hooks/use-customer-cart";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   useCustomerAddresses,
   useCreateCustomerAddress,
+  useUpdateCustomerAddress,
 } from "@/features/customers/hooks/use-customer-address";
 import {
   useCreateCustomerOrder,
   useCreateGuestOrder,
   CUSTOMER_ORDERS_QUERY_KEY,
 } from "@/features/customers/hooks/use-customer-orders";
+import { useCustomerProfile } from "@/features/customers/hooks/use-customer-profile";
 import { customerPaymentApi } from "@/features/customers/api/customer-payment.api";
 import { useCheckout } from "@/features/checkout/checkout-context";
+import { useIsAgent, useSignedIn } from "@/features/auth/hooks/use-signed-in";
+import { AgentCartCustomerOrder } from "@/features/agents/components/AgentCartCustomerOrder";
 import {
   DELIVERY_ESTIMATE,
   FREE_DELIVERY_STATE,
   OTHER_STATE_DELIVERY_CHARGE,
+  STANDARD_DELIVERY_CHARGE,
+  EXPRESS_DELIVERY_CHARGE,
+  STANDARD_DELIVERY_ESTIMATE,
+  EXPRESS_DELIVERY_ESTIMATE,
   getShippingCharge,
   isFreeDeliveryState,
 } from "@/features/orders/shipping";
+import { usePincodeLookup } from "@/features/addresses/hooks/use-pincode-lookup";
 import type { CustomerAddressResponse } from "@/features/customers/types/customer-address.types";
+import { loadRazorpayScript } from "@/features/customers/utils/razorpay-loader";
 
 
 function CheckoutSkeleton() {
@@ -94,7 +114,7 @@ function CheckoutSkeleton() {
 export default function CheckoutPage() {
   const router = useRouter();
   const queryClient = useQueryClient();
-  const { status: authStatus } = useSession();
+  const { data: session, status: authStatus } = useSession();
   const { isOrderPlaced, setIsOrderPlaced } = useCheckout();
 
   // Customer Module TanStack Query hooks
@@ -102,28 +122,56 @@ export default function CheckoutPage() {
   const { data: addresses = [], isLoading: addressesLoading } =
     useCustomerAddresses();
   const createAddressMutation = useCreateCustomerAddress();
+  const updateAddressMutation = useUpdateCustomerAddress();
+  const [editingAddressId, setEditingAddressId] = useState<string | null>(null);
+  const addressFormRef = useState<HTMLFormElement | null>(null);
   const createOrderMutation = useCreateCustomerOrder();
   const createGuestOrderMutation = useCreateGuestOrder();
 
-  const isGuest = authStatus !== "loading" && authStatus !== "authenticated";
+  // Agents sign in through the cookie flow, so useSession() alone would call them guests.
+  const signedIn = useSignedIn();
+  const isAgent = useIsAgent();
+  // Agent flow: is this cart for the agent themselves (own order) or one of their customers?
+  const [orderFor, setOrderFor] = useState<"self" | "customer">("self");
+  const isGuest = authStatus !== "loading" && !signedIn;
   const [guestEmail, setGuestEmail] = useState<string>("");
+
+  const { data: customerProfile } = useCustomerProfile({ enabled: !isGuest });
 
   // Selected state
   const [selectedAddressId, setSelectedAddressId] = useState<string>("");
+  const [deliveryMethod, setDeliveryMethod] = useState<"standard" | "express">("standard");
   const [paymentMethod, setPaymentMethod] = useState<"CARD" | "UPI" | "COD">(
     "CARD"
   );
   const [orderNotes, setOrderNotes] = useState<string>("");
-  const [checkoutError, setCheckoutError] = useState<string | null>(null);
+  const [checkoutError, setCheckoutErrorState] = useState<string | null>(null);
+  const [mobileVerificationRequired, setMobileVerificationRequired] = useState(false);
 
-  // Redirect payment in-flight guard
+  // Clearing/setting a plain message resets the verification prompt; the
+  // backend's MOBILE_VERIFICATION_REQUIRED code turns it on (see reportOrderError).
+  const setCheckoutError = (message: string | null) => {
+    setMobileVerificationRequired(false);
+    setCheckoutErrorState(message);
+  };
+  const reportOrderError = (err: any, fallback: string) => {
+    if (err?.code === MOBILE_VERIFICATION_REQUIRED_CODE) {
+      setCheckoutErrorState(err.message || MOBILE_VERIFICATION_REQUIRED_MESSAGE);
+      setMobileVerificationRequired(true);
+      return;
+    }
+    setCheckoutError(err?.message || fallback);
+  };
+
+  // Payment in-flight guards
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
-  const [isVerifyingPayment] = useState(false); // kept for UI compat
-  const [pendingOrder] = useState<null>(null); // no longer used (redirect flow)
+  const [isVerifyingPayment, setIsVerifyingPayment] = useState(false);
+  const [pendingOrder] = useState<null>(null);
 
 
   // Add Address Modal state
   const [isAddingAddress, setIsAddingAddress] = useState(false);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [newAddressForm, setNewAddressForm] = useState({
     fullName: "",
     phone: "",
@@ -131,13 +179,168 @@ export default function CheckoutPage() {
     addressLine2: "",
     landmark: "",
     city: "",
-    state: "Tamil Nadu",
+    state: "",
     pincode: "",
     country: "India",
     addressType: "shipping" as const,
     isDefault: true,
   });
   const [addressFormError, setAddressFormError] = useState<string | null>(null);
+  const {
+    isLoading: isPincodeLoading,
+    lookupError: pincodeLookupError,
+    postOffices,
+    triggerLookup: triggerPincodeLookup,
+  } = usePincodeLookup();
+  const [area, setArea] = useState("");
+
+  const validateField = (field: string, value: string): string | null => {
+    const val = (value || "").trim();
+    if (field === "area") {
+      if (postOffices.length > 0 && !val) return "Please select your area / post office";
+      return null;
+    }
+    if (field === "guestEmail") {
+      if (!val) return "Email address is required";
+      const res = emailField.safeParse(val);
+      if (!res.success) return res.error.issues[0].message;
+      return null;
+    }
+    if (field === "fullName") {
+      if (!val) return "Recipient name is required";
+      if (val.length < 2) return "Recipient name must be at least 2 characters";
+      if (val.length > 150) return "Recipient name cannot exceed 150 characters";
+      return null;
+    }
+    if (field === "phone") {
+      if (!val) return "Phone number is required";
+      const err = getMobileError(val);
+      if (err) return err;
+      return null;
+    }
+    if (field === "pincode") {
+      const clean = val.replace(/\D/g, "");
+      if (!val) return "PIN code is required";
+      if (clean.length !== 6 || !/^\d{6}$/.test(clean)) {
+        return "PIN code must be exactly 6 digits";
+      }
+      return null;
+    }
+    if (field === "addressLine1") {
+      if (!val) return "Flat / House No., Building, Street is required";
+      if (val.length < 3) return "Please enter a complete street address";
+      if (val.length > 255) return "Address line cannot exceed 255 characters";
+      return null;
+    }
+    if (field === "city") {
+      if (!val) return "City is required";
+      if (val.length > 100) return "City cannot exceed 100 characters";
+      return null;
+    }
+    if (field === "state") {
+      if (!val) return "State is required";
+      if (val.length > 100) return "State cannot exceed 100 characters";
+      return null;
+    }
+    return null;
+  };
+
+  const validateAddressForm = () => {
+    const errors: Record<string, string> = {};
+    if (isGuest) {
+      const emailErr = validateField("guestEmail", guestEmail);
+      if (emailErr) errors.guestEmail = emailErr;
+    }
+    const nameErr = validateField("fullName", newAddressForm.fullName);
+    if (nameErr) errors.fullName = nameErr;
+
+    const phoneErr = validateField("phone", newAddressForm.phone);
+    if (phoneErr) errors.phone = phoneErr;
+
+    const pinErr = validateField("pincode", newAddressForm.pincode);
+    if (pinErr) errors.pincode = pinErr;
+
+    if (postOffices.length > 0 && !area.trim()) {
+      errors.area = "Please select your area / post office";
+    }
+
+    const addrErr = validateField("addressLine1", newAddressForm.addressLine1);
+    if (addrErr) errors.addressLine1 = addrErr;
+
+    const cityErr = validateField("city", newAddressForm.city);
+    if (cityErr) errors.city = cityErr;
+
+    const stateErr = validateField("state", newAddressForm.state);
+    if (stateErr) errors.state = stateErr;
+
+    return errors;
+  };
+
+  const handleFieldChange = (field: string, value: string) => {
+    if (field === "guestEmail") {
+      setGuestEmail(value);
+    } else {
+      setNewAddressForm((prev) => ({ ...prev, [field]: value }));
+    }
+    if (fieldErrors[field]) {
+      const err = validateField(field, value);
+      setFieldErrors((prev) => {
+        const next = { ...prev };
+        if (err) next[field] = err;
+        else delete next[field];
+        return next;
+      });
+    }
+  };
+
+  const handleFieldBlur = (field: string) => {
+    const value = field === "guestEmail" ? guestEmail : (newAddressForm as any)[field] || "";
+    const err = validateField(field, value);
+    setFieldErrors((prev) => {
+      const next = { ...prev };
+      if (err) next[field] = err;
+      else delete next[field];
+      return next;
+    });
+  };
+
+  // Auto-fill city and state from PIN code, or allow manual entry when lookup fails
+  const handlePincodeChange = (value: string) => {
+    const pincode = value.replace(/\D/g, "").slice(0, 6);
+    setArea("");
+    setFieldErrors((prev) => {
+      const next = { ...prev };
+      delete next.area;
+      return next;
+    });
+    setNewAddressForm((prev) => ({
+      ...prev,
+      pincode,
+      ...(pincode === "" ? { city: "", state: "" } : {}),
+    }));
+
+    if (fieldErrors.pincode) {
+      if (pincode.length === 6) {
+        setFieldErrors((prev) => {
+          const next = { ...prev };
+          delete next.pincode;
+          return next;
+        });
+      }
+    }
+
+    void triggerPincodeLookup(pincode, {
+      onSuccess: ({ city, state }) => {
+        setNewAddressForm((prev) => ({ ...prev, city, state }));
+        setFieldErrors((prev) => {
+          const next = { ...prev };
+          if (city) delete next.city;
+          if (state) delete next.state;
+          return next;
+        });
+      },
+    });
+  };
 
   // Online payment stays a logged-in-only convenience for now; guests are COD only.
   useEffect(() => {
@@ -158,13 +361,14 @@ export default function CheckoutPage() {
   // Pricing calculations
   const items = cart?.items || [];
   const subtotal = Number(cart?.subtotal || 0);
-  // Delivery is priced by destination state: guests by the form, customers by the chosen address.
-  const deliveryState = isGuest
+  // Standard delivery is free within Tamil Nadu and ₹80 elsewhere; Express is flat ₹99.
+  const isUsingNewAddress = isGuest || isAddingAddress;
+  const deliveryState = isUsingNewAddress
     ? newAddressForm.state
     : addresses.find((a) => a.id === effectiveAddressId)?.state;
   const hasDeliveryState = !!deliveryState?.trim();
-  const isFreeDelivery = isFreeDeliveryState(deliveryState);
-  const shippingCharge = hasDeliveryState ? getShippingCharge(deliveryState) : 0;
+  const isFreeDelivery = hasDeliveryState && isFreeDeliveryState(deliveryState);
+  const shippingCharge = getShippingCharge(deliveryState, deliveryMethod);
   const grandTotal = subtotal + shippingCharge;
 
   // Authentication gate
@@ -225,54 +429,85 @@ export default function CheckoutPage() {
   }
 
 
-  // Handle address form creation
+  const handleEditAddress = (addr: CustomerAddressResponse) => {
+    setEditingAddressId(addr.id);
+    setIsAddingAddress(true);
+    setNewAddressForm({
+      fullName: addr.fullName,
+      phone: addr.phone.replace(/\D/g, "").slice(-10),
+      addressLine1: addr.addressLine1,
+      addressLine2: addr.addressLine2 || "",
+      landmark: addr.landmark || "",
+      city: addr.city,
+      state: addr.state,
+      pincode: addr.pincode,
+      country: addr.country || "India",
+      addressType: (addr.addressType as any) || "shipping",
+      isDefault: addr.isDefault ?? false,
+    });
+    setArea(addr.addressLine2 || "");
+    setFieldErrors({});
+    setAddressFormError(null);
+  };
+
+  // Handle address form creation or update
   const handleCreateAddress = async (e: React.FormEvent) => {
     e.preventDefault();
     setAddressFormError(null);
 
-    // Basic client validation
-    if (!newAddressForm.fullName.trim()) {
-      setAddressFormError("Full name is required");
+    const errors = validateAddressForm();
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors);
       return;
     }
-    if (!/^[6-9]\d{9}$/.test(newAddressForm.phone.replace(/\D/g, "").slice(-10))) {
-      setAddressFormError("Please enter a valid 10-digit Indian phone number");
-      return;
-    }
-    if (!newAddressForm.addressLine1.trim()) {
-      setAddressFormError("Address line 1 is required");
-      return;
-    }
-    if (!newAddressForm.city.trim()) {
-      setAddressFormError("City is required");
-      return;
-    }
-    if (!/^\d{6}$/.test(newAddressForm.pincode.trim())) {
-      setAddressFormError("Please enter a valid 6-digit PIN code");
-      return;
-    }
+    setFieldErrors({});
 
     try {
       const cleanPhone = newAddressForm.phone.startsWith("+91")
         ? newAddressForm.phone
         : `+91${newAddressForm.phone.replace(/\D/g, "").slice(-10)}`;
 
-      const created = await createAddressMutation.mutateAsync({
-        fullName: newAddressForm.fullName.trim(),
-        phone: cleanPhone,
-        addressLine1: newAddressForm.addressLine1.trim(),
-        addressLine2: newAddressForm.addressLine2.trim() || undefined,
-        landmark: newAddressForm.landmark.trim() || undefined,
-        city: newAddressForm.city.trim(),
-        state: newAddressForm.state.trim(),
-        pincode: newAddressForm.pincode.trim(),
-        country: "India",
-        addressType: "shipping",
-        isDefault: newAddressForm.isDefault,
-      });
+      if (editingAddressId) {
+        const updated = await updateAddressMutation.mutateAsync({
+          uuid: editingAddressId,
+          data: {
+            fullName: newAddressForm.fullName.trim(),
+            phone: cleanPhone,
+            addressLine1: newAddressForm.addressLine1.trim(),
+            addressLine2: newAddressForm.addressLine2.trim() || area.trim() || undefined,
+            landmark: newAddressForm.landmark.trim() || undefined,
+            city: newAddressForm.city.trim(),
+            state: newAddressForm.state.trim(),
+            pincode: newAddressForm.pincode.trim(),
+            country: "India",
+            addressType: "shipping",
+            isDefault: newAddressForm.isDefault,
+          },
+        });
 
-      setSelectedAddressId(created.id);
-      setIsAddingAddress(false);
+        setSelectedAddressId(updated.id);
+        setEditingAddressId(null);
+        setIsAddingAddress(false);
+      } else {
+        const created = await createAddressMutation.mutateAsync({
+          fullName: newAddressForm.fullName.trim(),
+          phone: cleanPhone,
+          addressLine1: newAddressForm.addressLine1.trim(),
+          addressLine2: newAddressForm.addressLine2.trim() || area.trim() || undefined,
+          landmark: newAddressForm.landmark.trim() || undefined,
+          city: newAddressForm.city.trim(),
+          state: newAddressForm.state.trim(),
+          pincode: newAddressForm.pincode.trim(),
+          country: "India",
+          addressType: "shipping",
+          isDefault: newAddressForm.isDefault,
+        });
+
+        setSelectedAddressId(created.id);
+        setIsAddingAddress(false);
+      }
+
+      setFieldErrors({});
       setNewAddressForm({
         fullName: "",
         phone: "",
@@ -280,19 +515,20 @@ export default function CheckoutPage() {
         addressLine2: "",
         landmark: "",
         city: "",
-        state: "Tamil Nadu",
+        state: "",
         pincode: "",
         country: "India",
         addressType: "shipping",
         isDefault: true,
       });
+      setArea("");
     } catch (err: any) {
       setAddressFormError(err.message || "Failed to save address");
     }
   };
 
-  // Launch redirect-based Razorpay payment
-  const launchRedirectPayment = async (targetAddressId?: string) => {
+  // In-built Razorpay payment flow via embedded modal (matches Rithu Snacks flow)
+  const launchInbuiltRazorpayPayment = async (targetAddressId?: string) => {
     setIsProcessingPayment(true);
     setCheckoutError(null);
 
@@ -304,49 +540,146 @@ export default function CheckoutPage() {
     }
 
     try {
-      // Call backend to create Razorpay order + one-time token
-      const result = await customerPaymentApi.initiateRedirectPayment({
+      // 1. Asynchronously load Razorpay Checkout SDK
+      const isLoaded = await loadRazorpayScript();
+      if (!isLoaded) {
+        setIsProcessingPayment(false);
+        setCheckoutError(
+          "Could not load Razorpay SDK. Please check your internet connection and try again."
+        );
+        return;
+      }
+
+      // 2. Create Razorpay Order from active cart
+      const razorpayOrder = await customerPaymentApi.createRazorpayOrder({
+        orderId: "cart",
         shippingAddressId: shippingId,
-        billingAddressId: shippingId,
-        notes: orderNotes.trim() || undefined,
+        deliveryMethod: deliveryMethod,
       });
 
-      // Redirect browser to payment app
-      window.location.href = result.paymentUrl;
+      // 3. Find address details for prefill
+      const chosenAddress = addresses.find((a) => a.id === shippingId);
+      const user = session?.user;
+
+      // 4. Configure Razorpay In-built Modal Options
+      const options = {
+        key: razorpayOrder.keyId,
+        amount: razorpayOrder.amount,
+        currency: razorpayOrder.currency || "INR",
+        name: "Zellora",
+        description: `Order Checkout - ₹${(razorpayOrder.amount / 100).toFixed(2)}`,
+        order_id: razorpayOrder.razorpayOrderId,
+        prefill: {
+          name: chosenAddress ? chosenAddress.fullName : user?.name || "",
+          email: user?.email || "",
+          contact: chosenAddress?.phone || (user as any)?.phone || "",
+        },
+        theme: {
+          color: "#2563EB", // Zellora Royal Cobalt brand color
+        },
+        config: {
+          display: {
+            hide: [
+              { method: "emi" },
+              { method: "paylater" },
+            ],
+            preferences: {
+              show_default_blocks: true,
+            },
+          },
+        },
+        modal: {
+          ondismiss: () => {
+            setIsProcessingPayment(false);
+            setIsVerifyingPayment(false);
+            setCheckoutError(
+              "Payment window was closed. You can retry whenever you are ready."
+            );
+          },
+        },
+        handler: async (response: {
+          razorpay_order_id: string;
+          razorpay_payment_id: string;
+          razorpay_signature: string;
+        }) => {
+          setIsVerifyingPayment(true);
+          try {
+            // 5. Verify Cryptographic Payment Signature & Confirm Order
+            const verifyResult = await customerPaymentApi.verifyPayment({
+              orderId: "cart",
+              shippingAddressId: shippingId,
+              billingAddressId: shippingId,
+              deliveryMethod: deliveryMethod,
+              notes: orderNotes.trim() || undefined,
+              razorpay_order_id: response.razorpay_order_id,
+              razorpay_payment_id: response.razorpay_payment_id,
+              razorpay_signature: response.razorpay_signature,
+            });
+
+            setIsOrderPlaced(true);
+            queryClient.invalidateQueries({
+              queryKey: CUSTOMER_ORDERS_QUERY_KEY,
+              refetchType: "all",
+            });
+            queryClient.invalidateQueries({
+              queryKey: ["customer", "cart"],
+              refetchType: "all",
+            });
+            queryClient.invalidateQueries({
+              queryKey: ["cart"],
+              refetchType: "all",
+            });
+
+            router.push(
+              `/checkout/success?orderNumber=${encodeURIComponent(
+                verifyResult.orderNumber
+              )}&orderId=${encodeURIComponent(verifyResult.orderId)}`
+            );
+          } catch (err: any) {
+            setCheckoutError(
+              err.message ||
+                "Payment verification failed. Please contact customer support."
+            );
+          } finally {
+            setIsProcessingPayment(false);
+            setIsVerifyingPayment(false);
+          }
+        },
+      };
+
+      const razorpayInstance = new (window as any).Razorpay(options);
+      razorpayInstance.on("payment.failed", function (response: any) {
+        setIsProcessingPayment(false);
+        setIsVerifyingPayment(false);
+        setCheckoutError(
+          response?.error?.description ||
+            "Transaction was declined or failed. Please try again."
+        );
+      });
+      razorpayInstance.open();
     } catch (err: any) {
       setIsProcessingPayment(false);
+      setIsVerifyingPayment(false);
       setCheckoutError(
-        err.message || "Failed to initiate payment. Please check your details and try again."
+        err.message ||
+          "Failed to initialize payment gateway. Please check item stock and retry."
       );
     }
   };
 
   // Place Order Handler (guest)
   const handlePlaceGuestOrder = async () => {
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(guestEmail.trim())) {
-      setCheckoutError("Please enter a valid email address to receive your order confirmation.");
+    setAddressFormError(null);
+    setCheckoutError(null);
+
+    const errors = validateAddressForm();
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors);
+      setCheckoutError("Please fill in all required delivery and contact details correctly.");
       return;
     }
-    if (!newAddressForm.fullName.trim()) {
-      setCheckoutError("Full name is required.");
-      return;
-    }
-    if (!/^[6-9]\d{9}$/.test(newAddressForm.phone.replace(/\D/g, "").slice(-10))) {
-      setCheckoutError("Please enter a valid 10-digit Indian phone number.");
-      return;
-    }
-    if (!newAddressForm.addressLine1.trim()) {
-      setCheckoutError("Address line 1 is required.");
-      return;
-    }
-    if (!newAddressForm.city.trim()) {
-      setCheckoutError("City is required.");
-      return;
-    }
-    if (!/^\d{6}$/.test(newAddressForm.pincode.trim())) {
-      setCheckoutError("Please enter a valid 6-digit PIN code.");
-      return;
-    }
+
+    setFieldErrors({});
 
     try {
       const cleanPhone = newAddressForm.phone.startsWith("+91")
@@ -358,13 +691,14 @@ export default function CheckoutPage() {
         fullName: newAddressForm.fullName.trim(),
         phone: cleanPhone,
         addressLine1: newAddressForm.addressLine1.trim(),
-        addressLine2: newAddressForm.addressLine2.trim() || undefined,
+        addressLine2: newAddressForm.addressLine2.trim() || area.trim() || undefined,
         landmark: newAddressForm.landmark.trim() || undefined,
         city: newAddressForm.city.trim(),
         state: newAddressForm.state.trim(),
         pincode: newAddressForm.pincode.trim(),
         notes: orderNotes.trim() || undefined,
         paymentMethod: "COD",
+        deliveryMethod,
       });
 
       const orderId = (order as any)?.id;
@@ -381,8 +715,9 @@ export default function CheckoutPage() {
       router.push(`/checkout/success${params.toString() ? `?${params.toString()}` : ""}`);
     } catch (err: any) {
       setIsOrderPlaced(false);
-      setCheckoutError(
-        err.message || "Failed to place your order. Please check your details and try again."
+      reportOrderError(
+        err,
+        "Failed to place your order. Please check your details and try again."
       );
     }
   };
@@ -412,6 +747,7 @@ export default function CheckoutPage() {
           shippingAddressId: effectiveAddressId,
           paymentMethod: "COD",
           notes: orderNotes.trim() || undefined,
+          deliveryMethod,
           paymentDetails: {
             method: "COD",
             status: "pending",
@@ -440,17 +776,16 @@ export default function CheckoutPage() {
         router.push(`/checkout/success${params.toString() ? `?${params.toString()}` : ""}`);
       } catch (err: any) {
         setIsOrderPlaced(false);
-        setCheckoutError(
-          err.message || "Failed to place COD order. Please check details and try again."
+        reportOrderError(
+          err,
+          "Failed to place COD order. Please check details and try again."
         );
       }
       return;
     }
 
-    // 2. Online Payment (Razorpay) — Redirect to payment app
-    // No popup. Browser navigates to the payment domain.
-    // Order is only created after payment verification on the backend.
-    await launchRedirectPayment(effectiveAddressId);
+    // 2. Online Payment (In-built Razorpay standard modal)
+    await launchInbuiltRazorpayPayment(effectiveAddressId);
   };
 
 
@@ -494,11 +829,40 @@ export default function CheckoutPage() {
           <div className="flex-1">
             <p className="font-semibold">Unable to complete checkout</p>
             <p className="text-xs mt-0.5">{checkoutError}</p>
+            {mobileVerificationRequired && (
+              <Link
+                href={
+                  isGuest
+                    ? "/login?callbackUrl=/checkout"
+                    : `${MOBILE_VERIFICATION_PATH}?callbackUrl=/checkout`
+                }
+                className="mt-2 inline-block text-xs font-bold underline"
+              >
+                {isGuest ? "Log in to continue" : "Verify mobile number"}
+              </Link>
+            )}
           </div>
         </div>
       )}
 
-      {/* Main Grid Layout */}
+      {isAgent && (
+        <div className="mb-6 rounded-2xl border border-theme-border bg-theme-surface shadow-xs p-5 sm:p-6">
+          <h2 className="text-base font-bold text-theme-text-primary mb-3">Who is this order for?</h2>
+          <div className="flex flex-wrap gap-4 text-sm">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input type="radio" checked={orderFor === "self"} onChange={() => setOrderFor("self")} /> Self (for myself)
+            </label>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input type="radio" checked={orderFor === "customer"} onChange={() => setOrderFor("customer")} /> Customer
+            </label>
+          </div>
+        </div>
+      )}
+
+      {isAgent && orderFor === "customer" ? (
+        <AgentCartCustomerOrder items={items} subtotal={subtotal} />
+      ) : (
+      /* Main Grid Layout */
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
         {/* Left Column: Form & Steps (8 cols) */}
         <div className="lg:col-span-8 space-y-6">
@@ -520,8 +884,27 @@ export default function CheckoutPage() {
                   type="button"
                   variant="outline"
                   size="sm"
-                  onClick={() => setIsAddingAddress(true)}
-                  className="rounded-xl border-theme-border text-xs font-bold text-theme-primary hover:bg-theme-surface-alt min-h-[36px]"
+                  onClick={() => {
+                    setEditingAddressId(null);
+                    setNewAddressForm({
+                      fullName: "",
+                      phone: "",
+                      addressLine1: "",
+                      addressLine2: "",
+                      landmark: "",
+                      city: "",
+                      state: "",
+                      pincode: "",
+                      country: "India",
+                      addressType: "shipping",
+                      isDefault: true,
+                    });
+                    setArea("");
+                    setFieldErrors({});
+                    setAddressFormError(null);
+                    setIsAddingAddress(true);
+                  }}
+                  className="rounded-xl border-theme-border text-xs font-bold text-theme-primary hover:bg-theme-surface-alt min-h-[36px] cursor-pointer"
                 >
                   <Plus className="mr-1 h-3.5 w-3.5" />
                   Add New
@@ -579,11 +962,26 @@ export default function CheckoutPage() {
                               </span>
                             </div>
 
-                            {addr.isDefault && (
-                              <span className="shrink-0 rounded-md bg-theme-status-del-bg px-2 py-0.5 text-[10px] font-extrabold text-theme-status-del-fg">
-                                Default
-                              </span>
-                            )}
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              {addr.isDefault && (
+                                <span className="rounded-md bg-theme-status-del-bg px-2 py-0.5 text-[10px] font-extrabold text-theme-status-del-fg">
+                                  Default
+                                </span>
+                              )}
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleEditAddress(addr);
+                                }}
+                                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-semibold text-theme-text-subtle hover:text-theme-primary hover:bg-theme-surface-alt border border-theme-border/60 hover:border-theme-primary/30 transition-colors cursor-pointer"
+                                title="Edit address"
+                                aria-label={`Edit address for ${addr.fullName}`}
+                              >
+                                <Pencil className="h-3 w-3" />
+                                <span>Edit</span>
+                              </button>
+                            </div>
                           </div>
 
                           <div className="text-xs text-theme-text-subtle space-y-1 pl-6">
@@ -610,21 +1008,31 @@ export default function CheckoutPage() {
             {/* Inline Add Address Form */}
             {(isAddingAddress || isGuest) && (
               <form
+                noValidate
                 onSubmit={(e) => {
                   e.preventDefault();
-                  if (!isGuest) void handleCreateAddress(e);
+                  if (!isGuest) {
+                    void handleCreateAddress(e);
+                  } else {
+                    void handlePlaceGuestOrder();
+                  }
                 }}
                 className="rounded-xl border border-theme-border bg-theme-surface-warm p-4 sm:p-5 space-y-4"
               >
                 <div className="flex items-center justify-between border-b border-theme-border pb-2.5">
                   <h3 className="text-sm font-bold text-theme-text-primary">
-                    {isGuest ? "Your Contact & Delivery Details" : "New Delivery Address"}
+                    {isGuest ? "Your Contact & Delivery Details" : editingAddressId ? "Edit Delivery Address" : "New Delivery Address"}
                   </h3>
                   {!isGuest && (
                     <button
                       type="button"
-                      onClick={() => setIsAddingAddress(false)}
-                      className="text-theme-text-subtle hover:text-theme-text-primary"
+                      onClick={() => {
+                        setIsAddingAddress(false);
+                        setEditingAddressId(null);
+                        setFieldErrors({});
+                        setAddressFormError(null);
+                      }}
+                      className="text-theme-text-subtle hover:text-theme-text-primary cursor-pointer p-1 rounded-md hover:bg-theme-surface-alt transition-colors"
                     >
                       <X className="h-4 w-4" />
                     </button>
@@ -640,146 +1048,303 @@ export default function CheckoutPage() {
                 {isGuest && (
                   <div>
                     <label className="block text-xs font-semibold text-theme-text-secondary mb-1">
-                      Email Address *
+                      Email Address <span className="text-red-600">*</span>
                     </label>
                     <input
                       type="email"
-                      required
+                      maxLength={EMAIL_MAX_LENGTH}
                       placeholder="e.g. you@example.com"
                       value={guestEmail}
-                      onChange={(e) => setGuestEmail(e.target.value)}
-                      className="w-full min-h-[44px] rounded-xl border border-theme-border-input bg-white px-3 text-xs text-theme-text-primary placeholder:text-theme-text-muted focus:border-theme-primary focus:outline-none"
+                      onChange={(e) => handleFieldChange("guestEmail", e.target.value)}
+                      onBlur={() => handleFieldBlur("guestEmail")}
+                      className={cn(
+                        "w-full min-h-[44px] rounded-xl border bg-white px-3 text-xs text-theme-text-primary placeholder:text-theme-text-muted focus:outline-none transition-colors",
+                        fieldErrors.guestEmail
+                          ? "border-red-500 bg-red-50/10 focus:border-red-500 focus:ring-1 focus:ring-red-500/50 ring-1 ring-red-500/40"
+                          : "border-theme-border-input focus:border-theme-primary"
+                      )}
                     />
-                    <p className="mt-1 text-[11px] text-theme-text-muted">
-                      We&apos;ll send your order confirmation here.
-                    </p>
+                    {fieldErrors.guestEmail ? (
+                      <p className="mt-1 text-xs text-red-500 font-medium animate-in fade-in duration-150">
+                        {fieldErrors.guestEmail}
+                      </p>
+                    ) : (
+                      <p className="mt-1 text-[11px] text-theme-text-muted">
+                        We&apos;ll send your order confirmation here.
+                      </p>
+                    )}
                   </div>
                 )}
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                   <div>
                     <label className="block text-xs font-semibold text-theme-text-secondary mb-1">
-                      Recipient Name *
+                      Recipient Name <span className="text-red-600">*</span>
                     </label>
                     <input
                       type="text"
-                      required
                       placeholder="e.g. Ramesh Kumar"
                       value={newAddressForm.fullName}
-                      onChange={(e) =>
-                        setNewAddressForm((prev) => ({
-                          ...prev,
-                          fullName: e.target.value,
-                        }))
-                      }
-                      className="w-full min-h-[44px] rounded-xl border border-theme-border-input bg-white px-3 text-xs text-theme-text-primary placeholder:text-theme-text-muted focus:border-theme-primary focus:outline-none"
+                      onChange={(e) => handleFieldChange("fullName", e.target.value)}
+                      onBlur={() => handleFieldBlur("fullName")}
+                      className={cn(
+                        "w-full min-h-[44px] rounded-xl border bg-white px-3 text-xs text-theme-text-primary placeholder:text-theme-text-muted focus:outline-none transition-colors",
+                        fieldErrors.fullName
+                          ? "border-red-500 bg-red-50/10 focus:border-red-500 focus:ring-1 focus:ring-red-500/50 ring-1 ring-red-500/40"
+                          : "border-theme-border-input focus:border-theme-primary"
+                      )}
                     />
+                    {fieldErrors.fullName && (
+                      <p className="mt-1 text-xs text-red-500 font-medium animate-in fade-in duration-150">
+                        {fieldErrors.fullName}
+                      </p>
+                    )}
                   </div>
 
                   <div>
                     <label className="block text-xs font-semibold text-theme-text-secondary mb-1">
-                      Phone Number (10 digits) *
+                      Phone Number (10 digits) <span className="text-red-600">*</span>
                     </label>
                     <input
                       type="tel"
-                      required
+                      maxLength={10}
                       placeholder="e.g. 9876543210"
                       value={newAddressForm.phone}
-                      onChange={(e) =>
-                        setNewAddressForm((prev) => ({
-                          ...prev,
-                          phone: e.target.value,
-                        }))
-                      }
-                      className="w-full min-h-[44px] rounded-xl border border-theme-border-input bg-white px-3 text-xs text-theme-text-primary placeholder:text-theme-text-muted focus:border-theme-primary focus:outline-none"
+                      onChange={(e) => handleFieldChange("phone", e.target.value.replace(/\D/g, "").slice(0, 10))}
+                      onBlur={() => handleFieldBlur("phone")}
+                      className={cn(
+                        "w-full min-h-[44px] rounded-xl border bg-white px-3 text-xs text-theme-text-primary placeholder:text-theme-text-muted focus:outline-none transition-colors",
+                        fieldErrors.phone
+                          ? "border-red-500 bg-red-50/10 focus:border-red-500 focus:ring-1 focus:ring-red-500/50 ring-1 ring-red-500/40"
+                          : "border-theme-border-input focus:border-theme-primary"
+                      )}
                     />
+                    {fieldErrors.phone && (
+                      <p className="mt-1 text-xs text-red-500 font-medium animate-in fade-in duration-150">
+                        {fieldErrors.phone}
+                      </p>
+                    )}
                   </div>
 
                   <div className="sm:col-span-2">
                     <label className="block text-xs font-semibold text-theme-text-secondary mb-1">
-                      Flat / House No., Building, Street *
+                      PIN Code (6 digits) <span className="text-red-600">*</span>
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        maxLength={6}
+                        placeholder="e.g. 636001"
+                        value={newAddressForm.pincode}
+                        onChange={(e) => handlePincodeChange(e.target.value)}
+                        onBlur={() => handleFieldBlur("pincode")}
+                        className={cn(
+                          "w-full min-h-[44px] rounded-xl border bg-white px-3 text-xs text-theme-text-primary placeholder:text-theme-text-muted focus:outline-none transition-colors",
+                          fieldErrors.pincode || pincodeLookupError
+                            ? "border-red-500 bg-red-50/10 focus:border-red-500 focus:ring-1 focus:ring-red-500/50 ring-1 ring-red-500/40"
+                            : "border-theme-border-input focus:border-theme-primary"
+                        )}
+                      />
+                      {isPincodeLoading && (
+                        <Loader2 className="absolute right-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 animate-spin text-theme-text-muted" />
+                      )}
+                    </div>
+                    {fieldErrors.pincode ? (
+                      <p className="mt-1 text-xs text-red-500 font-medium animate-in fade-in duration-150">
+                        {fieldErrors.pincode}
+                      </p>
+                    ) : pincodeLookupError ? (
+                      <div className="mt-1 space-y-0.5 animate-in fade-in duration-150">
+                        <p className="text-xs text-amber-600 font-medium">
+                          {pincodeLookupError}
+                        </p>
+                        <p className="text-[11px] text-theme-text-subtle">
+                          PIN code lookup failed or timed out. Please enter your City and State manually below.
+                        </p>
+                      </div>
+                    ) : null}
+                  </div>
+
+                  {postOffices.length > 0 && (
+                    <div className="sm:col-span-2">
+                      <label className="block text-xs font-semibold text-theme-text-secondary mb-1">
+                        Select your area
+                        <span className="text-red-600">*</span>
+                      </label>
+                      <Select
+                        options={postOffices.map((po) => {
+                          const cleanDesc = po.description
+                            ?.replace(/•?\s*(non-delivery|delivery)/gi, "")
+                            ?.replace(/^\s*•\s*/, "")
+                            ?.trim();
+                          return {
+                            value: po.value,
+                            label: cleanDesc ? `${po.label} (${cleanDesc})` : po.label,
+                          };
+                        })}
+                        value={area}
+                        onValueChange={(val) => {
+                          setArea(val);
+                          setNewAddressForm((prev) =>
+                            val && (!prev.addressLine2.trim() || prev.addressLine2 === area)
+                              ? { ...prev, addressLine2: val }
+                              : prev
+                          );
+                          if (fieldErrors.area) {
+                            setFieldErrors((prev) => {
+                              const next = { ...prev };
+                              delete next.area;
+                              return next;
+                            });
+                          }
+                        }}
+                        placeholder="Select area / locality…"
+                      />
+                      {fieldErrors.area && (
+                        <p className="mt-1 text-xs text-red-500 font-medium animate-in fade-in duration-150">
+                          {fieldErrors.area}
+                        </p>
+                      )}
+                    </div>
+                  )}
+
+                  <div className="sm:col-span-2">
+                    <label className="block text-xs font-semibold text-theme-text-secondary mb-1">
+                      Flat / House No., Building, Street <span className="text-red-600">*</span>
                     </label>
                     <input
                       type="text"
-                      required
                       placeholder="e.g. 42, Sri Krishna Nagar, Main Road"
                       value={newAddressForm.addressLine1}
-                      onChange={(e) =>
-                        setNewAddressForm((prev) => ({
-                          ...prev,
-                          addressLine1: e.target.value,
-                        }))
-                      }
-                      className="w-full min-h-[44px] rounded-xl border border-theme-border-input bg-white px-3 text-xs text-theme-text-primary placeholder:text-theme-text-muted focus:border-theme-primary focus:outline-none"
+                      onChange={(e) => handleFieldChange("addressLine1", e.target.value)}
+                      onBlur={() => handleFieldBlur("addressLine1")}
+                      className={cn(
+                        "w-full min-h-[44px] rounded-xl border bg-white px-3 text-xs text-theme-text-primary placeholder:text-theme-text-muted focus:outline-none transition-colors",
+                        fieldErrors.addressLine1
+                          ? "border-red-500 bg-red-50/10 focus:border-red-500 focus:ring-1 focus:ring-red-500/50 ring-1 ring-red-500/40"
+                          : "border-theme-border-input focus:border-theme-primary"
+                      )}
                     />
+                    {fieldErrors.addressLine1 && (
+                      <p className="mt-1 text-xs text-red-500 font-medium animate-in fade-in duration-150">
+                        {fieldErrors.addressLine1}
+                      </p>
+                    )}
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-theme-text-secondary mb-1">
-                      City *
+                    <label className="block text-xs font-semibold text-theme-text-secondary mb-1 flex items-center justify-between">
+                      <span>
+                        City <span className="text-red-600">*</span>
+                      </span>
+                      {pincodeLookupError && (
+                        <span className="text-[10px] text-amber-600 font-normal">
+                          Enter manually
+                        </span>
+                      )}
                     </label>
                     <input
                       type="text"
-                      required
-                      placeholder="e.g. Salem"
+                      readOnly={isPincodeLoading}
+                      placeholder={isPincodeLoading ? "Fetching city..." : pincodeLookupError ? "Enter city / district" : "e.g. Namakkal"}
                       value={newAddressForm.city}
-                      onChange={(e) =>
-                        setNewAddressForm((prev) => ({
-                          ...prev,
-                          city: e.target.value,
-                        }))
-                      }
-                      className="w-full min-h-[44px] rounded-xl border border-theme-border-input bg-white px-3 text-xs text-theme-text-primary placeholder:text-theme-text-muted focus:border-theme-primary focus:outline-none"
+                      onChange={(e) => handleFieldChange("city", e.target.value)}
+                      onBlur={() => handleFieldBlur("city")}
+                      className={cn(
+                        "w-full min-h-[44px] rounded-xl border bg-white px-3 text-xs text-theme-text-primary placeholder:text-theme-text-muted focus:outline-none transition-colors",
+                        isPincodeLoading && "bg-theme-surface-alt/70 text-theme-text-muted cursor-wait select-none shadow-none",
+                        fieldErrors.city
+                          ? "border-red-500 bg-red-50/10 focus:border-red-500 focus:ring-1 focus:ring-red-500/50 ring-1 ring-red-500/40"
+                          : "border-theme-border-input focus:border-theme-primary"
+                      )}
                     />
+                    {fieldErrors.city && (
+                      <p className="mt-1 text-xs text-red-500 font-medium animate-in fade-in duration-150">
+                        {fieldErrors.city}
+                      </p>
+                    )}
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-theme-text-secondary mb-1">
-                      PIN Code (6 digits) *
+                    <label className="block text-xs font-semibold text-theme-text-secondary mb-1 flex items-center justify-between">
+                      <span>
+                        State <span className="text-red-600">*</span>
+                      </span>
+                      {pincodeLookupError && (
+                        <span className="text-[10px] text-amber-600 font-normal">
+                          Enter manually
+                        </span>
+                      )}
                     </label>
                     <input
                       type="text"
-                      required
-                      maxLength={6}
-                      placeholder="e.g. 636001"
-                      value={newAddressForm.pincode}
-                      onChange={(e) =>
-                        setNewAddressForm((prev) => ({
-                          ...prev,
-                          pincode: e.target.value,
-                        }))
-                      }
-                      className="w-full min-h-[44px] rounded-xl border border-theme-border-input bg-white px-3 text-xs text-theme-text-primary placeholder:text-theme-text-muted focus:border-theme-primary focus:outline-none"
+                      readOnly={isPincodeLoading}
+                      placeholder={isPincodeLoading ? "Fetching state..." : pincodeLookupError ? "Enter state" : "e.g. Tamil Nadu"}
+                      value={newAddressForm.state}
+                      onChange={(e) => handleFieldChange("state", e.target.value)}
+                      onBlur={() => handleFieldBlur("state")}
+                      className={cn(
+                        "w-full min-h-[44px] rounded-xl border bg-white px-3 text-xs text-theme-text-primary placeholder:text-theme-text-muted focus:outline-none transition-colors",
+                        isPincodeLoading && "bg-theme-surface-alt/70 text-theme-text-muted cursor-wait select-none shadow-none",
+                        fieldErrors.state
+                          ? "border-red-500 bg-red-50/10 focus:border-red-500 focus:ring-1 focus:ring-red-500/50 ring-1 ring-red-500/40"
+                          : "border-theme-border-input focus:border-theme-primary"
+                      )}
                     />
+                    {fieldErrors.state && (
+                      <p className="mt-1 text-xs text-red-500 font-medium animate-in fade-in duration-150">
+                        {fieldErrors.state}
+                      </p>
+                    )}
                   </div>
                 </div>
 
                 {!isGuest && (
-                  <div className="flex items-center justify-end gap-2.5 pt-2">
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setIsAddingAddress(false)}
-                      className="min-h-[40px] text-xs font-semibold rounded-xl text-theme-text-subtle"
-                    >
-                      Cancel
-                    </Button>
-                    <Button
-                      type="submit"
-                      size="sm"
-                      disabled={createAddressMutation.isPending}
-                      className="min-h-[40px] px-4 text-xs font-bold rounded-xl bg-theme-primary hover:bg-theme-primary-hover text-white"
-                    >
-                      {createAddressMutation.isPending ? (
-                        <>
-                          <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
-                          Saving Address...
-                        </>
-                      ) : (
-                        "Save Address"
-                      )}
-                    </Button>
+                  <div className="flex items-center justify-between pt-2">
+                    <label className="flex items-center gap-2 text-xs font-medium text-theme-text-secondary cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        checked={newAddressForm.isDefault}
+                        onChange={(e) =>
+                          setNewAddressForm((prev) => ({ ...prev, isDefault: e.target.checked }))
+                        }
+                        className="rounded border-theme-border text-theme-primary focus:ring-theme-primary h-4 w-4 cursor-pointer"
+                      />
+                      <span>Make this my default address</span>
+                    </label>
+
+                    <div className="flex items-center gap-2.5">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          setIsAddingAddress(false);
+                          setEditingAddressId(null);
+                          setFieldErrors({});
+                          setAddressFormError(null);
+                        }}
+                        className="min-h-[40px] text-xs font-semibold rounded-xl text-theme-text-subtle cursor-pointer"
+                      >
+                        Cancel
+                      </Button>
+                      <Button
+                        type="submit"
+                        size="sm"
+                        disabled={createAddressMutation.isPending || updateAddressMutation.isPending}
+                        className="min-h-[40px] px-4 text-xs font-bold rounded-xl bg-theme-primary hover:bg-theme-primary-hover text-white cursor-pointer"
+                      >
+                        {createAddressMutation.isPending || updateAddressMutation.isPending ? (
+                          <>
+                            <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                            {editingAddressId ? "Updating Address..." : "Saving Address..."}
+                          </>
+                        ) : (
+                          editingAddressId ? "Update Address" : "Save Address"
+                        )}
+                      </Button>
+                    </div>
                   </div>
                 )}
               </form>
@@ -798,31 +1363,38 @@ export default function CheckoutPage() {
               </h2>
             </div>
 
-            <div className="rounded-xl border border-theme-primary bg-theme-surface-alt/70 shadow-xs ring-1 ring-theme-primary p-4">
-              <div className="flex items-center justify-between mb-1.5">
-                <span className="text-xs font-bold text-theme-text-primary">
-                  Standard Delivery
-                </span>
-                <span className="text-xs font-extrabold text-theme-primary">
-                  {!hasDeliveryState
-                    ? "—"
-                    : isFreeDelivery
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+              {/* Standard Delivery Option */}
+              <div
+                className="relative rounded-xl border border-theme-primary bg-theme-surface-alt/70 p-4 text-left shadow-xs ring-2 ring-theme-primary/30 select-none"
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <div className="h-4 w-4 rounded-full border border-theme-primary bg-theme-primary flex items-center justify-center">
+                      <div className="h-1.5 w-1.5 rounded-full bg-white" />
+                    </div>
+                    <span className="text-xs font-bold text-theme-text-primary">
+                      Standard Delivery
+                    </span>
+                  </div>
+                  <span className="text-xs font-extrabold text-theme-primary">
+                    {isFreeDelivery
                       ? "FREE"
-                      : formatPrice(OTHER_STATE_DELIVERY_CHARGE)}
-                </span>
+                      : formatPrice(
+                          hasDeliveryState ? shippingCharge : STANDARD_DELIVERY_CHARGE
+                        )}
+                  </span>
+                </div>
+                <p className="text-[11px] text-theme-text-subtle flex items-center gap-1 mb-1">
+                  <Clock className="h-3 w-3 text-theme-secondary shrink-0" />
+                  <span>Estimated: {STANDARD_DELIVERY_ESTIMATE}</span>
+                </p>
+                <p className="text-[11px] text-theme-text-muted">
+                  {isFreeDelivery
+                    ? `Free delivery within ${FREE_DELIVERY_STATE}.`
+                    : `Standard doorstep delivery across India. Free within ${FREE_DELIVERY_STATE}.`}
+                </p>
               </div>
-              <p className="text-[11px] text-theme-text-subtle flex items-center gap-1">
-                <Clock className="h-3 w-3" />
-                Estimated: {DELIVERY_ESTIMATE}
-              </p>
-              <p className="mt-2 text-[11px] text-theme-text-muted">
-                Free delivery within {FREE_DELIVERY_STATE}. {formatPrice(OTHER_STATE_DELIVERY_CHARGE)} for all other states.
-              </p>
-              {hasDeliveryState && isFreeDelivery && (
-                <span className="mt-2 inline-block rounded bg-theme-status-del-bg px-2 py-0.5 text-[10px] font-bold text-theme-status-del-fg">
-                  Free Delivery in {FREE_DELIVERY_STATE}!
-                </span>
-              )}
             </div>
           </div>
 
@@ -941,13 +1513,30 @@ export default function CheckoutPage() {
             )}
 
             {paymentMethod === "COD" && (
-              <div className="rounded-xl border border-theme-border-subtle bg-theme-surface-alt/60 p-4 sm:p-5 space-y-2">
-                <p className="text-xs font-bold text-theme-text-primary">
-                  Pay with Cash upon Doorstep Delivery
-                </p>
-                <p className="text-[11px] text-theme-text-subtle leading-relaxed">
-                  Please keep exact change ready upon delivery. Our delivery partner will verify and hand over your fresh package with a receipt.
-                </p>
+              <div className="rounded-xl border border-amber-200/80 bg-amber-50/40 p-4 sm:p-5 space-y-3">
+                <div className="flex items-start gap-3">
+                  <div className="p-2 rounded-lg bg-amber-100 text-amber-800 shrink-0 mt-0.5">
+                    <Building2 className="h-4 w-4" />
+                  </div>
+                  <div>
+                    <h3 className="text-xs font-bold text-theme-text-primary flex items-center gap-2">
+                      Cash on Delivery
+                      <span className="text-[10px] uppercase tracking-wider font-extrabold px-1.5 py-0.5 rounded bg-amber-200/80 text-amber-900">
+                        Doorstep Payment
+                      </span>
+                    </h3>
+                    <p className="text-[11px] text-theme-text-subtle mt-0.5 leading-relaxed">
+                      Pay with physical cash or UPI directly to the courier agent when your package is delivered to your doorstep.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="text-[11px] text-theme-text-subtle bg-white/90 border border-theme-border rounded-xl p-3 flex items-center gap-2">
+                  <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
+                  <span>
+                    No bank account details or online transaction required to place this order. If you ever need to return a product, you can provide your refund bank details directly during the return request.
+                  </span>
+                </div>
               </div>
             )}
           </div>
@@ -1026,20 +1615,15 @@ export default function CheckoutPage() {
                 </div>
 
                 <div className="flex justify-between text-theme-text-subtle items-center">
-                  <span>Shipping & Handling</span>
-                  {!hasDeliveryState ? (
-                    <span className="text-[11px] text-theme-text-muted">
-                      Select an address
+                  <div className="flex items-center gap-1.5">
+                    <span>Shipping & Handling</span>
+                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-theme-surface-alt border border-theme-border text-theme-text-muted">
+                      {deliveryMethod === "express" ? "Express" : "Standard"}
                     </span>
-                  ) : shippingCharge === 0 ? (
-                    <span className="rounded bg-theme-status-del-bg px-2 py-0.5 text-[10px] font-bold text-theme-status-del-fg">
-                      FREE
-                    </span>
-                  ) : (
-                    <span className="font-semibold text-theme-text-primary">
-                      {formatPrice(shippingCharge)}
-                    </span>
-                  )}
+                  </div>
+                  <span className="font-semibold text-theme-text-primary">
+                    {isFreeDelivery ? "FREE" : formatPrice(shippingCharge)}
+                  </span>
                 </div>
 
                 <div className="border-t border-theme-border pt-3 flex justify-between items-baseline">
@@ -1073,7 +1657,7 @@ export default function CheckoutPage() {
                 ) : isProcessingPayment ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Redirecting to Payment...
+                    Opening Razorpay Gateway...
                   </>
                 ) : createOrderMutation.isPending || createGuestOrderMutation.isPending ? (
                   <>
@@ -1094,17 +1678,25 @@ export default function CheckoutPage() {
               </Button>
 
               <div className="text-[11px] text-center text-theme-text-muted space-y-1 pt-1">
-                <p className="flex items-center justify-center gap-1.5 font-medium text-emerald-700">
-                  <ShieldCheck className="h-3.5 w-3.5 text-emerald-600" />
-                  256-bit Bank-Grade Encryption by Razorpay
-                </p>
-                <p>Handcrafted South Indian delicacies delivered fresh to your door.</p>
+                {paymentMethod === "COD" ? (
+                  <p className="flex items-center justify-center gap-1.5 font-medium text-amber-700">
+                    <ShieldCheck className="h-3.5 w-3.5 text-amber-600" />
+                    Doorstep Cash Payment • Direct Return Refund Protection
+                  </p>
+                ) : (
+                  <p className="flex items-center justify-center gap-1.5 font-medium text-emerald-700">
+                    <ShieldCheck className="h-3.5 w-3.5 text-emerald-600" />
+                    256-bit Bank-Grade Encryption by Razorpay
+                  </p>
+                )}
+                <p>Premium collection delivered securely to your door.</p>
               </div>
 
             </div>
           </div>
         </div>
       </div>
+      )}
     </div>
   );
 }

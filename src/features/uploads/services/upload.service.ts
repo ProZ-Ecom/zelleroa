@@ -12,6 +12,7 @@ export const ALLOWED_FOLDERS = [
   "banners",
   "company",
   "attributes",
+  "returns",
 ] as const;
 
 export type AllowedFolder = (typeof ALLOWED_FOLDERS)[number];
@@ -136,6 +137,7 @@ export const uploadService = {
 
     return {
       path: webPath,
+      url: webPath,
     };
   },
 

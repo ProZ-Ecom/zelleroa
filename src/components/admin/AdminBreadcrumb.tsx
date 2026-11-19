@@ -16,35 +16,36 @@ interface AdminBreadcrumbProps {
 }
 
 function AdminBreadcrumb({ items, className }: AdminBreadcrumbProps) {
+  const allItems = React.useMemo(() => {
+    if (items.length > 0 && items[0].label === "Dashboard") {
+      return items;
+    }
+    return [{ label: "Dashboard", href: "/admin/dashboard" }, ...items];
+  }, [items]);
+
   return (
     <nav aria-label="Breadcrumb" className={cn("flex items-center text-sm", className)}>
       <ol className="flex items-center gap-1">
-        {/* <li>
-          <Link
-            href="/admin/dashboard"
-            className="text-gray-400 hover:text-gray-600 transition-colors"
-          >
-            <Home className="h-4 w-4" />
-          </Link>
-        </li> */}
-        {items.map((item, index) => (
-          <li key={index} className="flex items-center gap-1">
-            
-            {item.href ? (
-              <Link
-                href={item.href}
-                className="text-gray-500 hover:text-gray-700 transition-colors"
-              >
-                {item.label}
-                
-              </Link>
-              
-            ) : (
-              <span className="font-medium text-gray-900">{item.label}</span>
-            )}
-              <ChevronRight className="h-4 w-4 text-gray-300" />
-          </li>
-        ))}
+        {allItems.map((item, index) => {
+          const isLast = index === allItems.length - 1;
+          return (
+            <li key={index} className="flex items-center gap-1">
+              {item.href && !isLast ? (
+                <Link
+                  href={item.href}
+                  className="text-gray-500 hover:text-gray-700 transition-colors"
+                >
+                  {item.label}
+                </Link>
+              ) : (
+                <span className={cn(isLast ? "font-medium text-gray-900" : "text-gray-500")}>
+                  {item.label}
+                </span>
+              )}
+              {!isLast && <ChevronRight className="h-4 w-4 text-gray-400" />}
+            </li>
+          );
+        })}
       </ol>
     </nav>
   );

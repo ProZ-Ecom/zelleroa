@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { toast } from "@/components/ui/Toast";
 import { useCoupons, useCreateCoupon, useUpdateCoupon, useDeleteCoupon } from "@/features/coupons/hooks";
 import { DataTable } from "@/components/admin/data-table/DataTable";
 import { AdminPageHeader, AdminContent } from "@/components/admin/AdminPageHeader";
@@ -11,12 +12,18 @@ import { AdminTableSkeleton } from "@/components/admin/AdminTableSkeleton";
 import { ErrorState } from "@/components/ui/error-state";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Select } from "@/components/ui/select";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { FormModal } from "@/components/common/FormModal";
+import { ExportButton } from "@/components/common/export-button";
+import { exportDataToCsv } from "@/lib/export-csv";
+import { formatDate } from "@/lib/utils";
+import { SearchInput } from "@/components/ui/search-input";
 import { Plus, Pencil, Trash2 } from "lucide-react";
 import { createCouponSchema, type CreateCouponSchemaInput } from "@/features/coupons/validations/coupon.schema";
 import type { ColumnDef } from "@tanstack/react-table";
 import type { CouponListItem } from "@/features/coupons/types";
+import { CanAct } from "@/features/access";
 
 const typeBadgeVariant: Record<string, "info" | "success"> = {
   PERCENTAGE: "info",
@@ -43,6 +50,8 @@ export default function AdminCouponsPage() {
     register,
     handleSubmit,
     reset,
+    watch,
+    setValue,
     formState: { errors },
   } = useForm<CreateCouponSchemaInput>({
     resolver: zodResolver(createCouponSchema),
@@ -54,6 +63,35 @@ export default function AdminCouponsPage() {
     },
   });
 
+  // const handleNumericInputBlur = (field: "value" | "minOrderAmount" | "maxDiscount" | "usageLimit") => (
+  //   e: React.FocusEvent<HTMLInputElement>
+  // ) => {
+  //   const raw = e.target.value;
+  //   if (raw && /^0+\d+/.test(raw)) {
+  //     const normalized = Number(raw);
+  //     setValue(field, isNaN(normalized) ? undefined : (normalized as any), { shouldValidate: true });
+  //     e.target.value = String(normalized);
+  //   }
+  // };
+
+  const stripLeadingZeros = (raw: string) => raw.replace(/^(-?)0+(?=\d)/, "$1");
+
+type NumericField = "value" | "minOrderAmount" | "maxDiscount" | "usageLimit";
+
+const numberField = (name: NumericField) => {
+  const reg = register(name, {
+    setValueAs: (v) => (v === "" || v == null ? undefined : Number(v)),
+  });
+  return {
+    ...reg,
+    onChange: (e: React.ChangeEvent<HTMLInputElement>) => {
+      const cleaned = stripLeadingZeros(e.target.value);
+      if (cleaned !== e.target.value) e.target.value = cleaned;
+      return reg.onChange(e);
+    },
+  };
+
+}
   useEffect(() => {
     if (editingCoupon) {
       reset({
@@ -76,24 +114,25 @@ export default function AdminCouponsPage() {
     }
   }, [editingCoupon, reset]);
 
-  const onSubmit = (formData: CreateCouponSchemaInput) => {
+  const onSubmit = async (formData: CreateCouponSchemaInput) => {
     if (editingCoupon) {
-      updateMutation.mutate(
-        { id: editingCoupon.id, data: formData },
-        {
-          onSuccess: () => {
-            setModalOpen(false);
-            setEditingCoupon(null);
-          },
-        }
-      );
+      try {
+        await updateMutation.mutateAsync({ id: editingCoupon.id, data: formData });
+        toast.success("Coupon updated", `Coupon "${formData.code}" was updated successfully.`);
+        setModalOpen(false);
+        setEditingCoupon(null);
+      } catch (err: any) {
+        toast.error("Failed to update coupon", err?.message || "Please try again.");
+      }
     } else {
-      createMutation.mutate(formData, {
-        onSuccess: () => {
-          setModalOpen(false);
-          reset();
-        },
-      });
+      try {
+        await createMutation.mutateAsync(formData);
+        toast.success("Coupon created", `Coupon "${formData.code}" was created successfully.`);
+        setModalOpen(false);
+        reset();
+      } catch (err: any) {
+        toast.error("Failed to create coupon", err?.message || "Please try again.");
+      }
     }
   };
 
@@ -145,7 +184,14 @@ export default function AdminCouponsPage() {
       accessorKey: "isActive",
       header: "Status",
       cell: ({ row }) => (
-        <Badge variant={row.original.isActive ? "success" : "secondary"}>
+        <Badge
+          variant={row.original.isActive ? "success" : "destructive"}
+          className={
+            row.original.isActive
+              ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+              : "border-red-200 bg-red-50 text-red-700"
+          }
+        >
           {row.original.isActive ? "Active" : "Inactive"}
         </Badge>
       ),
@@ -155,7 +201,7 @@ export default function AdminCouponsPage() {
       header: "Expiry",
       cell: ({ row }) =>
         row.original.expiresAt
-          ? new Date(row.original.expiresAt).toLocaleDateString("en-IN")
+          ? formatDate(row.original.expiresAt)
           : "No expiry",
     },
     {
@@ -191,23 +237,55 @@ export default function AdminCouponsPage() {
       <AdminPageHeader
         title="Coupons"
         description="Manage discount coupons"
-        actions={
-          <Button onClick={() => handleOpenModal()}>
-            <Plus className="mr-2 h-4 w-4" />
-            Add Coupon
-          </Button>
-        }
       />
-      <AdminContent className="flex-1 min-h-0 overflow-hidden">
-        <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
-          <DataTable
-            columns={columns}
-            data={coupons}
-            searchKey="code"
-            searchPlaceholder="Search coupons..."
-            pageSize={20}
-            className="bg-white border border-neutral-200"
-          />
+      <AdminContent className="flex-1 min-h-0">
+        <div className="flex h-full flex-col bg-[var(--color-background)] py-1 rounded-2xl">
+          <div className="flex-shrink-0 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            <SearchInput
+              placeholder="Search coupons..."
+              defaultValue={search}
+              onSearch={(val) => setSearch(val)}
+              className="w-full max-w-md"
+            />
+
+            <div className="flex items-center gap-3">
+              <ExportButton
+                onClick={() =>
+                  exportDataToCsv(
+                    coupons.map((c) => ({
+                      Code: c.code,
+                      Type: c.type,
+                      Value: c.value,
+                      UsedCount: c.usedCount,
+                      UsageLimit: c.usageLimit || "Unlimited",
+                      Status: c.isActive ? "Active" : "Inactive",
+                      ExpiresAt: c.expiresAt ? formatDate(c.expiresAt) : "No expiry",
+                    })),
+                    "coupons"
+                  )
+                }
+                disabled={coupons.length === 0}
+              />
+              <CanAct action="CREATE">
+                <Button
+                  onClick={() => handleOpenModal()}
+                  className="h-11 rounded-xl bg-stone-900 hover:bg-stone-800 text-[#D4AF37] border border-[#D4AF37]/30 shadow-xs px-5 text-sm font-semibold transition-colors"
+                >
+                  <Plus className="mr-2 h-4 w-4 text-[#D4AF37]" />
+                  Add Coupon
+                </Button>
+              </CanAct>
+            </div>
+          </div>
+
+          <div className="mt-6 flex-1 min-h-0 flex flex-col">
+            <DataTable
+              columns={columns}
+              data={coupons}
+              pageSize={20}
+              className="bg-white border border-neutral-200"
+            />
+          </div>
         </div>
       </AdminContent>
 
@@ -259,13 +337,15 @@ export default function AdminCouponsPage() {
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Type <span className="text-error-600">*</span>
               </label>
-              <select
-                {...register("type")}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
-              >
-                <option value="PERCENTAGE">Percentage</option>
-                <option value="FIXED">Fixed Amount</option>
-              </select>
+              <Select
+                value={watch("type")}
+                onValueChange={(val) => setValue("type", val as "PERCENTAGE" | "FIXED", { shouldValidate: true })}
+                searchable={false}
+                options={[
+                  { value: "PERCENTAGE", label: "Percentage" },
+                  { value: "FIXED", label: "Fixed Amount" },
+                ]}
+              />
             </div>
 
             <div>
@@ -275,7 +355,9 @@ export default function AdminCouponsPage() {
               <input
                 type="number"
                 step="0.01"
-                {...register("value", { valueAsNumber: true })}
+                // {...register("value", { valueAsNumber: true })}
+                // onBlur={handleNumericInputBlur("value")}
+                {...numberField("value")}
                 className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
                 placeholder="0"
               />
@@ -293,7 +375,8 @@ export default function AdminCouponsPage() {
               <input
                 type="number"
                 step="0.01"
-                {...register("minOrderAmount", { valueAsNumber: true })}
+                // {...register("minOrderAmount", { valueAsNumber: true })}
+                {...numberField("minOrderAmount")}
                 className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
                 placeholder="0"
               />
@@ -306,7 +389,8 @@ export default function AdminCouponsPage() {
               <input
                 type="number"
                 step="0.01"
-                {...register("maxDiscount", { valueAsNumber: true })}
+                // {...register("maxDiscount", { valueAsNumber: true })}
+                {...numberField("maxDiscount")}
                 className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
                 placeholder="0"
               />
@@ -319,7 +403,10 @@ export default function AdminCouponsPage() {
             </label>
             <input
               type="number"
-              {...register("usageLimit", { valueAsNumber: true })}
+              // {...register("usageLimit", { valueAsNumber: true })}
+              // onBlur={handleNumericInputBlur("usageLimit")}
+              {...numberField("usageLimit")}
+
               className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
               placeholder="Unlimited"
             />
@@ -366,11 +453,15 @@ export default function AdminCouponsPage() {
       <ConfirmDialog
         open={!!deleteId}
         onClose={() => setDeleteId(null)}
-        onConfirm={() => {
+        onConfirm={async () => {
           if (deleteId) {
-            deleteMutation.mutate(deleteId, {
-              onSuccess: () => setDeleteId(null),
-            });
+            try {
+              await deleteMutation.mutateAsync(deleteId);
+              toast.success("Coupon deleted", "The coupon was removed successfully.");
+              setDeleteId(null);
+            } catch (err: any) {
+              toast.error("Failed to delete coupon", err?.message || "Please try again.");
+            }
           }
         }}
         title="Delete Coupon"

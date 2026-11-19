@@ -26,7 +26,7 @@ export const POST = createApiHandler(
     },
   },
   {
-    requireAuth: true,
+    requireAuth: true, requiredRole: ["CUSTOMER", "AGENT"],
     bodySchema: verifyRazorpayPaymentSchema,
   }
 );

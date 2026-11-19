@@ -14,7 +14,7 @@ export const POST = createApiHandler(
 
       return apiSuccess(
         result,
-        "Your message has been sent successfully. We will get back to you soon.",
+        "Inquiry submitted successfully!",
         201
       );
     },

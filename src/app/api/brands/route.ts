@@ -1,5 +1,5 @@
 import { createApiHandler } from "@/lib/api/api-handler";
-import { apiSuccess, apiCreated } from "@/lib/api/api-response";
+import { apiSuccess, apiCreated} from "@/lib/api/api-response";
 import { brandService } from "@/features/brands/services/brand.service";
 import { getBrandsQuerySchema, createBrandSchema } from "@/features/brands/validations/brand.schema";
 
@@ -12,11 +12,16 @@ export const GET = createApiHandler(
         limit: query.limit,
         search: query.search,
         isActive: query.isActive,
+        categorySlug: query.categorySlug,
       });
       return apiSuccess(result.data, "Brands fetched successfully", 200, result.meta);
     },
   },
-  { querySchema: getBrandsQuerySchema }
+  {
+    requireAuth: true,
+    requiredRole: ["ADMIN", "STAFF"],
+    querySchema: getBrandsQuerySchema,
+  }
 );
 
 export const POST = createApiHandler(

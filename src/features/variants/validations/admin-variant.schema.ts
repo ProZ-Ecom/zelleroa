@@ -71,11 +71,6 @@ export const bulkEditVariantItemSchema = z
       .number()
       .min(0, "Base price cannot be negative")
       .optional(),
-    stock: z
-      .number()
-      .int("Stock must be an integer")
-      .min(0, "Stock cannot be negative")
-      .optional(),
     isActive: z.boolean().optional(),
   })
   .strict();
@@ -113,12 +108,8 @@ export const generateVariantsSchema = z
     unitId: z.string().trim().uuid("Invalid unit UUID format"),
     /** Applied to every generated combination unless overridden per-row afterwards. */
     defaultPrice: z.coerce.number().min(0, "Price cannot be negative").optional(),
-    defaultStock: z.coerce
-      .number()
-      .int("Stock must be an integer")
-      .min(0, "Stock cannot be negative")
-      .optional()
-      .default(0),
+    /** Optional opening stock for each created SKU row. Default: 0 */
+    initialStock: z.coerce.number().int().min(0, "Stock cannot be negative").optional().default(0),
     activate: z.boolean().optional().default(true),
   })
   .strict()
@@ -132,6 +123,8 @@ export const generateVariantsSchema = z
 
 export type GenerateVariantOptionInput = z.infer<typeof generateVariantOptionSchema>;
 export type GenerateVariantsInput = z.infer<typeof generateVariantsSchema>;
+/** Client payload shape: fields with schema defaults (stock, activate) may be omitted. */
+export type GenerateVariantsRequest = z.input<typeof generateVariantsSchema>;
 
 /** Same option shape as generateVariantsSchema, without the row-level defaults -
  * a preview only needs to know which attribute values are selected. */
@@ -152,23 +145,23 @@ export const previewGenerateVariantsSchema = z
 
 export type PreviewGenerateVariantsInput = z.infer<typeof previewGenerateVariantsSchema>;
 
-/** Item-driven generation: attribute values come from item_attribute_values,
- * so only the pricing/unit defaults need to be supplied here. */
-export const generateVariantsFromItemSchema = z
+/** Style-driven generation: attribute values come from style_attribute_values,
+ * so only the pricing / unit / stock defaults need to be supplied here.Opening stock
+  * can be optionally specified and is backed by an initial ledger movement. */
+export const generateVariantsFromStyleSchema = z
   .object({
     unitId: z.string().trim().uuid("Invalid unit UUID format"),
     defaultPrice: z.coerce.number().min(0, "Price cannot be negative").optional(),
-    defaultStock: z.coerce
-      .number()
-      .int("Stock must be an integer")
-      .min(0, "Stock cannot be negative")
-      .optional()
-      .default(0),
+    initialStock: z.coerce.number().int().min(0, "Stock cannot be negative").optional().default(0),
     activate: z.boolean().optional().default(true),
   })
   .strict();
 
-export type GenerateVariantsFromItemInput = z.infer<typeof generateVariantsFromItemSchema>;
+export type GenerateVariantsFromStyleInput = z.infer<typeof generateVariantsFromStyleSchema>;
+
+/** Backward-compatible aliases for legacy item naming */
+export const generateVariantsFromItemSchema = generateVariantsFromStyleSchema;
+export type GenerateVariantsFromItemInput = GenerateVariantsFromStyleInput;
 
 export const applyVariantRemovalsSchema = z
   .object({
@@ -197,8 +190,8 @@ export const adminVariantsQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1).optional(),
   pageSize: z.coerce.number().int().min(1).max(100).default(10).optional(),
   search: z.string().trim().optional(),
-  itemId: z.string().trim().uuid("Invalid Item UUID format").optional(),
-  itemUuid: z.string().trim().uuid("Invalid Item UUID format").optional(),
+  styleId: z.string().trim().uuid("Invalid Style UUID format").optional(),
+  styleUuid: z.string().trim().uuid("Invalid Style UUID format").optional(),
   isActive: z.coerce.boolean().optional(),
 });
 

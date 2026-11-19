@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { toast } from "@/components/ui/Toast";
 import {
   useRoles,
   useCreateRole,
@@ -10,15 +11,17 @@ import {
   useDeleteRole,
   usePermissions,
 } from "@/features/roles/hooks";
+import { getRole } from "@/features/roles/api/get-roles";
 import { DataTable } from "@/components/admin/data-table/DataTable";
 import { AdminPageHeader, AdminContent } from "@/components/admin/AdminPageHeader";
 import { AdminBreadcrumb } from "@/components/admin/AdminBreadcrumb";
 import { AdminTableSkeleton } from "@/components/admin/AdminTableSkeleton";
 import { ErrorState } from "@/components/ui/error-state";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { FormModal } from "@/components/common/FormModal";
+import { ExportButton } from "@/components/common/export-button";
+import { exportDataToCsv } from "@/lib/export-csv";
 import { Plus, Pencil, Trash2 } from "lucide-react";
 import {
   createRoleSchema,
@@ -26,27 +29,56 @@ import {
 } from "@/features/roles/validations/role.schema";
 import type { ColumnDef } from "@tanstack/react-table";
 import type { RoleListItem } from "@/features/roles/types";
+import { CanAct } from "@/features/access";
+import { Select, type SelectOption } from "@/components/ui/select";
+
+/** Human wording for `roles.scope` in the table and the form. */
+const SCOPE_LABELS: Record<string, string> = {
+  ADMIN: "Admin panel",
+  AGENT: "Sales partner",
+  CUSTOMER: "Customer",
+};
+
+const SCOPE_OPTIONS: SelectOption[] = [
+  { value: "ADMIN", label: "Admin panel (staff / back office)" },
+  { value: "AGENT", label: "Sales partner portal" },
+  { value: "CUSTOMER", label: "Customer account" },
+];
 
 export default function AdminRolesPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editingRole, setEditingRole] = useState<RoleListItem | null>(null);
   const [deleteId, setDeleteId] = useState<number | null>(null);
   const [selectedPermissionIds, setSelectedPermissionIds] = useState<number[]>([]);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const [search, setSearch] = useState("");
 
-  const { data: rolesData, isLoading: rolesLoading, error: rolesError, refetch } = useRoles();
+  const queryParams = useMemo(
+    () => ({
+      page,
+      limit: pageSize,
+      search: search.trim() || undefined,
+    }),
+    [page, pageSize, search]
+  );
+
+  const { data: rolesResult, isLoading: rolesLoading, error: rolesError, refetch } = useRoles(queryParams);
   const { data: permissions } = usePermissions();
   const createMutation = useCreateRole();
   const updateMutation = useUpdateRole();
   const deleteMutation = useDeleteRole();
 
-  const roles = rolesData ?? [];
+  const roles = rolesResult?.data ?? [];
+  const meta = rolesResult?.meta;
 
   const permissionsByModule = useMemo(() => {
     if (!permissions) return {};
     const grouped: Record<string, typeof permissions> = {};
     for (const perm of permissions) {
-      if (!grouped[perm.module]) grouped[perm.module] = [];
-      grouped[perm.module].push(perm);
+      const moduleName = perm.module || "GENERAL";
+      if (!grouped[moduleName]) grouped[moduleName] = [];
+      grouped[moduleName].push(perm);
     }
     return grouped;
   }, [permissions]);
@@ -55,12 +87,17 @@ export default function AdminRolesPage() {
     register,
     handleSubmit,
     reset,
+    watch,
+    setValue,
     formState: { errors },
   } = useForm<CreateRoleSchemaInput>({
     resolver: zodResolver(createRoleSchema),
+    mode: "onChange",
+    reValidateMode: "onChange",
     defaultValues: {
       name: "",
       description: "",
+      scope: "ADMIN",
     },
   });
 
@@ -69,51 +106,90 @@ export default function AdminRolesPage() {
       reset({
         name: editingRole.name,
         description: editingRole.description ?? "",
+        scope: editingRole.scope ?? "ADMIN",
       });
     } else {
-      reset({ name: "", description: "" });
+      reset({ name: "", description: "", scope: "ADMIN" });
     }
   }, [editingRole, reset]);
 
-  const handleTogglePermission = (permId: number) => {
+  // With 160+ permissions, ticking a whole module at once is the difference between the
+  // screen being usable and not. The module checkbox shows a dash when only some are on.
+  const isModuleFullySelected = (perms: { id: number | string }[]) =>
+    perms.length > 0 && perms.every((p) => selectedPermissionIds.includes(Number(p.id)));
+
+  const isModulePartiallySelected = (perms: { id: number | string }[]) =>
+    perms.some((p) => selectedPermissionIds.includes(Number(p.id))) && !isModuleFullySelected(perms);
+
+  const handleToggleModule = (perms: { id: number | string }[]) => {
+    const ids = perms.map((p) => Number(p.id));
     setSelectedPermissionIds((prev) =>
-      prev.includes(permId) ? prev.filter((id) => id !== permId) : [...prev, permId]
+      ids.every((id) => prev.includes(id))
+        ? prev.filter((id) => !ids.includes(id))
+        : [...prev, ...ids.filter((id) => !prev.includes(id))]
     );
   };
 
-  const onSubmit = (formData: CreateRoleSchemaInput) => {
+  const handleTogglePermission = (permId: number) => {
+    const idNum = Number(permId);
+    setSelectedPermissionIds((prev) =>
+      prev.includes(idNum) ? prev.filter((id) => id !== idNum) : [...prev, idNum]
+    );
+  };
+
+  const onSubmit = async (formData: CreateRoleSchemaInput) => {
     const payload = { ...formData, permissionIds: selectedPermissionIds };
 
     if (editingRole) {
-      updateMutation.mutate(
-        { id: editingRole.id, data: payload },
-        {
-          onSuccess: () => {
-            setModalOpen(false);
-            setEditingRole(null);
-            setSelectedPermissionIds([]);
-          },
-        }
-      );
+      try {
+        await updateMutation.mutateAsync({ id: editingRole.id, data: payload });
+        toast.success("Role updated", `"${formData.name}" was updated successfully.`);
+        setModalOpen(false);
+        setEditingRole(null);
+        setSelectedPermissionIds([]);
+      } catch (err: any) {
+        toast.error("Failed to update role", err?.message || "Please try again.");
+      }
     } else {
-      createMutation.mutate(payload, {
-        onSuccess: () => {
-          setModalOpen(false);
-          reset();
-          setSelectedPermissionIds([]);
-        },
-      });
+      try {
+        await createMutation.mutateAsync(payload);
+        toast.success("Role created", `"${formData.name}" was created successfully.`);
+        setModalOpen(false);
+        reset();
+        setSelectedPermissionIds([]);
+      } catch (err: any) {
+        toast.error("Failed to create role", err?.message || "Please try again.");
+      }
     }
   };
 
-  const handleOpenModal = (role?: RoleListItem) => {
+  const handleOpenModal = async (role?: RoleListItem) => {
     if (role) {
       setEditingRole(role);
+      const roleIdNum = Number(role.id);
+      
+      // Immediately prefill permissions that already belong to this role
+      const initialIds = (permissions ?? [])
+        .filter((p) => p.roleIds?.some((id) => Number(id) === roleIdNum))
+        .map((p) => Number(p.id));
+      setSelectedPermissionIds(initialIds);
+      setModalOpen(true);
+
+      // Also fetch full role detail to guarantee complete accuracy
+      try {
+        const res = await getRole(roleIdNum);
+        if (res.data?.permissions) {
+          const freshIds = res.data.permissions.map((p: any) => Number(p.id));
+          setSelectedPermissionIds(freshIds);
+        }
+      } catch {
+        // Fallback to initialIds
+      }
     } else {
       setEditingRole(null);
+      setSelectedPermissionIds([]);
+      setModalOpen(true);
     }
-    setSelectedPermissionIds([]);
-    setModalOpen(true);
   };
 
   const columns: ColumnDef<RoleListItem, unknown>[] = [
@@ -126,6 +202,11 @@ export default function AdminRolesPage() {
       accessorKey: "description",
       header: "Description",
       cell: ({ row }) => row.original.description || "-",
+    },
+    {
+      accessorKey: "scope",
+      header: "Access area",
+      cell: ({ row }) => SCOPE_LABELS[row.original.scope ?? "CUSTOMER"] ?? row.original.scope,
     },
     {
       accessorKey: "_count.users",
@@ -142,26 +223,32 @@ export default function AdminRolesPage() {
       header: "Actions",
       cell: ({ row }) => (
         <div className="flex items-center justify-center gap-1.5">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => handleOpenModal(row.original)}
-          >
-            <Pencil className="h-4 w-4" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setDeleteId(row.original.id)}
-          >
-            <Trash2 className="h-4 w-4 text-error-600" />
-          </Button>
+          <CanAct action="UPDATE">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => handleOpenModal(row.original)}
+              title="Edit Role"
+            >
+              <Pencil className="h-4 w-4" />
+            </Button>
+          </CanAct>
+          <CanAct action="DELETE">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setDeleteId(row.original.id)}
+              title="Delete Role"
+            >
+              <Trash2 className="h-4 w-4 text-error-600" />
+            </Button>
+          </CanAct>
         </div>
       ),
     },
   ];
 
-  if (rolesLoading) return <AdminTableSkeleton />;
+  if (rolesLoading && !rolesResult) return <AdminTableSkeleton />;
   if (rolesError) return <ErrorState message="Failed to load roles" onRetry={() => refetch()} />;
 
   const isMutating = createMutation.isPending || updateMutation.isPending;
@@ -173,21 +260,59 @@ export default function AdminRolesPage() {
         title="Roles"
         description="Manage user roles and their permissions"
         actions={
-          <Button onClick={() => handleOpenModal()}>
-            <Plus className="mr-2 h-4 w-4" />
-            Add Role
-          </Button>
+          <div className="flex items-center gap-2">
+            <ExportButton
+              onClick={() =>
+                exportDataToCsv(
+                  roles,
+                  "roles",
+                  [
+                    { header: "Role Name", accessor: (r) => r.name },
+                    { header: "Description", accessor: (r) => r.description || "-" },
+                    { header: "Users", accessor: (r) => r._count?.users ?? 0 },
+                    { header: "Permissions", accessor: (r) => r._count?.rolePermissions ?? 0 },
+                  ]
+                )
+              }
+              disabled={!roles.length}
+            />
+            <CanAct action="CREATE">
+              <Button
+                onClick={() => handleOpenModal()}
+                className="h-11 rounded-xl bg-stone-900 hover:bg-stone-800 text-[#D4AF37] border border-[#D4AF37]/30 shadow-xs px-5 text-sm font-semibold transition-colors"
+              >
+                <Plus className="mr-2 h-4 w-4 text-[#D4AF37]" />
+                Add Role
+              </Button>
+            </CanAct>
+          </div>
         }
       />
-      <AdminContent className="flex-1 min-h-0 overflow-hidden">
-        <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
+
+      <AdminContent className="flex-1 min-h-0 mt-4">
+        <div className="flex-1 min-h-0 overflow-hidden flex flex-col rounded-2xl border border-neutral-200 bg-white shadow-xs">
           <DataTable
             columns={columns}
             data={roles}
-            searchKey="name"
-            searchPlaceholder="Search roles..."
-            pageSize={20}
-            className="bg-white border border-neutral-200"
+            pageSize={pageSize}
+            pageSizeOptions={[10, 20, 30, 50]}
+            page={meta?.page ?? page}
+            totalPages={
+              meta?.totalPages ??
+              Math.max(1, Math.ceil((meta?.total ?? roles.length) / pageSize))
+            }
+            totalItems={meta?.total ?? roles.length}
+            onPageChange={setPage}
+            onPageSizeChange={(newSize) => {
+              setPageSize(newSize);
+              setPage(1);
+            }}
+            className="bg-white border-0"
+            emptyMessage={
+              search.trim()
+                ? "No roles matched your search criteria."
+                : "No roles found. Click '+ Add Role' to create a new role."
+            }
           />
         </div>
       </AdminContent>
@@ -214,7 +339,7 @@ export default function AdminRolesPage() {
             >
               Cancel
             </Button>
-            <Button onClick={handleSubmit(onSubmit)} disabled={isMutating}>
+            <Button variant="gradient" onClick={handleSubmit(onSubmit)} disabled={isMutating}>
               {editingRole ? "Update" : "Create"}
             </Button>
           </>
@@ -251,6 +376,32 @@ export default function AdminRolesPage() {
           </div>
 
           <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Access area <span className="text-error-600">*</span>
+            </label>
+            <Select
+              value={watch("scope") || "ADMIN"}
+              onValueChange={(val) =>
+                setValue("scope", val as "ADMIN" | "AGENT" | "CUSTOMER", {
+                  shouldValidate: true,
+                  shouldDirty: true,
+                })
+              }
+              searchable={false}
+              portal={true}
+              options={SCOPE_OPTIONS}
+              placeholder="Select an access area"
+            />
+            <p className="mt-1 text-xs text-muted-foreground">
+              Decides which part of the site users with this role sign in to. What they can do
+              inside it is set by the permissions below.
+            </p>
+            {errors.scope && (
+              <p className="mt-1 text-xs text-red-500 font-medium">{errors.scope.message}</p>
+            )}
+          </div>
+
+          <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Permissions
             </label>
@@ -260,9 +411,20 @@ export default function AdminRolesPage() {
               )}
               {Object.entries(permissionsByModule).map(([module, perms]) => (
                 <div key={module}>
-                  <p className="text-xs font-semibold uppercase text-muted-foreground mb-2">
-                    {module}
-                  </p>
+                  <label className="mb-2 flex cursor-pointer items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={isModuleFullySelected(perms)}
+                      ref={(el) => {
+                        if (el) el.indeterminate = isModulePartiallySelected(perms);
+                      }}
+                      onChange={() => handleToggleModule(perms)}
+                      className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary accent-primary"
+                    />
+                    <span className="text-xs font-semibold uppercase text-muted-foreground">
+                      {module}
+                    </span>
+                  </label>
                   <div className="space-y-1">
                     {perms.map((perm) => (
                       <label
@@ -271,11 +433,11 @@ export default function AdminRolesPage() {
                       >
                         <input
                           type="checkbox"
-                          checked={selectedPermissionIds.includes(perm.id)}
-                          onChange={() => handleTogglePermission(perm.id)}
-                          className="h-4 w-4 rounded border-gray-300"
+                          checked={selectedPermissionIds.includes(Number(perm.id))}
+                          onChange={() => handleTogglePermission(Number(perm.id))}
+                          className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary accent-primary"
                         />
-                        <span className="text-sm">{perm.name}</span>
+                        <span className="text-sm font-medium text-neutral-800">{perm.name}</span>
                         {perm.description && (
                           <span className="text-xs text-muted-foreground">
                             - {perm.description}
@@ -294,11 +456,15 @@ export default function AdminRolesPage() {
       <ConfirmDialog
         open={!!deleteId}
         onClose={() => setDeleteId(null)}
-        onConfirm={() => {
+        onConfirm={async () => {
           if (deleteId) {
-            deleteMutation.mutate(deleteId, {
-              onSuccess: () => setDeleteId(null),
-            });
+            try {
+              await deleteMutation.mutateAsync(deleteId);
+              toast.success("Role deleted", "The role was removed successfully.");
+              setDeleteId(null);
+            } catch (err: any) {
+              toast.error("Failed to delete role", err?.message || "Please try again.");
+            }
           }
         }}
         title="Delete Role"

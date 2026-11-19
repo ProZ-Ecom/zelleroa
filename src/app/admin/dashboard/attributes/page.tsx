@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { toast } from "@/components/ui/Toast";
 import { useAdminAttributes, useCreateAttribute, useUpdateAttribute, useDeleteAttribute } from "@/features/attributes/hooks";
 import { AttributeForm } from "@/features/attributes/components/AttributeForm";
 import { AttributeValuesManager } from "@/features/attributes/components/AttributeValuesManager";
@@ -11,11 +12,14 @@ import { ErrorState } from "@/components/ui/error-state";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { FormModal } from "@/components/common/FormModal";
+import { ExportButton } from "@/components/common/export-button";
+import { exportDataToCsv } from "@/lib/export-csv";
 import { DataTable } from "@/components/admin/data-table/DataTable";
 import { SearchInput } from "@/components/ui/search-input";
 import { Plus, Pencil, Settings2, Trash2 } from "lucide-react";
 import type { ColumnDef } from "@tanstack/react-table";
 import type { AttributeListItem } from "@/features/attributes/types";
+import { CanAct } from "@/features/access";
 
 export default function AttributesPage() {
   const [search, setSearch] = useState("");
@@ -100,9 +104,11 @@ export default function AttributesPage() {
       header: "Actions",
       cell: ({ row }) => (
         <div className="flex items-center justify-center gap-1.5">
-          <Button variant="ghost" size="icon" onClick={() => setEditingAttribute(row.original)} title="Edit Attribute">
-            <Pencil className="h-4 w-4 text-[var(--color-neutral-500)]" />
-          </Button>
+          <CanAct action="UPDATE">
+            <Button variant="ghost" size="icon" onClick={() => setEditingAttribute(row.original)} title="Edit Attribute">
+              <Pencil className="h-4 w-4 text-[var(--color-neutral-500)]" />
+            </Button>
+          </CanAct>
           <Button variant="ghost" size="icon" onClick={() => setManageAttribute(row.original)}>
             <Settings2 className="h-4 w-4 text-[var(--color-neutral-500)]" />
           </Button>
@@ -127,8 +133,8 @@ export default function AttributesPage() {
         description="Define product attributes (e.g. Color, Size, Fabric) and their selectable values."
       />
 
-      <AdminContent className="flex-1 min-h-0 overflow-hidden">
-        <div className="flex h-full flex-col overflow-hidden bg-[var(--color-background)] py-1 rounded-2xl">
+      <AdminContent className="flex-1 min-h-0">
+        <div className="flex h-full flex-col bg-[var(--color-background)] py-1 rounded-2xl">
           <div className="flex-shrink-0 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <SearchInput
               placeholder="Search attributes..."
@@ -140,16 +146,43 @@ export default function AttributesPage() {
               className="w-full max-w-md"
             />
 
-            <Button
-              onClick={() => setIsCreateOpen(true)}
-              className="h-11 rounded-xl bg-[var(--color-secondary-600)] px-5 text-sm font-semibold text-white hover:bg-[var(--color-secondary-700)]"
-            >
-              <Plus className="mr-2 h-4 w-4" />
-              Add Attribute
-            </Button>
+            <div className="flex items-center gap-2">
+              <ExportButton
+                onClick={() =>
+                  exportDataToCsv(
+                    attributes,
+                    "attributes",
+                    [
+                      { header: "Attribute", accessor: (a) => a.name },
+                      { header: "Code", accessor: (a) => a.slug },
+                      { header: "Type", accessor: (a) => (a.type === "color" ? "Color" : "Text") },
+                      { header: "Selection", accessor: (a) => (a.multipleSelection ? "Multiple" : "Single") },
+                      {
+                        header: "Values",
+                        accessor: (a) =>
+                          a.values && a.values.length > 0
+                            ? a.values.map((v) => v.value).join(", ")
+                            : "—",
+                      },
+                    ]
+                  )
+                }
+                disabled={!attributes.length}
+              />
+
+              <CanAct action="CREATE">
+                <Button
+                  onClick={() => setIsCreateOpen(true)}
+                  className="h-11 rounded-xl bg-stone-900 hover:bg-stone-800 text-[#D4AF37] border border-[#D4AF37]/30 shadow-xs px-5 text-sm font-semibold transition-colors"
+                >
+                  <Plus className="mr-2 h-4 w-4 text-[#D4AF37]" />
+                  Add Attribute
+                </Button>
+              </CanAct>
+            </div>
           </div>
 
-          <div className="mt-6 flex-1 min-h-0 overflow-hidden flex flex-col">
+          <div className="mt-6 flex-1 min-h-0 flex flex-col">
             <DataTable
               columns={columns}
               data={attributes}
@@ -184,14 +217,19 @@ export default function AttributesPage() {
           isLoading={createMutation.isPending}
           submitLabel="Create Attribute"
           onSubmit={async (data) => {
-            await createMutation.mutateAsync({
-              name: data.name,
-              slug: data.slug,
-              type: data.type,
-              multipleSelection: data.multipleSelection,
-              values: data.values ?? [],
-            });
-            setIsCreateOpen(false);
+            try {
+              await createMutation.mutateAsync({
+                name: data.name,
+                slug: data.slug,
+                type: data.type,
+                multipleSelection: data.multipleSelection,
+                values: data.values ?? [],
+              });
+              toast.success("Attribute created", `"${data.name}" was added successfully.`);
+              setIsCreateOpen(false);
+            } catch (err: any) {
+              toast.error("Failed to create attribute", err?.message || "Please try again.");
+            }
           }}
         />
       </FormModal>
@@ -215,16 +253,21 @@ export default function AttributesPage() {
             isLoading={updateMutation.isPending}
             submitLabel="Save Changes"
             onSubmit={async (data) => {
-              await updateMutation.mutateAsync({
-                uuid: editingAttribute.id,
-                data: {
-                  name: data.name,
-                  slug: data.slug,
-                  type: data.type,
-                  multipleSelection: data.multipleSelection,
-                },
-              });
-              setEditingAttribute(null);
+              try {
+                await updateMutation.mutateAsync({
+                  uuid: editingAttribute.id,
+                  data: {
+                    name: data.name,
+                    slug: data.slug,
+                    type: data.type,
+                    multipleSelection: data.multipleSelection,
+                  },
+                });
+                toast.success("Attribute updated", `"${data.name}" was saved successfully.`);
+                setEditingAttribute(null);
+              } catch (err: any) {
+                toast.error("Failed to update attribute", err?.message || "Please try again.");
+              }
             }}
           />
         )}
@@ -243,11 +286,15 @@ export default function AttributesPage() {
       <ConfirmDialog
         open={!!deleteId}
         onClose={() => setDeleteId(null)}
-        onConfirm={() => {
+        onConfirm={async () => {
           if (deleteId) {
-            deleteMutation.mutate(deleteId, {
-              onSuccess: () => setDeleteId(null),
-            });
+            try {
+              await deleteMutation.mutateAsync(deleteId);
+              toast.success("Attribute deleted", "The attribute was removed successfully.");
+              setDeleteId(null);
+            } catch (err: any) {
+              toast.error("Failed to delete attribute", err?.message || "Please try again.");
+            }
           }
         }}
         title="Delete Attribute"

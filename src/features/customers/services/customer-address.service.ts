@@ -24,7 +24,7 @@ async function resolveActiveUser(sessionUserId: string) {
     throw ApiError.unauthorized("User account not found");
   }
   if (!user.isActive || user.is_active === false) {
-    throw ApiError.forbidden("Your account is inactive or blocked. Please contact support.");
+    throw ApiError.accountBlocked("Your account is inactive or blocked. Please contact support.");
   }
   return user;
 }

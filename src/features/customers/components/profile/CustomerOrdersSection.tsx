@@ -1,15 +1,13 @@
 "use client";
 
 import * as React from "react";
-import Link from "next/link";
-import { Package } from "lucide-react";
+import { ChevronLeft, ChevronRight, Package } from "lucide-react";
 import type {
   AdminCustomerOrderItemDto,
   AdminCustomerListPaginationMeta,
 } from "../../types/admin-customer.types";
 import { LoadingState } from "@/components/ui/loading-state";
 import { ErrorState } from "@/components/ui/error-state";
-import { Button } from "@/components/ui/button";
 
 interface CustomerOrdersSectionProps {
   orders?: AdminCustomerOrderItemDto[];
@@ -169,32 +167,36 @@ export function CustomerOrdersSection({
         </table>
       </div>
 
-      {/* Pagination Footer (if multi-page) */}
-      {meta && meta.totalPages > 1 && (
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 border-t border-cream-border-subtle px-4 sm:px-6 py-3 bg-neutral-50/50">
-          <p className="text-xs text-neutral-500">
-            Page <span className="font-medium text-neutral-900">{meta.page}</span> of{" "}
-            <span className="font-medium text-neutral-900">{meta.totalPages}</span> ({meta.total} orders)
-          </p>
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={meta.page <= 1}
+      {/* Pagination Footer */}
+      {meta && meta.total > 0 && (
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-4 sm:px-5 py-2.5 flex-shrink-0 border-t border-neutral-200/70 bg-neutral-50/95 backdrop-blur sticky bottom-0 z-20">
+          <div className="flex flex-wrap items-center gap-3 sm:gap-6 text-sm text-[var(--color-neutral-500)]">
+            <p>
+              Showing {(meta.page - 1) * meta.limit + 1}–{Math.min(meta.page * meta.limit, meta.total)} of {meta.total} entries
+            </p>
+          </div>
+          <div className="flex items-center gap-2 self-end sm:self-auto">
+            <button
+              type="button"
               onClick={() => onPageChange?.(meta.page - 1)}
-              className="h-8 text-xs px-3 rounded-lg border-cream-border hover:bg-neutral-100"
+              disabled={meta.page <= 1}
+              className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-neutral-200 bg-white text-[var(--color-neutral-700)] shadow-sm transition-all hover:border-neutral-300 hover:bg-neutral-50 active:scale-95 disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none"
+              aria-label="Previous page"
             >
-              Previous
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={meta.page >= meta.totalPages}
+              <ChevronLeft className="h-4 w-4" />
+            </button>
+            <span className="rounded-lg bg-white px-3 py-1.5 text-sm font-semibold tabular-nums text-[var(--color-neutral-700)] border border-neutral-200/70">
+              {meta.page} / {Math.max(1, meta.totalPages)}
+            </span>
+            <button
+              type="button"
               onClick={() => onPageChange?.(meta.page + 1)}
-              className="h-8 text-xs px-3 rounded-lg border-cream-border hover:bg-neutral-100"
+              disabled={meta.page >= meta.totalPages}
+              className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-neutral-200 bg-white text-[var(--color-neutral-700)] shadow-sm transition-all hover:border-neutral-300 hover:bg-neutral-50 active:scale-95 disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none"
+              aria-label="Next page"
             >
-              Next
-            </Button>
+              <ChevronRight className="h-4 w-4" />
+            </button>
           </div>
         </div>
       )}

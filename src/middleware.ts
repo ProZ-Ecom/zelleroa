@@ -1,14 +1,15 @@
 import NextAuth from "next-auth";
 import { NextResponse } from "next/server";
 import { authConfig } from "@/lib/auth/auth.config";
-import { captureReferralCookie } from "@/lib/referral/cookie";
+import { getRoleHome, resolveRoleScope } from "@/lib/auth/role-routes";
+import { referralLandingRedirect } from "@/lib/referral/cookie";
 
 const { auth } = NextAuth(authConfig);
 
 function parseJwtPayload(
   token?: string,
   checkExp: boolean = true
-): { role?: string; userId?: string; email?: string; exp?: number } | null {
+): { role?: string; scope?: string; userId?: string; email?: string; exp?: number } | null {
   if (!token) return null;
   try {
     const parts = token.split(".");
@@ -38,6 +39,18 @@ function parseJwtPayload(
 
 export default auth(async (req) => {
   const { pathname } = req.nextUrl;
+
+  // `?ref=<code>` on any page: validate the code on the server (see /ref/[code]) before it is stored.
+  const referralLanding = referralLandingRedirect(req);
+  if (referralLanding) {
+    // Middleware must return an absolute URL; `nextUrl` carries the host the visitor used.
+    const url = req.nextUrl.clone();
+    const [path, search = ""] = referralLanding.split("?");
+    url.pathname = path;
+    url.search = search ? `?${search}` : "";
+    return NextResponse.redirect(url);
+  }
+
   const nextAuthUser = req.auth?.user;
 
   // Check HttpOnly access_token cookie
@@ -58,81 +71,94 @@ export default auth(async (req) => {
     rawAccessToken?.role ||
     (nextAuthUser as { role?: string })?.role;
 
-  const applyCookies = (res: NextResponse) => captureReferralCookie(req, res);
+  // Admin access follows the role's scope, not its name, so roles an admin creates
+  // (e.g. "Warehouse Manager") can reach /admin. Tokens issued before `roles.scope`
+  // existed carry no scope, so fall back to the name for those.
+  const userScope = resolveRoleScope(
+    validAccessToken?.scope ||
+      rawAccessToken?.scope ||
+      (nextAuthUser as { scope?: string })?.scope,
+    userRole
+  );
+  const home = () => getRoleHome(userRole, userScope);
+
+  // Authenticated areas and the auth pages must never be served from the
+  // browser's back/forward cache after logout.
+  const isAuthSensitivePath =
+    pathname.startsWith("/admin") ||
+    pathname.startsWith("/agent") ||
+    ["/orders", "/profile", "/wishlist", "/login", "/register"].some(
+      (route) => pathname === route || pathname.startsWith(`${route}/`)
+    );
+
+  const applyCookies = (res: NextResponse) => {
+    if (isAuthSensitivePath) res.headers.set("Cache-Control", "no-store");
+    return res;
+  };
+
+  const isStaffRole = userScope === "ADMIN";
+
+  const redirectTo = (path: string, search = "") => {
+    const url = req.nextUrl.clone();
+    url.pathname = path;
+    url.search = search;
+    return applyCookies(NextResponse.redirect(url));
+  };
+  const toLogin = () =>
+    redirectTo("/login", `?callbackUrl=${encodeURIComponent(pathname)}`);
 
   if (pathname.startsWith("/admin")) {
-    // /admin or /admin/ direct navigation
     if (pathname === "/admin" || pathname === "/admin/") {
-      const url = req.nextUrl.clone();
-      if (isAuthenticated && (userRole === "ADMIN" || userRole === "STAFF")) {
-        url.pathname = "/admin/dashboard";
-      } else {
-        url.pathname = "/admin/login";
-      }
-      url.search = "";
-      return applyCookies(NextResponse.redirect(url));
+      return redirectTo(isAuthenticated && isStaffRole ? "/admin/dashboard" : "/admin/login");
     }
 
     if (pathname === "/admin/login") {
-      if (isAuthenticated && (userRole === "ADMIN" || userRole === "STAFF")) {
-        const url = req.nextUrl.clone();
-        url.pathname = "/admin/dashboard";
-        url.search = "";
-        return applyCookies(NextResponse.redirect(url));
-      }
+      if (isAuthenticated && isStaffRole) return redirectTo("/admin/dashboard");
+      // A signed-in customer/agent has no business on the admin login screen.
+      if (isAuthenticated && userRole) return redirectTo(home());
       return applyCookies(NextResponse.next());
     }
 
-    if (!isAuthenticated || (userRole !== "ADMIN" && userRole !== "STAFF")) {
-      const url = req.nextUrl.clone();
-      url.pathname = "/admin/login";
-      url.search = "";
-      return applyCookies(NextResponse.redirect(url));
-    }
+    if (!isAuthenticated) return redirectTo("/admin/login");
+    // Signed in, but not as admin/staff: send them to their own dashboard.
+    if (!isStaffRole) return redirectTo(home());
 
     return applyCookies(NextResponse.next());
   }
 
   if (pathname.startsWith("/agent")) {
-    if (!isAuthenticated || userRole !== "AGENT") {
-      const url = req.nextUrl.clone();
-      url.pathname = "/login";
-      url.search = `?callbackUrl=${encodeURIComponent(pathname)}`;
-      return applyCookies(NextResponse.redirect(url));
-    }
+    if (!isAuthenticated) return toLogin();
+    if (userScope !== "AGENT") return redirectTo(home());
     return applyCookies(NextResponse.next());
   }
 
-  // /cart and /checkout intentionally left off this list: guest checkout
-  // means anonymous visitors can shop and place an order without an account.
-  const protectedCustomerRoutes = [
-    "/orders",
-    "/profile",
-    "/wishlist",
-  ];
-  const isProtectedCustomer = protectedCustomerRoutes.some((route) =>
-    pathname === route || pathname.startsWith(`${route}/`)
+  // Customer account area. Admin/staff never see it; agents have their own
+  // dashboard and profile, so only the purchase pages stay open to them.
+  const isAccountArea = ["/account", "/profile"].some(
+    (route) => pathname === route || pathname.startsWith(`${route}/`)
+  );
+  const isPurchaseArea = ["/orders", "/wishlist"].some(
+    (route) => pathname === route || pathname.startsWith(`${route}/`)
   );
 
-  if (isProtectedCustomer && !isAuthenticated) {
-    const url = req.nextUrl.clone();
-    url.pathname = "/login";
-    url.search = `?callbackUrl=${encodeURIComponent(pathname)}`;
-    return applyCookies(NextResponse.redirect(url));
+  if (isAccountArea || isPurchaseArea) {
+    if (!isAuthenticated) return toLogin();
+    if (userScope === "CUSTOMER" || (isPurchaseArea && userScope === "AGENT")) {
+      // Legacy /profile URL lives on as /account/dashboard.
+      if (pathname === "/profile") {
+        return redirectTo("/account/dashboard", req.nextUrl.search);
+      }
+      return applyCookies(NextResponse.next());
+    }
+    if (userRole) return redirectTo(home());
+    // Role unknown (e.g. expired access token, refresh pending): let the page decide.
+    return applyCookies(NextResponse.next());
   }
 
-  if ((pathname === "/login" || pathname === "/register") && isAuthenticated) {
-    const url = req.nextUrl.clone();
-    url.search = "";
-    if (userRole === "ADMIN" || userRole === "STAFF") {
-      url.pathname = "/admin/dashboard";
-    } else if (userRole === "AGENT") {
-      url.pathname = "/agent/dashboard";
-    } else {
-      url.pathname = "/";
-    }
-    return applyCookies(NextResponse.redirect(url));
+  if ((pathname === "/login" || pathname === "/register") && (validAccessToken || validRefreshToken)) {
+    return redirectTo(home());
   }
+
 
   return applyCookies(NextResponse.next());
 });

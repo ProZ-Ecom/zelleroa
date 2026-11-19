@@ -1,6 +1,7 @@
 "use client";
 
 import { cn } from "@/lib/utils";
+import { ScrollableTabs } from "@/components/ui/scrollable-tabs";
 
 export interface DeliveryTabItem {
   id: string;
@@ -29,7 +30,7 @@ export function DeliveryStatusTabs({
   counts = {},
 }: DeliveryStatusTabsProps) {
   return (
-    <div className="flex items-center gap-2 overflow-x-auto scrollbar-none py-1">
+    <ScrollableTabs>
       {DELIVERY_TABS.map((tab) => {
         const isActive = activeTab === tab.id;
         const count = counts[tab.id];
@@ -62,6 +63,6 @@ export function DeliveryStatusTabs({
           </button>
         );
       })}
-    </div>
+    </ScrollableTabs>
   );
 }

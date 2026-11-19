@@ -16,8 +16,9 @@ export async function lockOrder(tx: Tx, orderId: bigint) {
 }
 
 /**
- * A request "consumes" an item while it is in flight or completed. Rejected
- * requests (and the closed state they end in) free the item again.
+ * A request "consumes" an item while it is in flight or completed. Rejected,
+ * expired and cancelled requests (and the closed state they end in) free the
+ * item again, so the customer can raise a fresh one inside the window.
  */
 const consumingReturn = (orderItemIds: bigint[]): Prisma.return_itemsWhereInput => ({
   order_item_id: { in: orderItemIds },
@@ -26,7 +27,12 @@ const consumingReturn = (orderItemIds: bigint[]): Prisma.return_itemsWhereInput 
     is_active: true,
     OR: [
       { status: { in: RETURN_ACTIVE_STATUSES } },
-      { status: "closed", rejected_at: null },
+      {
+        status: "closed",
+        rejected_at: null,
+        expired_at: null,
+        cancelled_at: null,
+      },
     ],
   },
 });

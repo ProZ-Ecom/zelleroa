@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { toast } from "@/components/ui/Toast";
 import {
   useUnits,
   useCreateUnit,
@@ -16,13 +17,18 @@ import {
 import { AdminTableSkeleton } from "@/components/admin/AdminTableSkeleton";
 import { ErrorState } from "@/components/ui/error-state";
 import { Button } from "@/components/ui/button";
+import { ExcelImportDialog } from "@/components/common/ExcelImportDialog";
+import { createAdminUnitSchema } from "@/features/units/validations/admin-unit.schema";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { FormModal } from "@/components/common/FormModal";
+import { ExportButton } from "@/components/common/export-button";
+import { exportDataToCsv } from "@/lib/export-csv";
 import { SearchInput } from "@/components/ui/search-input";
-import { Plus, Pencil, Trash2 } from "lucide-react";
+import { Upload, Plus, Pencil, Trash2 } from "lucide-react";
 import type { ColumnDef } from "@tanstack/react-table";
 import type { AdminUnitResponse } from "@/features/units/types";
 import { UnitForm } from "@/features/units/components/UnitForm";
+import { CanAct } from "@/features/access";
 
 export default function AdminUnitsPage() {
   const [search, setSearch] = useState("");
@@ -33,6 +39,8 @@ export default function AdminUnitsPage() {
   const [deleteId, setDeleteId] = useState<string | null>(null);
 
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+
+  const [isImportOpen, setIsImportOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
 
   const [selectedUnit, setSelectedUnit] =
@@ -173,8 +181,8 @@ export default function AdminUnitsPage() {
         description="Manage product units and their conversion settings."
       />
 
-      <AdminContent className="flex-1 min-h-0 overflow-hidden">
-        <div className="flex h-full flex-col overflow-hidden bg-[var(--color-background)] py-1 rounded-2xl">
+      <AdminContent className="flex-1 min-h-0">
+        <div className="flex h-full flex-col bg-[var(--color-background)] py-1 rounded-2xl">
           <div className="flex-shrink-0 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <SearchInput
               placeholder="Search units..."
@@ -185,17 +193,59 @@ export default function AdminUnitsPage() {
               }}
               className="w-full max-w-md"
             />
+            <div className="flex items-center gap-2">
+              <ExportButton
+                onClick={() =>
+                  exportDataToCsv(
+                    units,
+                    "units",
+                    [
+                      { header: "Unit Name", accessor: (u) => u.name },
+                      { header: "Code", accessor: (u) => u.code },
+                      {
+                        header: "Type",
+                        accessor: (u) =>
+                          u.type ? u.type.charAt(0).toUpperCase() + u.type.slice(1) : "—",
+                      },
+                      {
+                        header: "Base Unit",
+                        accessor: (u) => {
+                          const base = (baseUnits.length ? baseUnits : units).find(
+                            (item) => item.id === u.baseUnitId
+                          );
+                          return base ? `${base.name} (${base.code})` : "—";
+                        },
+                      },
+                      { header: "Conversion", accessor: (u) => u.conversionFactor },
+                      { header: "Order", accessor: (u) => u.sortOrder },
+                    ]
+                  )
+                }
+                disabled={!units.length}
+              />
 
-            <Button
-              onClick={() => setIsCreateOpen(true)}
-              className="h-11 rounded-xl bg-[var(--color-secondary-600)] px-5 text-sm font-semibold text-white hover:bg-[var(--color-secondary-700)]"
-            >
-              <Plus className="mr-2 h-4 w-4" />
-              Add Unit
-            </Button>
+              <Button
+                variant="outline"
+                onClick={() => setIsImportOpen(true)}
+                className="h-11 rounded-xl px-5 text-sm font-semibold"
+              >
+                <Upload className="mr-2 h-4 w-4" />
+                Import
+              </Button>
+
+              <CanAct action="CREATE">
+                <Button
+                  onClick={() => setIsCreateOpen(true)}
+                  className="h-11 rounded-xl bg-stone-900 hover:bg-stone-800 text-[#D4AF37] border border-[#D4AF37]/30 shadow-xs px-5 text-sm font-semibold transition-colors"
+                >
+                  <Plus className="mr-2 h-4 w-4 text-[#D4AF37]" />
+                  Add Unit
+                </Button>
+              </CanAct>
+            </div>
           </div>
 
-          <div className="mt-6 flex-1 min-h-0 overflow-hidden flex flex-col">
+          <div className="mt-6 flex-1 min-h-0 flex flex-col">
             <DataTable
               columns={columns}
               data={units}
@@ -216,6 +266,27 @@ export default function AdminUnitsPage() {
       </AdminContent>
 
       {/* CREATE */}
+      <ExcelImportDialog
+        open={isImportOpen}
+        onClose={() => setIsImportOpen(false)}
+        title="Units"
+        sampleFileName="units"
+        columns={[
+          { key: "name", header: "Unit Name", required: true, samples: ["Kilogram", "Litre", "Piece"] },
+          { key: "code", header: "Unit Code", info: "Short code, max 10 characters (e.g. kg, ltr).", required: true, samples: ["kg", "ltr", "pcs"] },
+          { key: "type", header: "Type", info: "One of: weight, volume, count, size.", required: true, samples: ["weight", "volume", "count"] },
+          { key: "conversionFactor", header: "Conversion Factor", info: "Number greater than 0. Defaults to 1.", type: "number", samples: [1, 1, 1] },
+        ]}
+        prepare={(row) => ({
+          ...row,
+          type: typeof row.type === "string" ? row.type.toLowerCase() : row.type,
+          conversionFactor: row.conversionFactor ?? 1,
+        })}
+        schema={createAdminUnitSchema}
+        createRow={(payload) => createMutation.mutateAsync(payload)}
+        onImported={() => refetch()}
+      />
+
       <FormModal
         open={isCreateOpen}
         onClose={() => setIsCreateOpen(false)}
@@ -227,9 +298,13 @@ export default function AdminUnitsPage() {
           isLoading={createMutation.isPending}
           submitLabel="Create Unit"
           onSubmit={async (formData) => {
-            await createMutation.mutateAsync(formData);
-
-            setIsCreateOpen(false);
+            try {
+              await createMutation.mutateAsync(formData);
+              toast.success("Unit created", `"${formData.name}" was added successfully.`);
+              setIsCreateOpen(false);
+            } catch (err: any) {
+              toast.error("Failed to create unit", err?.message || "Please try again.");
+            }
           }}
         />
       </FormModal>
@@ -259,14 +334,18 @@ export default function AdminUnitsPage() {
             isLoading={updateMutation.isPending}
             submitLabel="Update Unit"
             onSubmit={async (formData) => {
-              await updateMutation.mutateAsync({
-                uuid: selectedUnit.id,
-                data: formData,
-              });
-
-              setIsEditOpen(false);
-              setSelectedUnit(null);
-              refetch();
+              try {
+                await updateMutation.mutateAsync({
+                  uuid: selectedUnit.id,
+                  data: formData,
+                });
+                toast.success("Unit updated", `"${formData.name}" was saved successfully.`);
+                setIsEditOpen(false);
+                setSelectedUnit(null);
+                refetch();
+              } catch (err: any) {
+                toast.error("Failed to update unit", err?.message || "Please try again.");
+              }
             }}
           />
         )}
@@ -276,11 +355,15 @@ export default function AdminUnitsPage() {
       <ConfirmDialog
         open={!!deleteId}
         onClose={() => setDeleteId(null)}
-        onConfirm={() => {
+        onConfirm={async () => {
           if (deleteId) {
-            deleteMutation.mutate(deleteId, {
-              onSuccess: () => setDeleteId(null),
-            });
+            try {
+              await deleteMutation.mutateAsync(deleteId);
+              toast.success("Unit deleted", "The unit was removed successfully.");
+              setDeleteId(null);
+            } catch (err: any) {
+              toast.error("Failed to delete unit", err?.message || "Please try again.");
+            }
           }
         }}
         title="Delete Unit"

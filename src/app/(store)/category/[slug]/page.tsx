@@ -3,14 +3,18 @@ import { cache, Suspense } from "react";
 import { notFound, redirect } from "next/navigation";
 import { catalogListingRepository } from "@/features/customers/repositories/catalog-listing.repository";
 import { CategoryListingView } from "@/features/customers/components/catalog/listing/CategoryListingView";
+import {
+  constructMetadata,
+  getEntitySeoMetaByUuid,
+  buildBreadcrumbJsonLd,
+  safeJsonLd,
+  SEO_CONSTANTS,
+} from "@/lib/seo";
 
 interface CategoryPageProps {
   params: Promise<{ slug: string }>;
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }
-
-const SITE_URL = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
-const SITE_NAME = "Zellora";
 
 function decodeSlug(slug: string): string {
   try {
@@ -29,7 +33,13 @@ function decodeSlug(slug: string): string {
 const resolveCategory = cache(async (slug: string) => {
   const key = decodeSlug(slug);
   if (key.toLowerCase() === "all") {
-    return { canonicalKey: "all", name: "All Products", description: null, image: null };
+    return {
+      canonicalKey: "all",
+      name: "All Products",
+      description: null,
+      image: null,
+      uuid: null,
+    };
   }
   const categories = await catalogListingRepository.findActiveCategories();
   const row = catalogListingRepository.resolveCategoryKey(categories, key);
@@ -39,43 +49,47 @@ const resolveCategory = cache(async (slug: string) => {
     name: row.name,
     description: row.description,
     image: row.image,
+    uuid: row.uuid,
   };
 });
 
 export async function generateMetadata({ params }: CategoryPageProps): Promise<Metadata> {
   const { slug } = await params;
   const category = await resolveCategory(slug);
-  if (!category) return { title: `Category not found | ${SITE_NAME}` };
+
+  if (!category) {
+    return constructMetadata({
+      title: "Category Not Found",
+      noIndex: true,
+    });
+  }
+
+  const seoMeta = category.uuid
+    ? await getEntitySeoMetaByUuid("category", category.uuid)
+    : null;
 
   const isAll = category.canonicalKey === "all";
-  const title = isAll ? `Shop All Products | ${SITE_NAME}` : `${category.name} | ${SITE_NAME}`;
+
+  // Priority: 1. SEO Table -> 2. Actual Entity Information -> 3. Global Default
+  const title =
+    seoMeta?.meta_title ||
+    (isAll ? "Shop All Products" : category.name);
   const description =
+    seoMeta?.meta_description ||
     category.description ||
     (isAll
-      ? `Browse the full ${SITE_NAME} collection.`
-      : `Shop the ${category.name} collection at ${SITE_NAME}.`);
-  // Filtered views all canonicalise to the unfiltered category page.
-  const canonicalUrl = `${SITE_URL}/category/${category.canonicalKey}`;
+      ? `Browse the full ${SEO_CONSTANTS.siteName} luxury collection.`
+      : `Shop the ${category.name} collection at ${SEO_CONSTANTS.siteName}.`);
+  const image = seoMeta?.og_image || category.image || null;
 
-  return {
+  // Filtered views all canonicalise to the unfiltered category page.
+  return constructMetadata({
     title,
     description,
-    alternates: { canonical: canonicalUrl },
-    openGraph: {
-      title,
-      description,
-      url: canonicalUrl,
-      siteName: SITE_NAME,
-      type: "website",
-      images: category.image ? [{ url: category.image }] : undefined,
-    },
-    twitter: {
-      card: "summary_large_image",
-      title,
-      description,
-      images: category.image ? [category.image] : undefined,
-    },
-  };
+    image,
+    canonicalUrl: `/category/${category.canonicalKey}`,
+    keywords: seoMeta?.meta_keywords || undefined,
+  });
 }
 
 export default async function CategoryPage({ params, searchParams }: CategoryPageProps) {
@@ -93,23 +107,44 @@ export default async function CategoryPage({ params, searchParams }: CategoryPag
     redirect(`/category/${category.canonicalKey}${suffix ? `?${suffix}` : ""}`);
   }
 
-  const jsonLd =
-    category.canonicalKey === "all"
-      ? null
-      : {
-          "@context": "https://schema.org",
-          "@type": "CollectionPage",
-          name: category.name,
-          url: `${SITE_URL}/category/${category.canonicalKey}`,
-          isPartOf: { "@type": "WebSite", name: SITE_NAME, url: SITE_URL },
-        };
+  const isAll = category.canonicalKey === "all";
+
+  const collectionJsonLd = isAll
+    ? null
+    : {
+        "@context": "https://schema.org",
+        "@type": "CollectionPage",
+        name: category.name,
+        url: `${SEO_CONSTANTS.baseUrl}/category/${category.canonicalKey}`,
+        isPartOf: {
+          "@type": "WebSite",
+          name: SEO_CONSTANTS.siteName,
+          url: SEO_CONSTANTS.baseUrl,
+        },
+      };
+
+  const breadcrumbsJsonLd = isAll
+    ? null
+    : buildBreadcrumbJsonLd({
+        items: [
+          { name: "Home", item: "/" },
+          { name: "Categories", item: "/products" },
+          { name: category.name, item: `/category/${category.canonicalKey}` },
+        ],
+      });
 
   return (
     <>
-      {jsonLd && (
+      {collectionJsonLd && (
         <script
           type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+          dangerouslySetInnerHTML={{ __html: safeJsonLd(collectionJsonLd) }}
+        />
+      )}
+      {breadcrumbsJsonLd && (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: safeJsonLd(breadcrumbsJsonLd) }}
         />
       )}
       {/* useSearchParams in the view needs a Suspense boundary. */}

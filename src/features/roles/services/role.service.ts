@@ -3,8 +3,8 @@ import { roleRepository, permissionRepository } from "../repositories/role.repos
 import type { CreateRoleInput, UpdateRoleInput, CreatePermissionInput, UpdatePermissionInput } from "../types";
 
 export const roleService = {
-  async getRoles() {
-    return roleRepository.findAll();
+  async getRoles(params: { page?: number; limit?: number; search?: string } = {}) {
+    return roleRepository.findAll(params);
   },
 
   async getRole(id: number) {

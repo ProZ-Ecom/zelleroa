@@ -7,9 +7,13 @@ export interface CustomerProfileResponse {
   isWhatsapp: boolean;
   whatsappNo: string | null;
   dob: string | null; // ISO YYYY-MM-DD string
-  gender: "male" | "female" | "other" | null;
+  gender: "male" | "female" | "other" | "not_applicable" | null;
   profileImage: string | null;
   referralCode: string | null;
+  bankAccountHolder?: string | null;
+  bankName?: string | null;
+  bankAccountLast4?: string | null;
+  bankIfsc?: string | null;
   createdAt: Date;
   updatedAt: Date;
 }

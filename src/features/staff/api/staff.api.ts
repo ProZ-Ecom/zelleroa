@@ -1,6 +1,7 @@
 import { apiClient } from "@/lib/api/api-client";
 import type {
   StaffResponse,
+  StaffAssignableRole,
   GetStaffParams,
   GetStaffResult,
   AdminStaffCountResponse,
@@ -133,3 +134,9 @@ export async function getStaffCount(
   );
 }
 
+
+/** Roles the Staff screen may assign (active admin-panel roles, owners excluded). */
+export async function getAssignableStaffRoles(): Promise<StaffAssignableRole[]> {
+  const response = await apiClient.get<StaffAssignableRole[]>("/api/admin/staff/roles");
+  return response.data ?? [];
+}

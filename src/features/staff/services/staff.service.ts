@@ -27,7 +27,7 @@ function formatStaffResponse(user: {
   is_active: boolean;
   createdAt: Date;
   updatedAt: Date;
-  role?: { id: bigint; name: string; slug: string } | null;
+  role?: { id: bigint; name: string; slug: string; scope?: string } | null;
 }): StaffResponse {
   return {
     id: user.uuid || String(user.id),
@@ -36,11 +36,35 @@ function formatStaffResponse(user: {
     phone: user.phone ?? null,
     avatar: user.avatar ?? null,
     role: user.role?.name || "STAFF",
+    roleId: user.role ? Number(user.role.id) : null,
     status: user.status,
     isActive: Boolean(user.is_active),
     createdAt: user.createdAt,
     updatedAt: user.updatedAt,
   };
+}
+
+/**
+ * The role a staff member goes into. `roleId` is whatever the admin picked on the Staff
+ * screen and must be a back-office role (scope ADMIN, not an owner role); with no pick we
+ * fall back to the built-in STAFF role.
+ */
+async function resolveStaffRole(roleId?: number) {
+  if (roleId !== undefined) {
+    const role = await staffRepository.findAssignableStaffRole(roleId);
+    if (!role) {
+      throw ApiError.badRequest(
+        "Select an active admin-panel role. Create one under Roles if you need a new one."
+      );
+    }
+    return role;
+  }
+
+  const staffRole = await staffRepository.getStaffRole();
+  if (!staffRole) {
+    throw ApiError.internal("Staff role is not configured in the system");
+  }
+  return staffRole;
 }
 
 async function getAdminInternalId(email?: string | null): Promise<bigint | null> {
@@ -57,11 +81,8 @@ export const staffService = {
   ): Promise<StaffResponse> {
     const adminId = await getAdminInternalId(adminEmail);
 
-    // 1. Resolve STAFF role
-    const staffRole = await staffRepository.getStaffRole();
-    if (!staffRole) {
-      throw ApiError.internal("Staff role is not configured in the system");
-    }
+    // 1. Resolve the role: the one the admin picked, else the built-in STAFF role.
+    const staffRole = await resolveStaffRole(input.roleId);
 
     // 2. Check duplicate email
     const existingEmail = await staffRepository.findByEmail(input.email);
@@ -80,7 +101,7 @@ export const staffService = {
     // 4. Secure password hash
     const hashedPassword = await bcrypt.hash(input.password, 12);
 
-    // 5. Create Staff User record with automatic STAFF roleId assignment
+    // 5. Create the staff user in the resolved back-office role
     const created = await staffRepository.createStaff({
       uuid: crypto.randomUUID(),
       name: input.name,
@@ -95,6 +116,17 @@ export const staffService = {
     });
 
     return formatStaffResponse(created);
+  },
+
+  /** Roles the Staff screen may assign (every active ADMIN-scope role bar the owners). */
+  async getAssignableRoles() {
+    const roles = await staffRepository.findAssignableStaffRoles();
+    return roles.map((role) => ({
+      id: Number(role.id),
+      name: role.name,
+      slug: role.slug,
+      description: role.description,
+    }));
   },
 
   async getStaffList(params: GetStaffParams = {}) {
@@ -172,6 +204,10 @@ export const staffService = {
       updateData.password_hash = await bcrypt.hash(input.password, 12);
     }
 
+    if (input.roleId !== undefined) {
+      updateData.roleId = (await resolveStaffRole(input.roleId)).id;
+    }
+
     const updated = await staffRepository.updateStaffByUuid(uuid, updateData);
     if (!updated) {
       throw ApiError.notFound("Staff member not found");
@@ -182,7 +218,7 @@ export const staffService = {
 
   async getStaffProfile(sessionUserId: string): Promise<StaffResponse> {
     const staff = await staffRepository.findStaffByUuid(sessionUserId);
-    if (!staff || staff.role?.slug !== "staff") {
+    if (!staff) {
       throw ApiError.notFound("Staff profile not found");
     }
     return formatStaffResponse(staff);
@@ -193,7 +229,7 @@ export const staffService = {
     input: UpdateStaffProfileInput
   ): Promise<StaffResponse> {
     const existing = await staffRepository.findStaffByUuid(sessionUserId);
-    if (!existing || existing.role?.slug !== "staff") {
+    if (!existing) {
       throw ApiError.notFound("Staff profile not found");
     }
 
@@ -256,7 +292,7 @@ export const staffService = {
     input: ChangeStaffPasswordInput
   ): Promise<{ message: string }> {
     const existing = await staffRepository.findStaffByUuid(sessionUserId);
-    if (!existing || existing.role?.slug !== "staff") {
+    if (!existing) {
       throw ApiError.notFound("Staff profile not found");
     }
 

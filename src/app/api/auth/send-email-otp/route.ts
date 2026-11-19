@@ -11,7 +11,10 @@ export const POST = createApiHandler(
     POST: async (_request, context) => {
       const body = context.body as SendEmailOtpInput;
 
-      const result = await otpService.sendRegistrationEmailOtp(body.email);
+      const result = await otpService.sendRegistrationEmailOtp(
+        body.email,
+        body.phone
+      );
 
       return apiSuccess(result.data, result.message, 200);
     },

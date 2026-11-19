@@ -25,8 +25,6 @@ interface StyleFormProps {
   onSubmit: (data: StyleFormValues) => Promise<void>;
   isLoading?: boolean;
   submitLabel?: string;
-  /** Brand pre-selected on a new Item - normally the parent Product's brand. */
-  defaultBrandId?: string | null;
 }
 
 function StyleForm({
@@ -34,8 +32,7 @@ function StyleForm({
   isEditing = false,
   onSubmit,
   isLoading = false,
-  submitLabel = "Save Item",
-  defaultBrandId,
+  submitLabel = "Save Style",
 }: StyleFormProps) {
   // Same active-brand list (and cache entry) the Product form uses.
   const { data: brandsData, isLoading: isLoadingBrands } = useBrands({ limit: 100 });
@@ -44,31 +41,26 @@ function StyleForm({
     [brandsData]
   );
 
-  const formInitialData = React.useMemo(
-    () =>
-      !initialData?.brandId && defaultBrandId
-        ? { ...initialData, brandId: defaultBrandId }
-        : initialData,
-    [initialData, defaultBrandId]
-  );
-
   return (
     <ItemEntityForm
-      initialData={formInitialData}
+      initialData={initialData}
       brandOptions={brandOptions}
+      brandRequired={false}
       brandDescription={
         !isLoadingBrands && brandOptions.length === 0
           ? "No active brands yet - add one on the Brands page first."
-          : undefined
+          : "Leave blank to use the Product's brand. Only set this when this Style is a different brand."
       }
       isEditing={isEditing}
       isLoading={isLoading}
       submitLabel={submitLabel}
+      entityLabel="Style"
       namePlaceholder="e.g. V Neck T-Shirt, Solo T-Shirt"
       skuPlaceholder="e.g. TSHIRT-VNECK"
       codePlaceholder="e.g. v-neck-t-shirt"
       defaultItemDescription="Auto-selected on the product page"
-      showPrice={false}
+      showPrice={true}
+      priceDescription="A fallback price only - it seeds the first Item and shows as the “from” price until sizes are priced. What a customer pays is set on each size."
       onSubmit={(data: ItemEntityFormValues) =>
         onSubmit({ ...data, cookingRecipe: initialData?.cookingRecipe ?? "" })
       }

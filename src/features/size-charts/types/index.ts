@@ -1,4 +1,4 @@
-export type SizeChartGender = "men" | "women" | "kids" | "unisex";
+export type SizeChartGender = "men" | "women" | "kids" | "unisex" | "not_applicable";
 
 export interface SizeChartEntry {
   id: string; // AttributeValue public UUID

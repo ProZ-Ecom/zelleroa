@@ -2,7 +2,6 @@ import crypto from "crypto";
 import { syncCommissionsWithOrderStatus } from "@/features/agents/services/commission.service";
 import { db } from "@/lib/db/prisma";
 import { Prisma } from "@/generated/prisma";
-import { INDIA_POST_PARTNER_CODE, INDIA_POST_PARTNER_NAME } from "@/lib/shipping/india-post";
 import type {
   AdminDeliveryOrdersListInput,
   AdminDeliveryStaffListInput,
@@ -21,6 +20,7 @@ export const deliveryRepository = {
 
     const where: Prisma.OrderWhereInput = {
       is_active: true,
+      order_source: { not: "POS" },
     };
 
     if (params.orderStatus) {
@@ -490,18 +490,21 @@ export const deliveryRepository = {
     });
   },
 
-  /* ----------------------- Courier (India Post) Shipments ----------------------- */
+  /* ----------------------- Courier Shipments ----------------------- */
 
-  async findOrCreateIndiaPostPartner(adminId?: bigint | null) {
+  async findOrCreateCourierPartner(
+    courier: { code: string; name: string },
+    adminId?: bigint | null
+  ) {
     const existing = await db.delivery_partners.findUnique({
-      where: { code: INDIA_POST_PARTNER_CODE },
+      where: { code: courier.code },
     });
     if (existing) return existing;
 
     return db.delivery_partners.create({
       data: {
-        name: INDIA_POST_PARTNER_NAME,
-        code: INDIA_POST_PARTNER_CODE,
+        name: courier.name,
+        code: courier.code,
         is_active: true,
         created_by: adminId,
         updated_by: adminId,
@@ -575,6 +578,91 @@ export const deliveryRepository = {
       });
 
       return { shipment, order: updatedOrder };
+    });
+  },
+
+  async updateCourierShipmentStatusTransaction(params: {
+    orderId: bigint;
+    targetStatus: "out_for_delivery" | "delivered";
+    note?: string;
+    adminId?: bigint | null;
+  }) {
+    return db.$transaction(async (tx) => {
+      const now = new Date();
+
+      const shipment = await tx.shipments.findFirst({
+        where: {
+          order_id: params.orderId,
+          status: { in: ["pending", "picked_up", "in_transit", "out_for_delivery"] },
+        },
+        include: {
+          delivery_partners: true,
+        },
+      });
+
+      const partnerName = shipment?.delivery_partners?.name ?? "Courier";
+
+      let updatedShipment = null;
+      if (shipment) {
+        updatedShipment = await tx.shipments.update({
+          where: { id: shipment.id },
+          data: {
+            status: params.targetStatus,
+            ...(params.targetStatus === "out_for_delivery" && !shipment.shipped_at
+              ? { shipped_at: now }
+              : {}),
+            ...(params.targetStatus === "delivered" ? { delivered_at: now } : {}),
+            updated_by: params.adminId,
+          },
+        });
+
+        await tx.shipment_tracking.create({
+          data: {
+            shipment_id: shipment.id,
+            status: params.targetStatus,
+            note:
+              params.note ||
+              (params.targetStatus === "out_for_delivery"
+                ? `Order is out for delivery with ${partnerName}`
+                : `Delivered by ${partnerName}`),
+            created_by: params.adminId,
+            updated_by: params.adminId,
+          },
+        });
+      }
+
+      const updatedOrder = await tx.order.update({
+        where: { id: params.orderId },
+        data: {
+          order_status: params.targetStatus,
+          ...(params.targetStatus === "delivered" ? { delivered_at: now } : {}),
+          updated_by: params.adminId,
+        },
+      });
+
+      await syncCommissionsWithOrderStatus(
+        tx,
+        params.orderId,
+        params.targetStatus,
+        { id: params.adminId ?? null, role: "USER" }
+      );
+
+      await tx.order_status_history.create({
+        data: {
+          order_id: params.orderId,
+          status: params.targetStatus,
+          note:
+            params.note ||
+            (params.targetStatus === "out_for_delivery"
+              ? `Order is out for delivery with ${partnerName}`
+              : `Order delivered successfully`),
+          changed_by: params.adminId,
+          created_by: params.adminId,
+          updated_by: params.adminId,
+        },
+      });
+
+      return { shipment: updatedShipment, order: updatedOrder };
     });
   },
 

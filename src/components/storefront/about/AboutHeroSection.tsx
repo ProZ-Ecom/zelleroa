@@ -10,6 +10,7 @@ import {
   Users,
   MousePointerClick,
 } from "lucide-react";
+import { buttonVariants } from "@/components/ui/button";
 import { AboutFashionIllustration } from "./AboutFashionIllustration";
 
 const features = [
@@ -62,7 +63,7 @@ export function AboutHeroSection() {
             <div className="flex flex-wrap items-center gap-4">
               <Link
                 href="/products"
-                className="group inline-flex items-center gap-2 px-7 py-3.5 rounded-full bg-about-hero-gold hover:bg-about-hero-gold-hover text-about-hero-btn-dark font-semibold text-sm transition-all duration-300 shadow-xl shadow-primary-900/30 hover:-translate-y-0.5 cursor-pointer"
+                className={`${buttonVariants({ variant: "secondary", size: "lg" })} group gap-2`}
               >
                 Explore Products
                 <ArrowUpRight className="w-4 h-4 transition-transform duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
@@ -70,7 +71,7 @@ export function AboutHeroSection() {
 
               <a
                 href="#our-business"
-                className="inline-flex items-center gap-2 px-6 py-3.5 rounded-full border border-about-hero-border bg-white/10 hover:bg-white/20 text-white font-medium text-sm transition-all duration-300 backdrop-blur-md cursor-pointer"
+                className={`${buttonVariants({ variant: "outline", size: "lg" })} gap-2`}
               >
                 <Compass className="w-4 h-4" />
                 Our business

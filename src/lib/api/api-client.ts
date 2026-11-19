@@ -1,4 +1,5 @@
 import { ApiResponse } from "./api-response";
+import { ACCOUNT_BLOCKED_CODE, notifyAccountBlocked } from "./account-blocked";
 
 function getBaseUrl(): string {
   if (typeof window !== "undefined") {
@@ -16,9 +17,17 @@ export class ApiClientError extends Error {
   public readonly status: number;
   public readonly errors?: string[];
   public readonly details?: unknown;
+  public readonly code?: string;
 
-  constructor(message: string, status: number, errors?: string[], details?: unknown) {
+  constructor(
+    message: string,
+    status: number,
+    errors?: string[],
+    details?: unknown,
+    code?: string
+  ) {
     super(message);
+    this.code = code;
     this.name = "ApiClientError";
     this.status = status;
     this.errors = errors;
@@ -154,6 +163,12 @@ async function fetchApi<T>(
       const isAdminEndpoint = endpoint.startsWith("/api/admin/");
       const loginPath = isAdminEndpoint ? "/admin/login" : "/login";
       if (!isOptionalCustomerEndpoint && !window.location.pathname.startsWith(loginPath)) {
+        // Clear stale session cookies so middleware does not bounce the user back into an infinite redirect loop
+        try {
+          await fetch(`${baseUrl}/api/auth/logout`, { method: "POST" });
+        } catch {
+          // ignore
+        }
         const callbackUrl = encodeURIComponent(
           window.location.pathname + window.location.search
         );
@@ -168,18 +183,37 @@ async function fetchApi<T>(
   try {
     data = await response.json();
   } catch {
+    const statusMsg =
+      response.status === 404
+        ? "Resource not found (404). It may have been deleted or the page is outdated."
+        : response.status >= 500
+        ? "Internal server error. Please check server logs."
+        : "Invalid response from server.";
     throw new ApiClientError(
-      "Invalid response from server.",
+      statusMsg,
       response.status
     );
   }
 
   if (!response.ok || !data.success) {
+    // Only an explicit ACCOUNT_BLOCKED code counts; a plain 403 is a normal
+    // permission error. Auth endpoints (e.g. login) report blocked accounts inline.
+    const code =
+      data.code ?? (data.details as { code?: string } | null | undefined)?.code;
+    if (
+      response.status === 403 &&
+      code === ACCOUNT_BLOCKED_CODE &&
+      !isAuthEndpoint
+    ) {
+      notifyAccountBlocked();
+    }
+
     throw new ApiClientError(
       data.message || "Something went wrong",
       response.status,
       data.errors,
-      data.details
+      data.details,
+      code
     );
   }
 

@@ -17,9 +17,13 @@ import { AdminTableSkeleton } from "@/components/admin/AdminTableSkeleton";
 import { ErrorState } from "@/components/ui/error-state";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { formatPhone } from "@/lib/utils/format-phone";
 import { Select } from "@/components/ui/select";
 import { SearchInput } from "@/components/ui/search-input";
+import { ExportButton } from "@/components/common/export-button";
+import { exportDataToCsv } from "@/lib/export-csv";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { BlockReasonDialog } from "@/components/ui/block-reason-dialog";
 import {
   Users,
   UserCheck,
@@ -33,6 +37,7 @@ import {
   CheckCircle2,
   Ban,
   Filter,
+  ArrowRightLeft,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { ColumnDef } from "@tanstack/react-table";
@@ -70,7 +75,7 @@ export default function AdminCustomersPage() {
       status?: "active" | "inactive" | "banned";
       isActive?: boolean;
       isBlocked?: boolean;
-      gender?: "male" | "female" | "other";
+      gender?: "male" | "female" | "other" | "not_applicable";
       emailVerified?: boolean;
       phoneVerified?: boolean;
       sortBy: "createdAt";
@@ -98,7 +103,7 @@ export default function AdminCustomersPage() {
     }
 
     if (genderFilter !== "all") {
-      params.gender = genderFilter as "male" | "female" | "other";
+      params.gender = genderFilter as "male" | "female" | "other" | "not_applicable";
     }
 
     if (verificationFilter === "email_verified") {
@@ -130,7 +135,7 @@ export default function AdminCustomersPage() {
     genderFilter !== "all" ||
     verificationFilter !== "all";
 
-  const handleConfirmStatusChange = () => {
+  const handleConfirmStatusChange = (blockReason?: string) => {
     if (!statusTargetCustomer) return;
     const isCurrentlyBlocked =
       statusTargetCustomer.isBlocked === true ||
@@ -145,6 +150,7 @@ export default function AdminCustomersPage() {
       {
         uuid: targetId,
         isActive: isCurrentlyBlocked, // unblock if blocked, block if active
+        blockReason,
       },
       {
         onSettled: () => {
@@ -205,7 +211,7 @@ export default function AdminCustomersPage() {
           <div className="space-y-0.5">
             <p className="text-sm text-neutral-800">{item.email || "-"}</p>
             <div className="flex items-center gap-1.5 text-xs text-neutral-500">
-              <span>{item.phone || "-"}</span>
+              <span>{formatPhone(item.phone)}</span>
               {item.isWhatsapp && (
                 <span className="inline-flex items-center gap-0.5 text-success-600 bg-success-50 px-1.5 py-0.5 rounded text-[10px] font-medium" title="WhatsApp Enabled">
                   <MessageSquare className="h-3 w-3" />
@@ -218,6 +224,33 @@ export default function AdminCustomersPage() {
       },
     },
     {
+      id: "currentAgent",
+      header: "Current Agent",
+      cell: ({ row }) => {
+        const a = row.original.currentAgent;
+        return a ? (
+          <div>
+            <p className="text-sm text-neutral-800">{a.name}</p>
+            {a.agentCode && <p className="text-xs font-mono text-neutral-500">{a.agentCode}</p>}
+          </div>
+        ) : (
+          <span className="text-xs text-neutral-400">Unassigned</span>
+        );
+      },
+    },
+    {
+      id: "orderStats",
+      header: "Orders / Sales",
+      cell: ({ row }) => (
+        <div>
+          <p className="text-sm text-neutral-800">{row.original.orderCount ?? 0} orders</p>
+          <p className="text-xs text-neutral-500">
+            ₹{(row.original.totalSales ?? 0).toLocaleString("en-IN", { maximumFractionDigits: 2 })}
+          </p>
+        </div>
+      ),
+    },
+    {
       accessorKey: "gender",
       header: "Gender / DOB",
       cell: ({ row }) => {
@@ -225,7 +258,7 @@ export default function AdminCustomersPage() {
         return (
           <div>
             <p className="text-sm text-neutral-800 capitalize">
-              {item.gender || "-"}
+              {item.gender ? item.gender.replace(/_/g, " ") : "-"}
             </p>
             <p className="text-xs text-neutral-500">
               {item.dob || "-"}
@@ -274,13 +307,23 @@ export default function AdminCustomersPage() {
 
         if (isBlocked) {
           return (
-            <Badge
-              variant="destructive"
-              className="gap-1 bg-red-100 text-red-800 border-red-200"
-            >
-              <ShieldAlert className="h-3 w-3" />
-              Blocked
-            </Badge>
+            <div className="flex max-w-[220px] flex-col items-start gap-1">
+              <Badge
+                variant="destructive"
+                className="gap-1 bg-red-100 text-red-800 border-red-200"
+              >
+                <ShieldAlert className="h-3 w-3" />
+                Blocked
+              </Badge>
+              {item.blockReason && (
+                <span
+                  className="line-clamp-2 text-[11px] leading-snug text-neutral-500"
+                  title={item.blockReason}
+                >
+                  Reason: {item.blockReason}
+                </span>
+              )}
+            </div>
           );
         }
 
@@ -338,34 +381,43 @@ export default function AdminCustomersPage() {
           item.status === "inactive";
 
         return (
-          <div className="flex items-center justify-center gap-1.5">
+          <div className="flex items-center justify-center gap-0.5">
             <Link
               href={`/admin/dashboard/customers/${item.id}`}
-              className="inline-flex items-center h-8 gap-1 px-2.5 rounded-lg text-xs font-semibold text-secondary-600 hover:text-secondary-700 hover:bg-secondary-50 cursor-pointer transition-colors"
+              className="inline-flex items-center justify-center h-8 w-8 rounded-lg text-secondary-600 hover:text-secondary-700 hover:bg-secondary-50 cursor-pointer transition-colors"
+              title="View customer"
+              aria-label="View customer"
             >
-              <Eye className="h-3.5 w-3.5" />
-              View
+              <Eye className="h-4 w-4" />
+            </Link>
+            <Link
+              href={`/admin/dashboard/customers/${item.id}#sales-partner`}
+              className="inline-flex items-center justify-center h-8 w-8 rounded-lg text-neutral-600 hover:text-neutral-800 hover:bg-neutral-100 cursor-pointer transition-colors"
+              title="Transfer customer / view transfer history"
+              aria-label="Transfer customer or view transfer history"
+            >
+              <ArrowRightLeft className="h-4 w-4" />
             </Link>
 
             {isBlocked ? (
               <button
                 type="button"
                 onClick={() => setStatusTargetCustomer(item)}
-                className="inline-flex items-center h-8 gap-1 px-2 rounded-lg text-xs font-semibold text-emerald-700 hover:text-emerald-800 hover:bg-emerald-50 cursor-pointer transition-colors"
-                title="Unblock Customer"
+                className="inline-flex items-center justify-center h-8 w-8 rounded-lg text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 cursor-pointer transition-colors"
+                title="Unblock customer"
+                aria-label="Unblock customer"
               >
-                <ShieldCheck className="h-3.5 w-3.5 text-emerald-600" />
-                Unblock
+                <ShieldCheck className="h-4 w-4" />
               </button>
             ) : (
               <button
                 type="button"
                 onClick={() => setStatusTargetCustomer(item)}
-                className="inline-flex items-center h-8 gap-1 px-2 rounded-lg text-xs font-semibold text-red-600 hover:text-red-700 hover:bg-red-50 cursor-pointer transition-colors"
-                title="Block Customer"
+                className="inline-flex items-center justify-center h-8 w-8 rounded-lg text-red-500 hover:text-red-600 hover:bg-red-50 cursor-pointer transition-colors"
+                title="Block customer"
+                aria-label="Block customer"
               >
-                <Ban className="h-3.5 w-3.5 text-red-500" />
-                Block
+                <Ban className="h-4 w-4" />
               </button>
             )}
           </div>
@@ -494,6 +546,7 @@ export default function AdminCustomersPage() {
                   { value: "male", label: "Male" },
                   { value: "female", label: "Female" },
                   { value: "other", label: "Other" },
+                  { value: "not_applicable", label: "Not Applicable" },
                 ]}
                 placeholder="Gender"
                 className="h-10 rounded-xl text-xs font-medium"
@@ -513,6 +566,28 @@ export default function AdminCustomersPage() {
                 <span>Reset</span>
               </Button>
             )}
+          </div>
+
+          <div className="flex items-center gap-2.5 shrink-0 self-end lg:self-center">
+            <ExportButton
+              onClick={() =>
+                exportDataToCsv(
+                  customers,
+                  "customers",
+                  [
+                    { header: "Name", accessor: (c) => c.name },
+                    { header: "Email", accessor: (c) => c.email || "-" },
+                    { header: "Phone", accessor: (c) => c.phone || "-" },
+                    { header: "Status", accessor: (c) => (c.isActive ? "Active" : "Inactive") },
+                    { header: "Email Verified", accessor: (c) => (c.emailVerified ? "Yes" : "No") },
+                    { header: "Phone Verified", accessor: (c) => (c.phoneVerified ? "Yes" : "No") },
+                    { header: "Gender", accessor: (c) => c.gender || "-" },
+                    { header: "Registered At", accessor: (c) => c.createdAt || "-" },
+                  ]
+                )
+              }
+              disabled={!customers.length}
+            />
           </div>
         </div>
       </div>
@@ -540,11 +615,21 @@ export default function AdminCustomersPage() {
         />
       </div>
 
-      {/* Confirm Block / Unblock Modal */}
-      <ConfirmDialog
-        open={Boolean(statusTargetCustomer)}
+      {/* Block (reason required) */}
+      <BlockReasonDialog
+        open={Boolean(statusTargetCustomer) && !isTargetBlocked}
+        subject="User"
+        name={statusTargetCustomer?.name}
+        isLoading={isUpdatingStatus}
         onClose={() => setStatusTargetCustomer(null)}
         onConfirm={handleConfirmStatusChange}
+      />
+
+      {/* Unblock confirmation */}
+      <ConfirmDialog
+        open={Boolean(statusTargetCustomer) && Boolean(isTargetBlocked)}
+        onClose={() => setStatusTargetCustomer(null)}
+        onConfirm={() => handleConfirmStatusChange()}
         title={
           isTargetBlocked
             ? "Unblock Customer Account"

@@ -1,8 +1,10 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
+import { EMAIL_MAX_LENGTH } from "@/lib/validations/email";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { toast } from "@/components/ui/Toast";
 import {
   useUsers,
   useCreateUser,
@@ -17,25 +19,97 @@ import { AdminTableSkeleton } from "@/components/admin/AdminTableSkeleton";
 import { ErrorState } from "@/components/ui/error-state";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Select, type SelectOption } from "@/components/ui/select";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { FormModal } from "@/components/common/FormModal";
-import { Plus, Pencil, Trash2, KeyRound } from "lucide-react";
+import { ExportButton } from "@/components/common/export-button";
+import { exportDataToCsv } from "@/lib/export-csv";
+import { formatDate } from "@/lib/utils";
+import { useRoles } from "@/features/roles/hooks";
+import { SearchInput } from "@/components/ui/search-input";
+import { Plus, Pencil, Trash2, KeyRound, RotateCcw } from "lucide-react";
+import { z } from "zod";
+   import { cn } from "@/lib/utils";
 import {
   createUserSchema,
   resetPasswordSchema,
+  indiaPhoneSchema,
   type CreateUserSchemaInput,
 } from "@/features/users/validations/user.schema";
 import type { ColumnDef } from "@tanstack/react-table";
 import type { UserListItem } from "@/features/users/types";
+import { CanAct } from "@/features/access";
 
 type ModalMode = "create" | "edit" | "resetPassword" | null;
 
+interface UserFormValues {
+  name: string;
+  email: string;
+  password?: string;
+  phone: string;
+  roleId?: number;
+  status?: "active" | "inactive" | "banned";
+}
+
+const roleColors: Record<string, string> = {
+  ADMIN: "!bg-purple-100 !text-purple-700 !border-purple-300",
+  STAFF: "!bg-blue-100 !text-blue-700 !border-blue-300",
+  AGENT: "!bg-orange-100 !text-orange-700 !border-orange-300",
+ CUSTOMER: "!bg-slate-100 !text-slate-700 !border-slate-300",
+};
+
 export default function AdminUsersPage() {
+  const statusBadgeVariant = (status?: string) => {
+  switch (status?.toLowerCase()) {
+    case "active":
+      return "success";
+    case "inactive":
+      return "secondary";
+    default:
+      return "destructive";
+  }
+};
   const [modalMode, setModalMode] = useState<ModalMode>(null);
   const [selectedUser, setSelectedUser] = useState<UserListItem | null>(null);
   const [deleteId, setDeleteId] = useState<string | number | null>(null);
 
-  const { data, isLoading, error, refetch } = useUsers();
+  const [page, setPage] = useState(1);
+const [pageSize, setPageSize] = useState(20);
+const { data, isLoading, error, refetch } = useUsers({ page, limit: pageSize });
+
+  // Every role the admin has created is assignable here, grouped by the area it belongs to,
+  // so a new back-office role can be given to a user without looking its id up in the database.
+  const { data: rolesResult, isLoading: rolesLoading } = useRoles({ page: 1, limit: 100 });
+  const roleSelectOptions: SelectOption[] = useMemo(() => {
+    const all = rolesResult?.data ?? [];
+    return all.map((role) => {
+      const scopeLabel =
+        role.scope === "ADMIN"
+          ? "Admin panel"
+          : role.scope === "AGENT"
+          ? "Sales partner"
+          : "Customer";
+      return {
+        value: String(role.id),
+        label: `${role.name} (${scopeLabel})`,
+      };
+    });
+  }, [rolesResult?.data]);
+  const roleOptions = useMemo(() => {
+    const all = rolesResult?.data ?? [];
+    return (
+      [
+        { label: "Admin panel", scope: "ADMIN" },
+        { label: "Sales partner", scope: "AGENT" },
+        { label: "Customer", scope: "CUSTOMER" },
+      ] as const
+    )
+      .map(({ label, scope }) => ({
+        label,
+        roles: all.filter((role) => (role.scope ?? "CUSTOMER") === scope),
+      }))
+      .filter((group) => group.roles.length > 0);
+  }, [rolesResult]);
   const createMutation = useCreateUser();
   const updateMutation = useUpdateUser();
   const deleteMutation = useDeleteUser();
@@ -43,13 +117,58 @@ export default function AdminUsersPage() {
 
   const users = data?.data ?? [];
 
+  const userFormSchema = useMemo(() => {
+    return z.object({
+      name: z
+        .string()
+        .trim()
+        .min(3, "Full name must contain at least 3 characters")
+        .max(255, "Full name must be less than 255 characters"),
+      email: z
+        .string()
+        .trim()
+        .email("Please enter a valid email address")
+        .transform((val) => val.toLowerCase()),
+      phone: indiaPhoneSchema,
+      password: z
+        .string()
+        .optional()
+        .refine(
+          (val) => {
+            if (modalMode === "create") {
+              return typeof val === "string" && val.length >= 8 && val.length <= 100;
+            }
+            return true;
+          },
+          { message: "Password must contain at least 8 characters" }
+        ),
+      roleId: z
+        .union([z.number().int().positive("Please select a valid role"), z.nan()])
+        .optional()
+        .transform((val) => (typeof val === "number" && !isNaN(val) ? val : undefined)),
+      status: z.enum(["active", "inactive", "banned"]).optional(),
+    }).superRefine((data, ctx) => {
+      if (modalMode === "create" && (!data.password || data.password.length < 8)) {
+  ctx.addIssue({
+    code: z.ZodIssueCode.custom,
+    path: ["password"],
+    message: "Password must contain at least 8 characters",
+  });
+}
+    });
+  }, [modalMode]);
+
   const {
     register,
     handleSubmit,
     reset,
+    watch,
+    setValue,
     formState: { errors },
-  } = useForm<CreateUserSchemaInput>({
-    resolver: zodResolver(createUserSchema),
+  } = useForm<UserFormValues>({
+    resolver: zodResolver(userFormSchema),
+    mode: "onChange",
+    reValidateMode: "onChange",
     defaultValues: {
       name: "",
       email: "",
@@ -67,6 +186,8 @@ export default function AdminUsersPage() {
     formState: { errors: resetPasswordErrors },
   } = useForm<{ password: string }>({
     resolver: zodResolver(resetPasswordSchema),
+    mode: "onChange",
+    reValidateMode: "onChange",
     defaultValues: { password: "" },
   });
 
@@ -77,7 +198,7 @@ export default function AdminUsersPage() {
         email: selectedUser.email ?? "",
         password: "",
         phone: selectedUser.phone ?? "",
-        roleId: selectedUser.roleId,
+        roleId: selectedUser.roleId ? Number(selectedUser.roleId) : undefined,
         status: (selectedUser.status as "active" | "inactive" | "banned") || "active",
       });
     } else if (modalMode === "create") {
@@ -92,40 +213,40 @@ export default function AdminUsersPage() {
     }
   }, [modalMode, selectedUser, reset]);
 
-  const onSubmit = (formData: CreateUserSchemaInput) => {
+  const onSubmit = async (formData: UserFormValues) => {
     if (modalMode === "edit" && selectedUser) {
-      const { password: _, ...updateData } = formData;
-      updateMutation.mutate(
-        { id: selectedUser.id, data: updateData },
-        {
-          onSuccess: () => {
-            setModalMode(null);
-            setSelectedUser(null);
-          },
-        }
-      );
+      try {
+        const { password: _, ...updateData } = formData;
+        await updateMutation.mutateAsync({ id: selectedUser.id, data: updateData });
+        toast.success("User updated successfully", `"${formData.name}" was saved.`);
+        setModalMode(null);
+        setSelectedUser(null);
+      } catch (err: any) {
+        toast.error("Failed to update user", err?.message || "Please try again.");
+      }
     } else if (modalMode === "create") {
-      createMutation.mutate(formData, {
-        onSuccess: () => {
-          setModalMode(null);
-          reset();
-        },
-      });
+      try {
+        await createMutation.mutateAsync(formData as CreateUserSchemaInput);
+        toast.success("User created", `"${formData.name}" was added successfully.`);
+        setModalMode(null);
+        reset();
+      } catch (err: any) {
+        toast.error("Failed to create user", err?.message || "Please try again.");
+      }
     }
   };
 
-  const onSubmitResetPassword = (formData: { password: string }) => {
+  const onSubmitResetPassword = async (formData: { password: string }) => {
     if (selectedUser) {
-      resetPasswordMutation.mutate(
-        { id: selectedUser.id, password: formData.password },
-        {
-          onSuccess: () => {
-            setModalMode(null);
-            setSelectedUser(null);
-            resetResetPassword();
-          },
-        }
-      );
+      try {
+        await resetPasswordMutation.mutateAsync({ id: selectedUser.id, password: formData.password });
+        toast.success("Password reset", `Password for "${selectedUser.name}" was updated successfully.`);
+        setModalMode(null);
+        setSelectedUser(null);
+        resetResetPassword();
+      } catch (err: any) {
+        toast.error("Failed to reset password", err?.message || "Please try again.");
+      }
     }
   };
 
@@ -134,20 +255,6 @@ export default function AdminUsersPage() {
     setSelectedUser(null);
     reset();
     resetResetPassword();
-  };
-
-  const statusBadgeVariant = (status: string) => {
-    switch (status?.toLowerCase()) {
-      case "active":
-        return "success";
-      case "inactive":
-        return "secondary";
-      case "banned":
-      case "blocked":
-        return "destructive";
-      default:
-        return "secondary";
-    }
   };
 
   const columns: ColumnDef<UserListItem, unknown>[] = [
@@ -164,50 +271,69 @@ export default function AdminUsersPage() {
     {
       accessorKey: "phone",
       header: "Phone",
-      cell: ({ row }) => row.original.phone || "-",
+      cell: ({ row }) => {
+        const phone = row.original.phone;
+        if (!phone) return "-";
+        return phone.replace(/^\+91/, "");
+      },
     },
-    {
+     {
       accessorKey: "roleName",
       header: "Role",
-      cell: ({ row }) => (
-        <Badge variant="outline">{row.original.roleName || "Unknown"}</Badge>
-      ),
+      cell: ({ row }) => {
+        const role = row.original.roleName || "Unknown";
+        return (
+          <Badge
+            variant="outline"
+            className={cn(roleColors[role.toUpperCase()] ?? "!bg-gray-100 !text-gray-700 !border-gray-300")}
+          >
+            {role}
+          </Badge>
+        );
+      },
     },
     {
       accessorKey: "status",
       header: "Status",
-      cell: ({ row }) => (
-        <Badge variant={statusBadgeVariant(row.original.status) as "success" | "secondary" | "destructive"}>
-          {row.original.status}
-        </Badge>
-      ),
+      cell: ({ row }) => {
+  const status = row.original.status?.toLowerCase();
+  return (
+    <Badge
+      variant={statusBadgeVariant(row.original.status) as "success" | "secondary" | "destructive"}
+      className={cn(
+  status === "inactive" && "!bg-red-100 !text-red-700",
+  status === "banned" && "!bg-red-200 !text-red-800"
+)}
+    >
+      {row.original.status}
+    </Badge>
+  );
+},
     },
     {
       accessorKey: "createdAt",
       header: "Joined",
       cell: ({ row }) =>
-        new Date(row.original.createdAt).toLocaleDateString("en-IN", {
-          year: "numeric",
-          month: "short",
-          day: "numeric",
-        }),
+        formatDate(row.original.createdAt),
     },
     {
       id: "actions",
       header: "Actions",
       cell: ({ row }) => (
         <div className="flex items-center justify-center gap-1.5">
-          <Button
-            variant="ghost"
-            size="icon"
-            title="Edit"
-            onClick={() => {
-              setSelectedUser(row.original);
-              setModalMode("edit");
-            }}
-          >
-            <Pencil className="h-4 w-4" />
-          </Button>
+          <CanAct action="UPDATE">
+            <Button
+              variant="ghost"
+              size="icon"
+              title="Edit"
+              onClick={() => {
+                setSelectedUser(row.original);
+                setModalMode("edit");
+              }}
+            >
+              <Pencil className="h-4 w-4" />
+            </Button>
+          </CanAct>
           <Button
             variant="ghost"
             size="icon"
@@ -219,20 +345,22 @@ export default function AdminUsersPage() {
           >
             <KeyRound className="h-4 w-4" />
           </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            title="Delete"
-            onClick={() => setDeleteId(row.original.id)}
-          >
-            <Trash2 className="h-4 w-4 text-error-600" />
-          </Button>
+          <CanAct action="DELETE">
+            <Button
+              variant="ghost"
+              size="icon"
+              title="Delete"
+              onClick={() => setDeleteId(row.original.id)}
+            >
+              <Trash2 className="h-4 w-4 text-error-600" />
+            </Button>
+          </CanAct>
         </div>
       ),
     },
   ];
 
-  if (isLoading) return <AdminTableSkeleton />;
+  if (isLoading && !data) return <AdminTableSkeleton />;
   if (error) return <ErrorState message="Failed to load users" onRetry={() => refetch()} />;
 
   const isMutating = createMutation.isPending || updateMutation.isPending;
@@ -245,21 +373,59 @@ export default function AdminUsersPage() {
         title="Users"
         description="Manage user accounts and permissions"
         actions={
-          <Button onClick={() => setModalMode("create")}>
-            <Plus className="mr-2 h-4 w-4" />
-            Add User
-          </Button>
+          <div className="flex items-center gap-2">
+            <ExportButton
+              onClick={() =>
+                exportDataToCsv(
+                  users,
+                  "users",
+                  [
+                    { header: "Name", accessor: (u) => u.name },
+                    { header: "Email", accessor: (u) => u.email || "-" },
+                    {
+                      header: "Phone",
+                      accessor: (u) => (u.phone ? u.phone.replace(/^\+91/, "") : "-"),
+                    },
+                    { header: "Role", accessor: (u) => u.roleName || "-" },
+                    { header: "Status", accessor: (u) => u.status || "-" },
+                  ]
+                )
+              }
+              disabled={!users.length}
+            />
+            <CanAct action="CREATE">
+              <Button
+                onClick={() => setModalMode("create")}
+                className="h-11 rounded-xl bg-stone-900 hover:bg-stone-800 text-[#D4AF37] border border-[#D4AF37]/30 shadow-xs px-5 text-sm font-semibold transition-colors"
+              >
+                <Plus className="mr-2 h-4 w-4 text-[#D4AF37]" />
+                Add User
+              </Button>
+            </CanAct>
+          </div>
         }
       />
-      <AdminContent className="flex-1 min-h-0 overflow-hidden">
-        <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
+
+      <AdminContent className="flex-1 min-h-0 mt-4">
+        <div className="flex-1 min-h-0 overflow-hidden flex flex-col rounded-2xl border border-neutral-200 bg-white shadow-xs">
           <DataTable
             columns={columns}
             data={users}
-            searchKey="name"
-            searchPlaceholder="Search users..."
-            pageSize={20}
-            className="bg-white border border-neutral-200"
+            pageSize={pageSize}
+            pageSizeOptions={[10, 20, 30, 50]}
+            page={data?.meta?.page ?? page}
+            totalPages={
+              data?.meta?.totalPages ??
+              Math.max(1, Math.ceil((data?.meta?.total ?? users.length) / pageSize))
+            }
+            totalItems={data?.meta?.total ?? users.length}
+            onPageChange={setPage}
+            onPageSizeChange={(newSize) => {
+              setPageSize(newSize);
+              setPage(1);
+            }}
+            className="bg-white border-0"
+           emptyMessage="No users found. Click '+ Add User' to create a new user account."
           />
         </div>
       </AdminContent>
@@ -275,7 +441,7 @@ export default function AdminUsersPage() {
             <Button variant="outline" onClick={handleCloseModal}>
               Cancel
             </Button>
-            <Button onClick={handleSubmit(onSubmit)} disabled={isMutating}>
+            <Button variant="gradient" onClick={handleSubmit(onSubmit)} disabled={isMutating}>
               {modalMode === "edit" ? "Update" : "Create"}
             </Button>
           </>
@@ -303,6 +469,7 @@ export default function AdminUsersPage() {
             <input
               {...register("email")}
               type="email"
+              maxLength={EMAIL_MAX_LENGTH}
               className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
               placeholder="user@example.com"
             />
@@ -320,7 +487,8 @@ export default function AdminUsersPage() {
                 {...register("password")}
                 type="password"
                 className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
-                placeholder="Minimum 6 characters"
+                placeholder="Minimum 8 characters"
+      
               />
               {errors.password && (
                 <p className="mt-1 text-xs text-red-500 font-medium">{errors.password.message}</p>
@@ -330,28 +498,43 @@ export default function AdminUsersPage() {
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Phone
+              Phone <span className="text-error-600">*</span>
             </label>
-            <input
-              {...register("phone")}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
-              placeholder="Phone number"
-            />
+           <input
+  {...register("phone", {
+    onChange: (e) => {
+      e.target.value = e.target.value.replace(/\D/g, "").slice(0, 10);
+    },
+  })}
+  type="tel"
+  inputMode="numeric"
+  maxLength={10}
+  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+  placeholder="10-digit phone number"
+/>
             {errors.phone && (
               <p className="mt-1 text-xs text-red-500 font-medium">{errors.phone.message}</p>
             )}
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Role ID
+                Role
               </label>
-              <input
-                {...register("roleId", { valueAsNumber: true })}
-                type="number"
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
-                placeholder="1"
+              <Select
+                value={watch("roleId") ? String(watch("roleId")) : ""}
+                onValueChange={(val) =>
+                  setValue("roleId", val ? Number(val) : (undefined as any), {
+                    shouldValidate: true,
+                    shouldDirty: true,
+                  })
+                }
+                options={roleSelectOptions}
+                placeholder={rolesLoading ? "Loading roles..." : "Select a role"}
+                disabled={rolesLoading}
+                portal={true}
+                searchable={roleSelectOptions.length > 6}
               />
               {errors.roleId && (
                 <p className="mt-1 text-xs text-red-500 font-medium">{errors.roleId.message}</p>
@@ -362,14 +545,22 @@ export default function AdminUsersPage() {
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Status
               </label>
-              <select
-                {...register("status")}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
-              >
-                <option value="active">Active</option>
-                <option value="inactive">Inactive</option>
-                <option value="banned">Banned</option>
-              </select>
+              <Select
+                value={watch("status")}
+                onValueChange={(val) =>
+                  setValue("status", val as "active" | "inactive" | "banned", {
+                    shouldValidate: true,
+                    shouldDirty: true,
+                  })
+                }
+                searchable={false}
+                portal={true}
+                options={[
+                  { value: "active", label: "Active" },
+                  { value: "inactive", label: "Inactive" },
+                  { value: "banned", label: "Banned" },
+                ]}
+              />
               {errors.status && (
                 <p className="mt-1 text-xs text-red-500 font-medium">{errors.status.message}</p>
               )}
@@ -410,7 +601,8 @@ export default function AdminUsersPage() {
               {...registerResetPassword("password")}
               type="password"
               className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
-              placeholder="Minimum 6 characters"
+              placeholder="Minimum 8 characters"
+             
             />
             {resetPasswordErrors.password && (
               <p className="mt-1 text-xs text-red-500 font-medium">
@@ -424,11 +616,15 @@ export default function AdminUsersPage() {
       <ConfirmDialog
         open={!!deleteId}
         onClose={() => setDeleteId(null)}
-        onConfirm={() => {
+        onConfirm={async () => {
           if (deleteId) {
-            deleteMutation.mutate(deleteId, {
-              onSuccess: () => setDeleteId(null),
-            });
+            try {
+              await deleteMutation.mutateAsync(deleteId);
+              toast.success("User deleted", "The user was removed successfully.");
+              setDeleteId(null);
+            } catch (err: any) {
+              toast.error("Failed to delete user", err?.message || "Please try again.");
+            }
           }
         }}
         title="Delete User"

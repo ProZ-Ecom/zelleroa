@@ -10,15 +10,18 @@ interface SearchInputProps
   onSearch?: (value: string) => void;
   debounceMs?: number;
   size?: "sm" | "md" | "lg";
+  inputClassName?: string;
 }
 
 function SearchInput({
   className,
+  inputClassName,
   onSearch,
   debounceMs = 300,
   placeholder = "Search...",
   value: propValue,
   defaultValue,
+  size,
   ...props
 }: SearchInputProps) {
   const [value, setValue] = React.useState(
@@ -28,6 +31,7 @@ function SearchInput({
 
   React.useEffect(() => {
     if (propValue !== undefined) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setValue(propValue);
     }
   }, [propValue]);
@@ -46,13 +50,15 @@ function SearchInput({
   return (
     <div className={cn("relative w-full", className)}>
       <Input
-        leftIcon={<Search className="h-4 w-4 text-theme-text-muted" />}
+        size={size}
+        leftIcon={<Search className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-theme-text-muted" />}
         placeholder={placeholder}
         value={value}
         onChange={(e) => setValue(e.target.value)}
         className={cn(
-          "h-11 rounded-xl border-theme-border bg-theme-surface text-theme-text-primary placeholder:text-theme-text-muted hover:border-theme-border-accent focus:border-theme-primary",
-          value ? "pr-10" : ""
+          "h-9 sm:h-10 md:h-11 text-xs sm:text-sm rounded-lg sm:rounded-xl border-theme-border bg-theme-surface text-theme-text-primary placeholder:text-theme-text-muted hover:border-theme-border-accent focus:border-theme-primary",
+          value ? "pr-8 sm:pr-10" : "",
+          inputClassName
         )}
         {...props}
       />
@@ -63,9 +69,9 @@ function SearchInput({
             setValue("");
             onSearchRef.current?.("");
           }}
-          className="absolute right-3 top-1/2 -translate-y-1/2 text-theme-text-muted hover:text-theme-primary cursor-pointer p-1 z-10"
+          className="absolute right-2.5 sm:right-3 top-1/2 -translate-y-1/2 text-theme-text-muted hover:text-theme-primary cursor-pointer p-1 z-10"
         >
-          <X className="h-4 w-4" />
+          <X className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
         </button>
       )}
     </div>

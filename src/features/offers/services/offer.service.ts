@@ -70,11 +70,12 @@ async function resolveTargets(level: OfferLevel, productIds: string[], itemIds: 
 async function assertDiscountFitsPrices(params: {
   level: OfferLevel;
   type: OfferType;
-  value: number;
+  value?: number | null;
   productIds: bigint[];
   itemIds: bigint[];
 }) {
   if (params.type !== "flat" && params.type !== "special_price") return;
+  const numValue = params.value ?? 0;
 
   const prices =
     params.level === "product"
@@ -84,11 +85,11 @@ async function assertDiscountFitsPrices(params: {
   if (prices.length === 0) return;
 
   if (params.type === "flat") {
-    const tooCheap = prices.filter((p) => p.basePrice > 0 && params.value >= p.basePrice);
+    const tooCheap = prices.filter((p) => p.basePrice > 0 && numValue >= p.basePrice);
     if (tooCheap.length > 0) {
       const skus = tooCheap.slice(0, 3).map((p) => p.sku).join(", ");
       throw ApiError.badRequest(
-        `Discount of ₹${params.value} is not less than the price of ${skus}` +
+        `Discount of ₹${numValue} is not less than the price of ${skus}` +
           (tooCheap.length > 3 ? ` and ${tooCheap.length - 3} more` : "")
       );
     }
@@ -96,10 +97,10 @@ async function assertDiscountFitsPrices(params: {
   }
 
   // A special price above every covered price would never discount anything.
-  const anyCheaper = prices.some((p) => p.basePrice > params.value);
+  const anyCheaper = prices.some((p) => p.basePrice > numValue);
   if (!anyCheaper) {
     throw ApiError.badRequest(
-      `Special offer price of ₹${params.value} is not below the current price of any selected item`
+      `Special offer price of ₹${numValue} is not below the current price of any selected item`
     );
   }
 }
@@ -183,7 +184,7 @@ export const offerService = {
       code: data.code ?? null,
       level: data.level,
       type: data.type,
-      value: data.value,
+      value: data.value ?? 0,
       buyQuantity: data.type === "bxgy" ? data.buyQuantity ?? null : null,
       getQuantity: data.type === "bxgy" ? data.getQuantity ?? null : null,
       minQuantity: data.minQuantity ?? 1,
@@ -218,7 +219,7 @@ export const offerService = {
     // patch, so a partial update can't leave an invalid combination behind.
     const level = data.level ?? existing.level;
     const type = data.type ?? existing.type;
-    const value = data.value ?? existing.value;
+    const value = data.value !== undefined ? (data.value ?? 0) : existing.value;
     const startsAt = data.startsAt
       ? parseDate(data.startsAt, "Start date")
       : existing.startsAt
@@ -262,7 +263,7 @@ export const offerService = {
       code: data.code,
       level,
       type,
-      value: data.value,
+      value: data.value !== undefined ? (data.value ?? 0) : undefined,
       buyQuantity: type === "bxgy" ? data.buyQuantity ?? existing.buyQuantity : null,
       getQuantity: type === "bxgy" ? data.getQuantity ?? existing.getQuantity : null,
       minQuantity: data.minQuantity,

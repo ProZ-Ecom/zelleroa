@@ -7,6 +7,19 @@ import type {
   PublicReviewQueryInput,
 } from "../validations/review.schema";
 
+/** Narrowest identifier wins: exact pack, else all packs of a variant, else the whole product. */
+export interface ReviewScope {
+  variantUnitPriceId?: bigint;
+  variantId?: bigint;
+  productId?: bigint;
+}
+
+function orderItemScopeWhere(scope: ReviewScope): Prisma.OrderItemWhereInput {
+  if (scope.variantUnitPriceId) return { variantUnitPriceId: scope.variantUnitPriceId };
+  if (scope.variantId) return { variantId: scope.variantId };
+  return { productId: scope.productId };
+}
+
 const reviewInclude = {
   product: {
     select: {
@@ -84,19 +97,13 @@ export const reviewRepository = {
         styles: {
           where: { deleted_at: null },
           include: {
-            items: {
-              where: { deleted_at: null },
+            variants: {
+              where: { deleted_at: null, isActive: true },
               include: {
-                variants: {
+                variant_unit_prices: {
                   where: { deleted_at: null, isActive: true },
-                  include: {
-                    variant_unit_prices: {
-                      where: { deleted_at: null, isActive: true },
-                      select: { id: true, uuid: true, sku: true },
-                      orderBy: [{ is_default: "desc" as const }, { createdAt: "asc" as const }],
-                      take: 1,
-                    },
-                  },
+                  select: { id: true, uuid: true, sku: true },
+                  orderBy: [{ is_default: "desc" as const }, { createdAt: "asc" as const }],
                   take: 1,
                 },
               },
@@ -110,7 +117,7 @@ export const reviewRepository = {
   },
 
   /**
-   * Resolves an item-level ProductVariant (e.g. "Mango Mysore Pak"). Used to
+   * Resolves a Colour-level ProductVariant (e.g. "Mango Mysore Pak"). Used to
    * scope reviews across *all* of that variant's pack sizes.
    */
   async findVariantByIdentifier(identifier: string) {
@@ -130,30 +137,14 @@ export const reviewRepository = {
         deleted_at: null,
       },
       include: {
-        item: {
-          select: {
-            id: true,
-            uuid: true,
-            name: true,
-            slug: true,
-            style: {
-              select: {
-                id: true,
-                uuid: true,
-                name: true,
-                slug: true,
-                product: {
+        style: { select: { id: true, uuid: true, name: true, slug: true, product: {
                   select: {
                     id: true,
                     uuid: true,
                     name: true,
                     slug: true,
                   },
-                },
-              },
-            },
-          },
-        },
+                } } },
         variant_unit_prices: {
           where: { deleted_at: null, isActive: true },
           select: { id: true, uuid: true, sku: true },
@@ -187,22 +178,14 @@ export const reviewRepository = {
       include: {
         variant: {
           include: {
-            item: {
-              include: {
-                style: {
-                  include: {
-                    product: {
+            style: { include: { product: {
                       select: {
                         id: true,
                         uuid: true,
                         name: true,
                         slug: true,
                       },
-                    },
-                  },
-                },
-              },
-            },
+                    } } },
           },
         },
       },
@@ -223,6 +206,43 @@ export const reviewRepository = {
         order: true,
         product: true,
         variant_unit_price: true,
+      },
+    });
+  },
+
+  /**
+   * Delivered order items of this customer inside the scope (exact pack, variant, or product)
+   * that have no active review yet, oldest first.
+   */
+  async findReviewableDeliveredOrderItems(scope: ReviewScope, customerId: bigint) {
+    return db.orderItem.findMany({
+      where: {
+        ...orderItemScopeWhere(scope),
+        is_active: true,
+        order: { userId: customerId, is_active: true, order_status: "delivered" },
+        reviews: { none: { userId: customerId, is_active: true } },
+      },
+      select: {
+        id: true,
+        productId: true,
+        variantUnitPriceId: true,
+        variant_unit_price: { select: { uuid: true } },
+      },
+      orderBy: { id: "asc" },
+    });
+  },
+
+  /** Any active review by this customer inside the scope (used to tell "already reviewed" apart from "not delivered"). */
+  async findActiveReviewInScope(scope: ReviewScope, customerId: bigint) {
+    return db.review.findFirst({
+      where: {
+        userId: customerId,
+        is_active: true,
+        ...(scope.variantUnitPriceId
+          ? { variant_unit_price_id: scope.variantUnitPriceId }
+          : scope.variantId
+            ? { variant_unit_price: { variant_id: scope.variantId } }
+            : { productId: scope.productId }),
       },
     });
   },

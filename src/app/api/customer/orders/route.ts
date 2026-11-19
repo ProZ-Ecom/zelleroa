@@ -4,6 +4,7 @@ import { ApiError } from "@/lib/api/api-error";
 import { orderService } from "@/features/orders/services/order.service";
 import {
   customerCreateOrderSchema,
+  customerOrdersQuerySchema,
   type CustomerCreateOrderInput,
 } from "@/features/orders/validations/order.schema";
 
@@ -38,7 +39,7 @@ export const POST = createApiHandler(
     },
   },
   {
-    requireAuth: true,
+    requireAuth: true, requiredRole: ["CUSTOMER", "AGENT"],
     bodySchema: customerCreateOrderSchema,
   }
 );
@@ -64,6 +65,8 @@ export const GET = createApiHandler(
   },
   {
     requireAuth: true,
+    requiredRole: ["CUSTOMER", "AGENT"],
+    querySchema: customerOrdersQuerySchema,
   }
 );
 

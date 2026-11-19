@@ -1,12 +1,9 @@
 import { z } from "zod";
+import { emailField } from "@/lib/validations/email";
 
 export const subscribeNewsletterSchema = z
   .object({
-    email: z
-      .string({ message: "Email is required" })
-      .trim()
-      .email("Invalid email address")
-      .max(150, "Email cannot exceed 150 characters"),
+    email: emailField,
   })
   .strict();
 

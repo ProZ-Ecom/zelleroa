@@ -81,8 +81,13 @@ export const adminCustomerService = {
   async updateCustomerStatus(
     uuid: string,
     isActive: boolean,
-    adminSessionUserId?: string
+    adminSessionUserId?: string,
+    blockReason?: string
   ): Promise<AdminCustomerDetailDto> {
+    if (!isActive && !blockReason?.trim()) {
+      throw ApiError.badRequest("A reason is required to block this account");
+    }
+
     const customer = await adminCustomerRepository.findCustomerByUuid(uuid);
     if (!customer) {
       throw ApiError.notFound("Customer not found");
@@ -99,7 +104,8 @@ export const adminCustomerService = {
     const updated = await adminCustomerRepository.updateCustomerStatus(
       uuid,
       isActive,
-      adminInternalId
+      adminInternalId,
+      blockReason?.trim()
     );
 
     if (!updated) {

@@ -22,7 +22,7 @@ export function ProfileDetailsTab({
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
   const [dob, setDob] = useState("");
-  const [gender, setGender] = useState<"male" | "female" | "other" | "">("");
+  const [gender, setGender] = useState<"male" | "female" | "other" | "not_applicable" | "">("");
   const [isWhatsapp, setIsWhatsapp] = useState(false);
   const [whatsappNo, setWhatsappNo] = useState("");
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
@@ -60,7 +60,7 @@ export function ProfileDetailsTab({
     const payload = {
       name: name.trim() || undefined,
       dob: dob || null,
-      gender: (gender || null) as "male" | "female" | "other" | null,
+      gender: (gender || null) as "male" | "female" | "other" | "not_applicable" | null,
       isWhatsapp,
       whatsappNo: isWhatsapp ? (whatsappNo.trim() || undefined) : null,
     };
@@ -232,13 +232,14 @@ export function ProfileDetailsTab({
               { value: "female", label: "Female" },
               { value: "male", label: "Male" },
               { value: "other", label: "Other" },
+              { value: "not_applicable", label: "Not Applicable" },
             ]}
             value={gender}
             onChange={(val) =>
               handleFieldChange(
                 setGender,
                 "gender",
-                val as "male" | "female" | "other" | ""
+                val as "male" | "female" | "other" | "not_applicable" | ""
               )
             }
             disabled={updateMutation.isPending}

@@ -3,17 +3,24 @@
 import * as React from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { useRouter, usePathname } from "next/navigation";
+import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
-import { LogIn, Search, Heart, ShoppingCart } from "lucide-react";
-import { LOGOS, ICONS, mobileBottomIcons } from "@/constants/storefront";
+import { LogIn, Search, Heart, ShoppingCart, Menu, User, LogOut } from "lucide-react";
+import { LOGOS, mobileBottomIcons } from "@/constants/storefront";
 import { NavButton } from "@/components/storefront/buttons/NavButton";
 import { IconButton } from "@/components/storefront/buttons/IconButton";
+import { getRoleHome, resolveRoleScope } from "@/lib/auth/role-routes";
 import { useClickOutside } from "@/hooks/useClickOutside";
-import { getInitials } from "@/lib/utils";
+import { useRecentSearches } from "@/hooks/use-recent-searches";
+import { SearchDropdown } from "@/components/storefront/search/SearchDropdown";
+import { getInitials, toTitleCase } from "@/lib/utils";
+import { useLogout } from "@/features/auth/hooks/use-auth-mutations";
+import { LogoutConfirmDialog } from "@/components/common/LogoutConfirmDialog";
 import { useCustomerWishlistCount } from "@/features/customers/hooks/use-customer-wishlist";
 import { useCustomerCartCount } from "@/features/customers/hooks/use-customer-cart";
 import { useCustomerProfile } from "@/features/customers/hooks/use-customer-profile";
+import { calculateCustomerCompletion } from "@/features/customers/lib/profile-completion";
+import { ProfileAvatarRing } from "@/components/ui/ProfileAvatarRing";
 import { useHeaderMenu } from "@/features/header-menu/hooks";
 import { categoryHref } from "@/features/customers/utils/catalog-listing-query";
 import type { CategoryTreeNode } from "@/features/categories/types";
@@ -30,7 +37,16 @@ function isInCategoryTree(node: CategoryTreeNode, pathname: string): boolean {
 }
 
 /** True when the current page matches any of this nav item's category subtrees, or its plain link. */
-function isNavItemActive(item: HeaderNavItem, pathname: string): boolean {
+function isNavItemActive(
+  item: HeaderNavItem,
+  pathname: string,
+  gender: string | null,
+): boolean {
+  // The same category can sit under several audience-specific items (Women/Mens),
+  // so when the URL names an audience only the matching item may highlight.
+  if (item.gender && gender && item.gender.toLowerCase() !== gender.toLowerCase()) {
+    return false;
+  }
   if (item.categories.some((c) => isInCategoryTree(c, pathname))) return true;
   return item.link ? pathname === item.link : false;
 }
@@ -44,7 +60,7 @@ function isNavItemActive(item: HeaderNavItem, pathname: string): boolean {
  */
 function buildNavNode(item: HeaderNavItem): NavNode {
   if (item.categories.length === 1 && !item.link) {
-    return { ...item.categories[0], name: item.label, gender: item.gender };
+    return { ...item.categories[0], name: item.label, gender: item.gender, navId: item.id };
   }
   return {
     id: item.id,
@@ -52,36 +68,71 @@ function buildNavNode(item: HeaderNavItem): NavNode {
     slug: "",
     icon: null,
     children: item.categories,
-    href: item.link ?? "/products",
+    href: item.link ?? "/category/all",
     gender: item.gender,
+    navId: item.id,
   };
 }
 
-export function Header() {
+export function Header({
+  initialUser = null,
+}: {
+  initialUser?: { role?: string; scope?: string; email?: string; name?: string } | null;
+}) {
   const [isOpen, setIsOpen] = React.useState(false);
   const [isSearchOpen, setIsSearchOpen] = React.useState(false);
   const [searchQuery, setSearchQuery] = React.useState("");
   const searchInputRef = React.useRef<HTMLInputElement>(null);
+  const [showSearchDropdown, setShowSearchDropdown] = React.useState(false);
+  const searchWrapRef =React.useRef<HTMLDivElement>(null);
+  const {
+    recent: recentSearches,
+    add: addRecentSearch,
+    remove: removeRecentSearch,
+    clear: clearRecentSearches,
+  } = useRecentSearches();
   const [openNavId, setOpenNavId] = React.useState<string | null>(null);
   const megaMenuCloseTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const cancelMegaMenuClose = React.useCallback(() => {
     if (megaMenuCloseTimer.current) clearTimeout(megaMenuCloseTimer.current);
   }, []);
+  // Longer close delay so a slightly wandering cursor doesn't dismiss the menu.
   const scheduleMegaMenuClose = React.useCallback(() => {
     cancelMegaMenuClose();
-    megaMenuCloseTimer.current = setTimeout(() => setOpenNavId(null), 150);
+    megaMenuCloseTimer.current = setTimeout(() => setOpenNavId(null), 300);
   }, [cancelMegaMenuClose]);
+  const openNavIdRef = React.useRef<string | null>(null);
+  openNavIdRef.current = openNavId;
+  // Hover intent: a short delay before the first open so sweeping the cursor
+  // across the nav doesn't flash menus; once one is open, switching is instant.
   const openMegaMenu = React.useCallback(
     (id: string) => {
       cancelMegaMenuClose();
-      setOpenNavId(id);
+      if (openNavIdRef.current) {
+        setOpenNavId(id);
+        return;
+      }
+      megaMenuCloseTimer.current = setTimeout(() => setOpenNavId(id), 120);
     },
     [cancelMegaMenuClose]
   );
   const router = useRouter();
   const pathname = usePathname();
+  const activeGender = useSearchParams().get("gender");
   const { data: session, status } = useSession();
-  const isAuthenticated = status === "authenticated";
+  // The server-resolved user (NextAuth session or access_token cookie) backs up
+  // the client session, which can lag or fail to sync after a cookie login.
+  const isAuthenticated = status === "authenticated" || !!initialUser;
+  // Admin/staff manage the store from /admin; they have no customer account,
+  // wishlist or purchase UI, so those entry points are role-aware.
+  const userRole =
+    (session?.user as { role?: string } | undefined)?.role ?? initialUser?.role;
+  const userScope = resolveRoleScope(
+    (session?.user as { scope?: string } | undefined)?.scope ?? initialUser?.scope,
+    userRole
+  );
+  const isStaffUser = !!userRole && userScope === "ADMIN";
+  const accountHref = isAuthenticated ? getRoleHome(userRole, userScope) : "/login";
   // `status` is "loading" until /api/auth/session resolves on every page load.
   // Treating that as logged-out would flash the Login button at signed-in users,
   // so the account cell renders a placeholder until the session is known.
@@ -94,22 +145,31 @@ export function Header() {
     return () => clearTimeout(timer);
   }, [status]);
   const isAuthLoading = status === "loading" && !authGraceExpired;
-  const { data: profile } = useCustomerProfile({ enabled: isAuthenticated });
+
+  // Hydration safety: ensure initial client render matches server HTML if session was not in SSR
+  const [mounted, setMounted] = React.useState(false);
+  React.useEffect(() => {
+    setMounted(true);
+  }, []);
+  const effectiveAuthenticated = mounted ? isAuthenticated : !!initialUser;
+  const effectiveAuthLoading = mounted ? isAuthLoading : (!initialUser && status === "loading");
+  const { data: profile } = useCustomerProfile({ enabled: isAuthenticated && !isStaffUser });
 
   // Get user name and initials for authenticated header state
-  const userName = profile?.name || session?.user?.name || "";
+  const userName = profile?.name || session?.user?.name || initialUser?.name || "";
   const userInitials = React.useMemo(() => {
     if (userName && userName.trim().length > 0) {
       return getInitials(userName) || "U";
     }
-    if (session?.user?.email) {
-      return session.user.email.slice(0, 2).toUpperCase();
+    const email = session?.user?.email ?? initialUser?.email;
+    if (email) {
+      return email.slice(0, 2).toUpperCase();
     }
     return "U";
-  }, [userName, session?.user?.email]);
+  }, [userName, session?.user?.email, initialUser?.email]);
 
   // Wishlist requires an account; cart works for guests too (guest-session cookie).
-  const { data: wishlistCount = 0 } = useCustomerWishlistCount({ enabled: isAuthenticated });
+  const { data: wishlistCount = 0 } = useCustomerWishlistCount({ enabled: isAuthenticated && !isStaffUser });
   const { data: cartCountData } = useCustomerCartCount();
   const cartCount =
     typeof cartCountData === "number"
@@ -124,10 +184,68 @@ export function Header() {
 
   const menuRef = React.useRef<HTMLDivElement>(null);
   const buttonRef = React.useRef<HTMLDivElement>(null);
+  const accountDropdownRef = React.useRef<HTMLDivElement>(null);
+
+  const [isAccountDropdownOpen, setIsAccountDropdownOpen] = React.useState(false);
+  const [showLogoutConfirm, setShowLogoutConfirm] = React.useState(false);
+  const accountCloseTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const logout = useLogout(isStaffUser ? "/admin/login" : "/login");
+  const userEmail = session?.user?.email ?? initialUser?.email ?? "";
+  const profileHref = userRole === "CUSTOMER" ? "/account/dashboard?tab=profile" : accountHref;
+
+  const cancelAccountClose = React.useCallback(() => {
+    if (accountCloseTimer.current) {
+      clearTimeout(accountCloseTimer.current);
+      accountCloseTimer.current = null;
+    }
+  }, []);
+
+  const handleAvatarMouseEnter = React.useCallback(() => {
+    cancelAccountClose();
+    setIsAccountDropdownOpen(true);
+  }, [cancelAccountClose]);
+
+  const handleAvatarMouseLeave = React.useCallback(() => {
+    cancelAccountClose();
+    accountCloseTimer.current = setTimeout(() => {
+      setIsAccountDropdownOpen(false);
+    }, 200);
+  }, [cancelAccountClose]);
 
   useClickOutside([menuRef, buttonRef], () => {
     setIsOpen(false);
   });
+  useClickOutside([searchWrapRef], () => {
+    setShowSearchDropdown(false);
+    setIsSearchOpen(false);
+    setSearchQuery("");
+  });
+  useClickOutside([accountDropdownRef], () => {
+    setIsAccountDropdownOpen(false);
+  });
+
+  React.useEffect(() => {
+    setIsAccountDropdownOpen(false);
+    setIsSearchOpen(false);
+    setShowSearchDropdown(false);
+    setSearchQuery("");
+  }, [pathname]);
+
+  React.useEffect(() => {
+    if (!isAccountDropdownOpen) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setIsAccountDropdownOpen(false);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [isAccountDropdownOpen]);
+
+  React.useEffect(() => {
+    return () => {
+      if (accountCloseTimer.current) clearTimeout(accountCloseTimer.current);
+    };
+  }, []);
 
   React.useEffect(() => {
     if (!openNavId) return;
@@ -148,7 +266,7 @@ export function Header() {
         item.alt === "cart" || item.text === "Cart" || item.path === "/cart";
 
       if (isUser) {
-        return isAuthenticated ? "/profile" : "/login";
+        return accountHref;
       }
       if (isWishlist) {
         return isAuthenticated ? "/wishlist" : "/login?callbackUrl=/wishlist";
@@ -159,22 +277,31 @@ export function Header() {
       }
       return item.path || "/";
     },
-    [isAuthenticated]
+    [isAuthenticated, accountHref]
   );
+
+  const runSearch = (term: string) => {
+    const trimmed = term.trim();
+    if (!trimmed) return;
+    addRecentSearch(trimmed);
+    router.push(`/products?search=${encodeURIComponent(trimmed)}`);
+    setSearchQuery("");
+    setIsSearchOpen(false);
+    setShowSearchDropdown(false);
+  };
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const trimmed = searchQuery.trim();
-    if (!trimmed) return;
-    router.push(`/products?search=${encodeURIComponent(trimmed)}`);
-    setIsSearchOpen(false);
+    if (searchQuery.trim()) {
+      runSearch(searchQuery);
+    }
   };
 
   React.useEffect(() => {
     if (isSearchOpen) searchInputRef.current?.focus();
   }, [isSearchOpen]);
 
-  const wishlistHref = isAuthenticated ? "/wishlist" : "/login?callbackUrl=/wishlist";
+  const wishlistHref = effectiveAuthenticated ? "/wishlist" : "/login?callbackUrl=/wishlist";
 
   const openNavItem = headerMenu.find(
     (item) => item.id === openNavId && item.categories.length > 0
@@ -189,55 +316,55 @@ export function Header() {
           <span className="hidden sm:inline text-white/40">|</span>
           <span className="hidden sm:inline truncate">Delivered in 3–7 Days</span>
           <span className="hidden md:inline text-white/40">|</span>
-          <span className="hidden md:inline truncate">Easy 3-Day Hassle-Free Returns</span>
+          <span className="hidden md:inline truncate">3-Day Easy Returns</span>
         </div>
       </div>
 
       <header className="sticky top-0 z-50 w-full bg-white shadow-xs header-font">
-      <div className="w-full max-w-[1400px] 2xl:max-w-[1600px] 3xl:max-w-[1800px] mx-auto h-20 sm:h-24 px-4 sm:px-6 md:px-8 flex items-center justify-between">
-        {/* Left Section (Logo + Brand Title) */}
-        <div className="flex items-center gap-1 sm:gap-2 md:gap-3">
-          <Link href="/" className="inline-block">
+      <div className="w-full max-w-[1400px] 2xl:max-w-[1600px] 3xl:max-w-[1800px] mx-auto h-20 sm:h-24 px-2.5 sm:px-4 lg:px-2.5 xl:px-6 2xl:px-8 flex items-center justify-between gap-1.5 lg:gap-2 xl:gap-4 2xl:gap-6">
+        {/* Left Section (Logo + Brand Title) - Fixed aspect ratio & prevented flex compression */}
+        <div className="flex items-center gap-1 sm:gap-1.5 md:gap-2 xl:gap-3 shrink-0 select-none">
+          <Link href="/" className="inline-flex items-center shrink-0">
             <Image
               src={LOGOS.logo}
               alt="logo"
               width={100}
               height={100}
               priority
-              className="w-[55px] sm:w-[65px] md:w-[80px] hover:scale-105 transition-transform duration-300 active:scale-95"
+              className="h-8 sm:h-9 xl:h-10 w-auto aspect-square object-contain hover:scale-105 transition-transform duration-300 active:scale-95 shrink-0"
             />
           </Link>
 
           {/* Mobile Title */}
-          <Link href="/" className="block md:hidden">
+          <Link href="/" className="flex md:hidden items-center shrink-0 min-w-[95px] sm:min-w-[110px]">
             <Image
               src={LOGOS.mobileTitle}
               alt="mobile title"
-              width={80}
+              width={120}
               height={40}
               priority
-              className="w-[95px] sm:w-[120px] h-auto hover:scale-105 transition-transform duration-300"
+              className="h-7 sm:h-8 w-auto min-w-[95px] sm:min-w-[110px] object-contain hover:scale-105 transition-transform duration-300 shrink-0"
             />
           </Link>
 
           {/* Desktop Title */}
-          <Link href="/" className="hidden md:block">
+          <Link href="/" className="hidden md:flex items-center shrink-0 min-w-[95px] lg:min-w-[105px] xl:min-w-[125px]">
             <Image
               src={LOGOS.title}
               alt="title"
-              width={80}
-              height={80}
+              width={160}
+              height={48}
               priority
-              className="w-auto h-auto hover:scale-105 transition-transform duration-300"
+              className="h-7 sm:h-8 lg:h-7.5 xl:h-9 2xl:h-10 w-auto object-contain hover:scale-105 transition-transform duration-300 shrink-0"
             />
           </Link>
         </div>
 
         {/* Desktop Navigation */}
-        <nav className="hidden lg:flex items-center gap-1">
+        <nav className="hidden lg:flex items-center gap-0.5 xl:gap-1 2xl:gap-1.5 min-w-0 flex-1 justify-center py-1 mx-0.5 xl:mx-2 2xl:mx-3">
           <Link
             href="/"
-            className={`rounded-full px-3.5 py-2 text-sm font-medium transition-colors ${
+            className={`rounded-full px-1.5 xl:px-2.5 2xl:px-3.5 py-1 xl:py-1.5 text-[11px] xl:text-xs 2xl:text-sm font-medium transition-colors whitespace-nowrap shrink-0 tracking-tight xl:tracking-normal ${
               pathname === "/"
                 ? "bg-theme-primary text-theme-primary-fg font-semibold"
                 : "text-hover-primary hover:text-theme-primary"
@@ -261,7 +388,7 @@ export function Header() {
                 <MegaMenuTrigger
                   key={item.id}
                   root={buildNavNode(item)}
-                  isActive={isNavItemActive(item, pathname)}
+                  isActive={isNavItemActive(item, pathname, activeGender)}
                   isOpen={openNavId === item.id}
                   onMouseEnter={() => openMegaMenu(item.id)}
                   onMouseLeave={scheduleMegaMenuClose}
@@ -271,8 +398,8 @@ export function Header() {
                 <Link
                   key={item.id}
                   href={item.link ?? "#"}
-                  className={`flex items-center gap-1.5 rounded-full px-3.5 py-2 text-sm font-medium transition-colors ${
-                    isNavItemActive(item, pathname)
+                  className={`flex items-center gap-1 rounded-full px-1.5 xl:px-2.5 2xl:px-3.5 py-1 xl:py-1.5 text-[11px] xl:text-xs 2xl:text-sm font-medium transition-colors whitespace-nowrap shrink-0 tracking-tight xl:tracking-normal ${
+                    isNavItemActive(item, pathname, activeGender)
                       ? "bg-theme-primary text-theme-primary-fg font-semibold"
                       : "text-red-600 hover:bg-red-50"
                   }`}
@@ -285,30 +412,49 @@ export function Header() {
         </nav>
 
         {/* Right Section (Icons & Hamburger) */}
-        <div className="flex items-center gap-2 sm:gap-3 md:gap-5">
-          <div className="hidden lg:flex items-center gap-5">
+        <div className="flex items-center gap-1.5 sm:gap-2 md:gap-3 xl:gap-4 shrink-0">
+          <div className="hidden lg:flex items-center gap-1.5 sm:gap-2 xl:gap-3.5 2xl:gap-5">
             {/* Inline search */}
+            <div ref={searchWrapRef} className="relative">
             <form onSubmit={handleSearchSubmit} className="relative flex items-center">
               <input
                 ref={searchInputRef}
                 type="text"
                 value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                onBlur={() => {
-                  if (!searchQuery.trim()) setIsSearchOpen(false);
+                onChange={(e) => {
+                  setSearchQuery(e.target.value);
+                  setShowSearchDropdown(true);
                 }}
+                onFocus={() => setShowSearchDropdown(true)}
+                onKeyDown={(e) => {
+                  if (e.key === "Escape") {
+                    setShowSearchDropdown(false);
+                    setIsSearchOpen(false);
+                    setSearchQuery("");
+                  }
+                }}
+                autoComplete="off"
                 placeholder="Search"
                 className={`h-9 pl-3 pr-9 rounded-full border border-theme-border bg-theme-surface-alt text-sm text-theme-text-primary placeholder:text-theme-text-subtle outline-none focus:border-theme-primary transition-all duration-200 overflow-hidden ${
-                  isSearchOpen ? "w-40 xl:w-56 opacity-100" : "w-0 px-0 border-transparent opacity-0"
+                  isSearchOpen ? "w-40 xl:w-56 opacity-100 pointer-events-auto" : "w-0 px-0 border-transparent opacity-0 pointer-events-none"
                 }`}
               />
               <button
-                type={isSearchOpen ? "submit" : "button"}
-                onClick={() => {
-                  if (!isSearchOpen) setIsSearchOpen(true);
+                type={isSearchOpen && searchQuery.trim() ? "submit" : "button"}
+                onClick={(e) => {
+                  if (!isSearchOpen) {
+                    e.preventDefault();
+                    setIsSearchOpen(true);
+                    setShowSearchDropdown(true);
+                    setTimeout(() => searchInputRef.current?.focus(), 50);
+                  } else if (!searchQuery.trim()) {
+                    e.preventDefault();
+                    setIsSearchOpen(false);
+                    setShowSearchDropdown(false);
+                  }
                 }}
                 aria-label="Search"
-                className={`flex items-center justify-center text-neutral-700 hover:text-theme-primary transition-colors ${
+                className={`flex items-center justify-center text-neutral-700 hover:text-theme-primary transition-colors cursor-pointer ${
                   isSearchOpen ? "absolute right-2.5" : "static"
                 }`}
               >
@@ -316,7 +462,31 @@ export function Header() {
               </button>
             </form>
 
+            {isSearchOpen && showSearchDropdown && (
+              <SearchDropdown
+                query={searchQuery}
+                recent={recentSearches}
+                onSearch={runSearch}
+                onProductOpen={(term) => {
+                  addRecentSearch(term);
+                  setShowSearchDropdown(false);
+                  setIsSearchOpen(false);
+                  setSearchQuery("");
+                }}
+                onClose={() => {
+                  setShowSearchDropdown(false);
+                  setIsSearchOpen(false);
+                  setSearchQuery("");
+                }}
+                onRemoveRecent={removeRecentSearch}
+                onClearRecent={clearRecentSearches}
+                className="absolute right-0 top-full mt-2 w-80 xl:w-96 z-50"
+              />
+            )}
+            </div>
+
             {/* Wishlist */}
+            {!isStaffUser && (
             <Link
               href={wishlistHref}
               aria-label="Wishlist"
@@ -329,8 +499,10 @@ export function Header() {
                 </span>
               )}
             </Link>
+            )}
 
             {/* Cart */}
+            {!isStaffUser && (
             <Link
               href="/cart"
               aria-label="Cart"
@@ -343,40 +515,112 @@ export function Header() {
                 </span>
               )}
             </Link>
+            )}
 
             {/* Account */}
             {/* The account cell is the last item in a right-anchored row, so the
                 Login pill (~92px) collapsing to the 26px avatar would drag every
                 icon beside it. A fixed slot keeps the swap contained: siblings
                 never move, whichever state wins. */}
-            <div className="flex min-w-[92px] justify-end">
-              {isAuthLoading ? (
+            <div
+              ref={accountDropdownRef}
+              className={`relative flex justify-end shrink-0 ${
+                effectiveAuthLoading || effectiveAuthenticated ? "" : "min-w-[66px] xl:min-w-[92px]"
+              }`}
+              onMouseEnter={handleAvatarMouseEnter}
+              onMouseLeave={handleAvatarMouseLeave}
+            >
+              {effectiveAuthLoading ? (
                 <div
                   className="w-[26px] h-[26px] rounded-full bg-theme-surface-alt animate-pulse"
                   aria-hidden="true"
                 />
-              ) : !isAuthenticated ? (
+              ) : !effectiveAuthenticated ? (
                 <Link
                   href="/login"
-                  className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-sm bg-theme-primary hover:bg-theme-primary-hover text-theme-primary-fg border border-theme-primary text-xs sm:text-sm font-semibold transition-all duration-150 shadow-xs hover:shadow-sm active:scale-95 cursor-pointer"
+                  className="flex items-center gap-1 xl:gap-1.5 px-2 xl:px-3.5 py-1 xl:py-1.5 rounded-sm bg-theme-primary hover:bg-theme-primary-hover text-theme-primary-fg border border-theme-primary text-[11px] xl:text-sm font-semibold transition-all duration-150 shadow-xs hover:shadow-sm active:scale-95 cursor-pointer shrink-0"
                   aria-label="Login"
                 >
                   <span>Login</span>
                   <LogIn
-                    className="w-4 h-4 text-inherit shrink-0"
+                    className="w-3.5 h-3.5 xl:w-4 xl:h-4 text-inherit shrink-0"
                     strokeWidth={2}
                   />
                 </Link>
               ) : (
-                <IconButton
-                  alt={userName ? `${userName}'s profile` : "Profile"}
-                  href="/profile"
-                  customIcon={
-                    <div className="w-[26px] h-[26px] rounded-full bg-theme-primary text-theme-primary-fg text-[11px] font-bold flex items-center justify-center border border-theme-border-accent shadow-2xs select-none leading-none">
-                      {userInitials}
+                <>
+                  <button
+                    type="button"
+                    onClick={() => setIsAccountDropdownOpen((prev) => !prev)}
+                    aria-label={userName ? `${userName}'s profile menu` : "Profile menu"}
+                    aria-expanded={isAccountDropdownOpen}
+                    aria-haspopup="menu"
+                    className="relative inline-flex items-center justify-center cursor-pointer transition-transform duration-150 hover:scale-105 active:scale-95 focus:outline-none"
+                  >
+                    {userRole === "CUSTOMER" && profile ? (
+                      <ProfileAvatarRing percent={calculateCustomerCompletion(profile).percent} size={36}>
+                        <div className="w-full h-full bg-theme-primary text-theme-primary-fg text-[11px] font-bold flex items-center justify-center select-none leading-none">
+                          {userInitials}
+                        </div>
+                      </ProfileAvatarRing>
+                    ) : (
+                      <div className="w-[26px] h-[26px] rounded-full bg-theme-primary text-theme-primary-fg text-[11px] font-bold flex items-center justify-center border border-theme-border-accent shadow-2xs select-none leading-none">
+                        {userInitials}
+                      </div>
+                    )}
+                  </button>
+
+                  {/* Absolute-positioned dropdown menu */}
+                  {isAccountDropdownOpen && (
+                    <div
+                      role="menu"
+                      aria-orientation="vertical"
+                      className="absolute right-0 top-full mt-2 w-56 rounded-2xl border border-theme-border bg-theme-surface p-1.5 shadow-xl z-50 animate-in fade-in slide-in-from-top-2 duration-150"
+                      onMouseEnter={cancelAccountClose}
+                      onMouseLeave={handleAvatarMouseLeave}
+                    >
+                      {/* User info snippet */}
+                      <div className="px-3 py-2 border-b border-theme-border/60">
+                        <p className="text-xs font-bold text-theme-text-primary truncate">
+                          {userName ? toTitleCase(userName) : "My Account"}
+                        </p>
+                        {userEmail && (
+                          <p className="text-[11px] text-theme-text-muted truncate mt-0.5">
+                            {userEmail}
+                          </p>
+                        )}
+                      </div>
+
+                      <div className="py-1">
+                        {/* My Profile */}
+                        <Link
+                          href={profileHref}
+                          role="menuitem"
+                          onClick={() => setIsAccountDropdownOpen(false)}
+                          className="group flex items-center gap-2.5 w-full px-3 py-2 rounded-xl text-xs font-semibold text-theme-text-primary hover:bg-theme-surface-alt hover:text-theme-primary transition-colors cursor-pointer"
+                        >
+                          <User className="h-4 w-4 text-theme-text-muted group-hover:text-theme-primary transition-colors shrink-0" />
+                          <span>My Profile</span>
+                        </Link>
+
+                        {/* Logout */}
+                        <button
+                          type="button"
+                          role="menuitem"
+                          disabled={logout.isPending}
+                          onClick={() => {
+                            setIsAccountDropdownOpen(false);
+                            setShowLogoutConfirm(true);
+                          }}
+                          className="group flex items-center gap-2.5 w-full px-3 py-2 rounded-xl text-xs font-semibold text-theme-status-can-fg hover:bg-red-50 dark:hover:bg-red-950/20 transition-colors cursor-pointer disabled:opacity-60 text-left"
+                        >
+                          <LogOut className="h-4 w-4 text-theme-status-can-fg shrink-0" />
+                          <span>{logout.isPending ? "Logging out…" : "Logout"}</span>
+                        </button>
+                      </div>
                     </div>
-                  }
-                />
+                  )}
+                </>
               )}
             </div>
           </div>
@@ -384,26 +628,35 @@ export function Header() {
           {/* Hamburger Menu Trigger */}
           <div ref={buttonRef} className="lg:hidden">
             <IconButton
-              icon={ICONS.menu}
               alt="menu"
               onClick={() => setIsOpen(!isOpen)}
-              imageClassName="w-[22px] h-[22px]"
+              className="text-neutral-700 hover:text-theme-primary"
+              customIcon={<Menu className="h-[22px] w-[22px]" strokeWidth={1.75} />}
             />
           </div>
         </div>
       </div>
 
-      {/* Mega-menu dropdown: in normal document flow (not absolutely
-          positioned) so opening it pushes the page content below the header
-          down instead of floating over it. */}
+      {/* Mega-menu dropdown: overlays the page directly under the header (no
+          layout shift), fades in, and dims the page behind it. */}
       {openNavItem && (
-        <div className="hidden lg:block" onMouseEnter={cancelMegaMenuClose} onMouseLeave={scheduleMegaMenuClose}>
-          <MegaMenuPanel
-            root={buildNavNode(openNavItem)}
-            enableProductPreview={openNavItem.categories.length === 1 && !openNavItem.link}
-            onNavigate={() => setOpenNavId(null)}
+        <>
+          <div
+            aria-hidden="true"
+            className="hidden lg:block pointer-events-none absolute left-0 right-0 top-full h-screen bg-black/25 mega-menu-enter"
           />
-        </div>
+          <div
+            className="hidden lg:block absolute left-0 right-0 top-full mega-menu-enter"
+            onMouseEnter={cancelMegaMenuClose}
+            onMouseLeave={scheduleMegaMenuClose}
+          >
+            <MegaMenuPanel
+              root={buildNavNode(openNavItem)}
+              enableProductPreview={openNavItem.categories.length === 1 && !openNavItem.link}
+              onNavigate={() => setOpenNavId(null)}
+            />
+          </div>
+        </>
       )}
 
       {/* Mobile Drawer Menu */}
@@ -421,8 +674,8 @@ export function Header() {
         {/* Drawer Panel */}
         <div
           ref={menuRef}
-          className={`fixed top-0 right-0 z-50 h-screen w-72 bg-[var(--brown-600)] border-l border-white/20 shadow-2xl transform transition-all duration-500 ease-in-out flex flex-col ${
-            isOpen ? "translate-x-0" : "translate-x-full"
+          className={`fixed top-0 right-0 z-50 h-screen w-72 bg-[var(--brown-600)] border-l border-white/20 transform transition-all duration-500 ease-in-out flex flex-col ${
+            isOpen ? "translate-x-0 shadow-2xl" : "translate-x-full invisible"
           }`}
         >
           <div className="flex items-center justify-between border-b border-white/20 px-6 py-5 shrink-0">
@@ -496,6 +749,7 @@ export function Header() {
         "
       >
         {mobileBottomIcons.map((item) => {
+          if (isStaffUser && (item.text === "Wishlist" || item.text === "Cart")) return null;
           const isUser =
             item.text === "Account" || item.path === "/profile";
           const targetPath = resolvePath(item);
@@ -512,7 +766,7 @@ export function Header() {
             // as the desktop row: pin the cell width, let it repaint inside.
             return (
               <div key={item.id} className="flex w-16 justify-center">
-                {isAuthLoading ? (
+                {effectiveAuthLoading ? (
                   <div
                     className="flex flex-col-reverse items-center gap-1"
                     aria-hidden="true"
@@ -520,7 +774,7 @@ export function Header() {
                     <span className="h-4 w-10 rounded bg-theme-surface-alt animate-pulse" />
                     <span className="h-5 w-5 rounded-full bg-theme-surface-alt animate-pulse" />
                   </div>
-                ) : !isAuthenticated ? (
+                ) : !effectiveAuthenticated ? (
                   <NavButton
                     variant="bottom"
                     customIcon={
@@ -542,8 +796,8 @@ export function Header() {
                       </div>
                     }
                     text="Account"
-                    href="/profile"
-                    isActive={pathname === "/profile"}
+                    href={accountHref}
+                    isActive={pathname === accountHref}
                   />
                 )}
               </div>
@@ -563,6 +817,13 @@ export function Header() {
           );
         })}
       </div>
+
+      <LogoutConfirmDialog
+        open={showLogoutConfirm}
+        onClose={() => setShowLogoutConfirm(false)}
+        onConfirm={() => logout.mutate()}
+        isLoading={logout.isPending}
+      />
       </header>
     </>
   );

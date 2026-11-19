@@ -1,4 +1,6 @@
 import { z } from "zod";
+import { NAME_REGEX, NAME_INVALID_MESSAGE } from "@/lib/validations/name";
+import { emailField } from "@/lib/validations/email";
 
 const upiIdRegex = /^[a-zA-Z0-9.\-_]{2,256}@[a-zA-Z]{2,64}$/;
 const ifscRegex = /^[A-Z]{4}0[A-Z0-9]{6}$/;
@@ -13,8 +15,8 @@ const optionalText = (max: number) =>
     .transform((v) => (v ? v : undefined));
 
 export const createAgentSchema = z.object({
-  name: z.string().trim().min(2, "Name is required").max(150),
-  email: z.string().trim().toLowerCase().email("Enter a valid email").max(150),
+  name: z.string().trim().min(2, "Name is required").max(150).regex(NAME_REGEX, NAME_INVALID_MESSAGE),
+  email: emailField,
   phone: z
     .string()
     .trim()
@@ -28,7 +30,7 @@ export type CreateAgentInput = z.infer<typeof createAgentSchema>;
 
 export const updateAgentSchema = z
   .object({
-    name: z.string().trim().min(2).max(150).optional(),
+    name: z.string().trim().min(2).max(150).regex(NAME_REGEX, NAME_INVALID_MESSAGE).optional(),
     phone: z
       .string()
       .trim()
@@ -37,9 +39,20 @@ export const updateAgentSchema = z
       .optional(),
     notes: z.string().trim().max(500).nullable().optional(),
     isActive: z.boolean().optional(),
+    blockReason: z.string().trim().max(500, "Reason must be 500 characters or fewer").optional(),
     password: z.string().min(8).max(100).optional(),
+    customerAction: z.enum(["keep", "release", "transfer"]).optional(),
+    transferToAgentId: z.string().optional(),
   })
-  .refine((v) => Object.keys(v).length > 0, "Nothing to update");
+  .refine((v) => Object.keys(v).length > 0, "Nothing to update")
+  .refine((v) => v.isActive !== false || Boolean(v.blockReason), {
+    path: ["blockReason"],
+    message: "A reason is required to block this account",
+  })
+  .refine((v) => v.customerAction !== "transfer" || Boolean(v.transferToAgentId), {
+    path: ["transferToAgentId"],
+    message: "Please select an active Sales Partner to transfer customers to",
+  });
 export type UpdateAgentInput = z.infer<typeof updateAgentSchema>;
 
 export const paymentDetailsSchema = z
@@ -126,3 +139,35 @@ export const reassignSchema = z.object({
 export const returnPeriodSchema = z.object({
   days: z.coerce.number().int().min(0).max(90),
 });
+
+/** Both commission settings; each field is optional so either can be saved alone. */
+export const commissionSettingsSchema = z
+  .object({
+    days: z.coerce.number().int().min(0).max(90).optional(),
+    autoApprove: z.coerce.boolean().optional(),
+  })
+  .refine((v) => v.days !== undefined || v.autoApprove !== undefined, {
+    message: "Nothing to update",
+  });
+
+export const transferCustomerSchema = z.object({
+  toAgentId: z.string().trim().min(1, "Select a Sales Partner"),
+  /** The agent the admin saw; the transfer is rejected if the customer has since moved. */
+  fromAgentId: z.string().trim().min(1).optional().nullable(),
+  reason: z.string().trim().max(255).optional(),
+});
+export type TransferCustomerInput = z.infer<typeof transferCustomerSchema>;
+
+export const reassignCustomersSchema = z
+  .object({
+    toAgentId: z.string().trim().min(1).optional().nullable(),
+    action: z.enum(["transfer", "release"]).default("transfer"),
+    /** Omit to move every customer the agent still has. */
+    customerIds: z.array(z.string().trim().min(1)).max(200).optional(),
+    reason: z.string().trim().max(255).optional(),
+  })
+  .refine((v) => v.action === "release" || Boolean(v.toAgentId), {
+    path: ["toAgentId"],
+    message: "Select a destination Sales Partner",
+  });
+export type ReassignCustomersInput = z.infer<typeof reassignCustomersSchema>;

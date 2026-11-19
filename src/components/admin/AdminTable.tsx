@@ -5,10 +5,12 @@ import { Download, X } from "lucide-react";
 import { DataTable, type DataTableProps } from "@/components/admin/data-table/DataTable";
 import { cn } from "@/lib/utils";
 
-interface AdminTableProps<TData, TValue> extends DataTableProps<TData, TValue> {
+interface AdminTableProps<TData, TValue>
+  extends Omit<DataTableProps<TData, TValue>, "onExport"> {
   onExport?: (rows: TData[]) => void;
   bulkActions?: React.ReactNode;
 }
+
 
 function AdminTable<TData, TValue>({
   columns,

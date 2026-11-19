@@ -36,16 +36,24 @@ const Radio = React.forwardRef<HTMLInputElement, RadioProps>(
           <label
             htmlFor={inputId}
             className={cn(
-              "flex h-5 w-5 items-center justify-center rounded-full border-2 border-gray-300",
-              "bg-white transition-colors duration-200",
-              "peer-checked:border-primary peer-checked:bg-primary",
-              "peer-focus-visible:ring-2 peer-focus-visible:ring-primary/30",
+              "flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 transition-all duration-200 cursor-pointer",
+              checked
+                ? "border-secondary-600 bg-white ring-2 ring-secondary-600/20"
+                : "border-neutral-300 bg-white hover:border-neutral-400",
+              "peer-checked:border-secondary-600 peer-checked:ring-2 peer-checked:ring-secondary-600/20",
+              "peer-checked:[&>span]:scale-100 peer-checked:[&>span]:opacity-100",
+              "peer-focus-visible:ring-2 peer-focus-visible:ring-secondary-600/30",
               "peer-disabled:cursor-not-allowed peer-disabled:opacity-50",
               error && "border-error-600",
               className
             )}
           >
-            <span className="h-2 w-2 rounded-full bg-white scale-0 transition-transform duration-200 peer-checked:scale-100" />
+            <span
+              className={cn(
+                "h-2.5 w-2.5 rounded-full bg-secondary-600 transition-all duration-200",
+                checked ? "scale-100 opacity-100" : "scale-0 opacity-0"
+              )}
+            />
           </label>
         </div>
         {(label || description) && (
@@ -54,7 +62,7 @@ const Radio = React.forwardRef<HTMLInputElement, RadioProps>(
               <label
                 htmlFor={inputId}
                 className={cn(
-                  "text-sm font-medium text-gray-900",
+                  "text-sm font-medium text-gray-900 cursor-pointer",
                   disabled && "opacity-50"
                 )}
               >

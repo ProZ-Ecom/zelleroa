@@ -7,7 +7,7 @@ export const GET = createApiHandler(
   {
     GET: async (_request, context) => {
       const { agentId } = await requireSessionAgent(context.session);
-      await commissionService.approveEligible({ agentId });
+      await commissionService.markReadyForApproval({ agentId });
       const result = await commissionService.list(
         {
           ...readQuery(context.searchParams, ["customer", "order", "referralCode", "status", "orderStatus", "dateFrom", "dateTo"]),
