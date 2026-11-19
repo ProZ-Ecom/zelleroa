@@ -258,11 +258,10 @@ function ProductForm({
           </div>
 
           <div
-            className={`flex items-stretch rounded-lg border transition-all ${
-              extraSlugError || methods.formState.errors.slug
+            className={`flex items-stretch rounded-lg border transition-all ${extraSlugError || methods.formState.errors.slug
                 ? "border-red-500 ring-2 ring-red-500/10"
                 : "border-neutral-200 focus-within:border-secondary-600 focus-within:ring-2 focus-within:ring-secondary-600/20"
-            } bg-white overflow-hidden`}
+              } bg-white overflow-hidden`}
           >
             {/* Non-editable Category Code prefix */}
             <div

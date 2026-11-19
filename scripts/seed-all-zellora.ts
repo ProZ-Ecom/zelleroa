@@ -526,7 +526,18 @@ async function main() {
       status: true,
     },
   });
-  console.log(`✓ Created 8 Zellora brands\n`);
+
+  const brandApple = await prisma.productBrand.create({
+    data: {
+      uuid: crypto.randomUUID(),
+      name: "Apple",
+      slug: "apple",
+      description: "Pioneering personal audio with AirPods Pro, AirPods 4, and AirPods Max featuring spatial audio and industry-leading noise cancellation.",
+      isActive: true,
+      status: true,
+    },
+  });
+  console.log(`✓ Created 9 Zellora brands (including Apple)\n`);
 
   // 6. ATTRIBUTES & ATTRIBUTE VALUES
   console.log("6. SEEDING PRODUCT ATTRIBUTES & VALUES...");
@@ -770,6 +781,7 @@ async function main() {
         { name: "Smartphones", slug: "mobiles-smartphones" },
         { name: "Foldables", slug: "mobiles-foldables" },
         { name: "Cases & Accessories", slug: "mobiles-accessories" },
+        { name: "AirPods & Wireless Audio", slug: "mobiles-audio" },
       ],
     },
   ];
@@ -1653,6 +1665,90 @@ async function main() {
         { unit: unit512GB, unitValue: 512, price: 99999, sku: "ZEL-MOB-02-512", isDefault: false },
       ],
     },
+    // --- Category: Mobiles & Tech (AirPods & Audio) ---
+    {
+      name: "Apple AirPods Pro (2nd Generation) with MagSafe Case (USB-C)",
+      slug: "apple-airpods-pro-2nd-gen-usb-c",
+      productName: "AirPods Pro",
+      productSlug: "apple-airpods-pro",
+      categorySlug: "mobiles-audio",
+      brand: brandApple,
+      gender: "unisex",
+      primaryImage: "https://images.unsplash.com/photo-1600294037681-c80b4cb5b434?w=800&auto=format&fit=crop&q=80",
+      galleryImages: [
+        "https://images.unsplash.com/photo-1588423771073-b8903fbb85b5?w=800&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1572569511254-d8f925fe2cbb?w=800&auto=format&fit=crop&q=80",
+        "https://images.unsplash.com/photo-1606841837239-c5a1a4a07af7?w=800&auto=format&fit=crop&q=80",
+      ],
+      shortDescription: "Up to 2x more Active Noise Cancellation, Adaptive Audio, and USB-C MagSafe Charging Case with built-in speaker.",
+      description: "Rebuilt from the sound up. AirPods Pro (2nd generation) with MagSafe Case (USB-C) feature up to 2x more Active Noise Cancellation than the previous generation, with Transparency mode to hear the world around you, all-new Adaptive Audio that dynamically tailors noise control to your environment, and Conversation Awareness to help lower media volume and enhance the voices in front of you when speaking to others. Powered by the Apple-designed H2 headphone chip for smarter noise cancellation and deeply immersive sound. Features dust, sweat, and water resistance (IP54) for both earbuds and case.",
+      basePrice: 24900,
+      colorName: "Glossy White",
+      colorHex: "#FFFFFF",
+      sizes: [
+        { unit: unitOneSize, unitValue: 1, price: 24900, sku: "APP-AIRPODS-PRO2-USBC", isDefault: true },
+      ],
+    },
+    {
+      name: "Apple AirPods 4 with Active Noise Cancellation",
+      slug: "apple-airpods-4-active-noise-cancellation",
+      productName: "AirPods 4",
+      productSlug: "apple-airpods-4",
+      categorySlug: "mobiles-audio",
+      brand: brandApple,
+      gender: "unisex",
+      primaryImage: "https://images.unsplash.com/photo-1572569511254-d8f925fe2cbb?w=800&auto=format&fit=crop&q=80",
+      galleryImages: [
+        "https://images.unsplash.com/photo-1600294037681-c80b4cb5b434?w=800&auto=format&fit=crop&q=80",
+      ],
+      shortDescription: "Open-ear fit with Active Noise Cancellation, Voice Isolation, and the most compact wireless charging case.",
+      description: "AirPods 4 with Active Noise Cancellation deliver a completely transformed audio experience in an iconic open-ear design. The powerful H2 chip enables Active Noise Cancellation and Adaptive Audio, while Voice Isolation helps you be heard clearly in noisy environments. With Personalized Spatial Audio that tracks your head movements, sound envelops you from every direction. The sleek USB-C charging case includes a built-in speaker for Find My alerts.",
+      basePrice: 17900,
+      colorName: "Classic White",
+      colorHex: "#FFFFFF",
+      sizes: [
+        { unit: unitOneSize, unitValue: 1, price: 17900, sku: "APP-AIRPODS-4-ANC", isDefault: true },
+      ],
+    },
+    {
+      name: "Apple AirPods Max Wireless Over-Ear Headphones (USB-C)",
+      slug: "apple-airpods-max-usb-c-wireless",
+      productName: "AirPods Max",
+      productSlug: "apple-airpods-max",
+      categorySlug: "mobiles-audio",
+      brand: brandApple,
+      gender: "unisex",
+      primaryImage: "https://images.unsplash.com/photo-1628202926206-c63a34b1618f?w=800&auto=format&fit=crop&q=80",
+      galleryImages: [
+        "https://images.unsplash.com/photo-1613040809024-b4ef7ba99bc3?w=800&auto=format&fit=crop&q=80",
+      ],
+      shortDescription: "High-fidelity acoustic design, pro-grade Active Noise Cancellation, and lossless audio listening via USB-C.",
+      description: "AirPods Max reimagine over-ear headphones with an unmatched listening experience. An Apple-designed custom acoustic driver delivers ultra-low distortion across the audible range. From the breathable knit-mesh canopy to acoustically engineered memory foam ear cushions, every component is meticulously designed for an uncompromising fit. Featuring Pro-level Active Noise Cancellation to eliminate ambient sound, Transparency mode, and Personalized Spatial Audio for immersive theater-like 3D sound.",
+      basePrice: 59900,
+      variants: [
+        {
+          colorName: "Space Grey",
+          colorHex: "#4B4846",
+          primaryImage: "https://images.unsplash.com/photo-1628202926206-c63a34b1618f?w=800&auto=format&fit=crop&q=80",
+          sizes: [
+            { unit: unitOneSize, unitValue: 1, price: 59900, sku: "APP-AIRPODS-MAX-GRY", isDefault: true },
+          ],
+        },
+        {
+          colorName: "Silver",
+          colorHex: "#E3E4E5",
+          primaryImage: "https://images.unsplash.com/photo-1613040809024-b4ef7ba99bc3?w=800&auto=format&fit=crop&q=80",
+          sizes: [
+            { unit: unitOneSize, unitValue: 1, price: 59900, sku: "APP-AIRPODS-MAX-SLV", isDefault: false },
+          ],
+        },
+      ],
+      colorName: "Space Grey",
+      colorHex: "#4B4846",
+      sizes: [
+        { unit: unitOneSize, unitValue: 1, price: 59900, sku: "APP-AIRPODS-MAX-GRY", isDefault: true },
+      ],
+    },
   ];
 
   let totalProducts = 0;
@@ -1735,66 +1831,77 @@ async function main() {
       });
     }
 
-    // 4. Create ProductVariant (Color)
-    const variant = await prisma.productVariant.create({
-      data: {
-        uuid: crypto.randomUUID(),
-        styleId: style.id,
-        variant_name: itemDef.colorName,
-        slug: `${itemDef.slug}-${itemDef.colorName.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`,
-        color_name: itemDef.colorName,
-        color_hex: itemDef.colorHex,
-        price_adjustment: 0,
-        is_default: true,
-        is_featured: true,
-        isActive: true,
-        out_of_stock: false,
+    const variantsToCreate = (itemDef as any).variants ?? [
+      {
+        colorName: itemDef.colorName,
+        colorHex: itemDef.colorHex,
+        primaryImage: itemDef.primaryImage,
+        sizes: itemDef.sizes,
       },
-    });
-    totalVariants++;
-    seededVariants.push(variant);
+    ];
 
-    // Add Product Variant Image
-    try {
-      await prisma.$executeRawUnsafe(
-        `INSERT INTO \`product_variant_images\` (\`uuid\`, \`variant_id\`, \`image_url\`, \`is_primary\`, \`sort_order\`, \`created_at\`, \`updated_at\`)
-         VALUES (UUID(), ?, ?, 1, 0, NOW(), NOW())`,
-        variant.id,
-        itemDef.primaryImage
-      );
-    } catch (e: any) {
-      console.warn(`! Variant image failed for ${itemDef.slug}: ${e.message}`);
-    }
-
-    // 6. Create VariantUnitPrices (Sizes & SKUs) & Inventories
-    // 6. Create VariantUnitPrices (Sizes & SKUs) & Inventories
-    for (const size of itemDef.sizes) {
-      const unitPrice = await prisma.variantUnitPrice.create({
+    for (let vIdx = 0; vIdx < variantsToCreate.length; vIdx++) {
+      const vDef = variantsToCreate[vIdx];
+      // 4. Create ProductVariant (Color)
+      const variant = await prisma.productVariant.create({
         data: {
           uuid: crypto.randomUUID(),
-          variant_id: variant.id,
-          unit_id: size.unit.id,
-          unit_value: size.unitValue,
-          sku: size.sku,
-          base_price: size.price,
-          is_default: size.isDefault,
+          styleId: style.id,
+          variant_name: vDef.colorName,
+          slug: `${itemDef.slug}-${vDef.colorName.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`,
+          color_name: vDef.colorName,
+          color_hex: vDef.colorHex,
+          price_adjustment: 0,
+          is_default: vIdx === 0,
+          is_featured: true,
           isActive: true,
+          out_of_stock: false,
         },
       });
-      seededUnitPrices.push(unitPrice);
-      totalUnitPrices++;
+      totalVariants++;
+      seededVariants.push(variant);
 
-      // Create Inventory (100 in stock)
-      await prisma.inventory.create({
-        data: {
-          variantUnitPriceId: unitPrice.id,
-          quantity_available: 100,
-          quantity_reserved: 0,
-          reorderLevel: 10,
-          warehouse_location: "Bengaluru Main Hub",
-          is_active: true,
-        },
-      });
+      // Add Product Variant Image
+      try {
+        await prisma.$executeRawUnsafe(
+          `INSERT INTO \`product_variant_images\` (\`uuid\`, \`variant_id\`, \`image_url\`, \`is_primary\`, \`sort_order\`, \`created_at\`, \`updated_at\`)
+           VALUES (UUID(), ?, ?, 1, 0, NOW(), NOW())`,
+          variant.id,
+          vDef.primaryImage || itemDef.primaryImage
+        );
+      } catch (e: any) {
+        console.warn(`! Variant image failed for ${itemDef.slug}: ${e.message}`);
+      }
+
+      // 6. Create VariantUnitPrices (Sizes & SKUs) & Inventories
+      for (const size of vDef.sizes) {
+        const unitPrice = await prisma.variantUnitPrice.create({
+          data: {
+            uuid: crypto.randomUUID(),
+            variant_id: variant.id,
+            unit_id: size.unit.id,
+            unit_value: size.unitValue,
+            sku: size.sku,
+            base_price: size.price,
+            is_default: size.isDefault,
+            isActive: true,
+          },
+        });
+        seededUnitPrices.push(unitPrice);
+        totalUnitPrices++;
+
+        // Create Inventory (100 in stock)
+        await prisma.inventory.create({
+          data: {
+            variantUnitPriceId: unitPrice.id,
+            quantity_available: 100,
+            quantity_reserved: 0,
+            reorderLevel: 10,
+            warehouse_location: "Bengaluru Main Hub",
+            is_active: true,
+          },
+        });
+      }
     }
 
     console.log(`✓ Style #${totalStyles}: ${itemDef.name} (₹${itemDef.basePrice}, ${itemDef.sizes.length} sizes in stock)`);
