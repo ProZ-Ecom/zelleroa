@@ -30,6 +30,7 @@ import {
 } from "../hooks";
 import { DeliveryStatusBadge, AssignmentStatusBadge } from "./DeliveryStatusBadge";
 import { MarkDeliveredModal } from "./MarkDeliveredModal";
+import { isManualDeliveryStatusEnabled } from "../lib/delivery-config";
 
 interface StaffDeliveryDetailModalProps {
   isOpen: boolean;
@@ -105,12 +106,17 @@ export function StaffDeliveryDetailModal({
     delivery?.assignmentStatus === "pending" ||
     (!delivery?.acceptedAt && delivery?.status === "pending");
 
+  const isTestingDeliveryEnabled = isManualDeliveryStatusEnabled();
+
   const canMarkOutForDelivery =
+    isTestingDeliveryEnabled &&
     delivery?.assignmentStatus === "accepted" &&
     delivery?.status !== "out_for_delivery" &&
     delivery?.status !== "delivered";
 
-  const canMarkDelivered = delivery?.status === "out_for_delivery";
+  const canMarkDelivered =
+    isTestingDeliveryEnabled &&
+    delivery?.status === "out_for_delivery";
 
   return (
     <>

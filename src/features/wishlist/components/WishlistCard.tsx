@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Trash2, ShoppingCart } from "lucide-react";
+import { Trash2, ShoppingCart, ShoppingBag } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -29,7 +29,9 @@ export function WishlistCard({
     ? Math.round(((item.basePrice - item.price) / item.basePrice) * 100)
     : 0;
 
-  const productUrl = `/products/${item.product.slug || item.product.id}`;
+  const productUrl = item.style?.id
+    ? `/styles/${item.style.id}`
+    : `/products/${item.product.slug || item.product.id}`;
 
   return (
     <Card className="group overflow-hidden rounded-2xl border border-theme-border bg-theme-surface shadow-xs hover:shadow-md transition-shadow">
@@ -37,8 +39,8 @@ export function WishlistCard({
         <div className="relative aspect-square overflow-hidden bg-theme-surface-alt">
           <ProductImage
             src={item.primaryImage}
-            alt={item.product.name}
-            fallbackText={item.product.name}
+            alt={item.styleName || item.product.name}
+            fallbackText={item.styleName || item.product.name}
             containerClassName="w-full h-full aspect-square"
             className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
           />
@@ -63,6 +65,12 @@ export function WishlistCard({
             </h3>
           </Link>
 
+          {item.styleName && (
+            <p className="text-xs font-semibold text-theme-text-secondary mt-0.5 line-clamp-1">
+              {item.styleName}
+            </p>
+          )}
+
           {item.variantName && (
             <p className="text-xs text-theme-text-subtle mt-0.5 font-medium">
               {item.variantName}
@@ -85,12 +93,23 @@ export function WishlistCard({
           {onMoveToCart && (
             <Button
               size="sm"
-              className="flex-1 h-9 rounded-xl bg-theme-primary hover:bg-theme-primary-hover text-theme-primary-fg text-xs font-medium cursor-pointer"
+              className="flex-1 h-9 rounded-xl text-xs font-semibold bg-theme-primary text-theme-primary-fg hover:bg-theme-primary-hover disabled:opacity-50 shadow-xs"
               onClick={() => onMoveToCart(item.variantUnitPriceId || item.variantId)}
               disabled={isRemoving || isMovingToCart || !item.isAvailable}
             >
-              <ShoppingCart className="mr-1.5 h-3.5 w-3.5" />
-              {isMovingToCart ? "Moving..." : "Move to Cart"}
+              {!item.isAvailable ? (
+                <>
+                  <ShoppingBag className="mr-1.5 h-3.5 w-3.5" />
+                  Out of stock
+                </>
+              ) : isMovingToCart ? (
+                "Moving..."
+              ) : (
+                <>
+                  <ShoppingCart className="mr-1.5 h-3.5 w-3.5" />
+                  Move to Cart
+                </>
+              )}
             </Button>
           )}
           <Button

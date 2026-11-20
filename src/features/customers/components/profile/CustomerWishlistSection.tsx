@@ -136,6 +136,12 @@ export function CustomerWishlistSection({
                     {productName}
                   </h3>
 
+                  {item.styleName && (
+                    <p className="text-xs font-semibold text-neutral-700 line-clamp-1">
+                      {item.styleName}
+                    </p>
+                  )}
+
                   <div className="flex items-center gap-2 text-xs text-neutral-500">
                     {variantName && (
                       <span>

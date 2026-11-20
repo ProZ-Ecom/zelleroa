@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { ProductImage } from "@/components/common/ProductImage";
 import { QuantitySelector } from "./QuantitySelector";
 import { formatPrice } from "@/lib/utils";
+import { styleHref } from "@/features/customers/utils/style-href";
 
 interface CartItemProps {
   item: any;
@@ -105,6 +106,13 @@ function CartItem({
       ? item.slug
       : "";
 
+  const itemHref =
+    typeof item.styleId === "string" && item.styleId
+      ? styleHref(item.styleId)
+      : productSlug
+      ? `/products/${productSlug}`
+      : "";
+
   const sku =
     typeof item.sku === "string"
       ? item.sku
@@ -142,9 +150,9 @@ function CartItem({
       <div className="flex flex-col sm:flex-row gap-4 sm:gap-5 items-start sm:items-center">
         {/* Product Image */}
         <div className="relative shrink-0">
-          {productSlug ? (
+          {itemHref ? (
             <Link
-              href={`/products/${productSlug}`}
+              href={itemHref}
               className="block overflow-hidden rounded-xl border border-theme-border-subtle bg-theme-surface-alt h-20 w-20 sm:h-24 sm:w-24 transition-transform group-hover:scale-102"
             >
               <ProductImage
@@ -177,9 +185,9 @@ function CartItem({
         {/* Product Details */}
         <div className="flex-1 min-w-0">
           <div className="flex flex-wrap items-center gap-2 mb-1">
-            {productSlug ? (
+            {itemHref ? (
               <Link
-                href={`/products/${productSlug}`}
+                href={itemHref}
                 className="font-bold text-base sm:text-lg text-theme-text-primary hover:text-theme-primary transition-colors line-clamp-1"
               >
                 {productName}

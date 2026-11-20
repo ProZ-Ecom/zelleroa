@@ -35,16 +35,20 @@ export function isProductionEnvironment(): boolean {
 }
 
 /**
- * Checks whether the manual admin delivery status update flow is enabled.
+ * Checks whether the manual delivery status update flows ('Out for Delivery' and 'Delivered') are enabled for testing.
  *
- * - When production is false: admin manual status update flow IS SHOWN (for testing).
- * - When production is true: admin manual status update flow IS HIDDEN / DISABLED.
+ * - When production is false: admin/staff manual status update flows ARE SHOWN (for testing).
+ * - When production is true: admin/staff manual status update flows ARE HIDDEN / DISABLED.
  *
- * Can also be explicitly overridden with NEXT_PUBLIC_ENABLE_MANUAL_DELIVERY_STATUS.
+ * Can also be explicitly overridden with NEXT_PUBLIC_TESTING_MANUAL_DELIVERY_STATUS.
  */
 export function isManualDeliveryStatusEnabled(): boolean {
-  const explicit =
-    process.env.NEXT_PUBLIC_ENABLE_MANUAL_DELIVERY_STATUS?.trim().toLowerCase();
+  const explicit = (
+    process.env.NEXT_PUBLIC_TESTING_MANUAL_DELIVERY_STATUS ??
+    process.env.NEXT_PUBLIC_ENABLE_MANUAL_DELIVERY_STATUS ??
+    process.env.TESTING_MANUAL_DELIVERY_STATUS
+  )?.trim().toLowerCase();
+
   if (explicit !== undefined && explicit !== "") {
     return explicit === "true" || explicit === "1" || explicit === "yes";
   }

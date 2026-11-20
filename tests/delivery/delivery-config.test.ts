@@ -8,9 +8,11 @@ import {
 test("when NEXT_PUBLIC_IS_PRODUCTION is 'false', manual delivery updates are enabled", () => {
   const originalPublic = process.env.NEXT_PUBLIC_IS_PRODUCTION;
   const originalProd = process.env.IS_PRODUCTION;
-  const originalExplicit = process.env.NEXT_PUBLIC_ENABLE_MANUAL_DELIVERY_STATUS;
+  const originalExplicit = process.env.NEXT_PUBLIC_TESTING_MANUAL_DELIVERY_STATUS;
+  const originalLegacy = process.env.NEXT_PUBLIC_ENABLE_MANUAL_DELIVERY_STATUS;
 
   try {
+    delete process.env.NEXT_PUBLIC_TESTING_MANUAL_DELIVERY_STATUS;
     delete process.env.NEXT_PUBLIC_ENABLE_MANUAL_DELIVERY_STATUS;
     delete process.env.IS_PRODUCTION;
     process.env.NEXT_PUBLIC_IS_PRODUCTION = "false";
@@ -25,7 +27,10 @@ test("when NEXT_PUBLIC_IS_PRODUCTION is 'false', manual delivery updates are ena
       delete process.env.IS_PRODUCTION;
     }
     if (originalExplicit !== undefined) {
-      process.env.NEXT_PUBLIC_ENABLE_MANUAL_DELIVERY_STATUS = originalExplicit;
+      process.env.NEXT_PUBLIC_TESTING_MANUAL_DELIVERY_STATUS = originalExplicit;
+    }
+    if (originalLegacy !== undefined) {
+      process.env.NEXT_PUBLIC_ENABLE_MANUAL_DELIVERY_STATUS = originalLegacy;
     }
   }
 });
@@ -33,9 +38,11 @@ test("when NEXT_PUBLIC_IS_PRODUCTION is 'false', manual delivery updates are ena
 test("when NEXT_PUBLIC_IS_PRODUCTION is 'true', manual delivery updates are disabled", () => {
   const originalPublic = process.env.NEXT_PUBLIC_IS_PRODUCTION;
   const originalProd = process.env.IS_PRODUCTION;
-  const originalExplicit = process.env.NEXT_PUBLIC_ENABLE_MANUAL_DELIVERY_STATUS;
+  const originalExplicit = process.env.NEXT_PUBLIC_TESTING_MANUAL_DELIVERY_STATUS;
+  const originalLegacy = process.env.NEXT_PUBLIC_ENABLE_MANUAL_DELIVERY_STATUS;
 
   try {
+    delete process.env.NEXT_PUBLIC_TESTING_MANUAL_DELIVERY_STATUS;
     delete process.env.NEXT_PUBLIC_ENABLE_MANUAL_DELIVERY_STATUS;
     delete process.env.IS_PRODUCTION;
     process.env.NEXT_PUBLIC_IS_PRODUCTION = "true";
@@ -50,37 +57,40 @@ test("when NEXT_PUBLIC_IS_PRODUCTION is 'true', manual delivery updates are disa
       delete process.env.IS_PRODUCTION;
     }
     if (originalExplicit !== undefined) {
-      process.env.NEXT_PUBLIC_ENABLE_MANUAL_DELIVERY_STATUS = originalExplicit;
+      process.env.NEXT_PUBLIC_TESTING_MANUAL_DELIVERY_STATUS = originalExplicit;
+    }
+    if (originalLegacy !== undefined) {
+      process.env.NEXT_PUBLIC_ENABLE_MANUAL_DELIVERY_STATUS = originalLegacy;
     }
   }
 });
 
-test("explicit NEXT_PUBLIC_ENABLE_MANUAL_DELIVERY_STATUS overrides production flag", () => {
+test("explicit NEXT_PUBLIC_TESTING_MANUAL_DELIVERY_STATUS overrides production flag", () => {
   const originalPublic = process.env.NEXT_PUBLIC_IS_PRODUCTION;
   const originalProd = process.env.IS_PRODUCTION;
-  const originalExplicit = process.env.NEXT_PUBLIC_ENABLE_MANUAL_DELIVERY_STATUS;
+  const originalExplicit = process.env.NEXT_PUBLIC_TESTING_MANUAL_DELIVERY_STATUS;
 
   try {
     // In production, but manual override explicitly set to true
     process.env.NEXT_PUBLIC_IS_PRODUCTION = "true";
     process.env.IS_PRODUCTION = "true";
-    process.env.NEXT_PUBLIC_ENABLE_MANUAL_DELIVERY_STATUS = "true";
+    process.env.NEXT_PUBLIC_TESTING_MANUAL_DELIVERY_STATUS = "true";
 
     assert.equal(isManualDeliveryStatusEnabled(), true);
 
     // In dev, but manual override explicitly set to false
     process.env.NEXT_PUBLIC_IS_PRODUCTION = "false";
     process.env.IS_PRODUCTION = "false";
-    process.env.NEXT_PUBLIC_ENABLE_MANUAL_DELIVERY_STATUS = "false";
+    process.env.NEXT_PUBLIC_TESTING_MANUAL_DELIVERY_STATUS = "false";
 
     assert.equal(isManualDeliveryStatusEnabled(), false);
   } finally {
     process.env.NEXT_PUBLIC_IS_PRODUCTION = originalPublic;
     process.env.IS_PRODUCTION = originalProd;
     if (originalExplicit !== undefined) {
-      process.env.NEXT_PUBLIC_ENABLE_MANUAL_DELIVERY_STATUS = originalExplicit;
+      process.env.NEXT_PUBLIC_TESTING_MANUAL_DELIVERY_STATUS = originalExplicit;
     } else {
-      delete process.env.NEXT_PUBLIC_ENABLE_MANUAL_DELIVERY_STATUS;
+      delete process.env.NEXT_PUBLIC_TESTING_MANUAL_DELIVERY_STATUS;
     }
   }
 });

@@ -95,21 +95,31 @@ export function WishlistTab() {
               key={item.id}
               className="bg-theme-surface border border-theme-border rounded-xl overflow-hidden shadow-2xs flex flex-col justify-between"
             >
-              <div className="h-32 sm:h-36 overflow-hidden">
+              <div className="h-32 sm:h-36 overflow-hidden relative">
                 <ProductImage
                   src={item.primaryImage || (item as any).image || null}
-                  alt={item.product?.name || item.variantName || "Fashion Item"}
-                  fallbackText={item.product?.name || item.variantName || "Fashion Item"}
+                  alt={item.styleName || item.product?.name || item.variantName || "Fashion Item"}
+                  fallbackText={item.styleName || item.product?.name || item.variantName || "Fashion Item"}
                   containerClassName="w-full h-full"
                   className="w-full h-full object-cover"
                 />
+                {!item.isAvailable && (
+                  <span className="absolute top-2 right-2 bg-stone-900/80 text-white border-0 text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full font-semibold">
+                    Out of stock
+                  </span>
+                )}
               </div>
 
               <div className="p-3.5 sm:p-4 flex flex-col justify-between flex-1 gap-3">
                 <div>
-                  <div className="text-xs font-semibold uppercase text-theme-text-primary line-clamp-2 min-h-[32px]">
+                  <div className="text-xs font-semibold uppercase text-theme-text-primary line-clamp-1">
                     {item.product?.name || item.variantName || "Fashion Item"}
                   </div>
+                  {item.styleName && (
+                    <div className="text-xs font-semibold text-theme-text-secondary mt-0.5 line-clamp-1">
+                      {item.styleName}
+                    </div>
+                  )}
                   {item.variantName && (
                     <div className="text-[11px] text-theme-text-muted mt-0.5">
                       {item.variantName}
@@ -131,10 +141,14 @@ export function WishlistTab() {
                   <button
                     type="button"
                     onClick={() => handleMoveToCart(item.variantUnitPriceId || item.variantId || item.id)}
-                    disabled={movingId === (item.variantUnitPriceId || item.variantId || item.id)}
-                    className="w-full bg-theme-secondary hover:bg-theme-secondary-hover text-theme-secondary-fg text-xs font-semibold uppercase tracking-wider py-2.5 rounded-md transition-colors cursor-pointer min-h-[40px] disabled:opacity-50"
+                    disabled={movingId === (item.variantUnitPriceId || item.variantId || item.id) || !item.isAvailable}
+                    className="w-full bg-theme-primary hover:bg-theme-primary-hover text-theme-primary-fg text-xs font-semibold uppercase tracking-wider py-2.5 rounded-md transition-colors min-h-[40px] disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    {movingId === (item.variantUnitPriceId || item.variantId || item.id) ? "Moving to Cart..." : "Move to Cart"}
+                    {!item.isAvailable
+                      ? "Out of stock"
+                      : movingId === (item.variantUnitPriceId || item.variantId || item.id)
+                      ? "Moving to Cart..."
+                      : "Move to Cart"}
                   </button>
 
                   <button

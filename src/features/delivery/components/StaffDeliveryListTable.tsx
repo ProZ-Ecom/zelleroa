@@ -32,6 +32,7 @@ import { DeliveryStatsCards } from "./DeliveryStatsCards";
 import { DeliveryStatusTabs } from "./DeliveryStatusTabs";
 import { StaffDeliveryDetailModal } from "./StaffDeliveryDetailModal";
 import { MarkDeliveredModal } from "./MarkDeliveredModal";
+import { isManualDeliveryStatusEnabled } from "../lib/delivery-config";
 import type { StaffDeliveryListItem } from "../types/delivery.types";
 
 interface StaffDeliveryListTableProps {
@@ -257,12 +258,17 @@ export function StaffDeliveryListTable({
           row.original.assignmentStatus === "pending" ||
           (!row.original.acceptedAt && row.original.status === "pending");
 
+        const isTestingDeliveryEnabled = isManualDeliveryStatusEnabled();
+
         const canMarkOutForDelivery =
+          isTestingDeliveryEnabled &&
           row.original.assignmentStatus === "accepted" &&
           row.original.status !== "out_for_delivery" &&
           row.original.status !== "delivered";
 
-        const canMarkDelivered = row.original.status === "out_for_delivery";
+        const canMarkDelivered =
+          isTestingDeliveryEnabled &&
+          row.original.status === "out_for_delivery";
 
         return (
           <div className="flex items-center justify-center gap-1.5">

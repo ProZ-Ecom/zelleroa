@@ -6,11 +6,19 @@ export interface CustomerWishlistProductSummary {
   slug: string;
 }
 
+export interface CustomerWishlistStyleSummary {
+  id: string; // style.uuid
+  name: string;
+  slug: string;
+}
+
 export interface CustomerWishlistItemDto {
   id: string; // wishlistItem.uuid
   variantId: string; // variant.uuid (item-level)
   variantUnitPriceId: string; // variant_unit_price.uuid (pack size)
   variantName: string;
+  styleName?: string | null;
+  style?: CustomerWishlistStyleSummary | null;
   sku: string;
   price: number;
   basePrice: number;
