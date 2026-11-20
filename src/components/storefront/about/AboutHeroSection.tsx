@@ -69,13 +69,13 @@ export function AboutHeroSection() {
                 <ArrowUpRight className="w-4 h-4 transition-transform duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
               </Link>
 
-              <a
+              {/* <a
                 href="#our-business"
                 className={`${buttonVariants({ variant: "outline", size: "lg" })} gap-2`}
               >
                 <Compass className="w-4 h-4" />
                 Our business
-              </a>
+              </a> */}
             </div>
 
             {/* Feature row */}

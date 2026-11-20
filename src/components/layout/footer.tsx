@@ -7,7 +7,7 @@ import { ShieldCheck } from "lucide-react";
 import { LOGOS, ICONS } from "@/constants/storefront";
 import { ContactFormModal } from "@/features/contact/components/ContactFormModal";
 import { useCustomerCompany } from "@/features/customers/hooks/use-customer-company";
-import { getImageUrl, cn } from "@/lib/utils";
+import { cn } from "@/lib/utils";
 
 const SHOP_LINKS = [
   { label: "Men's Collection", href: "/category/men" },
@@ -65,7 +65,6 @@ export function Footer() {
   const { data: company } = useCustomerCompany();
 
   const companyName = company?.companyName?.trim() || "Zellora";
-  const companyLogo = company?.logo ? getImageUrl(company.logo) : LOGOS.logo;
 
   const whatsappLink = React.useMemo(() => {
     const phone = company?.phone?.trim();
@@ -81,17 +80,22 @@ export function Footer() {
         <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-5">
           {/* Brand */}
           <div className="sm:col-span-2 lg:col-span-1">
-            <div className="flex items-center gap-2">
-              <Image src={companyLogo} alt={companyName} width={32} height={32} className="object-contain" />
-              <div>
-                <p className="text-lg font-extrabold uppercase tracking-tight text-theme-text-primary leading-none">
-                  {companyName}
-                </p>
-                <p className="text-[10px] font-semibold uppercase tracking-wide text-theme-text-subtle">
-                  Lifestyle &amp; Beyond
-                </p>
-              </div>
-            </div>
+            <Link href="/" className="inline-flex items-center gap-2 select-none group">
+              <Image
+                src={LOGOS.logo}
+                alt="Zellora logo"
+                width={100}
+                height={100}
+                className="h-8 sm:h-9 w-auto aspect-square object-contain group-hover:scale-105 transition-transform duration-300 shrink-0"
+              />
+              <Image
+                src={LOGOS.title}
+                alt="Zellora"
+                width={160}
+                height={48}
+                className="h-7 sm:h-8 w-auto object-contain group-hover:scale-105 transition-transform duration-300 shrink-0"
+              />
+            </Link>
             <p className="mt-4 text-sm text-theme-text-subtle leading-relaxed">
               Shop smarter. Shop better. Quality essentials and contemporary lifestyle picks
               for every day.

@@ -56,6 +56,7 @@ import { Drawer } from "@/components/common/drawer";
 import { LogoutConfirmDialog } from "@/components/common/LogoutConfirmDialog";
 import { useAdminAccess } from "@/features/access";
 import { permissionForAdminPath } from "@/lib/permissions/admin-routes";
+import { isWhatsAppModuleEnabled } from "@/lib/whatsapp/whatsapp-config";
 
 interface SidebarItem {
   label: string;
@@ -374,6 +375,7 @@ function SidebarNavigation({
   // shown only when at least one of its links survives. The permission comes from the same
   // table the page guard uses, so the sidebar can never offer a page that then refuses.
   const navigationItems = useMemo(() => {
+    const isWhatsAppEnabled = isWhatsAppModuleEnabled();
     const canOpen = (href: string) => {
       if (access.isOwner) return true;
       const required = permissionForAdminPath(href);
@@ -382,6 +384,13 @@ function SidebarNavigation({
 
     return sidebarItems
       .map((item) => {
+        if (
+          item.href === "/admin/dashboard/whatsapp" ||
+          item.href.startsWith("/admin/dashboard/whatsapp")
+        ) {
+          if (!isWhatsAppEnabled) return null;
+        }
+
         if (!item.children) return canOpen(item.href) ? item : null;
         const filteredChildren = item.children.filter((child) => {
           if (child.href === "/admin/dashboard/delivery") {
@@ -389,6 +398,9 @@ function SidebarNavigation({
           }
           if (child.href === "/admin/dashboard/orders") {
             return !isStaff && canOpen(child.href);
+          }
+          if (child.href.startsWith("/admin/dashboard/whatsapp")) {
+            return isWhatsAppEnabled && canOpen(child.href);
           }
           return canOpen(child.href);
         });
