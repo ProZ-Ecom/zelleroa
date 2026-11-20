@@ -3,6 +3,7 @@
 import * as React from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { ShieldCheck } from "lucide-react";
 import { LOGOS, ICONS } from "@/constants/storefront";
 import { ContactFormModal } from "@/features/contact/components/ContactFormModal";
@@ -59,6 +60,40 @@ const SOCIAL_PLATFORMS = [
 
 const PAYMENT_METHODS = ["UPI", "Visa", "Mastercard", "RuPay", "NetBanking"];
 
+interface FooterLinkProps extends React.ComponentProps<typeof Link> {
+  children: React.ReactNode;
+}
+
+function FooterLink({ href, onClick, children, ...props }: FooterLinkProps) {
+  const pathname = usePathname();
+
+  const handleClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
+    onClick?.(e);
+    if (e.defaultPrevented) return;
+
+    if (typeof window !== "undefined") {
+      const hrefStr = typeof href === "string" ? href : href.pathname || "";
+      const targetPath = hrefStr.split("?")[0].split("#")[0];
+      const normalizePath = (p: string) => (p.length > 1 && p.endsWith("/") ? p.slice(0, -1) : p);
+
+      if (normalizePath(pathname || "") === normalizePath(targetPath)) {
+        e.preventDefault();
+        window.scrollTo({ top: 0, behavior: "smooth" });
+        document.documentElement.scrollTo?.({ top: 0, behavior: "smooth" });
+        document.body.scrollTo?.({ top: 0, behavior: "smooth" });
+      } else {
+        window.scrollTo({ top: 0, behavior: "instant" });
+      }
+    }
+  };
+
+  return (
+    <Link href={href} onClick={handleClick} scroll={true} {...props}>
+      {children}
+    </Link>
+  );
+}
+
 export function Footer() {
   const [isContactModalOpen, setIsContactModalOpen] = React.useState(false);
 
@@ -80,7 +115,7 @@ export function Footer() {
         <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-5">
           {/* Brand */}
           <div className="sm:col-span-2 lg:col-span-1">
-            <Link href="/" className="inline-flex items-center gap-2 select-none group">
+            <FooterLink href="/" className="inline-flex items-center gap-2 select-none group">
               <Image
                 src={LOGOS.logo}
                 alt="Zellora logo"
@@ -95,7 +130,7 @@ export function Footer() {
                 height={48}
                 className="h-7 sm:h-8 w-auto object-contain group-hover:scale-105 transition-transform duration-300 shrink-0"
               />
-            </Link>
+            </FooterLink>
             <p className="mt-4 text-sm text-theme-text-subtle leading-relaxed">
               Shop smarter. Shop better. Quality essentials and contemporary lifestyle picks
               for every day.
@@ -112,9 +147,9 @@ export function Footer() {
             <ul className="mt-4 space-y-2.5 text-sm text-theme-text-subtle">
               {SHOP_LINKS.map((link) => (
                 <li key={link.label}>
-                  <Link href={link.href} className="hover:text-theme-primary transition-colors">
+                  <FooterLink href={link.href} className="hover:text-theme-primary transition-colors">
                     {link.label}
-                  </Link>
+                  </FooterLink>
                 </li>
               ))}
             </ul>
@@ -134,19 +169,19 @@ export function Footer() {
                 </button>
               </li>
               <li>
-                <Link href="/orders" className="hover:text-theme-primary transition-colors">
+                <FooterLink href="/orders" className="hover:text-theme-primary transition-colors">
                   Track Order
-                </Link>
+                </FooterLink>
               </li>
               <li>
-                <Link href="/return-refund-policy" className="hover:text-theme-primary transition-colors">
+                <FooterLink href="/return-refund-policy" className="hover:text-theme-primary transition-colors">
                   Returns &amp; Refunds
-                </Link>
+                </FooterLink>
               </li>
               <li>
-                <Link href="/faqs" className="hover:text-theme-primary transition-colors">
+                <FooterLink href="/faqs" className="hover:text-theme-primary transition-colors">
                   Help &amp; FAQs
-                </Link>
+                </FooterLink>
               </li>
               <li>
                 <a
@@ -167,9 +202,9 @@ export function Footer() {
             <ul className="mt-4 space-y-2.5 text-sm text-theme-text-subtle">
               {POLICY_LINKS.map((link) => (
                 <li key={link.label}>
-                  <Link href={link.href} className="hover:text-theme-primary transition-colors">
+                  <FooterLink href={link.href} className="hover:text-theme-primary transition-colors">
                     {link.label}
-                  </Link>
+                  </FooterLink>
                 </li>
               ))}
             </ul>
