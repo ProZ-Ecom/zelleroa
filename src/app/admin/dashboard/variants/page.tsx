@@ -13,6 +13,7 @@ import {
 import { toast } from "@/components/ui/Toast";
 import { useProducts } from "@/features/products/hooks";
 import { useUnits } from "@/features/units/hooks";
+import { formatMeasurementLabel } from "@/features/variants/utils/measurement.util";
 import { DataTable } from "@/components/admin/data-table/DataTable";
 import {
   AdminPageHeader,
@@ -273,7 +274,7 @@ export default function AdminVariantsPage() {
             {m && (
               <>
                 <span className="font-semibold text-[var(--color-neutral-800)]">
-                  {m.value} {m.unit}
+                  {prices[0]?.sizeValue || formatMeasurementLabel(m)}
                 </span>
                 <span
                   className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase border ${typeBadgeStyles}`}
@@ -285,7 +286,7 @@ export default function AdminVariantsPage() {
             {prices.length > 1 && (
               <span
                 className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-neutral-100 text-neutral-600 border border-neutral-200"
-                title={prices.map((p) => `${p.measurement.value} ${p.measurement.unit}`).join(", ")}
+                title={prices.map((p) => p.sizeValue || formatMeasurementLabel(p.measurement) || `${p.measurement.value} ${p.measurement.unit}`).join(", ")}
               >
                 +{prices.length - 1} more size{prices.length - 1 > 1 ? "s" : ""}
               </span>
@@ -573,12 +574,12 @@ export default function AdminVariantsPage() {
                           if (prices.length > 0) {
                             return (
                               prices
-                                .map((p) => `${p.measurement?.value ?? ""} ${p.measurement?.unit ?? ""}`.trim())
+                                .map((p) => p.sizeValue || formatMeasurementLabel(p.measurement) || `${p.measurement?.value ?? ""} ${p.measurement?.unit ?? ""}`.trim())
                                 .filter(Boolean)
                                 .join(", ") || "-"
                             );
                           }
-                          return v.measurement ? `${v.measurement.value} ${v.measurement.unit}` : "-";
+                          return v.measurement ? formatMeasurementLabel(v.measurement) : "-";
                         },
                       },
                       {

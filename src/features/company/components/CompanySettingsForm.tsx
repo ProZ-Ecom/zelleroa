@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import Image from "next/image";
-import { Building2, Upload, Loader2, Save, MapPin, FileText, Globe, Mail, Phone } from "lucide-react";
+import { Building2, Upload, Loader2, Save, MapPin, FileText, Globe, Mail, Phone, Share2 } from "lucide-react";
 import { useCompany, useUpdateCompany, useUploadCompanyLogo } from "../hooks/use-company";
 import { Button, Input, Card, Switch, Skeleton, Textarea } from "@/components/ui";
 import { getImageUrl } from "@/lib/utils";
@@ -29,6 +29,14 @@ export function CompanySettingsForm() {
     panNumber: "",
     website: "",
     isActive: true,
+  });
+
+  const [socialLinks, setSocialLinks] = useState({
+    instagram: "",
+    facebook: "",
+    youtube: "",
+    whatsapp: "",
+    twitter: "",
   });
 
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
@@ -70,6 +78,15 @@ export function CompanySettingsForm() {
         website: company.website || "",
         isActive: company.isActive ?? true,
       });
+      if (company.socialLinks) {
+        setSocialLinks({
+          instagram: company.socialLinks.instagram || "",
+          facebook: company.socialLinks.facebook || "",
+          youtube: company.socialLinks.youtube || "",
+          whatsapp: company.socialLinks.whatsapp || "",
+          twitter: company.socialLinks.twitter || "",
+        });
+      }
       if (company.logo) {
         setLogoPreview(getImageUrl(company.logo));
       }
@@ -78,6 +95,10 @@ export function CompanySettingsForm() {
 
   const handleInputChange = (field: keyof UpdateCompanyInput, value: unknown) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const handleSocialChange = (field: keyof typeof socialLinks, value: string) => {
+    setSocialLinks((prev) => ({ ...prev, [field]: value }));
   };
 
   const handleLogoSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -165,6 +186,25 @@ export function CompanySettingsForm() {
       Boolean(formData.isActive) !== Boolean(company.isActive)
     ) {
       payload.isActive = Boolean(formData.isActive);
+    }
+
+    // Check if social links changed
+    const currentSocial = company?.socialLinks || {};
+    const hasSocialChanged =
+      (socialLinks.facebook.trim() || null) !== (currentSocial.facebook?.trim() || null) ||
+      (socialLinks.instagram.trim() || null) !== (currentSocial.instagram?.trim() || null) ||
+      (socialLinks.youtube.trim() || null) !== (currentSocial.youtube?.trim() || null) ||
+      (socialLinks.whatsapp.trim() || null) !== (currentSocial.whatsapp?.trim() || null) ||
+      (socialLinks.twitter.trim() || null) !== (currentSocial.twitter?.trim() || null);
+
+    if (hasSocialChanged) {
+      payload.socialLinks = {
+        facebook: socialLinks.facebook.trim() || null,
+        instagram: socialLinks.instagram.trim() || null,
+        youtube: socialLinks.youtube.trim() || null,
+        whatsapp: socialLinks.whatsapp.trim() || null,
+        twitter: socialLinks.twitter.trim() || null,
+      };
     }
 
     // If no fields changed, avoid sending an empty/redundant network request
@@ -425,6 +465,88 @@ export function CompanySettingsForm() {
               checked={formData.isActive ?? true}
               onCheckedChange={(checked) => handleInputChange("isActive", checked)}
             />
+          </div>
+        </div>
+      </Card>
+
+      {/* 4. Social Media Links */}
+      <Card className="p-6 border border-neutral-200 shadow-sm rounded-xl bg-white space-y-6">
+        <div className="flex items-center gap-3 pb-4 border-b border-neutral-100">
+          <div className="p-2 rounded-lg bg-secondary-50 text-secondary-600">
+            <Share2 className="w-5 h-5" />
+          </div>
+          <div>
+            <h2 className="text-lg font-semibold text-neutral-900">Social Media Links</h2>
+            <p className="text-sm text-neutral-500">
+              Manage the social profile links displayed in the customer storefront footer.
+            </p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium text-neutral-700 flex items-center gap-2">
+              <span className="w-2.5 h-2.5 rounded-full bg-[#E1306C]" />
+              Instagram Profile URL
+            </label>
+            <Input
+              value={socialLinks.instagram}
+              onChange={(e) => handleSocialChange("instagram", e.target.value)}
+              placeholder="https://instagram.com/yourbrand"
+            />
+            <p className="text-xs text-neutral-400">Links with the Instagram icon in footer</p>
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium text-neutral-700 flex items-center gap-2">
+              <span className="w-2.5 h-2.5 rounded-full bg-[#1877F2]" />
+              Facebook Page URL
+            </label>
+            <Input
+              value={socialLinks.facebook}
+              onChange={(e) => handleSocialChange("facebook", e.target.value)}
+              placeholder="https://facebook.com/yourbrand"
+            />
+            <p className="text-xs text-neutral-400">Links with the Facebook icon in footer</p>
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium text-neutral-700 flex items-center gap-2">
+              <span className="w-2.5 h-2.5 rounded-full bg-[#FF0000]" />
+              YouTube Channel URL
+            </label>
+            <Input
+              value={socialLinks.youtube}
+              onChange={(e) => handleSocialChange("youtube", e.target.value)}
+              placeholder="https://youtube.com/@yourbrand"
+            />
+            <p className="text-xs text-neutral-400">Links with the YouTube icon in footer</p>
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium text-neutral-700 flex items-center gap-2">
+              <span className="w-2.5 h-2.5 rounded-full bg-[#25D366]" />
+              WhatsApp Support Link / Number
+            </label>
+            <Input
+              value={socialLinks.whatsapp}
+              onChange={(e) => handleSocialChange("whatsapp", e.target.value)}
+              placeholder="https://wa.me/919486150579 or 9486150579"
+            />
+            <p className="text-xs text-neutral-400">Links with the WhatsApp icon and support link in footer</p>
+          </div>
+
+          <div className="space-y-1.5 md:col-span-2">
+            <label className="text-sm font-medium text-neutral-700 flex items-center gap-2">
+              <span className="w-2.5 h-2.5 rounded-full bg-black" />
+              Twitter / X Profile URL (Optional)
+            </label>
+            <Input
+              value={socialLinks.twitter}
+              onChange={(e) => handleSocialChange("twitter", e.target.value)}
+              placeholder="https://x.com/yourbrand"
+            />
+            <p className="text-xs text-neutral-400">Optional profile link for X (Twitter)</p>
           </div>
         </div>
       </Card>

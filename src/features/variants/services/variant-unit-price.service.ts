@@ -539,9 +539,34 @@ export const variantUnitPriceService = {
     else if (period === "1y") monthsCount = 12;
 
     const now = new Date();
+    // Do not backfill artificial months prior to when the variant unit price was created.
+    // If created in the current month, show only the current month.
+    const creationDate = (unitPrice as any).createdAt
+      ? new Date((unitPrice as any).createdAt)
+      : (unitPrice as any).created_at
+      ? new Date((unitPrice as any).created_at)
+      : now;
+
+    let earliestDate = creationDate;
+    if (histories.length > 0) {
+      for (const h of histories) {
+        const hDate = new Date(h.changed_at || (h as any).created_at);
+        if (hDate < earliestDate) {
+          earliestDate = hDate;
+        }
+      }
+    }
+
+    const monthDiff =
+      (now.getUTCFullYear() - earliestDate.getUTCFullYear()) * 12 +
+      (now.getUTCMonth() - earliestDate.getUTCMonth()) +
+      1;
+
+    const effectiveMonthsCount = Math.min(monthsCount, Math.max(1, monthDiff));
+
     const monthsList: string[] = [];
 
-    for (let i = monthsCount - 1; i >= 0; i--) {
+    for (let i = effectiveMonthsCount - 1; i >= 0; i--) {
       const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - i, 1));
       const year = d.getUTCFullYear();
       const month = String(d.getUTCMonth() + 1).padStart(2, "0");

@@ -12,6 +12,7 @@ import {
   ShieldCheck,
   ShieldAlert,
 } from "lucide-react";
+import { AdminBreadcrumb } from "@/components/admin/AdminBreadcrumb";
 import { Badge } from "@/components/ui/badge";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { BlockReasonDialog } from "@/components/ui/block-reason-dialog";
@@ -84,23 +85,20 @@ export function CustomerTopBar({ customer }: CustomerTopBarProps) {
   return (
     <>
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        {/* Breadcrumb: Customers > Customer Name + Status Badge */}
-        <div className="flex items-center gap-2 text-xs sm:text-sm font-medium flex-wrap">
-          <Link
-            href="/admin/dashboard/customers"
-            className="text-neutral-500 hover:text-neutral-900 transition-colors"
-          >
-            Customers
-          </Link>
-          <ChevronRight className="h-3.5 w-3.5 text-neutral-400 shrink-0" />
-          <span className="font-bold text-neutral-900 truncate max-w-[200px] sm:max-w-md">
-            {customer.name || "Customer Profile"}
-          </span>
+        {/* Breadcrumb: Sales > Customers > Customer Name + Status Badge */}
+        <div className="flex items-center gap-3 flex-wrap">
+          <AdminBreadcrumb
+            items={[
+              { label: "Sales" },
+              { label: "Customers", href: "/admin/dashboard/customers" },
+              { label: customer.name || "Customer Profile" },
+            ]}
+          />
 
           {isBlocked ? (
             <Badge
               variant="destructive"
-              className="ml-1.5 gap-1 bg-red-100 text-red-800 border-red-200"
+              className="gap-1 bg-red-100 text-red-800 border-red-200"
             >
               <ShieldAlert className="h-3 w-3" />
               Blocked
@@ -108,7 +106,7 @@ export function CustomerTopBar({ customer }: CustomerTopBarProps) {
           ) : (
             <Badge
               variant="success"
-              className="ml-1.5 gap-1 bg-emerald-100 text-emerald-800 border-emerald-200"
+              className="gap-1 bg-emerald-100 text-emerald-800 border-emerald-200"
             >
               <ShieldCheck className="h-3 w-3" />
               Active

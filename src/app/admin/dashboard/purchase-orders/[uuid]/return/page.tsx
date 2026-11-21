@@ -82,14 +82,6 @@ export default function NewPurchaseReturnPage() {
       <AdminPageHeader
         title={`Return against ${order.poNumber}`}
         description={`${order.vendor.name} (${order.vendor.code})${order.invoiceNumber ? ` · Invoice ${order.invoiceNumber}` : ""}`}
-        breadcrumbs={
-          <Link
-            href={`/admin/dashboard/purchase-orders/${uuid}`}
-            className="inline-flex items-center gap-1 text-sm text-neutral-500 hover:text-neutral-800"
-          >
-            <ArrowLeft className="h-4 w-4" /> {order.poNumber}
-          </Link>
-        }
       />
 
       {order.items.length === 0 ? (

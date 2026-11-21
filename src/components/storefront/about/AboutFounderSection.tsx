@@ -59,7 +59,7 @@ export function AboutFounderSection() {
             {" "}fashion business
           </h2>
           <p className="text-about-body text-sm sm:text-base leading-relaxed">
-            We are committed to building a reliable and customer-focused online fashion business by providing:
+            We are committed to build a reliable and customer-focused online fashion business by providing:
           </p>
         </Reveal>
 

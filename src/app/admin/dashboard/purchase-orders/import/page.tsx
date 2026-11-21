@@ -160,23 +160,14 @@ export default function ImportPurchasesPage() {
       <AdminPageHeader
         title="Import Purchase"
         description="Download the stock sheet, fill in what arrived, and upload it back. You review everything before any stock is added."
-        breadcrumbs={
-          <Link
-            href="/admin/dashboard/purchase-orders"
-            className="inline-flex items-center gap-1.5 text-sm font-medium text-neutral-500 hover:text-neutral-800 transition-colors"
-          >
-            <ArrowLeft className="h-4 w-4" /> Back to Purchase Orders
-          </Link>
-        }
         actions={
           <Button
             type="button"
             variant="outline"
             onClick={() => router.push("/admin/dashboard/purchase-orders")}
-            className="inline-flex items-center gap-2 rounded-xl border border-neutral-300 bg-white px-4 py-2 text-sm font-medium text-neutral-700 shadow-xs hover:bg-neutral-50 hover:text-neutral-900 transition-all cursor-pointer"
+            className="inline-flex items-center rounded-xl border border-neutral-300 bg-white px-4 py-2 text-sm font-medium text-neutral-700 shadow-xs hover:bg-neutral-50 hover:text-neutral-900 transition-all cursor-pointer"
           >
-            <ArrowLeft className="h-4 w-4" />
-            Cancel / Back to Orders
+            Cancel
           </Button>
         }
       />

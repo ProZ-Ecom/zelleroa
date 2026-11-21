@@ -147,7 +147,7 @@ function CartItem({
         isRemoving ? "opacity-50 pointer-events-none scale-98" : ""
       }`}
     >
-      <div className="flex flex-col sm:flex-row gap-4 sm:gap-5 items-start sm:items-center">
+      <div className="flex items-start sm:items-center gap-3.5 sm:gap-5 w-full">
         {/* Product Image */}
         <div className="relative shrink-0">
           {itemHref ? (
@@ -176,7 +176,7 @@ function CartItem({
           )}
 
           {discountPercent > 0 && (
-            <span className="absolute -top-1.5 -left-1.5 rounded-full bg-theme-primary px-1.5 py-0.5 text-xs font-bold text-theme-primary-fg shadow-xs">
+            <span className="absolute -top-1.5 -left-1.5 rounded-full bg-theme-primary px-1.5 py-0.5 text-[10px] sm:text-xs font-bold text-theme-primary-fg shadow-xs">
               -{discountPercent}%
             </span>
           )}
@@ -184,74 +184,73 @@ function CartItem({
 
         {/* Product Details */}
         <div className="flex-1 min-w-0">
-          <div className="flex flex-wrap items-center gap-2 mb-1">
+          <div className="flex items-center gap-2 mb-0.5">
             {itemHref ? (
               <Link
                 href={itemHref}
-                className="font-bold text-base sm:text-lg text-theme-text-primary hover:text-theme-primary transition-colors line-clamp-1"
+                className="font-bold text-sm sm:text-base text-theme-text-primary hover:text-theme-primary transition-colors line-clamp-2 leading-snug"
               >
                 {productName}
               </Link>
             ) : (
-              <span className="font-bold text-base sm:text-lg text-theme-text-primary line-clamp-1">
+              <span className="font-bold text-sm sm:text-base text-theme-text-primary line-clamp-2 leading-snug">
                 {productName}
               </span>
             )}
           </div>
 
           {styleName && styleName !== productName && (
-            <p className="mt-0.5 text-xs font-semibold text-theme-text-subtle line-clamp-1">
+            <p className="text-xs font-medium text-theme-text-subtle line-clamp-1 mb-1">
               {styleName}
             </p>
           )}
 
-          <div className="flex flex-wrap items-center gap-2 text-xs text-theme-text-subtle mt-1">
+          <div className="flex flex-wrap items-center gap-1.5 text-xs text-theme-text-subtle mt-1">
             {colorName ? (
-              <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-theme-surface-alt border border-theme-border text-theme-primary font-semibold">
+              <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-theme-surface-alt border border-theme-border text-theme-primary font-medium text-[11px] sm:text-xs">
                 <span
-                  className="h-2.5 w-2.5 rounded-full border border-theme-border"
+                  className="h-2 w-2 sm:h-2.5 sm:w-2.5 rounded-full border border-theme-border shrink-0"
                   style={{ backgroundColor: colorHex || "#e5e5e5" }}
                 />
-                {colorName}
+                <span className="truncate max-w-[120px]">{colorName}</span>
               </span>
             ) : (
               variantName && (
-                <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-theme-surface-alt border border-theme-border text-theme-primary font-semibold">
+                <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-theme-surface-alt border border-theme-border text-theme-primary font-medium text-[11px] sm:text-xs">
                   {variantName}
                 </span>
               )
             )}
             {(sizeLabel || measurement) && (
-              <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-theme-status-out-bg text-theme-status-out-fg font-medium">
+              <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-theme-status-out-bg text-theme-status-out-fg font-medium text-[11px] sm:text-xs whitespace-nowrap">
                 Size: {sizeLabel || measurement}
               </span>
             )}
-            {sku && <span className="text-theme-text-muted">SKU: {sku}</span>}
           </div>
 
           {/* Unit Price indicator */}
-          <div className="mt-2 flex items-baseline gap-2">
-            <span className="text-xs font-medium text-theme-text-muted">
+          <div className="mt-1.5 flex items-baseline gap-1.5">
+            <span className="text-[11px] sm:text-xs font-medium text-theme-text-muted">
               Unit Price:
             </span>
-            <span className="text-sm font-semibold text-theme-primary">
+            <span className="text-xs sm:text-sm font-semibold text-theme-primary">
               {formatPrice(effectivePrice)}
             </span>
             {discountPercent > 0 && basePrice > effectivePrice && (
-              <span className="text-xs text-theme-text-muted line-through">
+              <span className="text-[11px] text-theme-text-muted line-through">
                 {formatPrice(basePrice)}
               </span>
             )}
           </div>
         </div>
 
-        {/* Quantity Controls & Line Total */}
-        <div className="flex sm:flex-col items-center sm:items-end justify-between w-full sm:w-auto pt-3 sm:pt-0 border-t sm:border-t-0 border-theme-border-subtle gap-3">
-          <div className="text-right sm:text-right">
-            <div className="text-lg sm:text-xl font-bold text-theme-text-primary">
+        {/* Desktop Controls (hidden on mobile screen) */}
+        <div className="hidden sm:flex flex-col items-end gap-3 shrink-0">
+          <div className="text-right">
+            <div className="text-base sm:text-lg font-bold text-theme-text-primary">
               {formatPrice(itemTotal)}
             </div>
-            <div className="text-xs text-theme-text-muted">
+            <div className="text-[11px] text-theme-text-muted">
               {quantity} × {formatPrice(effectivePrice)}
             </div>
           </div>
@@ -281,6 +280,45 @@ function CartItem({
                 <Trash2 className="h-4 w-4" />
               )}
             </Button>
+          </div>
+        </div>
+      </div>
+
+      {/* Mobile Controls Row (visible only on mobile screen) */}
+      <div className="flex sm:hidden items-center justify-between pt-3 mt-3 border-t border-theme-border-subtle w-full">
+        <div className="flex items-center gap-2">
+          <QuantitySelector
+            value={quantity}
+            onChange={(newQty) => onUpdateQuantity(itemId, newQty)}
+            min={1}
+            max={stockQuantity}
+            disabled={isUpdating || isRemoving}
+            size="sm"
+          />
+
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8 rounded-lg text-theme-text-muted hover:text-theme-status-can-fg hover:bg-theme-status-can-bg transition-colors cursor-pointer"
+            onClick={() => onRemove(itemId)}
+            disabled={isUpdating || isRemoving}
+            title="Remove item"
+          >
+            {isRemoving ? (
+              <Loader2 className="h-4 w-4 animate-spin text-theme-status-can-fg" />
+            ) : (
+              <Trash2 className="h-4 w-4" />
+            )}
+          </Button>
+        </div>
+
+        <div className="text-right">
+          <div className="text-base font-bold text-theme-text-primary">
+            {formatPrice(itemTotal)}
+          </div>
+          <div className="text-[11px] text-theme-text-muted">
+            {quantity} × {formatPrice(effectivePrice)}
           </div>
         </div>
       </div>
