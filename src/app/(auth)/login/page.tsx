@@ -276,7 +276,7 @@ function LoginForm() {
             </>
           ) : (
             <p className="text-sm text-neutral-700">
-              Login successful. Loading {destination?.includes("dashboard") ? "dashboard" : "your account"}...
+              Login successful. Loading {destination === "/" ? "home page" : destination?.includes("dashboard") ? "dashboard" : "your account"}...
             </p>
           )}
         </div>

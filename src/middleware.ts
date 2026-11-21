@@ -80,7 +80,8 @@ export default auth(async (req) => {
       (nextAuthUser as { scope?: string })?.scope,
     userRole
   );
-  const home = () => getRoleHome(userRole, userScope);
+  const home = () =>
+    userScope === "CUSTOMER" ? "/" : getRoleHome(userRole, userScope);
 
   // Authenticated areas and the auth pages must never be served from the
   // browser's back/forward cache after logout.
@@ -155,7 +156,7 @@ export default auth(async (req) => {
     return applyCookies(NextResponse.next());
   }
 
-  if ((pathname === "/login" || pathname === "/register") && (validAccessToken || validRefreshToken)) {
+  if ((pathname === "/login" || pathname === "/register") && isAuthenticated) {
     return redirectTo(home());
   }
 
