@@ -126,7 +126,7 @@ export function AboutFounderSection() {
               </span>
               <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold leading-tight mb-4">
                 Thank you for choosing{" "}
-                <span className="text-about-quote-accent">ZELLORA INDIA.</span>
+                <span className="text-about-quote-accent">ZELLORA.</span>
               </h2>
               <p className="text-about-hero-subtext text-sm sm:text-base leading-relaxed">
                 We look forward to serving you and being a part of your fashion journey.

@@ -195,6 +195,16 @@ export default function TermsAndConditionsPage() {
           We will make reasonable efforts to deliver orders to the address provided during checkout.
         </p>
         <p className="text-neutral-700 leading-relaxed">
+          <strong className="text-neutral-900 font-semibold">Delivery Charges:</strong> Standard delivery is <strong className="text-neutral-900 font-semibold">Free</strong> for orders shipped within <strong className="text-neutral-900 font-semibold">Tamil Nadu</strong>. For all other states across India, a flat shipping charge of <strong className="text-neutral-900 font-semibold">₹80 (Rupees Eighty)</strong> applies and will be clearly shown at checkout before payment. For complete shipping terms, see our{" "}
+          <Link
+            href="/shipping-policy"
+            className="text-[var(--theme-primary,#5C1512)] font-medium hover:underline"
+          >
+            Shipping &amp; Delivery Policy
+          </Link>
+          .
+        </p>
+        <p className="text-neutral-700 leading-relaxed">
           Delivery times are estimates and may vary due to:
         </p>
         <ul className="list-disc pl-6 space-y-2 text-neutral-700">
