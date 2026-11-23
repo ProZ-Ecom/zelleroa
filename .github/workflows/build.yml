@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   build:
@@ -49,4 +49,5 @@ jobs:
           path: |
             .next/
             public/
+          include-hidden-files: true
           retention-days: 7
