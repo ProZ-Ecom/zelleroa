@@ -46,14 +46,6 @@ export default function PurchaseReturnDetailPage() {
       <AdminPageHeader
         title={ret.returnNumber}
         description={`${ret.vendor.name} (${ret.vendor.code}) · against ${ret.purchaseOrder.poNumber}`}
-        breadcrumbs={
-          <Link
-            href="/admin/dashboard/purchase-returns"
-            className="inline-flex items-center gap-1 text-sm text-neutral-500 hover:text-neutral-800"
-          >
-            <ArrowLeft className="h-4 w-4" /> Purchase returns
-          </Link>
-        }
         actions={
           <div className="flex flex-wrap items-center gap-2">
             <PurchaseReturnStatusBadge status={s} />

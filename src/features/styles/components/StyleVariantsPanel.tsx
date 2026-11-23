@@ -101,7 +101,6 @@ function StyleVariantsPanel({
   const [draftSelection, setDraftSelection] = useState<Set<string> | null>(null);
   const [showDefaults, setShowDefaults] = useState(false);
   const [pickedUnitId, setPickedUnitId] = useState("");
-  const [initialStock, setInitialStock] = useState<number>(0);
   const [isAddUnitOpen, setIsAddUnitOpen] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [result, setResult] = useState<GenerateVariantsResponse | null>(null);
@@ -126,9 +125,36 @@ function StyleVariantsPanel({
 
   const selected = draftSelection ?? savedSelection;
 
-  // One unit in the system is the common case - use it so the admin never has
-  // to answer a question that has exactly one answer.
-  const unitId = pickedUnitId || (units.length === 1 ? units[0].id : "");
+  // Detect unit already in use by this style's variants so it stays selected on reload
+  const existingUnitId = useMemo(() => {
+    for (const variant of variants) {
+      for (const up of variant.unitPrices ?? []) {
+        if (up.unitId) return up.unitId;
+        if (up.measurement?.unitId) return up.measurement.unitId;
+      }
+      if (variant.measurement?.unitId) return variant.measurement.unitId;
+      const code = variant.measurement?.unit || variant.unitPrices?.[0]?.unitCode;
+      if (code) {
+        const found = units.find(
+          (u) =>
+            u.code.toLowerCase() === code.toLowerCase() ||
+            u.name.toLowerCase() === code.toLowerCase()
+        );
+        if (found) return found.id;
+      }
+    }
+    return "";
+  }, [variants, units]);
+
+  // Unit priority: user pick in current session -> existing variant unit -> single unit in system -> clothing default (PCS/Pieces)
+  const defaultClothingUnit = useMemo(() => {
+    return (
+      units.find((u) => ["pcs", "piece", "pieces", "nos", "unit"].includes(u.code.toLowerCase()))?.id || ""
+    );
+  }, [units]);
+
+  const unitId =
+    pickedUnitId || existingUnitId || (units.length === 1 ? units[0].id : defaultClothingUnit);
 
   const colorGroups = useMemo(() => groups.filter((group) => group.type === "color"), [groups]);
   const otherGroups = useMemo(() => groups.filter((group) => group.type !== "color"), [groups]);
@@ -244,7 +270,7 @@ function StyleVariantsPanel({
         styleUuid,
         data: {
           unitId,
-          initialStock: initialStock > 0 ? initialStock : 0,
+          initialStock: 0,
           activate: true,
         },
       });
@@ -255,8 +281,7 @@ function StyleVariantsPanel({
       if (data.created > 0) {
         toast.success(
           "Colors Created",
-          `Successfully created ${data.created} color variant${data.created === 1 ? "" : "s"}${initialStock > 0 ? ` with ${initialStock} stock each` : ""
-          }.`
+          `Successfully created ${data.created} color variant${data.created === 1 ? "" : "s"}.`
         );
       } else if (data.skipped > 0) {
         toast.info(
@@ -455,7 +480,7 @@ function StyleVariantsPanel({
             </span>
             <span className="flex items-center gap-2">
               <span className="text-[11px] text-neutral-500">
-                {units.find((unit) => unit.id === unitId)?.name || "No unit"} · Stock: {initialStock}
+                Unit: {units.find((unit) => unit.id === unitId)?.name || "No unit"}
               </span>
               <ChevronDown
                 className={`h-3.5 w-3.5 text-neutral-400 transition-transform ${showDefaults ? "rotate-180" : ""
@@ -464,7 +489,7 @@ function StyleVariantsPanel({
             </span>
           </button>
           {showDefaults && (
-            <div className="grid grid-cols-1 gap-4 border-t border-neutral-200 p-3 md:grid-cols-2">
+            <div className="border-t border-neutral-200 p-3 max-w-sm">
               <div>
                 <div className="mb-1.5 flex items-center justify-between">
                   <label className="block text-xs font-semibold text-neutral-800">
@@ -491,25 +516,6 @@ function StyleVariantsPanel({
                     })),
                   ]}
                 />
-              </div>
-              <div>
-                <label className="mb-1.5 block text-xs font-semibold text-neutral-800">
-                  Initial Stock (Pieces on hand)
-                </label>
-                <input
-                  type="number"
-                  min="0"
-                  value={initialStock}
-                  onChange={(e) =>
-                    setInitialStock(Math.max(0, parseInt(e.target.value, 10) || 0))
-                  }
-                  placeholder="0"
-                  disabled={isBusy}
-                  className="w-full rounded-xl border border-neutral-300 bg-white px-3 py-2 text-xs text-neutral-900 focus:border-secondary-500 focus:outline-none"
-                />
-                <p className="mt-1 text-[11px] text-neutral-500">
-                  Opening stock for all new sizes. Leave 0 to add stock later from Inventory.
-                </p>
               </div>
             </div>
           )}

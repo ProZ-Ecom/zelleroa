@@ -1,9 +1,10 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
-import { BadgeCheck, Banknote, Check, CheckCircle2, Clock, Copy, IndianRupee, Mail, Pencil, Phone, ShoppingBag, UserCheck, Users, Wallet } from "lucide-react";
+import { ArrowLeft, BadgeCheck, Banknote, Check, CheckCircle2, Clock, Copy, IndianRupee, Mail, Pencil, Phone, ShoppingBag, UserCheck, Users, Wallet } from "lucide-react";
 import { apiClient } from "@/lib/api/api-client";
 import { toast } from "@/components/ui/Toast";
 import { PageContainer } from "@/components/admin/PageContainer";
@@ -95,10 +96,10 @@ export default function AdminAgentDetailPage() {
     <PageContainer
       title={agent ? agent.name : "Sales Partner"}
       description={agent ? `${agent.agentCode ?? ""} · ${agent.email ?? ""}` : undefined}
-      breadcrumbs={[{ label: "Dashboard", href: "/admin/dashboard" }, { label: "Sales Partners", href: "/admin/dashboard/agents" }, { label: agent?.name ?? "Sales Partner" }]}
+      breadcrumbs={[{ label: "Sales Partners", href: "/admin/dashboard/agents" }, { label: agent?.name ?? "Sales Partner" }]}
       actions={
         agent && (
-          <>
+          <div className="flex flex-wrap items-center gap-2">
             <button type="button" onClick={() => setEditing(true)} className="inline-flex h-10 items-center gap-2 rounded-xl border border-neutral-200 px-4 text-sm font-medium hover:bg-neutral-50">
               <Pencil className="h-4 w-4" /> Edit
             </button>
@@ -109,7 +110,7 @@ export default function AdminAgentDetailPage() {
             >
               {agent.isActive ? "Block" : "Unblock"}
             </button>
-          </>
+          </div>
         )
       }
     >

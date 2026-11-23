@@ -149,6 +149,9 @@ export function MegaMenuPanel({
                 {root.children.map((level2, i) => {
                   const columnMenu = columnMenus[i];
                   const columnProducts = columnMenu?.data?.products ?? [];
+                  const columnStyles = columnProducts.flatMap((p) =>
+                    p.styles.length > 0 ? p.styles : [{ id: p.id, name: p.name, image: null }]
+                  );
                   return (
                     <div key={level2.id} className="min-w-[160px]">
                       <Link
@@ -166,14 +169,14 @@ export function MegaMenuPanel({
                         </ul>
                       ) : (
                         <ul className="space-y-2">
-                          {columnProducts.slice(0, 5).map((product) => (
-                            <li key={product.id}>
+                          {columnStyles.slice(0, 5).map((item) => (
+                            <li key={item.id}>
                               <Link
-                                href={product.styles[0] ? styleHref(product.styles[0].id) : categoryHref(level2)}
+                                href={styleHref(item.id)}
                                 onClick={onNavigate}
                                 className="text-sm text-neutral-600 hover:text-theme-primary whitespace-nowrap capitalize"
                               >
-                                {toTitleCase(product.name)}
+                                {toTitleCase(item.name)}
                               </Link>
                             </li>
                           ))}
@@ -197,10 +200,7 @@ export function MegaMenuPanel({
 
         {showProducts && (
           <div className={`min-w-0 ${hasChildren ? "border-t border-neutral-100 pt-6" : ""}`}>
-            <div className="mb-3 flex items-center justify-between gap-6">
-              <p className="text-xs font-bold uppercase tracking-wide text-neutral-900">
-                Products
-              </p>
+            <div className="mb-3 flex items-center justify-end gap-6">
               <Link
                 href={href}
                 onClick={onNavigate}
@@ -226,9 +226,9 @@ export function MegaMenuPanel({
                 ))}
               </div>
             ) : (
-              <div className="grid grid-cols-3 gap-x-6 gap-y-5">
+              <div className="flex flex-wrap gap-8">
                 {products.map((product) => (
-                  <div key={product.id} className="w-44">
+                  <div key={product.id} className="min-w-[160px] w-44">
                     {product.styles[0] ? (
                       <Link
                         href={styleHref(product.styles[0].id)}

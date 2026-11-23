@@ -152,14 +152,6 @@ export default function PurchaseOrderDetailPage() {
       <AdminPageHeader
         title={po.poNumber}
         description={`Vendor: ${po.vendor.name} (${po.vendor.code})`}
-        breadcrumbs={
-          <Link
-            href="/admin/dashboard/purchase-orders"
-            className="inline-flex items-center gap-1 text-sm text-neutral-500 hover:text-neutral-800"
-          >
-            <ArrowLeft className="h-4 w-4" /> Purchase orders
-          </Link>
-        }
         actions={
           <div className="flex flex-wrap items-center gap-2">
             <PurchaseStatusBadge status={s} />

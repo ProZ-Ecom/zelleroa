@@ -314,14 +314,7 @@ function CreateCampaignContent() {
       <AdminPageHeader
         title="Create WhatsApp Campaign"
         description="Deliver festival offers, flash sales, and product updates safely to 200–500 customers"
-      >
-        <Link href="/admin/dashboard/whatsapp/campaigns">
-          <Button variant="outline" size="sm" className="gap-2 border-neutral-200">
-            <ArrowLeft className="w-4 h-4" />
-            Back to Campaigns
-          </Button>
-        </Link>
-      </AdminPageHeader>
+      />
 
       {/* Tabs */}
       <WhatsAppNavTabs active="campaigns" />

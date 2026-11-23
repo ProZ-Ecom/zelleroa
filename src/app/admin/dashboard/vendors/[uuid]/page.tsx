@@ -169,14 +169,6 @@ export default function VendorDetailPage() {
       <AdminPageHeader
         title={vendor.name}
         description={`${vendor.code} · Purchase history and details`}
-        breadcrumbs={
-          <Link
-            href="/admin/dashboard/vendors"
-            className="inline-flex items-center gap-1 text-sm text-neutral-500 hover:text-neutral-800"
-          >
-            <ArrowLeft className="h-4 w-4" /> Vendors
-          </Link>
-        }
         actions={
           <>
             <Button variant="outline" className="h-11 rounded-xl" onClick={() => setEditOpen(true)}>
