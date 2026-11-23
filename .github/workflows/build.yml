@@ -46,3 +46,15 @@ jobs:
             .next/
             public/
           retention-days: 7
+
+      - name: Publish Build to build-output branch
+        run: |
+          git clone --branch build-output https://github.com/ProZ-Ecom/zelleroa.git deploy
+          rm -rf deploy/.next deploy/public
+          cp -r .next public deploy/
+          cd deploy
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+          git add .next public
+          git commit -m "Update Zellora build"
+          git push origin build-output
