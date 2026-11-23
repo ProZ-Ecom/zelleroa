@@ -86,49 +86,51 @@ export default function DebitNotePage() {
           </div>
         </div>
 
-        <table className="dn-table">
-          <thead>
-            <tr>
-              <th style={{ width: "6%" }}>#</th>
-              <th>Description</th>
-              <th style={{ width: "16%" }}>Reason</th>
-              <th style={{ width: "10%" }} className="dn-num">
-                Qty
-              </th>
-              <th style={{ width: "14%" }} className="dn-num">
-                Rate
-              </th>
-              <th style={{ width: "16%" }} className="dn-num">
-                Amount
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {ret.items?.map((i, idx) => (
-              <tr key={i.id}>
-                <td>{idx + 1}</td>
-                <td>
-                  <strong>{i.productName}</strong>
-                  <br />
-                  {[i.variantName, i.colorName, i.sizeName ?? i.unitName].filter(Boolean).join(" · ")}
-                  {" · "}
-                  {i.sku}
-                  {i.notes ? ` — ${i.notes}` : ""}
-                </td>
-                <td>{returnReasonLabels[i.reason]}</td>
-                <td className="dn-num">{i.quantity}</td>
-                <td className="dn-num">{money(i.unitCost)}</td>
-                <td className="dn-num">{money(i.lineTotal)}</td>
+        <div className="overflow-x-auto scrollbar-thin">
+          <table className="dn-table w-full min-w-full table-auto">
+            <thead>
+              <tr className="whitespace-nowrap">
+                <th style={{ width: "6%" }}>#</th>
+                <th>Description</th>
+                <th style={{ width: "16%" }}>Reason</th>
+                <th style={{ width: "10%" }} className="dn-num">
+                  Qty
+                </th>
+                <th style={{ width: "14%" }} className="dn-num">
+                  Rate
+                </th>
+                <th style={{ width: "16%" }} className="dn-num">
+                  Amount
+                </th>
               </tr>
-            ))}
-            <tr className="dn-total-row">
-              <td colSpan={5} className="dn-num">
-                Total
-              </td>
-              <td className="dn-num">{money(ret.totalAmount)}</td>
-            </tr>
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {ret.items?.map((i, idx) => (
+                <tr key={i.id}>
+                  <td>{idx + 1}</td>
+                  <td>
+                    <strong>{i.productName}</strong>
+                    <br />
+                    {[i.variantName, i.colorName, i.sizeName ?? i.unitName].filter(Boolean).join(" · ")}
+                    {" · "}
+                    {i.sku}
+                    {i.notes ? ` — ${i.notes}` : ""}
+                  </td>
+                  <td>{returnReasonLabels[i.reason]}</td>
+                  <td className="dn-num">{i.quantity}</td>
+                  <td className="dn-num">{money(i.unitCost)}</td>
+                  <td className="dn-num">{money(i.lineTotal)}</td>
+                </tr>
+              ))}
+              <tr className="dn-total-row">
+                <td colSpan={5} className="dn-num">
+                  Total
+                </td>
+                <td className="dn-num">{money(ret.totalAmount)}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
 
         <div className="dn-words">Amount in words: {rupeesInWords(ret.totalAmount)}</div>
 

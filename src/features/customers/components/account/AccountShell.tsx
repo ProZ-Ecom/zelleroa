@@ -118,7 +118,9 @@ export function AccountShell({ activeTab, onTabChange }: AccountShellProps) {
 
         {/* Mobile Horizontal Swipeable Pill Navigation */}
         <div className="md:hidden w-full flex gap-2 overflow-x-auto pb-1 scrollbar-hide -mx-1 px-1">
-          {navItems.map((item) => {
+          {navItems
+            .filter((item) => item.id !== "logout")
+            .map((item) => {
             const isActive = activeTab === item.id;
             return (
               <button

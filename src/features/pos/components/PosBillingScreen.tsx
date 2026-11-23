@@ -480,8 +480,8 @@ export function PosBillingScreen({
               </p>
             </div>
           ) : (
-            <table className="w-full text-xs sm:text-sm min-w-[500px]">
-              <thead className="sticky top-0 bg-white text-left text-xs uppercase text-neutral-500">
+            <table className="w-full min-w-full table-auto text-xs sm:text-sm">
+              <thead className="sticky top-0 bg-white text-left text-xs uppercase text-neutral-500 whitespace-nowrap">
                 <tr>
                   <th className="py-2">Item</th>
                   <th className="w-32 sm:w-36 py-2 text-center">Qty</th>

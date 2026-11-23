@@ -666,7 +666,7 @@ export function Header({
           onClick={() => {
             setIsOpen(false);
           }}
-          className={`fixed inset-0 z-40 bg-black/40 backdrop-blur-xs transition-all duration-500 ${
+          className={`fixed inset-0 z-[60] bg-black/40 backdrop-blur-xs transition-all duration-500 ${
             isOpen ? "opacity-100 visible" : "opacity-0 invisible"
           }`}
         />
@@ -674,7 +674,7 @@ export function Header({
         {/* Drawer Panel */}
         <div
           ref={menuRef}
-          className={`fixed top-0 right-0 z-50 h-screen w-72 bg-[var(--brown-600)] border-l border-white/20 transform transition-all duration-500 ease-in-out flex flex-col ${
+          className={`fixed top-0 right-0 z-[70] h-screen h-[100dvh] max-h-[100dvh] w-72 bg-[var(--brown-600)] border-l border-white/20 transform transition-all duration-500 ease-in-out flex flex-col ${
             isOpen ? "translate-x-0 shadow-2xl" : "translate-x-full invisible"
           }`}
         >
@@ -724,6 +724,33 @@ export function Header({
               </>
             )}
           </nav>
+
+          {/* Menu Bottom: Logout when authenticated (or Login if guest) in mobile view */}
+          <div className="border-t border-white/20 p-4 pb-[calc(env(safe-area-inset-bottom,0px)+16px)] shrink-0 bg-[var(--brown-600)]">
+            {effectiveAuthenticated ? (
+              <button
+                type="button"
+                disabled={logout.isPending}
+                onClick={() => {
+                  setIsOpen(false);
+                  setShowLogoutConfirm(true);
+                }}
+                className="flex items-center gap-3 w-full px-4 py-3 rounded-xl text-sm font-semibold text-red-400 hover:bg-white/10 active:bg-white/20 transition-colors cursor-pointer disabled:opacity-60 text-left"
+              >
+                <LogOut className="h-5 w-5 text-red-400 shrink-0" />
+                <span>{logout.isPending ? "Logging out…" : "Logout"}</span>
+              </button>
+            ) : (
+              <Link
+                href="/login"
+                onClick={() => setIsOpen(false)}
+                className="flex items-center gap-3 w-full px-4 py-3 rounded-xl text-sm font-semibold text-white/90 hover:bg-white/10 active:bg-white/20 transition-colors"
+              >
+                <LogIn className="h-5 w-5 text-white/80 shrink-0" />
+                <span>Login / Register</span>
+              </Link>
+            )}
+          </div>
         </div>
       </>
 

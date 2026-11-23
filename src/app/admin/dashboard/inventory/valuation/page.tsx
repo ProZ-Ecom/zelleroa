@@ -313,7 +313,7 @@ export default function ValuationPage() {
             </div>
 
             {view === "stock" && stockTotals && (
-              <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 lg:grid-cols-4">
                 <StatTile
                   label="Stock at cost"
                   value={money(stockTotals.costValue)}
@@ -333,7 +333,7 @@ export default function ValuationPage() {
             )}
 
             {view === "sales" && salesTotals && (
-              <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 lg:grid-cols-4">
                 <StatTile
                   label="Revenue"
                   value={money(salesTotals.revenue)}

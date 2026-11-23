@@ -970,7 +970,7 @@ export default function AdminProductDetailsPage() {
           </div>
         ) : (
           <div className="overflow-x-auto overflow-y-auto max-h-[560px] relative scrollbar-thin">
-            <table className="w-full text-left text-sm border-collapse">
+            <table className="w-full min-w-full table-auto text-left text-sm border-collapse">
               <thead className="sticky top-0 z-30 bg-cream-50 text-[11px] font-bold tracking-wider text-neutral-400 uppercase shadow-[0_1px_0_var(--cream-border)]">
                 <tr>
                   {/* Checkbox */}

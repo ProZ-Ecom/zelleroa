@@ -230,7 +230,7 @@ export default function AdminDashboardPage() {
               })}
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <Link
                 href="/admin/dashboard/orders"
                 className="inline-flex items-center gap-1.5 rounded-lg border border-sky-200 bg-sky-50 px-3 py-1.5 text-xs font-medium text-sky-700 transition-colors hover:bg-sky-100"
@@ -272,7 +272,7 @@ export default function AdminDashboardPage() {
                 </h2>
                 <p className="mt-1 text-sm text-white/75">{heroSubtitle}</p>
               </div>
-              <div className="grid grid-cols-3 gap-3 sm:gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 sm:gap-4">
                 {heroStats.map((k) => (
                   <div
                     key={k.label}

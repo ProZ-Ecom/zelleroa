@@ -169,7 +169,7 @@ export default function AdminAgentDetailPage() {
           </div>
 
           <Panel title="Earnings">
-            <div className="grid grid-cols-2 gap-3 p-4 md:grid-cols-4 xl:grid-cols-7">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-4 md:grid-cols-4 xl:grid-cols-7">
               <MetricCard icon={IndianRupee} label="Total sales" value={money(agent.summary.totalSales)} />
               <MetricCard icon={Wallet} label="Total commission" value={money(agent.summary.totalCommission)} />
               <MetricCard icon={Clock} label="Pending" value={money(agent.summary.pendingCommission)} tone="warn" />

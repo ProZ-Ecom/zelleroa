@@ -76,7 +76,7 @@ export default function SalesReportPage() {
               {isFetching && <span className="text-xs text-neutral-400">Updating…</span>}
             </div>
 
-            <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:grid-cols-4">
               <MetricCard
                 label="Net sales"
                 value={money(data.totals.netSales)}

@@ -113,8 +113,8 @@ export function AdminRequestsTable({ kind }: { kind: RequestKind }) {
       </form>
 
       <div className="min-h-0 flex-1 overflow-auto scrollbar-table rounded-xl border border-cream-border-subtle bg-white">
-        <table className="w-full min-w-[900px] text-left text-xs">
-          <thead className="sticky top-0 z-10 bg-stone-900 text-[11px] font-bold uppercase tracking-wider text-[#D4AF37] border-b border-stone-800 shadow-[0_1px_3px_rgba(28,25,23,0.2)]">
+        <table className="w-full min-w-full table-auto text-left text-xs">
+          <thead className="sticky top-0 z-10 bg-stone-900 text-[11px] font-bold uppercase tracking-wider text-[#D4AF37] border-b border-stone-800 shadow-[0_1px_3px_rgba(28,25,23,0.2)] whitespace-nowrap">
             <tr>
               <th className="px-3 py-2.5">Request</th>
               <th className="px-3 py-2.5">Order</th>

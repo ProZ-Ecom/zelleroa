@@ -163,10 +163,10 @@ function RecentOrders({ orders, channel = "all" }: RecentOrdersProps) {
           No {effectiveTab === "pos" ? "counter sales" : effectiveTab === "online" ? "online orders" : "orders"} yet
         </p>
       ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+        <div className="overflow-x-auto scrollbar-thin">
+          <table className="w-full min-w-full table-auto text-sm">
             <thead>
-              <tr className="rounded-lg bg-[var(--color-neutral-50)] text-left text-[11px] font-semibold uppercase tracking-wider text-[var(--color-neutral-500)]">
+              <tr className="rounded-lg bg-[var(--color-neutral-50)] text-left text-[11px] font-semibold uppercase tracking-wider text-[var(--color-neutral-500)] whitespace-nowrap">
                 <th className="rounded-l-lg px-3 py-2.5">Order</th>
                 <th className="px-3 py-2.5">Channel</th>
                 <th className="px-3 py-2.5">Customer</th>
@@ -181,7 +181,7 @@ function RecentOrders({ orders, channel = "all" }: RecentOrdersProps) {
                 return (
                   <tr
                     key={order.id}
-                    className="border-b border-[var(--color-neutral-100)] transition-colors last:border-0 hover:bg-[var(--color-neutral-50)]"
+                    className="border-b border-[var(--color-neutral-100)] transition-colors last:border-0 hover:bg-[var(--color-neutral-50)] whitespace-nowrap"
                   >
                     <td className="px-3 py-3 font-mono text-xs font-semibold text-[var(--color-neutral-900)]">
                       {order.id}

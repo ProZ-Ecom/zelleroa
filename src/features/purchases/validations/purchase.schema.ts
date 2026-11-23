@@ -1,5 +1,13 @@
 import { z } from "zod";
 import { optionalEmailField } from "@/lib/validations/email";
+import { NAME_REGEX } from "@/lib/validations/name";
+import {
+  MOBILE_REGEX,
+  STORED_MOBILE_REGEX,
+  MOBILE_INVALID_MESSAGE,
+} from "@/lib/validations/mobile";
+
+export const GSTIN_REGEX = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/;
 
 const optionalText = (max: number) =>
   z
@@ -10,13 +18,71 @@ const optionalText = (max: number) =>
     .nullable()
     .transform((v) => (v ? v : null));
 
+export const optionalContactPerson = z
+  .string()
+  .trim()
+  .max(120, "Contact person cannot exceed 120 characters")
+  .optional()
+  .nullable()
+  .superRefine((val, ctx) => {
+    if (!val) return;
+    if (!NAME_REGEX.test(val)) {
+      ctx.addIssue({
+        code: "custom",
+        message: "Contact person can only contain letters and spaces",
+      });
+    }
+  })
+  .transform((v) => (v ? v : null));
+
+export const optionalVendorPhone = z
+  .string()
+  .trim()
+  .max(20, "Phone number cannot exceed 20 characters")
+  .optional()
+  .nullable()
+  .superRefine((val, ctx) => {
+    if (!val) return;
+    const clean = val.replace(/[\s-]/g, "");
+    if (STORED_MOBILE_REGEX.test(clean) || MOBILE_REGEX.test(clean)) return;
+    ctx.addIssue({ code: "custom", message: MOBILE_INVALID_MESSAGE });
+  })
+  .transform((val) => {
+    if (!val) return null;
+    const clean = val.replace(/[\s-]/g, "");
+    return clean;
+  });
+
+export const optionalGstinField = z
+  .string()
+  .trim()
+  .max(20, "GSTIN cannot exceed 20 characters")
+  .optional()
+  .nullable()
+  .superRefine((val, ctx) => {
+    if (!val) return;
+    const upper = val.toUpperCase().replace(/\s+/g, "");
+    if (!GSTIN_REGEX.test(upper)) {
+      ctx.addIssue({
+        code: "custom",
+        message: "Provide valid 15-character GSTIN (e.g. 29AAAAA0000A1Z5)",
+      });
+    }
+  })
+  .transform((v) => (v ? v.toUpperCase().replace(/\s+/g, "") : null));
+
 export const vendorSchema = z
   .object({
-    name: z.string().trim().min(1, "Vendor name is required").max(150),
-    contactPerson: optionalText(120),
-    phone: optionalText(20),
+    name: z
+      .string({ message: "Vendor name is required" })
+      .trim()
+      .min(1, "Vendor name is required")
+      .min(2, "Vendor name must be at least 2 characters")
+      .max(150, "Vendor name cannot exceed 150 characters"),
+    contactPerson: optionalContactPerson,
+    phone: optionalVendorPhone,
     email: optionalEmailField.transform((v) => v ?? null),
-    gstin: optionalText(20),
+    gstin: optionalGstinField,
     address: optionalText(500),
     notes: optionalText(500),
     isActive: z.boolean().optional(),

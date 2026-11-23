@@ -488,7 +488,6 @@ function RowActions({ row, full = false }: { row: StockRow; full?: boolean }) {
                       setPage(1);
                     }}
                     className="bg-white min-h-[360px] sm:min-h-[440px]"
-                    tableClassName="min-w-full"
                   />
                 </div>
               </>

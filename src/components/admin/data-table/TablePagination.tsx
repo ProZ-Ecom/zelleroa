@@ -56,19 +56,19 @@ export function TablePagination({
   return (
     <div
       className={cn(
-        "flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-4 sm:px-5 py-2.5 flex-shrink-0 border-t border-neutral-200/70 bg-neutral-50/95 backdrop-blur sticky bottom-0 z-20",
+        "flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-3 px-3 sm:px-5 py-2 sm:py-2.5 flex-shrink-0 border-t border-neutral-200/70 bg-neutral-50/95 backdrop-blur sticky bottom-0 z-20 text-xs sm:text-sm",
         className
       )}
     >
-      <div className="flex flex-wrap items-center gap-3 sm:gap-6 text-sm text-[var(--color-neutral-500)]">
+      <div className="flex flex-wrap items-center justify-between sm:justify-start gap-2 sm:gap-6 text-xs sm:text-sm text-[var(--color-neutral-500)] w-full sm:w-auto">
         <p>
           Showing {startEntry}–{endEntry} of {computedTotalItems} entries
         </p>
-        <div className="flex items-center gap-2">
-          <span className="text-xs font-medium text-[var(--color-neutral-600)] whitespace-nowrap">
+        <div className="flex items-center gap-1.5 sm:gap-2">
+          <span className="text-[11px] sm:text-xs font-medium text-[var(--color-neutral-600)] whitespace-nowrap">
             Rows per page:
           </span>
-          <div className="w-20">
+          <div className="w-16 sm:w-20">
             <Select
               size="sm"
               value={String(effectivePageSize)}
@@ -84,7 +84,7 @@ export function TablePagination({
           </div>
         </div>
       </div>
-      <div className="flex items-center gap-2 self-end sm:self-auto">
+      <div className="flex items-center justify-center sm:justify-end gap-1 sm:gap-2 w-full sm:w-auto">
         <button
           type="button"
           onClick={() => onPageChange?.(page - 1)}

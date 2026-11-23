@@ -56,14 +56,33 @@ export default function VendorsPage() {
     {
       accessorKey: "contactPerson",
       header: "Contact",
-      cell: ({ row }) => (
-        <div className="text-sm text-[var(--color-neutral-700)]">
-          <p>{row.original.contactPerson || "—"}</p>
-          <p className="text-xs text-[var(--color-neutral-500)]">
-            {[row.original.phone, row.original.email].filter(Boolean).join(" · ")}
-          </p>
-        </div>
-      ),
+      cell: ({ row }) => {
+        const contactPerson = row.original.contactPerson?.trim();
+        const contactInfo = [row.original.phone?.trim(), row.original.email?.trim()]
+          .filter(Boolean)
+          .join(" · ");
+
+        if (!contactPerson && !contactInfo) {
+          return <span className="text-sm text-[var(--color-neutral-500)]">—</span>;
+        }
+
+        return (
+          <div className="text-sm text-[var(--color-neutral-700)]">
+            {contactPerson && <p className="font-medium">{contactPerson}</p>}
+            {contactInfo && (
+              <p
+                className={
+                  contactPerson
+                    ? "text-xs text-[var(--color-neutral-500)]"
+                    : "text-sm text-[var(--color-neutral-700)]"
+                }
+              >
+                {contactInfo}
+              </p>
+            )}
+          </div>
+        );
+      },
     },
     {
       accessorKey: "gstin",

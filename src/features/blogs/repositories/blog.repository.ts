@@ -48,9 +48,9 @@ export const blogRepository = {
     };
   },
 
-  async findById(id: number) {
+  async findById(id: number | bigint) {
     return db.blog.findUnique({
-      where: { id },
+      where: { id: BigInt(id) },
       include: {
         author: { select: { id: true, name: true, email: true } },
       },
@@ -73,15 +73,15 @@ export const blogRepository = {
     });
   },
 
-  async update(id: number, data: Prisma.BlogUpdateInput) {
+  async update(id: number | bigint, data: Prisma.BlogUpdateInput) {
     return db.blog.update({
-      where: { id },
+      where: { id: BigInt(id) },
       data,
       include: blogListInclude,
     });
   },
 
-  async delete(id: number) {
-    return db.blog.delete({ where: { id } });
+  async delete(id: number | bigint) {
+    return db.blog.delete({ where: { id: BigInt(id) } });
   },
 };

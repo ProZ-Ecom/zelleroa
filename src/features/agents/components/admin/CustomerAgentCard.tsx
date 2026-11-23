@@ -130,10 +130,10 @@ export function CustomerAgentCard({ customerId, canTransfer = true }: { customer
       {msg && <p className={`text-xs ${msg.ok ? "text-green-700" : "text-red-600"}`}>{msg.text}</p>}
 
       {data && data.history.length > 0 && (
-        <div className="overflow-x-auto rounded-xl border border-neutral-200/70 overflow-hidden">
-          <table className="w-full text-xs border-separate border-spacing-0">
+        <div className="overflow-x-auto rounded-xl border border-neutral-200/70 scrollbar-thin">
+          <table className="w-full min-w-full table-auto text-xs border-separate border-spacing-0">
             <thead>
-              <tr className="bg-stone-900 text-[#D4AF37] border-b border-stone-800">
+              <tr className="bg-stone-900 text-[#D4AF37] border-b border-stone-800 whitespace-nowrap">
                 <th className="py-2.5 px-3 text-left font-semibold uppercase tracking-wider text-[10px]">When</th>
                 <th className="py-2.5 px-3 text-left font-semibold uppercase tracking-wider text-[10px]">From</th>
                 <th className="py-2.5 px-3 text-left font-semibold uppercase tracking-wider text-[10px]">To</th>
