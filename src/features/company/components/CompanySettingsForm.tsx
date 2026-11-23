@@ -297,7 +297,7 @@ export function CompanySettingsForm() {
               required
               value={formData.companyName || ""}
               onChange={(e) => handleInputChange("companyName", e.target.value)}
-              placeholder="e.g. Rithanya Food Products and Exports"
+              placeholder="Enter the company name"
             />
           </div>
 
@@ -310,7 +310,7 @@ export function CompanySettingsForm() {
               type="email"
               value={formData.email || ""}
               onChange={(e) => handleInputChange("email", e.target.value)}
-              placeholder="e.g. contact@zellora.com"
+              placeholder="Enter the primary email address"
             />
           </div>
 
@@ -322,7 +322,7 @@ export function CompanySettingsForm() {
             <Input
               value={formData.phone || ""}
               onChange={(e) => handleInputChange("phone", e.target.value)}
-              placeholder="e.g. +91 94861 50579"
+              placeholder="Enter the primary phone or WhatsApp number"
             />
           </div>
 
@@ -335,7 +335,7 @@ export function CompanySettingsForm() {
               type="url"
               value={formData.website || ""}
               onChange={(e) => handleInputChange("website", e.target.value)}
-              placeholder="https://zellora.com"
+              placeholder="Enter the website URL"
             />
           </div>
         </div>
@@ -362,7 +362,7 @@ export function CompanySettingsForm() {
               rows={2}
               value={formData.address || ""}
               onChange={(e) => handleInputChange("address", e.target.value)}
-              placeholder="6/1033, Thillai Nagar Trichy Road"
+              placeholder="Enter the street address"
             />
           </div>
 
@@ -374,7 +374,7 @@ export function CompanySettingsForm() {
             <Input
               value={formData.pincode || ""}
               onChange={(e) => handlePincodeChange(e.target.value)}
-              placeholder="e.g. 637002"
+              placeholder="Enter the PIN code"
               maxLength={6}
             />
             {pincodeLookupError && <p className="text-xs text-red-500 font-medium">{pincodeLookupError}</p>}
@@ -441,7 +441,7 @@ export function CompanySettingsForm() {
             <Input
               value={formData.gstNumber || ""}
               onChange={(e) => handleInputChange("gstNumber", e.target.value.toUpperCase())}
-              placeholder="33AAAAA0000A1Z5"
+              placeholder="Enter the GST number"
               maxLength={15}
             />
           </div>
@@ -451,7 +451,7 @@ export function CompanySettingsForm() {
             <Input
               value={formData.panNumber || ""}
               onChange={(e) => handleInputChange("panNumber", e.target.value.toUpperCase())}
-              placeholder="AAAAA0000A"
+              placeholder="Enter the PAN number"
               maxLength={10}
             />
           </div>
@@ -492,7 +492,7 @@ export function CompanySettingsForm() {
             <Input
               value={socialLinks.instagram}
               onChange={(e) => handleSocialChange("instagram", e.target.value)}
-              placeholder="https://instagram.com/yourbrand"
+              placeholder="Enter the Instagram profile URL"
             />
             <p className="text-xs text-neutral-400">Links with the Instagram icon in footer</p>
           </div>
@@ -505,7 +505,7 @@ export function CompanySettingsForm() {
             <Input
               value={socialLinks.facebook}
               onChange={(e) => handleSocialChange("facebook", e.target.value)}
-              placeholder="https://facebook.com/yourbrand"
+              placeholder="Enter the Facebook page URL"
             />
             <p className="text-xs text-neutral-400">Links with the Facebook icon in footer</p>
           </div>
@@ -518,7 +518,7 @@ export function CompanySettingsForm() {
             <Input
               value={socialLinks.youtube}
               onChange={(e) => handleSocialChange("youtube", e.target.value)}
-              placeholder="https://youtube.com/@yourbrand"
+              placeholder="Enter the YouTube channel URL"
             />
             <p className="text-xs text-neutral-400">Links with the YouTube icon in footer</p>
           </div>
@@ -531,7 +531,7 @@ export function CompanySettingsForm() {
             <Input
               value={socialLinks.whatsapp}
               onChange={(e) => handleSocialChange("whatsapp", e.target.value)}
-              placeholder="https://wa.me/919486150579 or 9486150579"
+              placeholder="Enter the WhatsApp support link or number"
             />
             <p className="text-xs text-neutral-400">Links with the WhatsApp icon and support link in footer</p>
           </div>
@@ -544,7 +544,7 @@ export function CompanySettingsForm() {
             <Input
               value={socialLinks.twitter}
               onChange={(e) => handleSocialChange("twitter", e.target.value)}
-              placeholder="https://x.com/yourbrand"
+              placeholder="Enter the Twitter / X profile URL"
             />
             <p className="text-xs text-neutral-400">Optional profile link for X (Twitter)</p>
           </div>
