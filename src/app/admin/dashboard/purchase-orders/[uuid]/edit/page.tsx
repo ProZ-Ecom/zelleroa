@@ -27,7 +27,10 @@ export default function EditPurchaseOrderPage() {
 
   return (
     <div className="flex flex-1 min-h-0 flex-col overflow-auto">
-      <AdminPageHeader title={`Edit ${po.poNumber}`} description="Changes are saved to the same draft." />
+      <AdminPageHeader
+        title={`Edit ${po.poNumber}`}
+        description="Changes are saved to the same draft."
+      />
       <div className="mt-6 max-w-5xl rounded-2xl bg-white p-6">
         <PurchaseOrderForm
           initial={po}

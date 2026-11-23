@@ -410,6 +410,12 @@ export const deliveryService = {
     sessionUserId: string,
     uuid: string
   ): Promise<DeliveryTransitionResult> {
+    if (!isManualDeliveryStatusEnabled()) {
+      throw ApiError.forbidden(
+        "Manual delivery milestone updates are disabled. Status updates are managed automatically by courier integrations."
+      );
+    }
+
     const staffUser = await userRepository.findById(sessionUserId);
     if (!staffUser || !staffUser.internalId) {
       throw ApiError.unauthorized("Staff member not found");
@@ -467,6 +473,12 @@ export const deliveryService = {
     uuid: string,
     input?: MarkDeliveredInput
   ): Promise<DeliveryTransitionResult> {
+    if (!isManualDeliveryStatusEnabled()) {
+      throw ApiError.forbidden(
+        "Manual delivery completion is disabled. Status updates are managed automatically by courier integrations."
+      );
+    }
+
     const staffUser = await userRepository.findById(sessionUserId);
     if (!staffUser || !staffUser.internalId) {
       throw ApiError.unauthorized("Staff member not found");

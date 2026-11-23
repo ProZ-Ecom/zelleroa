@@ -44,14 +44,14 @@ export function AboutHeroSection() {
                 <span className="absolute inline-flex h-full w-full rounded-full bg-tertiary-200 opacity-75 animate-ping" />
                 <span className="relative inline-flex h-2 w-2 rounded-full bg-tertiary-200" />
               </span>
-              ABOUT ZELLORA INDIA
+              ABOUT ZELLORA
             </div>
 
             {/* Main Title */}
             <h1 className="text-4xl sm:text-5xl lg:text-[64px] text-white font-extrabold leading-[1.05] tracking-tight">
               Welcome to
               <br />
-              <span className="about-shine-text italic">ZELLORA INDIA</span>
+              <span className="about-shine-text italic">ZELLORA</span>
             </h1>
 
             {/* Subtext */}
@@ -69,13 +69,13 @@ export function AboutHeroSection() {
                 <ArrowUpRight className="w-4 h-4 transition-transform duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
               </Link>
 
-              <a
+              {/* <a
                 href="#our-business"
                 className={`${buttonVariants({ variant: "outline", size: "lg" })} gap-2`}
               >
                 <Compass className="w-4 h-4" />
                 Our business
-              </a>
+              </a> */}
             </div>
 
             {/* Feature row */}
@@ -113,7 +113,7 @@ export function AboutHeroSection() {
                     priority
                   />
                   <span className="text-tertiary-100 text-xs font-bold tracking-[0.25em] uppercase">
-                    Zellora India
+                    Zellora
                   </span>
                 </div>
               </div>

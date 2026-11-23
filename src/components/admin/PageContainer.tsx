@@ -16,13 +16,13 @@ function PageContainer({
   title,
   description,
   actions,
-  breadcrumbs = [],
+  breadcrumbs,
   children,
 }: PageContainerProps) {
   return (
     <div className="space-y-6">
       <AdminPageHeader
-        breadcrumbs={<AdminBreadcrumb items={breadcrumbs} />}
+        breadcrumbs={breadcrumbs && breadcrumbs.length > 0 ? <AdminBreadcrumb items={breadcrumbs} /> : undefined}
         title={title}
         description={description}
         actions={actions}

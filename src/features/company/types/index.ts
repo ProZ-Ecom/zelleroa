@@ -1,3 +1,11 @@
+export interface SocialLinks {
+  facebook?: string | null;
+  instagram?: string | null;
+  youtube?: string | null;
+  whatsapp?: string | null;
+  twitter?: string | null;
+}
+
 export interface CompanyResponse {
   id: string; // Public UUID
   companyName: string;
@@ -17,6 +25,7 @@ export interface CompanyResponse {
   updatedAt: Date;
   createdBy?: string | null;
   updatedBy?: string | null;
+  socialLinks?: SocialLinks | null;
 }
 
 export interface UpdateCompanyInput {
@@ -33,4 +42,5 @@ export interface UpdateCompanyInput {
   panNumber?: string | null;
   website?: string | null;
   isActive?: boolean;
+  socialLinks?: SocialLinks | null;
 }

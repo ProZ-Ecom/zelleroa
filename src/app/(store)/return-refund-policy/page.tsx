@@ -6,7 +6,7 @@ import { constructMetadata } from "@/lib/seo";
 export const metadata: Metadata = constructMetadata({
   title: "Return & Refund Policy",
   description:
-    "Zellora India return, replacement, and refund policy: requests within 3 days of delivery with a mandatory unboxing video, only for wrong or damaged products.",
+    "Zellora return, replacement, and refund policy: requests within 3 days of delivery with a mandatory unboxing video, only for wrong or damaged products.",
   canonicalUrl: "/return-refund-policy",
 });
 
@@ -25,7 +25,7 @@ export default function ReturnRefundPolicyPage() {
       {/* Intro */}
       <section className="space-y-4">
         <p className="text-base sm:text-lg text-neutral-800 leading-relaxed font-medium">
-          At <strong className="text-neutral-900 font-semibold">ZELLORA INDIA</strong>, we aim to provide our customers with quality fashion products. If you receive a product with an issue, you may be eligible for a return, replacement, or refund subject to the following terms.
+          At <strong className="text-neutral-900 font-semibold">Zellora</strong>, we aim to provide our customers with quality fashion products. If you receive a product with an issue, you may be eligible for a return, replacement, or refund subject to the following terms.
         </p>
 
         {/* Key requirements at a glance */}
@@ -100,7 +100,7 @@ export default function ReturnRefundPolicyPage() {
       <section className={sectionClass}>
         <h2 className={headingClass}>4. Replacement and Refund</h2>
         <p className="text-neutral-700 leading-relaxed">
-          For eligible return requests, ZELLORA INDIA may provide:
+          For eligible return requests, Zellora may provide:
         </p>
         <ul className="list-disc pl-6 space-y-2 text-neutral-700">
           <li>Replacement with the correct product, subject to availability; or</li>
@@ -119,7 +119,7 @@ export default function ReturnRefundPolicyPage() {
             We do not offer reverse pickup. Once your return request is approved, the product must be couriered back to the return address shared with you by our team.
           </li>
           <li>
-            <strong className="text-neutral-900 font-semibold">Return courier charges must be paid by the customer</strong> and are not reimbursed by ZELLORA INDIA.
+            <strong className="text-neutral-900 font-semibold">Return courier charges must be paid by the customer</strong> and are not reimbursed by Zellora.
           </li>
           <li>
             The product must be dispatched within{" "}
@@ -159,7 +159,7 @@ export default function ReturnRefundPolicyPage() {
       <section className={sectionClass}>
         <h2 className={headingClass}>7. Return Verification</h2>
         <p className="text-neutral-700 leading-relaxed">
-          All return requests are subject to verification. ZELLORA INDIA reserves the right to reject requests that do not meet the above conditions or where the required unboxing video is not provided.
+          All return requests are subject to verification. Zellora reserves the right to reject requests that do not meet the above conditions or where the required unboxing video is not provided.
         </p>
       </section>
     </PolicyLayout>

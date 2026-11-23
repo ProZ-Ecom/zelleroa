@@ -26,6 +26,34 @@ export const pincodeSchema = z.preprocess(
 
 export const emailSchema = optionalEmailField;
 
+export const socialLinksSchema = z
+  .object({
+    facebook: z.preprocess(
+      emptyStringToNull,
+      z.string().trim().max(500, "Facebook URL cannot exceed 500 characters").nullable().optional()
+    ),
+    instagram: z.preprocess(
+      emptyStringToNull,
+      z.string().trim().max(500, "Instagram URL cannot exceed 500 characters").nullable().optional()
+    ),
+    youtube: z.preprocess(
+      emptyStringToNull,
+      z.string().trim().max(500, "YouTube URL cannot exceed 500 characters").nullable().optional()
+    ),
+    whatsapp: z.preprocess(
+      emptyStringToNull,
+      z.string().trim().max(500, "WhatsApp link cannot exceed 500 characters").nullable().optional()
+    ),
+    twitter: z.preprocess(
+      emptyStringToNull,
+      z.string().trim().max(500, "Twitter/X URL cannot exceed 500 characters").nullable().optional()
+    ),
+  })
+  .optional()
+  .nullable();
+
+export type SocialLinksSchemaInput = z.infer<typeof socialLinksSchema>;
+
 export const updateCompanySchema = z
   .object({
     companyName: z
@@ -70,6 +98,7 @@ export const updateCompanySchema = z
       z.string().trim().max(255, "Website cannot exceed 255 characters").nullable().optional()
     ),
     isActive: z.boolean().optional(),
+    socialLinks: socialLinksSchema,
   })
   .strict();
 

@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SNACKSLOGOS } from "@/constants/storefront";
+import { formatMeasurementLabel } from "../utils/measurement.util";
 import type { AdminVariantResponse } from "../types";
 
 export interface VariantCardProps {
@@ -69,9 +70,10 @@ export function VariantCard({
       : 0;
 
   const measurementStr =
-    variant.measurement && typeof variant.measurement === "object"
-      ? `${variant.measurement.value} ${variant.measurement.unit}`
-      : variant.variantName || "Standard";
+    variant.unitPrices?.[0]?.sizeValue ||
+    (variant.measurement && typeof variant.measurement === "object"
+      ? formatMeasurementLabel(variant.measurement) || `${variant.measurement.value} ${variant.measurement.unit}`
+      : variant.variantName || "Standard");
 
   const measurementType =
     variant.measurement && typeof variant.measurement === "object"

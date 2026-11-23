@@ -3,6 +3,31 @@
  */
 let scriptLoadingPromise: Promise<boolean> | null = null;
 
+/**
+ * Resolves the Razorpay Checkout script URL from the environment.
+ * Supports full script URLs, base paths, or default checkout CDN.
+ */
+export function getRazorpayScriptUrl(): string {
+  const configured =
+    process.env.NEXT_PUBLIC_RAZORPAY_BASE_URL ||
+    process.env.NEXT_PUBLIC_RAZORPAY_SCRIPT_URL;
+
+  if (!configured) {
+    throw new Error(
+      "Razorpay base URL is not configured. Please set NEXT_PUBLIC_RAZORPAY_BASE_URL in your .env file."
+    );
+  }
+
+  const trimmed = configured.trim().replace(/\/+$/, "");
+  if (trimmed.endsWith(".js")) {
+    return trimmed;
+  }
+  if (trimmed.endsWith("/v1")) {
+    return `${trimmed}/checkout.js`;
+  }
+  return `${trimmed}/v1/checkout.js`;
+}
+
 export function loadRazorpayScript(): Promise<boolean> {
   if (typeof window === "undefined") {
     return Promise.resolve(false);
@@ -18,10 +43,12 @@ export function loadRazorpayScript(): Promise<boolean> {
     return scriptLoadingPromise;
   }
 
+  const scriptUrl = getRazorpayScriptUrl();
+
   scriptLoadingPromise = new Promise<boolean>((resolve) => {
     // Check if script tag already exists
     const existingScript = document.querySelector<HTMLScriptElement>(
-      'script[src="https://checkout.razorpay.com/v1/checkout.js"]'
+      `script[src="${scriptUrl}"]`
     );
 
     if (existingScript) {
@@ -31,7 +58,7 @@ export function loadRazorpayScript(): Promise<boolean> {
     }
 
     const script = document.createElement("script");
-    script.src = "https://checkout.razorpay.com/v1/checkout.js";
+    script.src = scriptUrl;
     script.async = true;
     script.crossOrigin = "anonymous";
 

@@ -115,19 +115,12 @@ export default function ReviewDetailPage({ params }: ReviewDetailPageProps) {
       <div className="bg-white rounded-2xl border border-cream-border p-5 sm:p-6 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="space-y-1">
           <div className="flex items-center gap-3 flex-wrap">
-            <Link
-              href="/admin/dashboard/reviews"
-              className="w-8 h-8 rounded-lg border border-cream-border hover:bg-cream-100 flex items-center justify-center text-neutral-600 transition-colors"
-              title="Back to reviews"
-            >
-              <ArrowLeft className="w-4 h-4" />
-            </Link>
             <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-neutral-900">
               {review.title || "Customer Review"}
             </h1>
             <ReviewStatusBadge isApproved={Boolean(review.isApproved)} size="md" />
           </div>
-          <p className="text-xs text-neutral-400 pl-11">
+          <p className="text-xs text-neutral-400">
             Created on {review.createdAt ? formatDateTime(review.createdAt) : "—"}
           </p>
         </div>

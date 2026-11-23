@@ -7,6 +7,7 @@ import { Trash2 } from "lucide-react";
 import { ICONS } from "@/constants/storefront";
 import IconButton from "../buttons/IconButton";
 import PrimaryButton from "../buttons/PrimaryButton";
+import { styleHref } from "@/features/customers/utils/style-href";
 import type { StorefrontProduct } from "@/constants/storefront";
 
 export interface ProductCardProps {
@@ -100,7 +101,7 @@ export function ProductCard({
     >
       {/* Product Image */}
       <div className="relative overflow-hidden rounded-lg">
-        <Link href={`/products/${product.productId}`}>
+        <Link href={styleHref(product.productId)}>
           <Image
             src={product.image}
             alt={product.name}
@@ -197,7 +198,7 @@ export function ProductCard({
 
       {/* Name + Weight */}
       <div className="flex mt-3 gap-2 justify-between items-start">
-        <Link href={`/products/${product.productId}`} className="flex-1 pr-2 min-w-0">
+        <Link href={styleHref(product.productId)} className="flex-1 pr-2 min-w-0">
           <h3
             className="
               uppercase

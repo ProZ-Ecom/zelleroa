@@ -2,7 +2,7 @@
 
 import { useParams, useRouter } from "next/navigation";
 import { useState } from "react";
-import { ArrowLeft, Pencil } from "lucide-react";
+import { Pencil, Sparkles } from "lucide-react";
 import { AdminPageHeader, AdminContent } from "@/components/admin/AdminPageHeader";
 import { AdminDetailSkeleton } from "@/components/admin/AdminDetailSkeleton";
 import { ErrorState } from "@/components/ui/error-state";
@@ -13,6 +13,7 @@ import {
   StyleForm,
   StyleVariantsPanel,
   StyleVariantDetails,
+  ModelCustomerPreviewModal,
   type StyleFormValues,
 } from "@/features/styles/components";
 import { useConfiguredAttributesForProduct } from "@/features/attributes/hooks";
@@ -32,6 +33,7 @@ export default function AdminStyleDetailsPage() {
   const productUuid: string | null = style?.productId || null;
 
   const [isEditStyleOpen, setIsEditStyleOpen] = useState(false);
+  const [isCustomerPreviewOpen, setIsCustomerPreviewOpen] = useState(false);
 
   // Everything about a color - the values it comes in, its images, its sizes,
   // prices and stock - lives in the one StyleVariantsPanel this opens, instead
@@ -83,10 +85,18 @@ export default function AdminStyleDetailsPage() {
         title={style.name}
         description={style.shortDescription || "Style details, colors and sizes"}
         actions={
-          <Button variant="outline" onClick={() => router.push("/admin/dashboard/styles")}>
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Back to Styles
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setIsCustomerPreviewOpen(true)}
+              className="h-9 bg-white border-cream-border text-secondary-700 hover:bg-secondary-50 cursor-pointer font-semibold"
+              title="Storefront Customer Preview"
+            >
+              <Sparkles className="mr-1.5 h-3.5 w-3.5 text-secondary-600" />
+              Customer Preview
+            </Button>
+          </div>
         }
       />
 
@@ -240,6 +250,14 @@ export default function AdminStyleDetailsPage() {
           />
         )}
       </FormModal>
+
+      {/* Customer Storefront & Cart Preview Modal */}
+      <ModelCustomerPreviewModal
+        isOpen={isCustomerPreviewOpen}
+        onClose={() => setIsCustomerPreviewOpen(false)}
+        style={style}
+        variants={styleVariants}
+      />
     </div>
   );
 }

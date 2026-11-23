@@ -14,6 +14,7 @@ import { toast } from "@/components/ui/Toast";
 import type { CustomerVariantListItemDto } from "../../types/catalog.types";
 import { resolveSnackFallbackImage } from "@/lib/storefront";
 import { formatMeasurementLabel } from "@/features/variants/utils/measurement.util";
+import { styleHref } from "../../utils/style-href";
 
 export interface CustomerVariantCardProps {
   variant: CustomerVariantListItemDto;
@@ -115,7 +116,7 @@ export function CustomerVariantCard({ variant }: CustomerVariantCardProps) {
       name={variant.variantName}
       subtitle={variant.productName || "Zellora"}
       image={displayImage}
-      href={`/products/${variant.productId}?variant=${variant.id}`}
+      href={styleHref(variant.styleId || variant.productId)}
       variants={packVariants}
       fallbackPrice={variant.salePrice || variant.basePrice}
       selectedVariantId={activeUnitPriceId}

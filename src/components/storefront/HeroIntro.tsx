@@ -63,7 +63,7 @@ export function HeroIntro() {
         <div>
           <span className="inline-flex items-center gap-2 rounded-full bg-theme-primary-light px-3 py-1 text-xs font-semibold uppercase tracking-wide text-theme-primary">
             <span className="h-1.5 w-1.5 rounded-full bg-theme-primary" />
-            New Season 2026 Collection
+            New Season {new Date().getFullYear()} Collection
           </span>
 
           <h1 className="mt-5 text-4xl sm:text-5xl xl:text-6xl font-extrabold uppercase leading-[1.05] tracking-tight text-theme-text-primary">

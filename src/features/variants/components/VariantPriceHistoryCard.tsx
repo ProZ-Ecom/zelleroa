@@ -243,7 +243,10 @@ export function VariantPriceHistoryCard({
                   </span>
                 </div>
                 <p className="text-xs text-neutral-400">
-                  Base price trend · monthly average, last 12 months
+                  Base price trend ·{" "}
+                  {chartSeries.length <= 1
+                    ? "current month"
+                    : `monthly average, last ${chartSeries.length} months`}
                 </p>
               </div>
 
@@ -270,13 +273,13 @@ export function VariantPriceHistoryCard({
                 {chartSeries.map((pt, idx) => {
                   const isLatest = idx === chartSeries.length - 1;
                   const isHot = hoveredIndex === idx;
-                  const heightPercent =
-                    span > 0
-                      ? Math.min(
-                          100,
-                          Math.max(28, 30 + ((pt.value - minVal) / span) * 65)
-                        )
-                      : 65;
+                  const isFlat = maxVal === minVal;
+                  const heightPercent = isFlat
+                    ? 65
+                    : Math.min(
+                        100,
+                        Math.max(28, 30 + ((pt.value - minVal) / span) * 65)
+                      );
 
                   return (
                     <div
