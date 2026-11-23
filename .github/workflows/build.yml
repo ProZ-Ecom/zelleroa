@@ -9,7 +9,6 @@ on:
 
 permissions:
   contents: write
-  actions: read
 
 jobs:
   build:
@@ -47,14 +46,22 @@ jobs:
             public/
           retention-days: 7
 
-      - name: Publish Build to build-output branch
+      - name: Publish Build to build-output Branch
         run: |
-          git clone --branch build-output https://github.com/ProZ-Ecom/zelleroa.git deploy
+          git clone --branch build-output https://x-access-token:${{ github.token }}@github.com/ProZ-Ecom/zelleroa.git deploy
+
           rm -rf deploy/.next deploy/public
           cp -r .next public deploy/
+
           cd deploy
           git config user.name "GitHub Actions"
           git config user.email "actions@github.com"
-          git add .next public
-          git commit -m "Update Zellora build"
-          git push origin build-output
+
+          git add -f .next public
+
+          if ! git diff --cached --quiet; then
+            git commit -m "Update Zellora build"
+            git push origin build-output
+          else
+            echo "No build changes to publish"
+          fi
