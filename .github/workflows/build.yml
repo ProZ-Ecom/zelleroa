@@ -37,6 +37,11 @@ jobs:
         env:
           DATABASE_URL: "mysql://build:build@127.0.0.1:3306/build_db"
 
+      - name: Find Large Build Files
+        run: |
+          echo "Checking files larger than 90 MB..."
+          find .next public -type f -size +90M -exec ls -lh {} \;
+
       - name: Upload Build Artifact
         uses: actions/upload-artifact@v4
         with:
@@ -45,23 +50,3 @@ jobs:
             .next/
             public/
           retention-days: 7
-
-      - name: Publish Build to build-output Branch
-        run: |
-          git clone --branch build-output https://x-access-token:${{ github.token }}@github.com/ProZ-Ecom/zelleroa.git deploy
-
-          rm -rf deploy/.next deploy/public
-          cp -r .next public deploy/
-
-          cd deploy
-          git config user.name "GitHub Actions"
-          git config user.email "actions@github.com"
-
-          git add -f .next public
-
-          if ! git diff --cached --quiet; then
-            git commit -m "Update Zellora build"
-            git push origin build-output
-          else
-            echo "No build changes to publish"
-          fi
