@@ -1,5 +1,5 @@
 
-name: Zellora Build
+name: Zellora Build and Transfer
 
 on:
   push:
@@ -11,7 +11,11 @@ permissions:
   contents: read
 
 jobs:
+
+  # JOB 1: BUILD APPLICATION
+
   build:
+    name: Build Zellora
     runs-on: ubuntu-latest
 
     steps:
@@ -39,7 +43,7 @@ jobs:
 
       - name: Find Large Build Files
         run: |
-          echo "Checking files larger than 90 MB..."
+          echo "Checking large build files..."
           find .next public -type f -size +90M -exec ls -lh {} \;
 
       - name: Upload Build Artifact
@@ -51,3 +55,93 @@ jobs:
             public/
           include-hidden-files: true
           retention-days: 7
+
+
+  # JOB 2: TRANSFER BUILD TO SERVER
+
+  transfer:
+    name: Transfer Build to Server
+    needs: build
+    runs-on: ubuntu-latest
+
+    env:
+      SERVER_HOST: "103.178.158.196"
+      SERVER_USER: "proz"
+      SERVER_PORT: "22"
+      REMOTE_DIR: "/home/proz/projects/zellora_buildts"
+
+    steps:
+
+      - name: Download Build Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: zellora-build
+          path: downloaded-build
+
+      - name: Create Build Archive
+        run: |
+          tar -czf zellora-build.tar.gz -C downloaded-build .
+          ls -lh zellora-build.tar.gz
+
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+
+          printf '%s\n' "${{ secrets.SERVER_KNOWN_HOSTS }}" \
+            > ~/.ssh/known_hosts
+
+          chmod 600 ~/.ssh/known_hosts
+
+      - name: Configure SSH Key
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.SERVER_SSH_KEY }}
+
+      - name: Create Server Directory
+        run: |
+          ssh -p "$SERVER_PORT" \
+            "$SERVER_USER@$SERVER_HOST" \
+            "mkdir -p '$REMOTE_DIR'"
+
+      - name: Transfer Build to Server
+        run: |
+          scp -P "$SERVER_PORT" \
+            zellora-build.tar.gz \
+            "$SERVER_USER@$SERVER_HOST:$REMOTE_DIR/"
+
+      - name: Verify Transferred Archive
+        run: |
+          LOCAL_SHA=$(sha256sum zellora-build.tar.gz | awk '{print $1}')
+
+          REMOTE_SHA=$(ssh -p "$SERVER_PORT" \
+            "$SERVER_USER@$SERVER_HOST" \
+            "sha256sum '$REMOTE_DIR/zellora-build.tar.gz' | awk '{print \$1}'")
+
+          echo "Local checksum: $LOCAL_SHA"
+          echo "Server checksum: $REMOTE_SHA"
+
+          test "$LOCAL_SHA" = "$REMOTE_SHA"
+
+      - name: Replace Old Build Files
+        run: |
+          ssh -p "$SERVER_PORT" \
+            "$SERVER_USER@$SERVER_HOST" \
+            "set -e
+             cd '$REMOTE_DIR'
+
+             mkdir -p incoming
+             tar -xzf zellora-build.tar.gz -C incoming
+
+             rm -rf .next public
+
+             mv incoming/.next .
+
+             if [ -d incoming/public ]; then
+               mv incoming/public .
+             fi
+
+             rm -rf incoming
+
+             echo 'Build files replaced successfully'
+             ls -lah"
