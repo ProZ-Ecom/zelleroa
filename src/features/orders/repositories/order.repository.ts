@@ -118,6 +118,19 @@ export const orderItemInclude = Prisma.validator<Prisma.OrderItemInclude>()({
       },
     },
   },
+  reviews: {
+    where: { is_active: true },
+    select: {
+      id: true,
+      uuid: true,
+      rating: true,
+      title: true,
+      comment: true,
+      isApproved: true,
+      createdAt: true,
+    },
+    take: 1,
+  },
 });
 
 export const orderDetailInclude = Prisma.validator<Prisma.OrderInclude>()({
@@ -264,6 +277,17 @@ export function formatOrderItem(
     discountAmount: Number(item.discount_amount ?? 0),
     taxAmount: Number(item.tax_amount),
     totalPrice: Number(item.total_price),
+    isReviewed: Boolean(item.reviews && item.reviews.length > 0),
+    review: item.reviews?.[0]
+      ? {
+          id: item.reviews[0].uuid || String(item.reviews[0].id),
+          rating: item.reviews[0].rating,
+          title: item.reviews[0].title ?? null,
+          comment: item.reviews[0].comment ?? null,
+          isApproved: item.reviews[0].isApproved,
+          createdAt: item.reviews[0].createdAt,
+        }
+      : null,
   };
 }
 

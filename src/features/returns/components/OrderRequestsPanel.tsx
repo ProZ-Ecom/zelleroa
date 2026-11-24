@@ -6,6 +6,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/Toast";
 import { formatDateTime } from "@/lib/utils";
+import { formatPhone } from "@/lib/utils/format-phone";
 import type { OrderDetailResponse } from "@/features/orders/types";
 import { consumedOrderItemIds } from "../lib/summary";
 import type { RequestSummary } from "../lib/summary";
@@ -139,7 +140,7 @@ function RequestCard({
                   <MapPin className="h-4 w-4 text-emerald-600 shrink-0 mt-0.5" />
                   <div className="min-w-0">
                     <p className="font-bold text-emerald-950 text-[11px] uppercase tracking-wide">Pickup Location (Customer Address)</p>
-                    <p className="font-semibold text-neutral-900 mt-0.5">{order.shippingAddress.fullName} · {order.shippingAddress.phone}</p>
+                    <p className="font-semibold text-neutral-900 mt-0.5">{order.shippingAddress.fullName} · {formatPhone(order.shippingAddress.phone)}</p>
                     <p className="text-neutral-600 text-[11px]">
                       {order.shippingAddress.addressLine1}
                       {order.shippingAddress.addressLine2 ? `, ${order.shippingAddress.addressLine2}` : ""}

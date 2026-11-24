@@ -45,12 +45,14 @@ export const blogService = {
     }
 
     const isPublished = data.status === "PUBLISHED";
+    const isArchived = data.status === "ARCHIVED";
     return blogRepository.create({
       title: data.title,
       slug,
       content: data.content,
       featured_image: data.image ? data.image : undefined,
       is_published: isPublished,
+      is_active: !isArchived,
       publishedAt: isPublished ? new Date() : null,
       ...(authorId
         ? {
@@ -107,9 +109,16 @@ export const blogService = {
 
     if (data.status !== undefined) {
       const isPub = data.status === "PUBLISHED";
+      const isArchived = data.status === "ARCHIVED";
       updateData.is_published = isPub;
-      if (isPub && !existing.is_published) {
+      updateData.is_active = !isArchived;
+      const wasPublished = Boolean(
+        existing.status === "PUBLISHED" || (existing as any).is_published
+      );
+      if (isPub && !wasPublished) {
         updateData.publishedAt = new Date();
+      } else if (!isPub) {
+        updateData.publishedAt = null;
       }
     }
 

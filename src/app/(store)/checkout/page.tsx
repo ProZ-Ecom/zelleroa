@@ -31,6 +31,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
 import { formatPrice, cn } from "@/lib/utils";
+import { formatPhone } from "@/lib/utils/format-phone";
 import {
   MOBILE_VERIFICATION_PATH,
   MOBILE_VERIFICATION_REQUIRED_CODE,
@@ -994,7 +995,7 @@ export default function CheckoutPage() {
                             </p>
                             <p className="flex items-center gap-1 text-theme-text-muted pt-0.5">
                               <Phone className="h-3 w-3" />
-                              {addr.phone}
+                              {formatPhone(addr.phone)}
                             </p>
                           </div>
                         </div>
@@ -1103,22 +1104,27 @@ export default function CheckoutPage() {
 
                   <div>
                     <label className="block text-xs font-semibold text-theme-text-secondary mb-1">
-                      Phone Number (10 digits) <span className="text-red-600">*</span>
+                      Phone Number <span className="text-red-600">*</span>
                     </label>
-                    <input
-                      type="tel"
-                      maxLength={10}
-                      placeholder="e.g. 9876543210"
-                      value={newAddressForm.phone}
-                      onChange={(e) => handleFieldChange("phone", e.target.value.replace(/\D/g, "").slice(0, 10))}
-                      onBlur={() => handleFieldBlur("phone")}
-                      className={cn(
-                        "w-full min-h-[44px] rounded-xl border bg-white px-3 text-xs text-theme-text-primary placeholder:text-theme-text-muted focus:outline-none transition-colors",
-                        fieldErrors.phone
-                          ? "border-red-500 bg-red-50/10 focus:border-red-500 focus:ring-1 focus:ring-red-500/50 ring-1 ring-red-500/40"
-                          : "border-theme-border-input focus:border-theme-primary"
-                      )}
-                    />
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-medium text-theme-text-muted">
+                        +91
+                      </span>
+                      <input
+                        type="tel"
+                        maxLength={10}
+                        placeholder="9897567488"
+                        value={newAddressForm.phone}
+                        onChange={(e) => handleFieldChange("phone", e.target.value.replace(/\D/g, "").slice(0, 10))}
+                        onBlur={() => handleFieldBlur("phone")}
+                        className={cn(
+                          "w-full min-h-[44px] rounded-xl border bg-white pl-10 pr-3 text-xs text-theme-text-primary placeholder:text-theme-text-muted focus:outline-none transition-colors",
+                          fieldErrors.phone
+                            ? "border-red-500 bg-red-50/10 focus:border-red-500 focus:ring-1 focus:ring-red-500/50 ring-1 ring-red-500/40"
+                            : "border-theme-border-input focus:border-theme-primary"
+                        )}
+                      />
+                    </div>
                     {fieldErrors.phone && (
                       <p className="mt-1 text-xs text-red-500 font-medium animate-in fade-in duration-150">
                         {fieldErrors.phone}

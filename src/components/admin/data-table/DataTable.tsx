@@ -207,22 +207,31 @@ function DataTable<TData, TValue>({
                             const isActions =
                               header.column.id.toLowerCase() === "actions" ||
                               header.id.toLowerCase() === "actions";
+                            const meta = header.column.columnDef.meta as
+                              | { align?: "left" | "center" | "right"; headerClassName?: string; cellClassName?: string }
+                              | undefined;
+                            const align = (header.column.columnDef as any).align || meta?.align;
+                            const isRight = align === "right";
+                            const isCenter = isActions || align === "center";
+
                             return (
                               <th
                                 key={header.id}
                                 className={cn(
-                                  "group/th h-10 sm:h-12 px-3 sm:px-4 text-left align-middle text-[10px] sm:text-[11px] font-semibold tracking-[0.08em] whitespace-nowrap uppercase bg-stone-900 text-[#D4AF37] border-b border-stone-800 shadow-[0_1px_3px_rgba(28,25,23,0.2)] sticky top-0 z-10",
+                                  "group/th h-10 sm:h-12 px-3 sm:px-4 align-middle text-[10px] sm:text-[11px] font-semibold tracking-[0.08em] whitespace-nowrap uppercase bg-stone-900 text-[#D4AF37] border-b border-stone-800 shadow-[0_1px_3px_rgba(28,25,23,0.2)] sticky top-0 z-10",
+                                  isRight ? "text-right" : isCenter ? "text-center" : "text-left",
                                   isActions &&
                                   "text-center sticky top-0 right-0 z-30 shadow-[-8px_0_12px_-6px_rgba(28,25,23,0.3)] bg-stone-900 text-[#D4AF37]",
                                   header.column.getCanSort() &&
-                                  "cursor-pointer select-none hover:text-[#D4AF37]/80"
+                                  "cursor-pointer select-none hover:text-[#D4AF37]/80",
+                                  meta?.headerClassName
                                 )}
                                 onClick={header.column.getToggleSortingHandler()}
                               >
                                 <div
                                   className={cn(
                                     "flex items-center gap-1",
-                                    isActions ? "justify-center" : ""
+                                    isRight ? "justify-end" : isCenter ? "justify-center" : ""
                                   )}
                                 >
                                   {header.isPlaceholder
@@ -258,13 +267,22 @@ function DataTable<TData, TValue>({
                               const isActions =
                                 cell.column.id.toLowerCase() === "actions" ||
                                 cell.id.toLowerCase().includes("actions");
+                              const meta = cell.column.columnDef.meta as
+                                | { align?: "left" | "center" | "right"; headerClassName?: string; cellClassName?: string }
+                                | undefined;
+                              const align = (cell.column.columnDef as any).align || meta?.align;
+                              const isRight = align === "right";
+                              const isCenter = isActions || align === "center";
+
                               return (
                                 <td
                                   key={cell.id}
                                   className={cn(
                                     "px-3 sm:px-4 py-2.5 sm:py-3.5 align-middle whitespace-nowrap bg-white group-hover:bg-neutral-50 transition-colors border-b border-neutral-100 text-xs sm:text-sm",
+                                    isRight ? "text-right" : isCenter ? "text-center" : "text-left",
                                     isActions &&
-                                    "text-center [&>div]:justify-center [&>div]:items-center sticky right-0 z-20 shadow-[-8px_0_12px_-6px_rgba(16,24,40,0.06)] bg-white group-hover:bg-neutral-50"
+                                    "text-center [&>div]:justify-center [&>div]:items-center sticky right-0 z-20 shadow-[-8px_0_12px_-6px_rgba(16,24,40,0.06)] bg-white group-hover:bg-neutral-50",
+                                    meta?.cellClassName
                                   )}
                                 >
                                   {flexRender(cell.column.columnDef.cell, cell.getContext())}

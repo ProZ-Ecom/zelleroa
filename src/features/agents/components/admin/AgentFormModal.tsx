@@ -137,15 +137,20 @@ function Form({ onClose, agent, onSaved }: Omit<Props, "open">) {
         )}
         <label className="flex flex-col gap-1 text-xs font-medium text-neutral-600">
           <span>Phone (optional)</span>
-          <input
-            className={`${fieldCls} ${errors.phone ? "!border-red-500 focus:!ring-red-100" : ""}`}
-            value={phone}
-            onChange={(e) => {
-              setPhone(e.target.value);
-              if (errors.phone) setErrors((prev) => ({ ...prev, phone: "" }));
-            }}
-            placeholder="e.g. 9876543210"
-          />
+          <div className="relative">
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-medium text-neutral-500">
+              +91
+            </span>
+            <input
+              className={`${fieldCls} pl-10 ${errors.phone ? "!border-red-500 focus:!ring-red-100" : ""}`}
+              value={phone}
+              onChange={(e) => {
+                setPhone(e.target.value);
+                if (errors.phone) setErrors((prev) => ({ ...prev, phone: "" }));
+              }}
+              placeholder="9897567488"
+            />
+          </div>
           {err("phone")}
         </label>
         <label className="flex flex-col gap-1 text-xs font-medium text-neutral-600">

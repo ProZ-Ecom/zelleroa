@@ -577,7 +577,7 @@ export default function AdminCustomersPage() {
                   [
                     { header: "Name", accessor: (c) => c.name },
                     { header: "Email", accessor: (c) => c.email || "-" },
-                    { header: "Phone", accessor: (c) => c.phone || "-" },
+                    { header: "Phone", accessor: (c) => formatPhone(c.phone, "-") },
                     { header: "Status", accessor: (c) => (c.isActive ? "Active" : "Inactive") },
                     { header: "Email Verified", accessor: (c) => (c.emailVerified ? "Yes" : "No") },
                     { header: "Phone Verified", accessor: (c) => (c.phoneVerified ? "Yes" : "No") },

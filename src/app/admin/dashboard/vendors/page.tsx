@@ -14,6 +14,7 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { FormModal } from "@/components/common/FormModal";
 import { ExportButton } from "@/components/common/export-button";
 import { exportDataToCsv } from "@/lib/export-csv";
+import { formatPhone } from "@/lib/utils/format-phone";
 import { SearchInput } from "@/components/ui/search-input";
 import { useVendors, useVendorMutations } from "@/features/purchases/hooks";
 import { VendorForm } from "@/features/purchases/components/VendorForm";
@@ -58,8 +59,8 @@ export default function VendorsPage() {
       header: "Contact",
       cell: ({ row }) => {
         const contactPerson = row.original.contactPerson?.trim();
-        const contactInfo = [row.original.phone?.trim(), row.original.email?.trim()]
-          .filter(Boolean)
+        const contactInfo = [formatPhone(row.original.phone), row.original.email?.trim()]
+          .filter((v) => Boolean(v) && v !== "—")
           .join(" · ");
 
         if (!contactPerson && !contactInfo) {
@@ -167,7 +168,7 @@ export default function VendorsPage() {
                       { header: "Vendor Name", accessor: (v) => v.name },
                       { header: "Vendor Code", accessor: (v) => v.code },
                       { header: "Contact Person", accessor: (v) => v.contactPerson || "—" },
-                      { header: "Phone", accessor: (v) => v.phone || "—" },
+                      { header: "Phone", accessor: (v) => formatPhone(v.phone, "—") },
                       { header: "Email", accessor: (v) => v.email || "—" },
                       { header: "GSTIN", accessor: (v) => v.gstin || "—" },
                       { header: "Address", accessor: (v) => v.address || "—" },

@@ -422,21 +422,22 @@ export function ContactFormModal({ open, onClose }: ContactFormModalProps) {
                     Phone Number <span className="text-red-500">*</span>
                   </label>
                   <div className="relative flex items-center">
-                    <span className="absolute left-3 text-theme-text-muted pointer-events-none">
+                    <span className="absolute left-3 text-theme-text-muted pointer-events-none flex items-center gap-1.5 text-xs font-medium">
                       <Phone className="h-4 w-4" />
+                      <span>+91</span>
                     </span>
                     <input
                       id="contact-phone"
                       type="tel"
                       inputMode="numeric"
-                      placeholder="e.g. 9876543210"
+                      placeholder="9897567488"
                       maxLength={10}
                       value={formData.phone}
                       onChange={(e) => handlePhoneChange(e.target.value)}
                       onBlur={() => handleBlur("phone")}
                       disabled={submitContactMutation.isPending}
                       className={cn(
-                        "w-full rounded-xl border pl-9 pr-3.5 py-2.5 text-xs sm:text-sm text-theme-text-primary bg-theme-surface placeholder:text-theme-text-muted transition-colors min-h-[44px]",
+                        "w-full rounded-xl border pl-16 pr-3.5 py-2.5 text-xs sm:text-sm text-theme-text-primary bg-theme-surface placeholder:text-theme-text-muted transition-colors min-h-[44px]",
                         fieldErrors.phone
                           ? "border-error-500 focus:border-error-500 focus:ring-1 focus:ring-error-500"
                           : "border-theme-border focus:border-theme-primary focus:ring-2 focus:ring-theme-primary/15"

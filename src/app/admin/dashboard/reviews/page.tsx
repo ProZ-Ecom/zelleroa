@@ -7,12 +7,12 @@ import { AdminReviewListTable } from "@/features/reviews/components/AdminReviewL
 export default function ReviewsPage() {
   return (
     <div className="flex flex-1 min-h-0 flex-col">
-      <AdminBreadcrumb
+      {/* <AdminBreadcrumb
         items={[
           { label: "Catalog", href: "/admin/dashboard/products" },
           { label: "Reviews" },
         ]}
-      />
+      /> */}
 
       <AdminPageHeader
         title="Product Reviews"

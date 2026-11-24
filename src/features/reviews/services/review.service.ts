@@ -82,6 +82,7 @@ const NOT_DELIVERED_MESSAGE =
   "You can review this product only after your order has been delivered.";
 
 type EligibilityTarget = {
+  orderItemId?: string;
   variantUnitPriceId?: string;
   variantId?: string;
   productId?: string;
@@ -89,6 +90,45 @@ type EligibilityTarget = {
 
 /** Resolves the target to a scope and finds the customer's delivered, not-yet-reviewed order items in it. */
 async function resolveEligibility(customerId: bigint, target: EligibilityTarget) {
+  if (target.orderItemId) {
+    const orderItem = await reviewRepository.findOrderItemForReview(target.orderItemId, customerId);
+    if (!orderItem) {
+      return {
+        item: null,
+        items: [] as Awaited<ReturnType<typeof reviewRepository.findReviewableDeliveredOrderItems>>,
+        reason: "invalid_target" as const,
+        message: "Order item not found or does not belong to your account",
+        existingReview: null,
+      };
+    }
+    if (orderItem.order.order_status !== "delivered") {
+      return {
+        item: null,
+        items: [] as Awaited<ReturnType<typeof reviewRepository.findReviewableDeliveredOrderItems>>,
+        reason: "not_delivered" as const,
+        message: NOT_DELIVERED_MESSAGE,
+        existingReview: null,
+      };
+    }
+    const existing = await reviewRepository.findActiveReviewByOrderItem(orderItem.id, customerId);
+    if (existing) {
+      return {
+        item: null,
+        items: [] as Awaited<ReturnType<typeof reviewRepository.findReviewableDeliveredOrderItems>>,
+        reason: "already_reviewed" as const,
+        message: "You have already submitted a review for this order item",
+        existingReview: existing,
+      };
+    }
+    return {
+      item: orderItem,
+      items: [orderItem],
+      reason: null,
+      message: "",
+      existingReview: null,
+    };
+  }
+
   let scope: ReviewScope | null = null;
 
   if (target.variantUnitPriceId) {
@@ -108,12 +148,13 @@ async function resolveEligibility(customerId: bigint, target: EligibilityTarget)
       items: [] as Awaited<ReturnType<typeof reviewRepository.findReviewableDeliveredOrderItems>>,
       reason: "invalid_target" as const,
       message: "Valid product variant or pack size is required to submit a review",
+      existingReview: null,
     };
   }
 
   const items = await reviewRepository.findReviewableDeliveredOrderItems(scope, customerId);
   if (items.length > 0) {
-    return { item: items[0], items, reason: null, message: "" };
+    return { item: items[0], items, reason: null, message: "", existingReview: null };
   }
 
   const existing = await reviewRepository.findActiveReviewInScope(scope, customerId);
@@ -123,8 +164,9 @@ async function resolveEligibility(customerId: bigint, target: EligibilityTarget)
         items,
         reason: "already_reviewed" as const,
         message: "You have already submitted a review for this product",
+        existingReview: existing,
       }
-    : { item: null, items, reason: "not_delivered" as const, message: NOT_DELIVERED_MESSAGE };
+    : { item: null, items, reason: "not_delivered" as const, message: NOT_DELIVERED_MESSAGE, existingReview: null };
 }
 
 export const reviewService = {
@@ -136,6 +178,7 @@ export const reviewService = {
         reason: "login_required" as const,
         message: "Sign in to review products you have purchased.",
         eligibleUnitPriceIds: [] as string[],
+        existingReview: null,
       };
     }
 
@@ -146,6 +189,7 @@ export const reviewService = {
         reason: "login_required" as const,
         message: "Sign in to review products you have purchased.",
         eligibleUnitPriceIds: [] as string[],
+        existingReview: null,
       };
     }
 
@@ -157,6 +201,16 @@ export const reviewService = {
       eligibleUnitPriceIds: [
         ...new Set(result.items.map((i) => i.variant_unit_price?.uuid).filter((u): u is string => Boolean(u))),
       ],
+      existingReview: result.existingReview
+        ? {
+            id: result.existingReview.uuid || String(result.existingReview.id),
+            rating: result.existingReview.rating,
+            title: result.existingReview.title ?? null,
+            comment: result.existingReview.comment ?? null,
+            isApproved: result.existingReview.isApproved,
+            createdAt: result.existingReview.createdAt,
+          }
+        : null,
     };
   },
 
@@ -169,7 +223,7 @@ export const reviewService = {
     const customerId = BigInt(customer.internalId || customer.id);
 
     let productId: bigint;
-    let variantUnitPriceId: bigint;
+    let variantUnitPriceId: bigint | null = null;
     let orderItemId: bigint | null = null;
 
     if (input.orderItemId) {
@@ -210,7 +264,7 @@ export const reviewService = {
       }
 
       productId = orderItem.productId;
-      variantUnitPriceId = orderItem.variantUnitPriceId!;
+      variantUnitPriceId = orderItem.variantUnitPriceId ?? null;
       orderItemId = orderItem.id;
     } else {
       // Storefront Product / Variant Review Flow: only a delivered order of this exact

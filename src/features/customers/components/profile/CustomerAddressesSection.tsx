@@ -5,6 +5,7 @@ import { MapPin, Phone, User, Home, Building } from "lucide-react";
 import type { AdminCustomerAddressDto } from "../../types/admin-customer.types";
 import { LoadingState } from "@/components/ui/loading-state";
 import { ErrorState } from "@/components/ui/error-state";
+import { formatPhone } from "@/lib/utils/format-phone";
 
 interface CustomerAddressesSectionProps {
   addresses?: AdminCustomerAddressDto[];
@@ -100,7 +101,7 @@ export function CustomerAddressesSection({
 
                   <div className="flex items-center gap-2 text-xs text-neutral-600">
                     <Phone className="h-3.5 w-3.5 text-neutral-400 shrink-0" />
-                    <span>{addr.phone}</span>
+                    <span>{formatPhone(addr.phone)}</span>
                   </div>
                 </div>
 

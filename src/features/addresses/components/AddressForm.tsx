@@ -137,16 +137,22 @@ export function AddressForm({
         <label className="block text-sm font-medium text-gray-700 mb-1">
           Mobile <span className="text-error-600 font-bold">*</span>
         </label>
-        <input
-          {...register("phone")}
-          className={cn(
-            inputClass,
-            errors.phone
-              ? "border-red-500 bg-red-50/20 focus:border-red-500 focus:ring-1 focus:ring-red-500/50"
-              : "border-gray-300 focus:border-primary focus:ring-2 focus:ring-primary/30"
-          )}
-          placeholder="Mobile number"
-        />
+        <div className="relative">
+          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-500 font-medium">
+            +91
+          </span>
+          <input
+            {...register("phone")}
+            className={cn(
+              inputClass,
+              "pl-12",
+              errors.phone
+                ? "border-red-500 bg-red-50/20 focus:border-red-500 focus:ring-1 focus:ring-red-500/50"
+                : "border-gray-300 focus:border-primary focus:ring-2 focus:ring-primary/30"
+            )}
+            placeholder="9897567488"
+          />
+        </div>
         <FieldError message={errors.phone?.message} />
       </div>
 

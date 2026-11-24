@@ -8,6 +8,14 @@ export interface ReviewEligibility {
   message: string;
   /** Pack sizes (variant unit price UUIDs) with a delivered, not-yet-reviewed order item. */
   eligibleUnitPriceIds: string[];
+  existingReview?: {
+    id: string;
+    rating: number;
+    title?: string | null;
+    comment?: string | null;
+    isApproved: boolean;
+    createdAt?: Date | string;
+  } | null;
 }
 
 export const customerReviewsApi = {
@@ -16,15 +24,19 @@ export const customerReviewsApi = {
    * GET /api/customer/reviews/eligibility
    */
   async getEligibility(params: {
+    orderItemId?: string | null;
     variantId?: string | null;
     productId?: string | null;
+    variantUnitPriceId?: string | null;
   }): Promise<ReviewEligibility> {
     const response = await apiClient.get<ReviewEligibility>(
       "/api/customer/reviews/eligibility",
       {
         params: {
+          orderItemId: params.orderItemId ?? undefined,
           variantId: params.variantId ?? undefined,
           productId: params.variantId ? undefined : params.productId ?? undefined,
+          variantUnitPriceId: params.variantUnitPriceId ?? undefined,
         },
       }
     );

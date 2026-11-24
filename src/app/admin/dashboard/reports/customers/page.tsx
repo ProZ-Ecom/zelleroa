@@ -26,6 +26,7 @@ import {
   percent,
 } from "@/features/reports/components/report-ui";
 import { reportErrorMessage, useReport } from "@/features/reports/hooks/use-report";
+import { formatPhone } from "@/lib/utils/format-phone";
 import type {
   AcquisitionRow,
   CustomersReport,
@@ -36,7 +37,7 @@ import type {
 const customerColumns: Column<TopCustomerRow>[] = [
   { header: "Customer", cell: (r) => r.name, csv: (r) => r.name },
   { header: "ID", cell: (r) => r.custId ?? "—", csv: (r) => r.custId },
-  { header: "Phone", cell: (r) => r.phone ?? "—", csv: (r) => r.phone },
+  { header: "Phone", cell: (r) => formatPhone(r.phone), csv: (r) => formatPhone(r.phone, "") },
   { header: "City", cell: (r) => r.city ?? "—", csv: (r) => r.city },
   { header: "Orders", align: "right", cell: (r) => count(r.orders), csv: (r) => r.orders },
   { header: "Spent", align: "right", cell: (r) => moneyExact(r.revenue), csv: (r) => r.revenue },

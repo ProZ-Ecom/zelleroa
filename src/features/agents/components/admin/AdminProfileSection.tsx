@@ -10,6 +10,7 @@ import { errorMessage, useAdminObject } from "../../hooks/use-admin-agents";
 import { GENDER_LABELS } from "../../validations/agent-profile.schema";
 import { ProfileCompletionCard } from "../ProfileCompletionCard";
 import { Panel, StatusBadge, dateOnly } from "../shared";
+import { formatPhone } from "@/lib/utils/format-phone";
 
 function Info({ rows }: { rows: Array<[string, ReactNode]> }) {
   return (
@@ -142,7 +143,7 @@ export function AdminProfileSection({ agentId }: { agentId: string }) {
           <Info
             rows={[
               ["Full name", p.personal.name],
-              ["Mobile", p.personal.phone],
+              ["Mobile", formatPhone(p.personal.phone)],
               ["Alternate mobile", p.personal.altPhone],
               ["Email", p.personal.email],
               ["Date of birth", p.personal.dob ? dateOnly(p.personal.dob) : null],

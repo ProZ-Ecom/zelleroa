@@ -21,6 +21,7 @@ import { Select } from "@/components/ui/select";
 import { SearchInput } from "@/components/ui/search-input";
 import { ExportButton } from "@/components/common/export-button";
 import { exportDataToCsv } from "@/lib/export-csv";
+import { formatPhone } from "@/lib/utils/format-phone";
 import {
   Mail,
   MessageSquare,
@@ -154,7 +155,7 @@ export default function AdminContactsPage() {
               </p>
               {item.phone && (
                 <p className="text-[11px] text-neutral-400 font-mono">
-                  {item.phone}
+                  {formatPhone(item.phone)}
                 </p>
               )}
             </div>
@@ -348,7 +349,7 @@ export default function AdminContactsPage() {
                 contacts.map((c) => ({
                   Name: c.name || "Anonymous",
                   Email: c.email,
-                  Phone: c.phone || "",
+                  Phone: formatPhone(c.phone, ""),
                   Subject: c.subject || "",
                   Message: c.message || "",
                   Status: c.status,

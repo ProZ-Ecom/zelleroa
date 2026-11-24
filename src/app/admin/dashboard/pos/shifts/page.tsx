@@ -147,7 +147,8 @@ export default function PosShiftsPage() {
       },
       {
         accessorKey: "billCount",
-        header: () => <div className="text-right">Bills</div>,
+        header: "Bills",
+        meta: { align: "right" },
         cell: ({ row }) => (
           <div className="text-right tabular-nums whitespace-nowrap font-medium">
             {row.original.billCount}
@@ -161,7 +162,8 @@ export default function PosShiftsPage() {
       },
       {
         accessorKey: "netSales",
-        header: () => <div className="text-right">Net Sales</div>,
+        header: "Net Sales",
+        meta: { align: "right" },
         cell: ({ row }) => (
           <div className="text-right tabular-nums whitespace-nowrap font-bold text-neutral-900">
             {formatPrice(row.original.netSales)}
@@ -170,7 +172,8 @@ export default function PosShiftsPage() {
       },
       {
         accessorKey: "cash",
-        header: () => <div className="text-right">Cash</div>,
+        header: "Cash",
+        meta: { align: "right" },
         cell: ({ row }) => (
           <div className="text-right tabular-nums whitespace-nowrap text-neutral-700">
             {formatPrice(row.original.cash)}
@@ -179,7 +182,8 @@ export default function PosShiftsPage() {
       },
       {
         accessorKey: "upi",
-        header: () => <div className="text-right">UPI</div>,
+        header: "UPI",
+        meta: { align: "right" },
         cell: ({ row }) => (
           <div className="text-right tabular-nums whitespace-nowrap text-neutral-700">
             {formatPrice(row.original.upi)}
@@ -188,7 +192,8 @@ export default function PosShiftsPage() {
       },
       {
         accessorKey: "card",
-        header: () => <div className="text-right">Card</div>,
+        header: "Card",
+        meta: { align: "right" },
         cell: ({ row }) => (
           <div className="text-right tabular-nums whitespace-nowrap text-neutral-700">
             {formatPrice(row.original.card)}
@@ -197,7 +202,8 @@ export default function PosShiftsPage() {
       },
       {
         accessorKey: "variance",
-        header: () => <div className="text-right">Variance</div>,
+        header: "Variance",
+        meta: { align: "right" },
         cell: ({ row }) => {
           const variance = row.original.session.cashVariance;
           if (variance === null) {
@@ -229,7 +235,7 @@ export default function PosShiftsPage() {
   );
 
   return (
-    <div className="flex flex-1 flex-col overflow-hidden space-y-4 sm:space-y-4">
+    <div className="flex flex-1 flex-col overflow-auto space-y-4 sm:space-y-4">
       <AdminPageHeader
         title="Counter shifts"
         description="Every cashier shift, what it took, and whether the cash matched."
@@ -336,9 +342,9 @@ export default function PosShiftsPage() {
                 key={item.value}
                 onClick={() => handlePresetChange(item.value)}
                 className={cn(
-                  "rounded-lg px-2.5 py-1 text-xs font-medium transition-colors",
+                  "rounded-lg px-2.5 py-1 text-xs font-semibold transition-colors",
                   datePreset === item.value
-                    ? "bg-neutral-900 text-white shadow-sm"
+                    ? "bg-stone-900 text-[#D4AF37] shadow-xs"
                     : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200"
                 )}
               >
