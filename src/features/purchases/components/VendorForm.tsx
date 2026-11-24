@@ -202,7 +202,7 @@ export function VendorForm({ initial, isLoading, submitLabel, onSubmit }: Vendor
               const val = e.target.value.replace(/[^\d+\s-]/g, "").slice(0, 15);
               set("phone")(val);
             }}
-            placeholder="e.g. 9876543210"
+            placeholder="e.g. +91 9897567488"
             maxLength={15}
             error={errors.phone}
           />

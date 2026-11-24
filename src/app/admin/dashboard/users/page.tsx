@@ -25,6 +25,7 @@ import { FormModal } from "@/components/common/FormModal";
 import { ExportButton } from "@/components/common/export-button";
 import { exportDataToCsv } from "@/lib/export-csv";
 import { formatDate } from "@/lib/utils";
+import { formatPhone } from "@/lib/utils/format-phone";
 import { useRoles } from "@/features/roles/hooks";
 import { SearchInput } from "@/components/ui/search-input";
 import { Plus, Pencil, Trash2, KeyRound, RotateCcw } from "lucide-react";
@@ -271,11 +272,7 @@ const { data, isLoading, error, refetch } = useUsers({ page, limit: pageSize });
     {
       accessorKey: "phone",
       header: "Phone",
-      cell: ({ row }) => {
-        const phone = row.original.phone;
-        if (!phone) return "-";
-        return phone.replace(/^\+91/, "");
-      },
+      cell: ({ row }) => formatPhone(row.original.phone, "-"),
     },
      {
       accessorKey: "roleName",
@@ -368,7 +365,7 @@ const { data, isLoading, error, refetch } = useUsers({ page, limit: pageSize });
 
   return (
     <div className="flex flex-1 min-h-0 flex-col">
-      <AdminBreadcrumb items={[{ label: "Users" }]} />
+      
       <AdminPageHeader
         title="Users"
         description="Manage user accounts and permissions"
@@ -384,7 +381,7 @@ const { data, isLoading, error, refetch } = useUsers({ page, limit: pageSize });
                     { header: "Email", accessor: (u) => u.email || "-" },
                     {
                       header: "Phone",
-                      accessor: (u) => (u.phone ? u.phone.replace(/^\+91/, "") : "-"),
+                      accessor: (u) => formatPhone(u.phone, "-"),
                     },
                     { header: "Role", accessor: (u) => u.roleName || "-" },
                     { header: "Status", accessor: (u) => u.status || "-" },
@@ -500,18 +497,23 @@ const { data, isLoading, error, refetch } = useUsers({ page, limit: pageSize });
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Phone <span className="text-error-600">*</span>
             </label>
-           <input
-  {...register("phone", {
-    onChange: (e) => {
-      e.target.value = e.target.value.replace(/\D/g, "").slice(0, 10);
-    },
-  })}
-  type="tel"
-  inputMode="numeric"
-  maxLength={10}
-  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
-  placeholder="10-digit phone number"
-/>
+            <div className="relative">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-500 font-medium">
+                +91
+              </span>
+              <input
+                {...register("phone", {
+                  onChange: (e) => {
+                    e.target.value = e.target.value.replace(/\D/g, "").slice(0, 10);
+                  },
+                })}
+                type="tel"
+                inputMode="numeric"
+                maxLength={10}
+                className="w-full rounded-lg border border-gray-300 pl-12 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+                placeholder="9897567488"
+              />
+            </div>
             {errors.phone && (
               <p className="mt-1 text-xs text-red-500 font-medium">{errors.phone.message}</p>
             )}

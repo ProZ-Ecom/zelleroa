@@ -18,6 +18,7 @@ import { Select } from "@/components/ui/select";
 import { SearchInput } from "@/components/ui/search-input";
 import { ExportButton } from "@/components/common/export-button";
 import { exportDataToCsv } from "@/lib/export-csv";
+import { formatPhone } from "@/lib/utils/format-phone";
 import {
   PackagePlus,
   AlertCircle,
@@ -174,7 +175,7 @@ export default function AdminBulkOrdersPage() {
           className="inline-flex items-center gap-1 text-xs font-mono text-neutral-700 hover:text-secondary-600"
         >
           <Phone className="h-3 w-3" />
-          {row.original.phone}
+          {formatPhone(row.original.phone)}
         </a>
       ),
     },
@@ -327,7 +328,7 @@ export default function AdminBulkOrdersPage() {
                 enquiries.map((e) => ({
                   CustomerName: e.name,
                   Email: e.email,
-                  Phone: e.phone,
+                  Phone: formatPhone(e.phone, ""),
                   Company: e.companyName || "",
                   ProductInterest: e.productInterest || "",
                   Quantity: e.quantity,

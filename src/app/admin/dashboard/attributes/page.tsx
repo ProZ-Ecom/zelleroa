@@ -127,7 +127,7 @@ export default function AttributesPage() {
 
   return (
     <div className="flex flex-1 min-h-0 flex-col">
-      <AdminBreadcrumb items={[{ label: "Catalog" }, { label: "Attributes" }]} />
+      {/* <AdminBreadcrumb items={[{ label: "Catalog" }, { label: "Attributes" }]} /> */}
       <AdminPageHeader
         title="Attribute Management"
         description="Define product attributes (e.g. Color, Size, Fabric) and their selectable values."

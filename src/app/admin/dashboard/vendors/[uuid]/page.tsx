@@ -25,6 +25,7 @@ import {
   useVendorMutations,
 } from "@/features/purchases/hooks";
 import { formatDate } from "@/lib/utils";
+import { formatPhone } from "@/lib/utils/format-phone";
 import type { PurchaseOrderResponse } from "@/features/purchases/types";
 
 const inr = (n: number) => `₹${n.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -205,7 +206,7 @@ export default function VendorDetailPage() {
             {(
               [
                 ["Contact person", vendor.contactPerson],
-                ["Phone", vendor.phone],
+                ["Phone", formatPhone(vendor.phone)],
                 ["Email", vendor.email],
                 ["GST number", vendor.gstin],
                 ["Address", vendor.address],

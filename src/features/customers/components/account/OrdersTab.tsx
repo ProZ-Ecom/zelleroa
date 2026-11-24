@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Check, Package, X, CreditCard, Loader2, AlertCircle, Undo2, PackageCheck, Clock, Truck } from "lucide-react";
+import { Check, Package, X, CreditCard, Loader2, AlertCircle, Undo2, PackageCheck, Clock, Truck, Star } from "lucide-react";
 import { formatPrice } from "@/lib/utils";
 import type { OrderDetailResponse } from "@/features/orders/types";
 import { useCustomerOrders, useCancelCustomerOrder } from "../../hooks/use-customer-orders";
@@ -19,6 +19,7 @@ import { isOrderCancellable, getShipWindow, formatStoreDate } from "@/features/r
 import { RequestWizard } from "@/features/returns/components/RequestWizard";
 import { ShipReturnModal } from "@/features/returns/components/ShipReturnModal";
 import type { RequestSummary } from "@/features/returns/lib/summary";
+import { WriteReviewModal, type ReviewTargetItem } from "@/features/reviews/components/WriteReviewModal";
 
 const STATUS_OPTIONS: DropdownOption[] = [
   { value: "all", label: "All Orders" },
@@ -32,6 +33,24 @@ const STATUS_OPTIONS: DropdownOption[] = [
   { value: "cancelled", label: "Cancelled" },
   { value: "returned", label: "Returned" },
 ];
+
+function toReviewTarget(it: any): ReviewTargetItem {
+  return {
+    orderItemId: it.id,
+    productId: it.productId,
+    productName: it.productName,
+    variantId: it.variantId,
+    variantName: it.variantName,
+    variantUnitPriceId: it.variantUnitPriceId,
+    sku: it.sku,
+    attributesSummary: it.attributes?.length
+      ? it.attributes.map((a: any) => `${a.name}: ${a.value}`).join(" | ")
+      : it.variantName,
+    primaryImage: it.primaryImage || it.image || null,
+    isReviewed: it.isReviewed,
+    review: it.review,
+  };
+}
 
 interface OrdersTabProps {
   orders?: OrderDetailResponse[];
@@ -59,6 +78,12 @@ export function OrdersTab({
   const [cancelError, setCancelError] = useState<string | null>(null);
   const [returnTarget, setReturnTarget] = useState<{ orderId: string; mode: "return" | "replacement" } | null>(null);
   const [shippingReturn, setShippingReturn] = useState<RequestSummary | null>(null);
+  const [reviewModalState, setReviewModalState] = useState<{
+    isOpen: boolean;
+    orderNumber?: string;
+    items?: ReviewTargetItem[];
+    selectedItem?: ReviewTargetItem | null;
+  }>({ isOpen: false });
   const cancelMutation = useCancelCustomerOrder();
   const addToCartMutation = useAddToCartMutation();
   const createRazorpayOrderMutation = useCreateRazorpayOrder();
@@ -694,8 +719,32 @@ export function OrdersTab({
                             )}
                           </div>
                         </div>
-                        <div className="text-xs sm:text-sm font-bold text-theme-primary flex-shrink-0">
-                          {formatPrice(it.totalPrice ?? it.unitPrice ?? 0)}
+                        <div className="flex flex-col items-end gap-1 flex-shrink-0">
+                          <div className="text-xs sm:text-sm font-bold text-theme-primary">
+                            {formatPrice(it.totalPrice ?? it.unitPrice ?? 0)}
+                          </div>
+                          {order.status === "delivered" && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const mapped = (order.items || []).map(toReviewTarget);
+                                setReviewModalState({
+                                  isOpen: true,
+                                  orderNumber: order.orderNumber,
+                                  items: mapped,
+                                  selectedItem: toReviewTarget(it),
+                                });
+                              }}
+                              className={`text-[11px] font-semibold inline-flex items-center gap-1 px-2 py-0.5 rounded cursor-pointer transition-colors ${
+                                it.isReviewed
+                                  ? "text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200"
+                                  : "text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200"
+                              }`}
+                            >
+                              <Star className={`h-3 w-3 ${it.isReviewed ? "fill-emerald-500 text-emerald-500" : "fill-amber-400 text-amber-400"}`} />
+                              <span>{it.isReviewed ? "Reviewed" : "Review"}</span>
+                            </button>
+                          )}
                         </div>
                       </div>
                     ))
@@ -851,6 +900,26 @@ export function OrdersTab({
                           {shipDaysInfo.expired ? "Expired" : `${shipDaysInfo.daysLeft}d left`}
                         </span>
                       )}
+                    </button>
+                  )}
+
+                  {/* "Write a Review" button for delivered orders */}
+                  {order.status === "delivered" && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const mapped = (order.items || []).map(toReviewTarget);
+                        setReviewModalState({
+                          isOpen: true,
+                          orderNumber: order.orderNumber,
+                          items: mapped,
+                          selectedItem: mapped.find((m) => !m.isReviewed) || mapped[0] || null,
+                        });
+                      }}
+                      className="border border-amber-300 bg-amber-50/80 hover:bg-amber-100/90 text-amber-900 text-xs font-semibold uppercase tracking-wider py-2.5 px-4 rounded-lg cursor-pointer min-h-[40px] inline-flex items-center gap-1.5 shadow-2xs transition-colors"
+                    >
+                      <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-500" />
+                      <span>{order.items?.length && order.items.every((it) => it.isReviewed) ? "Reviewed" : "Write Review"}</span>
                     </button>
                   )}
 
@@ -1159,6 +1228,19 @@ export function OrdersTab({
           onSuccess={() => {
             setShippingReturn(null);
             handleRefetch();
+          }}
+        />
+      )}
+
+      {reviewModalState.isOpen && (
+        <WriteReviewModal
+          isOpen={reviewModalState.isOpen}
+          onClose={() => setReviewModalState((prev) => ({ ...prev, isOpen: false }))}
+          item={reviewModalState.selectedItem}
+          orderItems={reviewModalState.items}
+          orderNumber={reviewModalState.orderNumber}
+          onSuccess={() => {
+            refetchQuery();
           }}
         />
       )}

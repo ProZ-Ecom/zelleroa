@@ -21,7 +21,6 @@ import { ErrorState } from "@/components/ui/error-state";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
 import { SearchInput } from "@/components/ui/search-input";
-import { ClearFiltersButton } from "@/components/common/clear-filters-button";
 import { ExportButton } from "@/components/common/export-button";
 import { exportDataToCsv } from "@/lib/export-csv";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -222,9 +221,15 @@ export function AdminReviewListTable({
       cell: ({ row }) => {
         const review = row.original;
         const hasImages = Array.isArray(review.images) && review.images.length > 0;
+        const comment = review.comment?.trim() || "";
+        const MAX_COMMENT_LENGTH = 50;
+        const isLong = comment.length > MAX_COMMENT_LENGTH;
+        const displayComment = isLong
+          ? `${comment.slice(0, MAX_COMMENT_LENGTH).trimEnd()}...`
+          : comment;
 
         return (
-          <div className="min-w-[240px] max-w-[340px] space-y-1 py-1">
+          <div className="min-w-[200px] max-w-[320px] space-y-1 py-1">
             <div className="flex items-center gap-2">
               <ReviewRatingStars rating={review.rating} size="xs" />
               {hasImages && (
@@ -236,13 +241,21 @@ export function AdminReviewListTable({
             </div>
 
             {review.title && (
-              <div className="text-xs font-bold text-neutral-900 truncate">
+              <div
+                className="text-xs font-bold text-neutral-900 truncate"
+                title={review.title}
+              >
                 {review.title}
               </div>
             )}
 
-            <div className="text-xs text-neutral-600 line-clamp-2 leading-relaxed">
-              {review.comment || (
+            <div
+              className="text-xs text-neutral-600 truncate leading-relaxed"
+              title={review.comment || undefined}
+            >
+              {displayComment ? (
+                <span>{displayComment}</span>
+              ) : (
                 <span className="italic text-neutral-400">No review text</span>
               )}
             </div>
@@ -411,12 +424,10 @@ export function AdminReviewListTable({
               className={`w-3.5 h-3.5 ${isFetching ? "animate-spin text-secondary-600" : ""}`}
             />
           </Button>
-
-          {hasActiveFilters && <ClearFiltersButton onClick={handleClearFilters} className="h-9.5" />}
         </div>
 
         {/* Right Side: Status Tabs (Segmented) */}
-        <div className="w-full lg:w-auto overflow-x-auto">
+        <div className="flex-shrink-0">
           <ReviewStatusTabs
             tabs={tabs}
             activeTab={statusFilter}

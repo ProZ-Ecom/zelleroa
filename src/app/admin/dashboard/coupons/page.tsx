@@ -233,7 +233,7 @@ const numberField = (name: NumericField) => {
 
   return (
     <div className="flex flex-1 min-h-0 flex-col">
-      <AdminBreadcrumb items={[{ label: "Coupons" }]} />
+      
       <AdminPageHeader
         title="Coupons"
         description="Manage discount coupons"

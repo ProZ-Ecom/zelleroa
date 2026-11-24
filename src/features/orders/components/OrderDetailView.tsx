@@ -18,15 +18,36 @@ import {
   ShieldCheck,
   XCircle,
   Undo2,
+  Star,
 } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { formatDateTime, formatPrice } from "@/lib/utils";
+import { formatPhone } from "@/lib/utils/format-phone";
 import { OrderItemsList } from "./OrderItemsList";
 import { OrderTotals } from "./OrderTotals";
 import { OrderRequestsPanel } from "@/features/returns/components/OrderRequestsPanel";
 import { OrderTimeline } from "@/features/returns/components/OrderTimeline";
 import type { OrderDetailResponse, OrderDetail } from "../types";
+import { WriteReviewModal, type ReviewTargetItem } from "@/features/reviews/components/WriteReviewModal";
+
+function toReviewTarget(it: any): ReviewTargetItem {
+  return {
+    orderItemId: it.id,
+    productId: it.productId,
+    productName: it.productName,
+    variantId: it.variantId,
+    variantName: it.variantName,
+    variantUnitPriceId: it.variantUnitPriceId,
+    sku: it.sku,
+    attributesSummary: it.attributes?.length
+      ? it.attributes.map((a: any) => `${a.name}: ${a.value}`).join(" | ")
+      : it.variantName,
+    primaryImage: it.primaryImage || it.image || null,
+    isReviewed: it.isReviewed,
+    review: it.review,
+  };
+}
 
 interface OrderDetailViewProps {
   order: OrderDetailResponse | OrderDetail;
@@ -37,6 +58,7 @@ interface OrderDetailViewProps {
   onRequest?: (mode: "return" | "replacement") => void;
   /** Admin view: no customer actions. */
   readOnly?: boolean;
+  onRefetch?: () => void;
 }
 
 function getStatusBadgeMeta(status?: string) {
@@ -175,7 +197,14 @@ export function OrderDetailView({
   canCancel = false,
   onRequest,
   readOnly = false,
+  onRefetch,
 }: OrderDetailViewProps) {
+  const [reviewModalState, setReviewModalState] = useState<{
+    isOpen: boolean;
+    orderNumber?: string;
+    items?: ReviewTargetItem[];
+    selectedItem?: ReviewTargetItem | null;
+  }>({ isOpen: false });
   const shippingAddress =
     ("shippingAddress" in order ? order.shippingAddress : (order as any).address) ||
     null;
@@ -308,6 +337,27 @@ export function OrderDetailView({
               </Button>
             )
           )}
+
+          {/* Write a Review Action */}
+          {!readOnly && order.status === "delivered" && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                const mapped = (order.items || []).map(toReviewTarget);
+                setReviewModalState({
+                  isOpen: true,
+                  orderNumber: order.orderNumber,
+                  items: mapped,
+                  selectedItem: mapped.find((m) => !m.isReviewed) || mapped[0] || null,
+                });
+              }}
+              className="border-amber-300 bg-amber-50/80 hover:bg-amber-100 text-amber-900 rounded-xl text-xs font-semibold min-h-[36px]"
+            >
+              <Star className="mr-1.5 h-3.5 w-3.5 fill-amber-400 text-amber-500" />
+              <span>{order.items?.length && order.items.every((it) => it.isReviewed) ? "Reviewed" : "Write Review"}</span>
+            </Button>
+          )}
         </div>
       </div>
 
@@ -349,7 +399,19 @@ export function OrderDetailView({
               </h2>
             </div>
             <div className="p-5">
-              <OrderItemsList items={order.items || []} />
+              <OrderItemsList
+                items={order.items || []}
+                isDelivered={!readOnly && order.status === "delivered"}
+                onReviewItem={(it) => {
+                  const mapped = (order.items || []).map(toReviewTarget);
+                  setReviewModalState({
+                    isOpen: true,
+                    orderNumber: order.orderNumber,
+                    items: mapped,
+                    selectedItem: toReviewTarget(it),
+                  });
+                }}
+              />
             </div>
           </div>
 
@@ -391,12 +453,12 @@ export function OrderDetailView({
                       <Phone className="h-3 w-3 shrink-0 text-theme-text-muted" />
                       {readOnly ? (
                         <a href={`tel:${customer.phone}`} className="hover:underline">
-                          {customer.phone}
+                          {formatPhone(customer.phone)}
                         </a>
                       ) : (
-                        <span>{customer.phone}</span>
+                        <span>{formatPhone(customer.phone)}</span>
                       )}
-                      {readOnly && <CopyButton value={customer.phone} label="phone" />}
+                      {readOnly && <CopyButton value={formatPhone(customer.phone)} label="phone" />}
                     </p>
                   )}
                 </div>
@@ -420,7 +482,7 @@ export function OrderDetailView({
                           [shippingAddress.addressLine1, shippingAddress.addressLine2].filter(Boolean).join(", "),
                           shippingAddress.landmark ? `Landmark: ${shippingAddress.landmark}` : "",
                           `${shippingAddress.city}, ${shippingAddress.state} ${shippingAddress.pincode ?? ""}`.trim(),
-                          shippingAddress.phone ? `Phone: ${shippingAddress.phone}` : "",
+                          shippingAddress.phone ? `Phone: ${formatPhone(shippingAddress.phone)}` : "",
                         ]
                           .filter(Boolean)
                           .join("\n")}
@@ -451,7 +513,7 @@ export function OrderDetailView({
                   {shippingAddress.phone && (
                     <p className="flex items-center gap-1.5 text-theme-text-muted pt-1">
                       <Phone className="h-3 w-3 shrink-0" />
-                      <span>{shippingAddress.phone}</span>
+                      <span>{formatPhone(shippingAddress.phone)}</span>
                     </p>
                   )}
                 </div>
@@ -585,7 +647,7 @@ export function OrderDetailView({
                     {delivery.staff.phone && (
                       <p className="flex items-center gap-1.5 text-xs text-theme-text-muted">
                         <Phone className="h-3 w-3 shrink-0" />
-                        <span className="font-mono">{delivery.staff.phone}</span>
+                        <span className="font-mono">{formatPhone(delivery.staff.phone)}</span>
                       </p>
                     )}
                     {delivery.staff.email && (
@@ -793,6 +855,19 @@ export function OrderDetailView({
           </div>
         </div>
       </div>
+
+      {reviewModalState.isOpen && (
+        <WriteReviewModal
+          isOpen={reviewModalState.isOpen}
+          onClose={() => setReviewModalState((prev) => ({ ...prev, isOpen: false }))}
+          item={reviewModalState.selectedItem}
+          orderItems={reviewModalState.items}
+          orderNumber={reviewModalState.orderNumber}
+          onSuccess={() => {
+            onRefetch?.();
+          }}
+        />
+      )}
     </div>
   );
 }

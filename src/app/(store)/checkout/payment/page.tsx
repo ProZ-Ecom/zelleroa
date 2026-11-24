@@ -21,6 +21,7 @@ import { LoadingState } from "@/components/ui/loading-state";
 import { ErrorState } from "@/components/ui/error-state";
 import { EmptyState } from "@/components/ui/empty-state";
 import { toast } from "@/components/ui/Toast";
+import { formatPhone } from "@/lib/utils/format-phone";
 import { useCart } from "@/features/cart/hooks/use-cart";
 import { useAddresses } from "@/features/addresses/hooks";
 import { useCheckout } from "@/features/checkout/checkout-context";
@@ -283,7 +284,7 @@ export default function CheckoutPaymentPage() {
                     {selectedAddress.city}, {selectedAddress.state} - {selectedAddress.postalCode}
                   </p>
                   <p className="text-xs font-medium text-foreground pt-1">
-                    Phone: {selectedAddress.phone}
+                    Phone: {formatPhone(selectedAddress.phone)}
                   </p>
                 </div>
               ) : (

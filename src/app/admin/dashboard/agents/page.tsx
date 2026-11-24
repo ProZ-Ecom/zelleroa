@@ -15,6 +15,7 @@ import { BlockAgentDialog, type BlockAgentPayload, Panel, SimpleTable, StatusBad
 import { ButtonPager } from "@/features/agents/components/AdminPagination";
 import { ExportButton } from "@/components/common/export-button";
 import { exportDataToCsv } from "@/lib/export-csv";
+import { formatPhone } from "@/lib/utils/format-phone";
 
 export default function AdminAgentsPage() {
   const qc = useQueryClient();
@@ -73,7 +74,7 @@ export default function AdminAgentsPage() {
       [
         { header: "Sales Partner Name", accessor: (r) => r.name },
         { header: "Email", accessor: (r) => r.email },
-        { header: "Phone", accessor: (r) => r.phone || "—" },
+        { header: "Phone", accessor: (r) => formatPhone(r.phone) },
         { header: "Sales Partner ID", accessor: (r) => r.agentCode || "—" },
         { header: "Referral Code", accessor: (r) => r.referralCode || "—" },
         { header: "Customers", accessor: (r) => r.summary.totalReferredCustomers },

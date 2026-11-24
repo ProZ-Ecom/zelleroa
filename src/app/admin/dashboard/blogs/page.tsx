@@ -72,12 +72,13 @@ export default function AdminBlogsPage() {
 
   useEffect(() => {
     if (editingBlog) {
+      const editStatus = (editingBlog.status || ((editingBlog as any).is_published ? "PUBLISHED" : "DRAFT")).toUpperCase() as "DRAFT" | "PUBLISHED" | "ARCHIVED";
       reset({
         title: editingBlog.title,
         content: editingBlog.content,
         excerpt: editingBlog.excerpt ?? "",
         image: editingBlog.image ?? "",
-        status: editingBlog.status as "DRAFT" | "PUBLISHED" | "ARCHIVED",
+        status: editStatus,
         metaTitle: editingBlog.metaTitle ?? "",
         metaDescription: editingBlog.metaDescription ?? "",
       });
@@ -122,10 +123,7 @@ export default function AdminBlogsPage() {
       accessorKey: "title",
       header: "Title",
       cell: ({ row }) => (
-        <div>
-          <p className="font-medium">{row.original.title}</p>
-          <p className="text-xs text-muted-foreground">{row.original.slug}</p>
-        </div>
+        <p className="font-medium text-neutral-900">{row.original.title}</p>
       ),
     },
     {
@@ -136,11 +134,15 @@ export default function AdminBlogsPage() {
     {
       accessorKey: "status",
       header: "Status",
-      cell: ({ row }) => (
-        <Badge variant={statusBadgeVariant[row.original.status] ?? "secondary"}>
-          {row.original.status}
-        </Badge>
-      ),
+      cell: ({ row }) => {
+        const rawStatus = row.original.status || ((row.original as any).is_published ? "PUBLISHED" : "DRAFT");
+        const status = (rawStatus || "DRAFT").toUpperCase();
+        return (
+          <Badge variant={statusBadgeVariant[status] ?? "secondary"}>
+            {status}
+          </Badge>
+        );
+      },
     },
     {
       accessorKey: "publishedAt",
@@ -179,7 +181,7 @@ export default function AdminBlogsPage() {
 
   return (
     <div className="flex flex-1 min-h-0 flex-col">
-      <AdminBreadcrumb items={[{ label: "Blogs" }]} />
+      
       <AdminPageHeader
         title="Blogs"
         description="Manage your blog posts"
@@ -324,9 +326,10 @@ export default function AdminBlogsPage() {
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
             <Select
-              value={watch("status")}
-              onValueChange={(val) => setValue("status", val as "DRAFT" | "PUBLISHED" | "ARCHIVED", { shouldValidate: true })}
+              value={watch("status") || "DRAFT"}
+              onValueChange={(val) => setValue("status", val as "DRAFT" | "PUBLISHED" | "ARCHIVED", { shouldValidate: true, shouldDirty: true })}
               searchable={false}
+              portal={true}
               options={[
                 { value: "DRAFT", label: "Draft" },
                 { value: "PUBLISHED", label: "Published" },

@@ -9,6 +9,7 @@ import type { AgentCustomerRow } from "../../services/agent.service";
 import { errorMessage, useAdminList, useAgentOptions } from "../../hooks/use-admin-agents";
 import { Panel, SimpleTable, StatusBadge, TableSkeleton, dateOnly, money } from "../shared";
 import { ButtonPager } from "../AdminPagination";
+import { formatPhone } from "@/lib/utils/format-phone";
 
 interface ReassignResult {
   moved?: number;
@@ -169,7 +170,7 @@ export function AdminAssignedCustomersSection({ agentId, agentActive }: { agentI
                   </span>
                 ),
               },
-              { header: "Mobile", cell: (r) => r.phone ?? "—" },
+              { header: "Mobile", cell: (r) => formatPhone(r.phone) },
               { header: "Email", cell: (r) => r.email ?? "—" },
               { header: "Orders", cell: (r) => r.totalOrders },
               { header: "Sales", cell: (r) => money(r.totalSales) },

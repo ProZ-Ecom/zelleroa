@@ -192,10 +192,18 @@ export const reviewRepository = {
     });
   },
 
-  async findOrderItemForReview(orderItemUuid: string, customerId: bigint) {
+  async findOrderItemForReview(orderItemIdentifier: string, customerId: bigint) {
+    const isNum = !isNaN(Number(orderItemIdentifier)) && !orderItemIdentifier.includes("-");
+    const orConditions: Prisma.OrderItemWhereInput[] = [
+      { uuid: orderItemIdentifier },
+    ];
+    if (isNum) {
+      orConditions.push({ id: BigInt(orderItemIdentifier) });
+    }
+
     return db.orderItem.findFirst({
       where: {
-        uuid: orderItemUuid,
+        OR: orConditions,
         is_active: true,
         order: {
           userId: customerId,
@@ -269,7 +277,7 @@ export const reviewRepository = {
 
   async createReviewTransaction(params: {
     productId: bigint;
-    variantUnitPriceId: bigint;
+    variantUnitPriceId?: bigint | null;
     userId: bigint;
     orderItemId?: bigint | null;
     rating: number;
@@ -285,7 +293,7 @@ export const reviewRepository = {
         data: {
           uuid: reviewUuid,
           productId: params.productId,
-          variant_unit_price_id: params.variantUnitPriceId,
+          variant_unit_price_id: params.variantUnitPriceId ?? null,
           userId: params.userId,
           order_item_id: params.orderItemId ?? null,
           rating: params.rating,

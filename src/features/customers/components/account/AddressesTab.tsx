@@ -16,6 +16,7 @@ import type { CustomerAddressResponse } from "../../types/customer-address.types
 import { CustomDropdown } from "./CustomDropdown";
 import { usePincodeLookup } from "@/features/addresses/hooks/use-pincode-lookup";
 import { Select } from "@/components/ui/select";
+import { formatPhone } from "@/lib/utils/format-phone";
 
 
 
@@ -600,20 +601,25 @@ export function AddressesTab() {
                   Phone Number <span className="text-red-500 font-bold">*</span>
                 </span>
               </label>
-              <input
-                type="tel"
-                disabled={isSubmitting}
-                maxLength={10}
-                placeholder="10-digit mobile number"
-                value={formData.phone}
-                onChange={(e) => handleFieldChange("phone", e.target.value.replace(/\D/g, ""))}
-                onBlur={() => handleBlur("phone")}
-                className={`border rounded-lg px-3.5 py-2.5 text-xs text-theme-text-primary bg-theme-surface-warm transition-colors outline-none disabled:opacity-50 ${
-                  fieldErrors.phone
-                    ? "border-red-500 bg-red-50/20 focus:border-red-500 focus:ring-1 focus:ring-red-500/50 ring-1 ring-red-500/40"
-                    : "border-theme-border-input focus:border-theme-primary"
-                }`}
-              />
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-medium text-theme-text-muted">
+                  +91
+                </span>
+                <input
+                  type="tel"
+                  disabled={isSubmitting}
+                  maxLength={10}
+                  placeholder="9897567488"
+                  value={formData.phone}
+                  onChange={(e) => handleFieldChange("phone", e.target.value.replace(/\D/g, "").slice(0, 10))}
+                  onBlur={() => handleBlur("phone")}
+                  className={`border rounded-lg pl-10 pr-3.5 py-2.5 text-xs text-theme-text-primary bg-theme-surface-warm transition-colors outline-none disabled:opacity-50 ${
+                    fieldErrors.phone
+                      ? "border-red-500 bg-red-50/20 focus:border-red-500 focus:ring-1 focus:ring-red-500/50 ring-1 ring-red-500/40"
+                      : "border-theme-border-input focus:border-theme-primary"
+                  }`}
+                />
+              </div>
               {fieldErrors.phone && (
                 <span className="text-xs text-red-500 font-medium animate-in fade-in duration-150">
                   {fieldErrors.phone}
@@ -950,7 +956,7 @@ export function AddressesTab() {
                     {a.landmark ? ` (Near ${a.landmark})` : ""}, {a.city} — {a.pincode}, {a.state}
                   </div>
                   <div className="text-xs text-theme-text-muted font-medium">
-                    {a.phone}
+                    {formatPhone(a.phone)}
                   </div>
                 </div>
 

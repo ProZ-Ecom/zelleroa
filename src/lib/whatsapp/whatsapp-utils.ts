@@ -36,12 +36,12 @@ export function normalizePhoneNumber(rawPhone: string): {
   const isValid = digits.length >= 10 && digits.length <= 15;
   const e164 = digits ? `+${digits}` : "";
 
-  // 5. Clean readable display format
+  // 5. Clean readable display format (+91 9897567488)
   let formatted = e164;
   if (digits.length === 12 && digits.startsWith("91")) {
-    formatted = `+91 ${digits.slice(2, 7)} ${digits.slice(7)}`;
+    formatted = `+91 ${digits.slice(2)}`;
   } else if (digits.length === 10) {
-    formatted = `+91 ${digits.slice(0, 5)} ${digits.slice(5)}`;
+    formatted = `+91 ${digits}`;
   }
 
   return { digits, e164, formatted, isValid };

@@ -18,6 +18,7 @@ import { Button } from "@/components/ui/button";
 import { ExportButton } from "@/components/common/export-button";
 import { exportDataToCsv } from "@/lib/export-csv";
 import { formatDate } from "@/lib/utils";
+import { formatPhone } from "@/lib/utils/format-phone";
 import { SearchInput } from "@/components/ui/search-input";
 import { Select } from "@/components/ui/select";
 import { AdminTableSkeleton } from "@/components/admin/AdminTableSkeleton";
@@ -140,7 +141,7 @@ export default function AdminStaffPage() {
         header: "Phone Number",
         cell: ({ row }) => (
           <span className="text-sm text-neutral-600">
-            {row.original.phone || "—"}
+            {formatPhone(row.original.phone)}
           </span>
         ),
       },
@@ -195,11 +196,6 @@ export default function AdminStaffPage() {
 
   return (
     <div className="flex flex-1 min-h-0 flex-col">
-      <AdminBreadcrumb
-        items={[
-          { label: "Staff" },
-        ]}
-      />
 
       <AdminPageHeader
         title="Staff Management"
@@ -282,7 +278,7 @@ export default function AdminStaffPage() {
                 [
                   { header: "Name", accessor: (s) => s.name },
                   { header: "Email", accessor: (s) => s.email },
-                  { header: "Phone", accessor: (s) => s.phone || "-" },
+                  { header: "Phone", accessor: (s) => formatPhone(s.phone, "-") },
                   { header: "Role", accessor: (s) => s.role || "-" },
                   { header: "Status", accessor: (s) => (s.isActive ? "Active" : "Inactive") },
                 ]

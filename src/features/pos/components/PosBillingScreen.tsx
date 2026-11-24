@@ -614,7 +614,8 @@ export function PosBillingScreen({
             value={customerPhone}
             inputMode="numeric"
             maxLength={10}
-            placeholder="10-digit phone"
+            inputPrefix="+91"
+            placeholder="9897567488"
             onChange={(event) => {
               const value = event.target.value.replace(/\D/g, "").slice(0, 10);
               setCustomerPhone(value);

@@ -19,6 +19,7 @@ import {
   useUpdateBulkOrderStatus,
 } from "../hooks";
 import type { AdminBulkOrderListItem, BulkOrderEnquiryStatus } from "../types";
+import { formatPhone } from "@/lib/utils/format-phone";
 
 interface AdminBulkOrderDetailModalProps {
   enquiry: AdminBulkOrderListItem | null;
@@ -167,7 +168,7 @@ export function AdminBulkOrderDetailModal({
             </p>
             <div className="flex items-center justify-between gap-2 pt-0.5">
               <span className="font-medium text-neutral-900 text-sm font-mono">
-                {item.phone}
+                {formatPhone(item.phone)}
               </span>
               <a
                 href={`tel:${item.phone}`}

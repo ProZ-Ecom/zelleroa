@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { formatDateTime, formatPrice } from "@/lib/utils";
+import { formatPhone } from "@/lib/utils/format-phone";
 import { useCustomerOrderDetail } from "@/features/customers/hooks/use-customer-orders";
 
 function SuccessSkeleton() {
@@ -157,7 +158,7 @@ function SuccessContent() {
               </p>
               <p className="text-xs text-theme-text-muted flex items-center gap-1 pt-1">
                 <Phone className="h-3 w-3" />
-                {order.shippingAddress.phone}
+                {formatPhone(order.shippingAddress.phone)}
               </p>
             </div>
           )}

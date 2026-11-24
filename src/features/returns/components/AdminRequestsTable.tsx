@@ -9,6 +9,7 @@ import { ClearFiltersButton } from "@/components/common/clear-filters-button";
 import { ExportButton } from "@/components/common/export-button";
 import { exportDataToCsv } from "@/lib/export-csv";
 import { formatDateTime } from "@/lib/utils";
+import { formatPhone } from "@/lib/utils/format-phone";
 import {
   REPLACEMENT_STATUSES,
   RETURN_SELECTABLE_STATUSES,
@@ -89,7 +90,7 @@ export function AdminRequestsTable({ kind }: { kind: RequestKind }) {
                 ReturnId: r.returnNumber || r.id.slice(0, 8).toUpperCase(),
                 OrderNumber: r.orderNumber,
                 Customer: r.customer.name,
-                CustomerContact: r.customer.phone || r.customer.email || "",
+                CustomerContact: formatPhone(r.customer.phone, "") || r.customer.email || "",
                 Products: r.items.map((i) => i.productName).join(", "),
                 Reason: r.reason,
                 RequestedAt: formatDateTime(r.requestedAt),
@@ -175,7 +176,7 @@ export function AdminRequestsTable({ kind }: { kind: RequestKind }) {
                 <td className="px-3 py-2.5 font-mono font-semibold">{r.orderNumber}</td>
                 <td className="px-3 py-2.5">
                   <div className="font-semibold">{r.customer.name}</div>
-                  <div className="text-neutral-500">{r.customer.phone || r.customer.email}</div>
+                  <div className="text-neutral-500">{formatPhone(r.customer.phone, "") || r.customer.email}</div>
                 </td>
                 <td className="px-3 py-2.5">
                   {r.items.map((i) => (

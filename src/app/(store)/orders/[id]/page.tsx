@@ -148,6 +148,7 @@ export default function OrderDetailPage() {
           setCancelOpen(true);
         }}
         onRequest={(mode) => setRequestMode(mode)}
+        onRefetch={refetch}
       />
 
       <CancelOrderDialog
