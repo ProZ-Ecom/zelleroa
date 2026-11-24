@@ -11,6 +11,9 @@ permissions:
   contents: read
 
 jobs:
+
+  # JOB 1: BUILD APPLICATION
+
   build:
     name: Build Zellora
     runs-on: ubuntu-latest
@@ -38,6 +41,11 @@ jobs:
         env:
           DATABASE_URL: "mysql://build:build@127.0.0.1:3306/build_db"
 
+      - name: Find Large Build Files
+        run: |
+          echo "Checking large build files..."
+          find .next public -type f -size +90M -exec ls -lh {} \;
+
       - name: Upload Build Artifact
         uses: actions/upload-artifact@v4
         with:
@@ -47,6 +55,9 @@ jobs:
             public/
           include-hidden-files: true
           retention-days: 7
+
+
+  # JOB 2: TRANSFER BUILD TO SERVER
 
   transfer:
     name: Transfer Build to Server
@@ -60,6 +71,7 @@ jobs:
       REMOTE_DIR: "/home/proz/projects/zellora_buildts"
 
     steps:
+
       - name: Download Build Artifact
         uses: actions/download-artifact@v4
         with:
@@ -67,7 +79,9 @@ jobs:
           path: downloaded-build
 
       - name: Create Build Archive
-        run: tar -czf zellora-build.tar.gz -C downloaded-build .
+        run: |
+          tar -czf zellora-build.tar.gz -C downloaded-build .
+          ls -lh zellora-build.tar.gz
 
       - name: Install sshpass
         run: |
@@ -77,19 +91,14 @@ jobs:
       - name: Setup SSH
         run: |
           mkdir -p ~/.ssh
-          printf '%s\n' "${{ secrets.SERVER_KNOWN_HOSTS }}" > ~/.ssh/known_hosts
+          chmod 700 ~/.ssh
+
+          ssh-keyscan -p "$SERVER_PORT" \
+            -t ed25519 "$SERVER_HOST" >> ~/.ssh/known_hosts
+
           chmod 600 ~/.ssh/known_hosts
 
-      - name: Create Server Directory
-        run: |
-          sshpass -e ssh -o StrictHostKeyChecking=yes \
-            -p "$SERVER_PORT" \
-            "$SERVER_USER@$SERVER_HOST" \
-            "mkdir -p '$REMOTE_DIR'"
-        env:
-          SSHPASS: ${{ secrets.SERVER_PASSWORD }}
-
-      - name: Transfer Build
+      - name: Transfer Build to Server
         run: |
           sshpass -e scp -o StrictHostKeyChecking=yes \
             -P "$SERVER_PORT" \
@@ -98,7 +107,7 @@ jobs:
         env:
           SSHPASS: ${{ secrets.SERVER_PASSWORD }}
 
-      - name: Verify Transfer
+      - name: Verify Transferred Archive
         run: |
           LOCAL_SHA=$(sha256sum zellora-build.tar.gz | awk '{print $1}')
 
@@ -107,25 +116,39 @@ jobs:
             "$SERVER_USER@$SERVER_HOST" \
             "sha256sum '$REMOTE_DIR/zellora-build.tar.gz' | awk '{print \$1}'")
 
+          echo "Local checksum: $LOCAL_SHA"
+          echo "Remote checksum: $REMOTE_SHA"
+
           test "$LOCAL_SHA" = "$REMOTE_SHA"
+        env:
+          SSHPASS: ${{ secrets.SERVER_PASSWORD }}
 
       - name: Replace Old Build Files
         run: |
-          sshpass -e ssh -p "$SERVER_PORT" \
+          sshpass -e ssh \
+            -p "$SERVER_PORT" \
             "$SERVER_USER@$SERVER_HOST" \
             "set -e
              cd '$REMOTE_DIR'
+
              rm -rf incoming
              mkdir incoming
+
              tar -xzf zellora-build.tar.gz -C incoming
+
              test -d incoming/.next
+
              rm -rf .next public
+
              mv incoming/.next .
+
              if [ -d incoming/public ]; then
                mv incoming/public .
              fi
+
              rm -rf incoming
-             echo 'Build replacement successful'
+
+             echo 'Build files replaced successfully'
              ls -lah"
         env:
           SSHPASS: ${{ secrets.SERVER_PASSWORD }}
