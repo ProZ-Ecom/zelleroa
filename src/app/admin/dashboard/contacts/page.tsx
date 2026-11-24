@@ -267,7 +267,7 @@ export default function AdminContactsPage() {
       />
 
       {/* KPI Summary Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 flex-shrink-0">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 flex-shrink-0">
         <StatsCard
           title="Total Inquiries"
           value={isLoading ? "—" : totalCount}

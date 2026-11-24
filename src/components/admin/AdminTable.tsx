@@ -41,22 +41,22 @@ function AdminTable<TData, TValue>({
   };
 
   return (
-    <div className="flex flex-1 min-h-0 flex-col h-full space-y-4">
+    <div className="flex flex-1 min-h-0 min-w-0 max-w-full flex-col h-full space-y-4">
       {hasSelection && bulkActions && (
-        <div className="flex-shrink-0 flex items-center justify-between rounded-lg border border-primary/20 bg-primary/5 px-4 py-3">
+        <div className="flex-shrink-0 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 rounded-lg border border-primary/20 bg-primary/5 px-3 sm:px-4 py-2.5 sm:py-3">
           <div className="flex items-center gap-3">
-            <span className="text-sm font-medium text-primary">
+            <span className="text-xs sm:text-sm font-medium text-primary">
               {selectedCount} row(s) selected
             </span>
             <button
               onClick={handleClearSelection}
-              className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700 transition-colors"
+              className="inline-flex items-center gap-1 text-xs sm:text-sm text-gray-500 hover:text-gray-700 transition-colors"
             >
               <X className="h-3 w-3" />
               Clear selection
             </button>
           </div>
-          <div className="flex items-center gap-2">{bulkActions}</div>
+          <div className="flex flex-wrap items-center gap-2">{bulkActions}</div>
         </div>
       )}
 
@@ -75,7 +75,7 @@ function AdminTable<TData, TValue>({
         </div>
       )}
 
-      <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
+      <div className="flex-1 min-h-0 min-w-0 max-w-full overflow-hidden flex flex-col">
         <DataTable
           key={tableKey}
           columns={columns}

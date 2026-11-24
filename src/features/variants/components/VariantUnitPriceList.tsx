@@ -292,13 +292,12 @@ function VariantUnitPriceList({
         {!showForm && (
           <Button
             type="button"
-            variant="ghost"
             size="sm"
             onClick={startAdd}
             disabled={isBusy || allCombinationsUsed}
-            className="h-8 text-xs font-semibold text-secondary-700 hover:text-secondary-900 hover:bg-secondary-50 cursor-pointer disabled:opacity-50"
+            className="h-8 px-3 rounded-lg bg-theme-primary hover:bg-theme-primary-hover text-white text-xs font-semibold shadow-xs flex items-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50"
           >
-            <Plus className="w-3.5 h-3.5 mr-1" />
+            <Plus className="w-3.5 h-3.5" />
             <span>{hasDynamicSizes ? "Add size + price" : "Add unit + price"}</span>
           </Button>
         )}
@@ -311,7 +310,7 @@ function VariantUnitPriceList({
       ) : (
         <div className="divide-y divide-cream-border-subtle">
           {unitPrices.length === 0 && !showForm && (
-            <div className="py-7 px-6 text-center space-y-2">
+            <div className="py-7 px-6 text-center space-y-3">
               <p className="text-xs font-medium text-neutral-600">
                 {hasDynamicSizes
                   ? "No sizes yet. Add one to make this color purchasable."
@@ -320,6 +319,18 @@ function VariantUnitPriceList({
               <div className="inline-flex items-center gap-1.5 text-[11px] font-medium text-amber-800 bg-amber-50 border border-amber-200/80 rounded-lg py-1.5 px-3 max-w-md mx-auto">
                 <span>⚠️ If price details are not entered, this item remains in the <strong>Inactive list</strong> and hidden from customers.</span>
               </div>
+              {/* <div className="pt-1">
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={startAdd}
+                  disabled={isBusy || allCombinationsUsed}
+                  className="h-8 px-3.5 rounded-lg bg-theme-primary hover:bg-theme-primary-hover text-white text-xs font-semibold shadow-xs inline-flex items-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>{hasDynamicSizes ? "Add size + price" : "Add unit + price"}</span>
+                </Button>
+              </div> */}
             </div>
           )}
 

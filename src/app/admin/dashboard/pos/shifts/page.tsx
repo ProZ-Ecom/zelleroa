@@ -14,10 +14,12 @@ import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminTableSkeleton } from "@/components/admin/AdminTableSkeleton";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { TablePagination } from "@/components/admin/data-table/TablePagination";
+import type { ColumnDef } from "@tanstack/react-table";
+import { DataTable } from "@/components/admin/data-table/DataTable";
 import { Select, type SelectOption } from "@/components/ui/select";
 import { cn, formatDateTime, formatPrice } from "@/lib/utils";
 import { useShifts } from "@/features/pos/hooks/use-pos";
+import type { PosSessionSummary } from "@/features/pos/types";
 
 type DatePreset = "all" | "today" | "yesterday" | "7d" | "month" | "custom";
 
@@ -106,8 +108,128 @@ export default function PosShiftsPage() {
     return { totalSales, totalCash, openCount, shortCount };
   }, [rows]);
 
+  const columns: ColumnDef<PosSessionSummary>[] = useMemo(
+    () => [
+      {
+        accessorKey: "cashier",
+        header: "Cashier",
+        cell: ({ row }) => (
+          <div className="flex flex-col min-w-[130px]">
+            <p className="font-semibold text-neutral-900">{row.original.session.staffName}</p>
+            <p className="text-[11px] text-neutral-400">{row.original.session.storeName}</p>
+          </div>
+        ),
+      },
+      {
+        accessorKey: "opened",
+        header: "Opened",
+        cell: ({ row }) => (
+          <span className="text-neutral-600 whitespace-nowrap text-xs">
+            {formatDateTime(row.original.session.openedAt)}
+          </span>
+        ),
+      },
+      {
+        accessorKey: "closed",
+        header: "Closed",
+        cell: ({ row }) => (
+          <div className="whitespace-nowrap text-xs">
+            {row.original.session.closedAt ? (
+              <span className="text-neutral-600">{formatDateTime(row.original.session.closedAt)}</span>
+            ) : (
+              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-semibold text-emerald-700">
+                <Clock className="h-3 w-3 animate-pulse" />
+                Open
+              </span>
+            )}
+          </div>
+        ),
+      },
+      {
+        accessorKey: "billCount",
+        header: () => <div className="text-right">Bills</div>,
+        cell: ({ row }) => (
+          <div className="text-right tabular-nums whitespace-nowrap font-medium">
+            {row.original.billCount}
+            {row.original.voidedCount > 0 && (
+              <span className="ml-1 text-xs text-amber-600">
+                ({row.original.voidedCount} void)
+              </span>
+            )}
+          </div>
+        ),
+      },
+      {
+        accessorKey: "netSales",
+        header: () => <div className="text-right">Net Sales</div>,
+        cell: ({ row }) => (
+          <div className="text-right tabular-nums whitespace-nowrap font-bold text-neutral-900">
+            {formatPrice(row.original.netSales)}
+          </div>
+        ),
+      },
+      {
+        accessorKey: "cash",
+        header: () => <div className="text-right">Cash</div>,
+        cell: ({ row }) => (
+          <div className="text-right tabular-nums whitespace-nowrap text-neutral-700">
+            {formatPrice(row.original.cash)}
+          </div>
+        ),
+      },
+      {
+        accessorKey: "upi",
+        header: () => <div className="text-right">UPI</div>,
+        cell: ({ row }) => (
+          <div className="text-right tabular-nums whitespace-nowrap text-neutral-700">
+            {formatPrice(row.original.upi)}
+          </div>
+        ),
+      },
+      {
+        accessorKey: "card",
+        header: () => <div className="text-right">Card</div>,
+        cell: ({ row }) => (
+          <div className="text-right tabular-nums whitespace-nowrap text-neutral-700">
+            {formatPrice(row.original.card)}
+          </div>
+        ),
+      },
+      {
+        accessorKey: "variance",
+        header: () => <div className="text-right">Variance</div>,
+        cell: ({ row }) => {
+          const variance = row.original.session.cashVariance;
+          if (variance === null) {
+            return <div className="text-right text-neutral-400 font-mono">—</div>;
+          }
+          return (
+            <div className="text-right">
+              <span
+                className={cn(
+                  "inline-flex items-center rounded-md px-2 py-0.5 text-xs font-semibold tabular-nums",
+                  variance === 0
+                    ? "bg-emerald-50 text-emerald-700 ring-1 ring-inset ring-emerald-600/20"
+                    : variance < 0
+                      ? "bg-red-50 text-red-700 ring-1 ring-inset ring-red-600/20"
+                      : "bg-amber-50 text-amber-700 ring-1 ring-inset ring-amber-600/20"
+                )}
+                title={row.original.session.varianceReason ?? undefined}
+              >
+                {variance === 0
+                  ? "Balanced"
+                  : `${variance < 0 ? "Short" : "Over"} ${formatPrice(Math.abs(variance))}`}
+              </span>
+            </div>
+          );
+        },
+      },
+    ],
+    []
+  );
+
   return (
-    <div className="flex flex-1 flex-col overflow-auto space-y-4 sm:space-y-6">
+    <div className="flex flex-1 flex-col overflow-hidden space-y-4 sm:space-y-4">
       <AdminPageHeader
         title="Counter shifts"
         description="Every cashier shift, what it took, and whether the cash matched."
@@ -272,138 +394,30 @@ export default function PosShiftsPage() {
       </div>
 
       {/* Responsive Shifts Data Table */}
-      <div className="rounded-2xl border border-cream-border bg-white shadow-xs overflow-hidden">
-        {isLoading && !data ? (
-          <div className="p-6">
-            <AdminTableSkeleton />
-          </div>
-        ) : rows.length === 0 ? (
-          <div className="flex flex-col items-center justify-center p-12 text-center">
-            <Wallet className="h-10 w-10 text-neutral-300 mb-2" />
-            <p className="text-base font-semibold text-neutral-900">No shifts found</p>
-            <p className="text-xs text-neutral-500 mt-1 max-w-sm">
-              No cashier shifts match your selected status and date range. Try broadening the filters.
-            </p>
-          </div>
-        ) : (
-          <div className="overflow-x-auto scrollbar-table">
-            <table className="w-full min-w-[900px] table-auto caption-bottom text-sm border-separate border-spacing-0">
-              <thead className="sticky top-0 z-10 bg-stone-900 text-[#D4AF37] border-b border-stone-800 shadow-[0_1px_3px_rgba(28,25,23,0.2)]">
-                <tr>
-                  <th className="h-12 px-4 sm:px-5 text-left align-middle text-[11px] font-bold uppercase tracking-[0.08em] whitespace-nowrap text-[#D4AF37] bg-stone-900 border-b border-stone-800 shadow-[0_1px_3px_rgba(28,25,23,0.2)]">
-                    Cashier
-                  </th>
-                  <th className="h-12 px-4 sm:px-5 text-left align-middle text-[11px] font-bold uppercase tracking-[0.08em] whitespace-nowrap text-[#D4AF37] bg-stone-900 border-b border-stone-800 shadow-[0_1px_3px_rgba(28,25,23,0.2)]">
-                    Opened
-                  </th>
-                  <th className="h-12 px-4 sm:px-5 text-left align-middle text-[11px] font-bold uppercase tracking-[0.08em] whitespace-nowrap text-[#D4AF37] bg-stone-900 border-b border-stone-800 shadow-[0_1px_3px_rgba(28,25,23,0.2)]">
-                    Closed
-                  </th>
-                  <th className="h-12 px-4 sm:px-5 text-right align-middle text-[11px] font-bold uppercase tracking-[0.08em] whitespace-nowrap text-[#D4AF37] bg-stone-900 border-b border-stone-800 shadow-[0_1px_3px_rgba(28,25,23,0.2)]">
-                    Bills
-                  </th>
-                  <th className="h-12 px-4 sm:px-5 text-right align-middle text-[11px] font-bold uppercase tracking-[0.08em] whitespace-nowrap text-[#D4AF37] bg-stone-900 border-b border-stone-800 shadow-[0_1px_3px_rgba(28,25,23,0.2)]">
-                    Net Sales
-                  </th>
-                  <th className="h-12 px-4 sm:px-5 text-right align-middle text-[11px] font-bold uppercase tracking-[0.08em] whitespace-nowrap text-[#D4AF37] bg-stone-900 border-b border-stone-800 shadow-[0_1px_3px_rgba(28,25,23,0.2)]">
-                    Cash
-                  </th>
-                  <th className="h-12 px-4 sm:px-5 text-right align-middle text-[11px] font-bold uppercase tracking-[0.08em] whitespace-nowrap text-[#D4AF37] bg-stone-900 border-b border-stone-800 shadow-[0_1px_3px_rgba(28,25,23,0.2)]">
-                    UPI
-                  </th>
-                  <th className="h-12 px-4 sm:px-5 text-right align-middle text-[11px] font-bold uppercase tracking-[0.08em] whitespace-nowrap text-[#D4AF37] bg-stone-900 border-b border-stone-800 shadow-[0_1px_3px_rgba(28,25,23,0.2)]">
-                    Card
-                  </th>
-                  <th className="h-12 px-4 sm:px-5 text-right align-middle text-[11px] font-bold uppercase tracking-[0.08em] whitespace-nowrap text-[#D4AF37] bg-stone-900 border-b border-stone-800 shadow-[0_1px_3px_rgba(28,25,23,0.2)]">
-                    Variance
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-neutral-100">
-                {rows.map((row) => {
-                  const variance = row.session.cashVariance;
-                  return (
-                    <tr key={row.session.uuid} className="group hover:bg-neutral-50/80 transition-colors">
-                      <td className="px-4 py-3.5 sm:px-5 whitespace-nowrap border-b border-neutral-100">
-                        <p className="font-semibold text-neutral-900">{row.session.staffName}</p>
-                        <p className="text-[11px] text-neutral-400">{row.session.storeName}</p>
-                      </td>
-                      <td className="px-4 py-3.5 sm:px-5 text-neutral-600 whitespace-nowrap text-xs border-b border-neutral-100">
-                        {formatDateTime(row.session.openedAt)}
-                      </td>
-                      <td className="px-4 py-3.5 sm:px-5 text-neutral-600 whitespace-nowrap text-xs border-b border-neutral-100">
-                        {row.session.closedAt ? (
-                          formatDateTime(row.session.closedAt)
-                        ) : (
-                          <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-semibold text-emerald-700">
-                            <Clock className="h-3 w-3 animate-pulse" />
-                            Open
-                          </span>
-                        )}
-                      </td>
-                      <td className="px-4 py-3.5 sm:px-5 text-right tabular-nums whitespace-nowrap font-medium border-b border-neutral-100">
-                        {row.billCount}
-                        {row.voidedCount > 0 && (
-                          <span className="ml-1 text-xs text-amber-600">
-                            ({row.voidedCount} void)
-                          </span>
-                        )}
-                      </td>
-                      <td className="px-4 py-3.5 sm:px-5 text-right tabular-nums whitespace-nowrap font-bold text-neutral-900 border-b border-neutral-100">
-                        {formatPrice(row.netSales)}
-                      </td>
-                      <td className="px-4 py-3.5 sm:px-5 text-right tabular-nums whitespace-nowrap text-neutral-700 border-b border-neutral-100">
-                        {formatPrice(row.cash)}
-                      </td>
-                      <td className="px-4 py-3.5 sm:px-5 text-right tabular-nums whitespace-nowrap text-neutral-700 border-b border-neutral-100">
-                        {formatPrice(row.upi)}
-                      </td>
-                      <td className="px-4 py-3.5 sm:px-5 text-right tabular-nums whitespace-nowrap text-neutral-700 border-b border-neutral-100">
-                        {formatPrice(row.card)}
-                      </td>
-                      <td className="px-4 py-3.5 sm:px-5 text-right whitespace-nowrap border-b border-neutral-100">
-                        {variance === null ? (
-                          <span className="text-neutral-400 font-mono">—</span>
-                        ) : (
-                          <span
-                            className={cn(
-                              "inline-flex items-center rounded-md px-2 py-0.5 text-xs font-semibold tabular-nums",
-                              variance === 0
-                                ? "bg-emerald-50 text-emerald-700 ring-1 ring-inset ring-emerald-600/20"
-                                : variance < 0
-                                  ? "bg-red-50 text-red-700 ring-1 ring-inset ring-red-600/20"
-                                  : "bg-amber-50 text-amber-700 ring-1 ring-inset ring-amber-600/20"
-                            )}
-                            title={row.session.varianceReason ?? undefined}
-                          >
-                            {variance === 0
-                              ? "Balanced"
-                              : `${variance < 0 ? "Short" : "Over"} ${formatPrice(Math.abs(variance))}`}
-                          </span>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
-
-        {/* Standard Table Pagination */}
-        <TablePagination
-          page={page}
-          totalPages={data?.meta?.totalPages ?? 1}
-          total={data?.meta?.total ?? rows.length}
-          pageSize={pageSize}
-          pageSizeOptions={[10, 20, 30, 50]}
-          onPageChange={setPage}
-          onPageSizeChange={(newSize) => {
-            setPageSize(newSize);
-            setPage(1);
-          }}
-        />
-      </div>
+      {isLoading && !data ? (
+        <div className="rounded-2xl border border-cream-border bg-white p-6 shadow-xs">
+          <AdminTableSkeleton />
+        </div>
+      ) : (
+        <div className="flex-1 min-h-0 flex flex-col">
+          <DataTable
+            columns={columns}
+            data={rows}
+            pageSize={pageSize}
+            pageSizeOptions={[10, 20, 30, 50]}
+            page={page}
+            totalPages={data?.meta?.totalPages ?? Math.max(1, Math.ceil((data?.meta?.total ?? rows.length) / pageSize))}
+            totalItems={data?.meta?.total ?? rows.length}
+            onPageChange={setPage}
+            onPageSizeChange={(newSize) => {
+              setPageSize(newSize);
+              setPage(1);
+            }}
+            emptyMessage="No cashier shifts match your selected status and date range. Try broadening the filters."
+            className="bg-white"
+          />
+        </div>
+      )}
     </div>
   );
 }

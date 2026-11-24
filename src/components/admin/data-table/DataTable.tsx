@@ -161,15 +161,15 @@ function DataTable<TData, TValue>({
 
 
   return (
-      <div className={cn("w-full flex-1 min-h-[340px] flex flex-col justify-between rounded-xl sm:rounded-2xl overflow-hidden border border-neutral-200/70 bg-white shadow-[0_1px_2px_rgba(16,24,40,0.04),0_8px_24px_-8px_rgba(16,24,40,0.08)]", className)}>
+      <div className={cn("w-full min-w-0 max-w-full flex-1 min-h-[340px] flex flex-col justify-between rounded-xl sm:rounded-2xl overflow-hidden border border-neutral-200/70 bg-white shadow-[0_1px_2px_rgba(16,24,40,0.04),0_8px_24px_-8px_rgba(16,24,40,0.08)]", className)}>
         {(searchKey || exportable) && (
-            <div className="flex items-center justify-between gap-2 p-2.5 sm:p-3 pb-3 sm:pb-4 flex-shrink-0">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 p-2.5 sm:p-3 pb-3 sm:pb-4 flex-shrink-0">
               {searchKey ? (
                 <SearchInput
                   placeholder={searchPlaceholder}
                   defaultValue={(table.getColumn(searchKey)?.getFilterValue() as string) ?? ""}
                   onSearch={(value) => table.getColumn(searchKey)?.setFilterValue(value)}
-                  className="w-full max-w-xs sm:max-w-sm"
+                  className="w-full sm:max-w-xs md:max-w-sm"
                 />
               ) : (
                 <span />
@@ -179,7 +179,7 @@ function DataTable<TData, TValue>({
                   type="button"
                   onClick={handleExport}
                   disabled={isExporting || !table.getRowModel().rows.length}
-                  className="inline-flex items-center gap-1.5 sm:gap-2 rounded-lg sm:rounded-xl border border-neutral-200 bg-white px-2.5 sm:px-3.5 py-1.5 sm:py-2 text-xs sm:text-sm font-medium text-neutral-700 shadow-sm transition-all hover:border-neutral-300 hover:bg-neutral-50 hover:shadow active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
+                  className="self-end sm:self-auto inline-flex items-center gap-1.5 sm:gap-2 rounded-lg sm:rounded-xl border border-neutral-200 bg-white px-2.5 sm:px-3.5 py-1.5 sm:py-2 text-xs sm:text-sm font-medium text-neutral-700 shadow-sm transition-all hover:border-neutral-300 hover:bg-neutral-50 hover:shadow active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   <Download className={cn("h-3.5 w-3.5 sm:h-4 sm:w-4", isExporting && "animate-spin")} />
                   {isExporting ? "Exporting..." : "Export"}
@@ -189,7 +189,7 @@ function DataTable<TData, TValue>({
             </div>
       )}
 
-            <div className="min-h-0 flex-1 overflow-hidden flex flex-col">
+            <div className="min-h-0 min-w-0 max-w-full flex-1 overflow-hidden flex flex-col">
               {/* `relative` keeps absolutely positioned cell content (sr-only labels,
             badges) inside this scroller; without it they resolve against the
             page and stretch the document with empty space below the layout. */}
@@ -197,9 +197,9 @@ function DataTable<TData, TValue>({
                 tabIndex={0}
                 role="region"
                 aria-label="Scrollable table content"
-                className="relative flex-1 min-h-0 overflow-auto overscroll-x-contain scrollbar-table focus:outline-hidden focus-visible:ring-1 focus-visible:ring-secondary-300"
+                className="relative flex-1 min-h-0 min-w-0 w-full overflow-auto overscroll-x-contain scrollbar-table focus:outline-hidden focus-visible:ring-1 focus-visible:ring-secondary-300"
               >
-                  <table className={cn("w-full table-auto caption-bottom text-xs sm:text-sm border-separate border-spacing-0", tableClassName || "min-w-[800px] sm:min-w-[1000px]")}>
+                  <table className={cn("w-full min-w-full table-auto caption-bottom text-xs sm:text-sm border-separate border-spacing-0", tableClassName)}>
                     <thead>
                       {table.getHeaderGroups().map((headerGroup) => (
                         <tr key={headerGroup.id} className="transition-colors">
@@ -286,7 +286,7 @@ function DataTable<TData, TValue>({
             </div>
 
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-3 px-3 sm:px-5 py-2 sm:py-2.5 flex-shrink-0 border-t border-neutral-200/70 bg-neutral-50/95 backdrop-blur sticky bottom-0 z-20 text-xs sm:text-sm">
-                  <div className="flex flex-wrap items-center gap-2 sm:gap-6 text-xs sm:text-sm text-[var(--color-neutral-500)]">
+                  <div className="flex flex-wrap items-center justify-between sm:justify-start gap-2 sm:gap-6 text-xs sm:text-sm text-[var(--color-neutral-500)] w-full sm:w-auto">
                     <p>
                       Showing {startEntry}–{endEntry} of {computedTotalItems} entries
                     </p>
@@ -310,7 +310,7 @@ function DataTable<TData, TValue>({
                             </div>
                           </div>
                         </div>
-                          <div className="flex items-center gap-1 sm:gap-2 self-end sm:self-auto">
+                          <div className="flex items-center justify-center sm:justify-end gap-1 sm:gap-2 w-full sm:w-auto">
                             <button
                               onClick={() => handlePageChange(effectivePage - 1)}
                               disabled={effectivePage <= 1}

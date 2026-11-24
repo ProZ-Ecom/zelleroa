@@ -10,10 +10,11 @@ import type { CustomerWishlistItemDto } from "@/features/wishlist/types";
 
 /**
  * Best-effort decorative fallback image when an apparel/clothing variant has no uploaded image yet.
+ * Returns empty string so ProductImage automatically renders the luxury apparel monogram fallback.
  */
 export function resolveProductFallbackImage(_name?: string): string {
   void _name;
-  return "/images/category_img.png";
+  return "";
 }
 
 // Backward compatibility alias for any existing callers

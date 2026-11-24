@@ -37,10 +37,10 @@ function StatsCard({ title, value, icon: Icon, description, trend, className }: 
       </div>
 
       <div className="">
-        <h3 className="text-3xl font-bold text-[var(--color-neutral-900)]">{value}</h3>
+        <h3 className="text-2xl sm:text-3xl font-bold text-[var(--color-neutral-900)] tabular-nums truncate">{value}</h3>
 
         {(description || trend) && (
-          <div className="mt-3 flex items-center gap-2">
+          <div className="mt-2 sm:mt-3 flex flex-wrap items-center gap-1.5 sm:gap-2">
             {description && (
               <p className="text-sm text-[var(--color-neutral-500)]">{description}</p>
             )}

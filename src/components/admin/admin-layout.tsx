@@ -32,16 +32,16 @@ function AdminLayout({ children }: AdminLayoutProps) {
   };
 
   return (
-    <div className="admin-body flex h-screen overflow-hidden">
+    <div className="admin-body flex h-screen h-[100dvh] overflow-hidden">
       <AdminSidebar
         mobileOpen={mobileSidebarOpen}
         onMobileClose={() => setMobileSidebarOpen(false)}
         collapsed={sidebarCollapsed}
         onToggleCollapse={toggleSidebarCollapsed}
       />
-      <div className="flex flex-1 flex-col overflow-hidden">
+      <div className="flex flex-1 flex-col overflow-hidden min-w-0 max-w-full">
         <AdminHeader onMenuClick={() => setMobileSidebarOpen(true)} />
-        <main className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-6 flex flex-col">{children}</main>
+        <main className="flex-1 min-h-0 min-w-0 max-w-full overflow-y-auto p-3 sm:p-5 lg:p-6 flex flex-col">{children}</main>
       </div>
     </div>
   );

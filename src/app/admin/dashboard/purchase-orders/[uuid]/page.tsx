@@ -67,9 +67,9 @@ function ReceiveModal({
       size="lg"
     >
       <div className="space-y-4">
-        <div className="overflow-x-auto rounded-xl border border-neutral-200">
-          <table className="w-full text-sm">
-            <thead className="bg-neutral-50 text-left text-xs uppercase text-neutral-500">
+        <div className="overflow-x-auto rounded-xl border border-neutral-200 scrollbar-thin">
+          <table className="w-full min-w-full table-auto text-sm">
+            <thead className="bg-neutral-50 text-left text-xs uppercase text-neutral-500 whitespace-nowrap">
               <tr>
                 <th className="px-3 py-2">Product</th>
                 <th className="px-3 py-2">Remaining</th>
@@ -211,9 +211,9 @@ export default function PurchaseOrderDetailPage() {
             </div>
           )}
 
-          <div className="overflow-x-auto rounded-2xl bg-white">
-            <table className="w-full text-sm">
-              <thead className="bg-neutral-50 text-left text-xs uppercase text-neutral-500">
+          <div className="overflow-x-auto rounded-2xl bg-white scrollbar-thin">
+            <table className="w-full min-w-full table-auto text-sm">
+              <thead className="bg-neutral-50 text-left text-xs uppercase text-neutral-500 whitespace-nowrap">
                 <tr>
                   <th className="px-4 py-3">Product</th>
                   <th className="px-4 py-3">Ordered</th>

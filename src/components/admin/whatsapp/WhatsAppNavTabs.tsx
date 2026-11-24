@@ -74,7 +74,7 @@ export function WhatsAppNavTabs({
       </div>
 
       {showCreateButton && (
-        <Link href="/admin/dashboard/whatsapp/campaigns/create">
+        <Link href="/admin/dashboard/whatsapp/campaigns/create" className="self-start sm:self-auto">
           <Button
             size="sm"
             className="gap-2 bg-theme-primary hover:bg-theme-primary-hover text-white font-semibold text-xs h-9 transition-colors"

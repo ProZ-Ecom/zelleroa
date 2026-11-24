@@ -274,7 +274,7 @@ export function SimpleTable<T>({
     >
       <table
         className={cn(
-          "w-full min-w-max table-auto caption-bottom text-sm border-separate border-spacing-0",
+          "w-full min-w-full table-auto caption-bottom text-sm border-separate border-spacing-0",
           tableClassName
         )}
       >

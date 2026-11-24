@@ -432,10 +432,10 @@ export default function ImportPurchasesPage() {
             )}
 
             {preview.items.length > 0 && (
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
+              <div className="overflow-x-auto scrollbar-thin">
+                <table className="w-full min-w-full table-auto text-sm">
                   <thead>
-                    <tr className="border-b text-left text-[var(--color-neutral-500)]">
+                    <tr className="border-b text-left text-[var(--color-neutral-500)] whitespace-nowrap">
                       <th className="py-2 font-medium">SKU</th>
                       <th className="py-2 font-medium">Product</th>
                       <th className="py-2 text-right font-medium">Qty</th>

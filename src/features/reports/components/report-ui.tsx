@@ -378,7 +378,7 @@ export function DataTable<T>({
           maxHeight
         )}
       >
-        <table className="w-full min-w-max table-auto caption-bottom text-sm border-separate border-spacing-0">
+        <table className="w-full min-w-full table-auto caption-bottom text-sm border-separate border-spacing-0">
           <thead className="bg-stone-900 text-[#D4AF37] border-b border-stone-800 shadow-[0_1px_3px_rgba(28,25,23,0.2)] sticky top-0 z-10">
             <tr>
               {columns.map((c, i) => (
@@ -422,7 +422,7 @@ export function DataTable<T>({
         maxHeight
       )}
     >
-      <table className="w-full min-w-max table-auto caption-bottom text-sm border-separate border-spacing-0">
+      <table className="w-full min-w-full table-auto caption-bottom text-sm border-separate border-spacing-0">
         <thead className="bg-stone-900 text-[#D4AF37] border-b border-stone-800 shadow-[0_1px_3px_rgba(28,25,23,0.2)] sticky top-0 z-10">
           <tr className="transition-colors">
             {columns.map((c, i) => (

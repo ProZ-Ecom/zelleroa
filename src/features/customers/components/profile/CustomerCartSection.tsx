@@ -103,9 +103,9 @@ export function CustomerCartSection({
 
       {/* Cart Items Table */}
       <div className="overflow-x-auto scrollbar-thin">
-        <table className="w-full min-w-[520px] text-left text-sm">
+        <table className="w-full min-w-full table-auto text-left text-sm">
           <thead>
-            <tr className="border-b border-cream-border-subtle bg-cream-50/50">
+            <tr className="border-b border-cream-border-subtle bg-cream-50/50 whitespace-nowrap">
               <th className="py-3 sm:py-4 px-3.5 sm:px-6 text-[11px] sm:text-xs font-semibold uppercase tracking-wider text-neutral-500 font-mono">
                 Item Details
               </th>

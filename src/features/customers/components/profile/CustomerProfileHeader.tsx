@@ -115,7 +115,7 @@ export function CustomerTopBar({ customer }: CustomerTopBarProps) {
         </div>
 
         {/* Action Buttons: Email & More (⋮) */}
-        <div className="flex items-center gap-2.5 self-start sm:self-auto">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-2.5 self-start sm:self-auto">
           {/* Email Button */}
           {customer.email ? (
            <a

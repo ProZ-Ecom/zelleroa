@@ -57,9 +57,9 @@ function PurchaseDetailModal({ uuid, onClose }: { uuid: string | null; onClose: 
             <span>Purchase date: {po.purchaseDate ? formatDate(po.purchaseDate) : "—"}</span>
             <span>Invoice: {po.invoiceNumber ?? "—"}</span>
           </div>
-          <div className="overflow-x-auto rounded-xl border border-neutral-200">
-            <table className="w-full">
-              <thead className="bg-neutral-50 text-left text-xs uppercase text-neutral-500">
+          <div className="overflow-x-auto rounded-xl border border-neutral-200 scrollbar-thin">
+            <table className="w-full min-w-full table-auto">
+              <thead className="bg-neutral-50 text-left text-xs uppercase text-neutral-500 whitespace-nowrap">
                 <tr>
                   <th className="px-3 py-2">Product</th>
                   <th className="px-3 py-2">Colour</th>
@@ -71,7 +71,7 @@ function PurchaseDetailModal({ uuid, onClose }: { uuid: string | null; onClose: 
               </thead>
               <tbody>
                 {po.items?.map((i) => (
-                  <tr key={i.id} className="border-t border-neutral-100">
+                  <tr key={i.id} className="border-t border-neutral-100 whitespace-nowrap">
                     <td className="px-3 py-2">
                       <p className="font-medium">{i.productName}</p>
                       <p className="text-xs text-neutral-500">{i.sku}</p>
