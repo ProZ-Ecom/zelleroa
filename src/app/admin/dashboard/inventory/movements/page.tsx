@@ -145,7 +145,7 @@ function MovementsContent() {
       <AdminContent className="flex-1 min-h-0">
         <div className="flex h-full flex-col py-1">
           <div className="flex-shrink-0 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-            <div className="flex flex-1 flex-col gap-3 lg:flex-row lg:items-center flex-wrap">
+            <div className="flex flex-1 flex-col sm:flex-row sm:items-center gap-3 flex-wrap">
               <SearchInput
                 placeholder="Search product, SKU, order / PO number..."
                 defaultValue={search}
@@ -153,19 +153,21 @@ function MovementsContent() {
                   setSearch(v);
                   setPage(1);
                 }}
-                className="w-full max-w-md"
+                className="w-full sm:w-64 lg:max-w-xs shrink-0"
               />
-              <Select
-                value={type}
-                onValueChange={(val) => {
-                  setType(val as MovementType | "");
-                  setPage(1);
-                }}
-                options={TYPES}
-                className="w-full sm:w-48"
-                aria-label="Filter by movement type"
-              />
-              <div className="flex items-center gap-2">
+              <div className="w-full sm:w-48 shrink-0">
+                <Select
+                  value={type}
+                  onValueChange={(val) => {
+                    setType(val as MovementType | "");
+                    setPage(1);
+                  }}
+                  options={TYPES}
+                  className="w-full"
+                  aria-label="Filter by movement type"
+                />
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
                 <Input
                   type="date"
                   value={from}

@@ -22,6 +22,7 @@ import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
 import { SearchInput } from "@/components/ui/search-input";
 import { ExportButton } from "@/components/common/export-button";
+import { ClearFiltersButton } from "@/components/common/clear-filters-button";
 import { exportDataToCsv } from "@/lib/export-csv";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { formatDateTime } from "@/lib/utils";
@@ -337,12 +338,13 @@ export function AdminReviewListTable({
   ];
 
   return (
-    <div className="flex flex-1 h-full min-h-0 flex-col overflow-hidden bg-[var(--color-background)] rounded-2xl">
+    <div className="flex flex-1 h-full min-h-0 w-full min-w-0 flex-col bg-[var(--color-background)] rounded-2xl">
       {/* Top Filter and Controls Bar */}
-      <div className="flex-shrink-0 mb-4 flex flex-col lg:flex-row lg:items-center justify-between gap-3">
-        {/* Left Side: Search, Rating Filter & Sort */}
-        <div className="flex items-center gap-2.5 flex-wrap sm:flex-nowrap w-full lg:w-auto">
-          <div className="w-full sm:w-72">
+      <div className="flex-shrink-0 mb-4 flex flex-col gap-3">
+        {/* Row 1: Search, Rating Filter, Sort, Export & Refresh in a single line on the left */}
+        <div className="flex items-center gap-2 sm:gap-2.5 flex-wrap">
+          {/* Search Input */}
+          <div className="w-full sm:w-48 lg:w-56 xl:w-64 shrink-0">
             <SearchInput
               value={search}
               onChange={(e) => {
@@ -355,7 +357,7 @@ export function AdminReviewListTable({
           </div>
 
           {/* Rating Dropdown Filter */}
-          <div className="w-44">
+          <div className="w-36 shrink-0">
             <Select
               size="sm"
               value={ratingFilter === undefined ? "all" : String(ratingFilter)}
@@ -374,7 +376,7 @@ export function AdminReviewListTable({
           </div>
 
           {/* Sort Dropdown */}
-          <div className="w-40">
+          <div className="w-36 shrink-0">
             <Select
               size="sm"
               value={`${sortBy}_${sortOrder}`}
@@ -391,25 +393,27 @@ export function AdminReviewListTable({
           </div>
 
           {/* Export Button */}
-          <ExportButton
-            onClick={() =>
-              exportDataToCsv(
-                reviews.map((r) => ({
-                  Customer: r.customer?.name || "Verified Customer",
-                  Product: r.product?.name || "Product",
-                  SKU: r.variant?.sku || "",
-                  Rating: r.rating,
-                  Title: r.title || "",
-                  Comment: r.comment || "",
-                  Status: r.isApproved ? "Approved" : "Unapproved",
-                  Date: r.createdAt ? new Date(r.createdAt).toLocaleDateString("en-IN") : "",
-                })),
-                "reviews"
-              )
-            }
-            disabled={reviews.length === 0}
-            className="h-9.5"
-          />
+          <div className="shrink-0">
+            <ExportButton
+              onClick={() =>
+                exportDataToCsv(
+                  reviews.map((r) => ({
+                    Customer: r.customer?.name || "Verified Customer",
+                    Product: r.product?.name || "Product",
+                    SKU: r.variant?.sku || "",
+                    Rating: r.rating,
+                    Title: r.title || "",
+                    Comment: r.comment || "",
+                    Status: r.isApproved ? "Approved" : "Unapproved",
+                    Date: r.createdAt ? new Date(r.createdAt).toLocaleDateString("en-IN") : "",
+                  })),
+                  "reviews"
+                )
+              }
+              disabled={reviews.length === 0}
+              className="h-9.5"
+            />
+          </div>
 
           {/* Refresh Button */}
           <Button
@@ -424,55 +428,37 @@ export function AdminReviewListTable({
               className={`w-3.5 h-3.5 ${isFetching ? "animate-spin text-secondary-600" : ""}`}
             />
           </Button>
+
+          {hasActiveFilters && (
+            <ClearFiltersButton onClick={handleClearFilters} />
+          )}
         </div>
 
-        {/* Right Side: Status Tabs (Segmented) */}
-        <div className="flex-shrink-0">
-          <ReviewStatusTabs
-            tabs={tabs}
-            activeTab={statusFilter}
-            onChange={handleTabChange}
-          />
+        {/* Row 2: Status Tabs on the left corner */}
+        <div className="flex items-center">
+          <div className="flex-shrink-0 overflow-x-auto scrollbar-none max-w-full">
+            <ReviewStatusTabs
+              tabs={tabs}
+              activeTab={statusFilter}
+              onChange={handleTabChange}
+            />
+          </div>
         </div>
       </div>
 
       {/* Main Table Container */}
-      <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
+      <div className="flex-1 min-h-[420px] w-full rounded-2xl overflow-hidden flex flex-col bg-white border border-cream-border shadow-2xs">
         {isLoading ? (
-          <div className="flex-1 flex items-center justify-center rounded-2xl border border-cream-border bg-white p-12">
+          <div className="flex-1 flex items-center justify-center p-12">
             <LoadingState text="Loading reviews..." />
           </div>
         ) : error ? (
-          <div className="flex-1 flex items-center justify-center rounded-2xl border border-cream-border bg-white p-12">
+          <div className="flex-1 flex items-center justify-center p-12">
             <ErrorState
               title="Failed to load reviews"
               message={(error as Error)?.message || "Please check your network and try again"}
               onRetry={() => refetch()}
             />
-          </div>
-        ) : reviews.length === 0 ? (
-          <div className="flex-1 flex items-center justify-center rounded-2xl border border-cream-border bg-white p-12 text-center">
-            <div>
-              <Star className="mx-auto h-10 w-10 text-neutral-300 stroke-1" />
-              <h3 className="mt-3 text-sm font-bold text-neutral-900">
-                No reviews found
-              </h3>
-              <p className="mt-1 text-xs text-neutral-500 max-w-sm mx-auto">
-                {hasActiveFilters
-                  ? "No reviews match your current search or filter criteria."
-                  : "No customer reviews have been submitted yet."}
-              </p>
-              {hasActiveFilters && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleClearFilters}
-                  className="mt-4 text-xs font-semibold"
-                >
-                  Clear all filters
-                </Button>
-              )}
-            </div>
           </div>
         ) : (
           <DataTable
@@ -487,7 +473,12 @@ export function AdminReviewListTable({
               setPageSize(newSize);
               setPage(1);
             }}
-            className="bg-white border border-cream-border shadow-2xs"
+            emptyMessage={
+              hasActiveFilters
+                ? "No reviews match your current search or filter criteria."
+                : "No customer reviews have been submitted yet."
+            }
+            className="bg-white border-0"
           />
         )}
       </div>
