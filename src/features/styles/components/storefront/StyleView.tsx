@@ -37,6 +37,7 @@ import { StyleColorSelector } from "./StyleColorSelector";
 import { StyleVariationSelectors } from "./StyleVariationSelectors";
 import { StyleAttributeFacts } from "./StyleAttributeFacts";
 import { StylePriceBlock } from "./StylePriceBlock";
+import { StyleAvailableOffers } from "./StyleAvailableOffers";
 
 export interface StyleViewProps {
   style?: CustomerStyleViewDto;
@@ -294,6 +295,14 @@ export type ItemViewProps = StyleViewProps;
               minPrice={style.minPrice}
               maxPrice={style.maxPrice}
               className="py-3"
+            />
+
+            {/* All active offers reaching this combination */}
+            <StyleAvailableOffers
+              itemId={selectedUnitPrice?.id ?? null}
+              unitPrice={selectedUnitPrice?.basePrice ?? null}
+              quantity={quantity}
+              appliedOfferId={selectedUnitPrice?.offer?.id ?? null}
             />
 
             {/* 4. Colour */}
