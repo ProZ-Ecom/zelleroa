@@ -3,20 +3,23 @@
  */
 let scriptLoadingPromise: Promise<boolean> | null = null;
 
+const DEFAULT_RAZORPAY_BASE_URL = "https://checkout.razorpay.com";
+
+type RazorpayWindow = Window & { Razorpay?: unknown };
+
+function hasRazorpaySdk(): boolean {
+  return typeof window !== "undefined" && Boolean((window as RazorpayWindow).Razorpay);
+}
+
 /**
  * Resolves the Razorpay Checkout script URL from the environment.
- * Supports full script URLs, base paths, or default checkout CDN.
+ * Supports full script URLs, base paths, or the official Razorpay checkout CDN.
  */
 export function getRazorpayScriptUrl(): string {
   const configured =
     process.env.NEXT_PUBLIC_RAZORPAY_BASE_URL ||
-    process.env.NEXT_PUBLIC_RAZORPAY_SCRIPT_URL;
-
-  if (!configured) {
-    throw new Error(
-      "Razorpay base URL is not configured. Please set NEXT_PUBLIC_RAZORPAY_BASE_URL in your .env file."
-    );
-  }
+    process.env.NEXT_PUBLIC_RAZORPAY_SCRIPT_URL ||
+    DEFAULT_RAZORPAY_BASE_URL;
 
   const trimmed = configured.trim().replace(/\/+$/, "");
   if (trimmed.endsWith(".js")) {
@@ -34,7 +37,7 @@ export function loadRazorpayScript(): Promise<boolean> {
   }
 
   // Already loaded and available on window
-  if ((window as any).Razorpay) {
+  if (hasRazorpaySdk()) {
     return Promise.resolve(true);
   }
 
@@ -52,8 +55,20 @@ export function loadRazorpayScript(): Promise<boolean> {
     );
 
     if (existingScript) {
-      existingScript.addEventListener("load", () => resolve(true));
-      existingScript.addEventListener("error", () => resolve(false));
+      if (hasRazorpaySdk()) {
+        resolve(true);
+        return;
+      }
+      existingScript.addEventListener("load", () => resolve(hasRazorpaySdk()), { once: true });
+      existingScript.addEventListener(
+        "error",
+        () => {
+          existingScript.remove();
+          scriptLoadingPromise = null;
+          resolve(false);
+        },
+        { once: true }
+      );
       return;
     }
 
@@ -63,10 +78,11 @@ export function loadRazorpayScript(): Promise<boolean> {
     script.crossOrigin = "anonymous";
 
     script.onload = () => {
-      resolve(true);
+      resolve(hasRazorpaySdk());
     };
 
     script.onerror = () => {
+      script.remove();
       scriptLoadingPromise = null;
       resolve(false);
     };

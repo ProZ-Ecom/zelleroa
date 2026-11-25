@@ -13,17 +13,17 @@ import {
  */
 export const POST = createApiHandler(
   {
-    POST: async (_request, context) => {
-      const sessionUserId = context.session?.user?.id;
-      if (!sessionUserId) {
-        throw ApiError.unauthorized("Authentication required");
-      }
+      POST: async (request, context) => {
+        const sessionUserId = context.session?.user?.id;
+        if (!sessionUserId) {
+          throw ApiError.unauthorized("Authentication required");
+        }
 
-      const body = context.body as CreateRazorpayOrderInput;
-      const paymentOrder = await razorpayService.createRazorpayOrder(sessionUserId, body);
+        const body = context.body as CreateRazorpayOrderInput;
+        const paymentOrder = await razorpayService.createRazorpayOrder(sessionUserId, body, request);
 
-      return apiSuccess(paymentOrder, "Razorpay order created successfully");
-    },
+        return apiSuccess(paymentOrder, "Razorpay order created successfully");
+      },
   },
   {
     requireAuth: true, requiredRole: ["CUSTOMER", "AGENT"],

@@ -55,12 +55,12 @@ function StyleForm({
       isLoading={isLoading}
       submitLabel={submitLabel}
       entityLabel="Style"
-      namePlaceholder="e.g. V Neck T-Shirt, Solo T-Shirt"
-      skuPlaceholder="e.g. TSHIRT-VNECK"
-      codePlaceholder="e.g. v-neck-t-shirt"
+      namePlaceholder="e.g. Classic Edition, Slim Fit, Titanium"
+      skuPlaceholder="e.g. STY-01"
+      codePlaceholder="e.g. classic-edition"
       defaultItemDescription="Auto-selected on the product page"
       showPrice={true}
-      priceDescription="A fallback price only - it seeds the first Item and shows as the “from” price until sizes are priced. What a customer pays is set on each size."
+      priceDescription="Base price for this Style. What a customer pays can also be specified per size or variation."
       onSubmit={(data: ItemEntityFormValues) =>
         onSubmit({ ...data, cookingRecipe: initialData?.cookingRecipe ?? "" })
       }
