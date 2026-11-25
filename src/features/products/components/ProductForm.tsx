@@ -205,7 +205,7 @@ function ProductForm({
           <FormInput
             name="name"
             label="Product Name"
-            placeholder="e.g. Anarkali Suit / Floral Summer Dress"
+            placeholder="e.g. Classic Silk Kurti / Smart Watch Pro / Pearl Earrings"
             required
           />
 
@@ -241,7 +241,7 @@ function ProductForm({
                     <div className="flex items-start gap-2">
                       <Info className="h-4 w-4 text-[var(--color-primary-500)] shrink-0 mt-0.5" />
                       <p className="leading-relaxed text-[var(--color-neutral-800)]">
-                        Enter product code (special characters allowed, e.g. ANARKALI_SUIT). Category code prefix is automatically applied.
+                        Enter product code (special characters allowed, e.g. PRO_01, CHRONO_01). Category code prefix is automatically applied.
                       </p>
                     </div>
                     <button
@@ -258,11 +258,10 @@ function ProductForm({
           </div>
 
           <div
-            className={`flex items-stretch rounded-lg border transition-all ${
-              extraSlugError || methods.formState.errors.slug
+            className={`flex items-stretch rounded-lg border transition-all ${extraSlugError || methods.formState.errors.slug
                 ? "border-red-500 ring-2 ring-red-500/10"
                 : "border-neutral-200 focus-within:border-secondary-600 focus-within:ring-2 focus-within:ring-secondary-600/20"
-            } bg-white overflow-hidden`}
+              } bg-white overflow-hidden`}
           >
             {/* Non-editable Category Code prefix */}
             <div
@@ -289,7 +288,7 @@ function ProductForm({
               type="text"
               value={extraSlug}
               onChange={(e) => handleExtraSlugChange(e.target.value)}
-              placeholder="e.g. ANARKALI_SUIT"
+              placeholder="e.g. PRO_01"
               className="flex-1 min-w-0 px-3 py-2 text-sm text-neutral-900 bg-transparent outline-none font-mono placeholder:text-neutral-400 placeholder:font-sans uppercase"
             />
           </div>

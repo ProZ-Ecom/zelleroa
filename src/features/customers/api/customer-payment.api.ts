@@ -2,6 +2,7 @@ import { apiClient } from "@/lib/api/api-client";
 import type {
   CreateRazorpayOrderInput,
   VerifyRazorpayPaymentInput,
+  RecoverRazorpayPaymentInput,
   RazorpayOrderResponse,
 } from "@/features/payment/validations/payment.schema";
 
@@ -10,6 +11,13 @@ export interface VerifyPaymentResult {
   message: string;
   orderNumber: string;
   orderId: string;
+}
+
+export interface RecoverPaymentResult {
+  recovered: boolean;
+  orderNumber?: string;
+  orderId?: string;
+  message?: string;
 }
 
 export interface InitiateRedirectResult {
@@ -46,6 +54,22 @@ export const customerPaymentApi = {
     );
     if (!response.data) {
       throw new Error(response.message || "Failed to verify payment");
+    }
+    return response.data;
+  },
+
+  /**
+   * Recover an in-flight Razorpay payment after a browser refresh or interrupted callback
+   */
+  async recoverPayment(
+    payload: RecoverRazorpayPaymentInput
+  ): Promise<RecoverPaymentResult> {
+    const response = await apiClient.post<RecoverPaymentResult>(
+      "/api/customer/payment/recover",
+      payload
+    );
+    if (!response.data) {
+      throw new Error(response.message || "Failed to recover payment");
     }
     return response.data;
   },

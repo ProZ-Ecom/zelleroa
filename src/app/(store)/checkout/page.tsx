@@ -70,6 +70,54 @@ import { usePincodeLookup } from "@/features/addresses/hooks/use-pincode-lookup"
 import type { CustomerAddressResponse } from "@/features/customers/types/customer-address.types";
 import { loadRazorpayScript } from "@/features/customers/utils/razorpay-loader";
 
+const PENDING_RZP_STORAGE_KEY = "zellora_pending_rzp_checkout";
+
+type PendingRzpCheckout = {
+  razorpayOrderId: string;
+  shippingAddressId?: string;
+  billingAddressId?: string;
+  deliveryMethod?: "standard" | "express";
+  notes?: string;
+  createdAt: number;
+};
+
+function savePendingRzpCheckout(payload: Omit<PendingRzpCheckout, "createdAt">) {
+  try {
+    sessionStorage.setItem(
+      PENDING_RZP_STORAGE_KEY,
+      JSON.stringify({ ...payload, createdAt: Date.now() })
+    );
+  } catch {
+    // Ignore storage errors in restricted environments
+  }
+}
+
+function readPendingRzpCheckout(): PendingRzpCheckout | null {
+  try {
+    const raw = sessionStorage.getItem(PENDING_RZP_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as Partial<PendingRzpCheckout>;
+    if (
+      !parsed?.razorpayOrderId ||
+      (parsed.createdAt && Date.now() - parsed.createdAt > 30 * 60 * 1000)
+    ) {
+      sessionStorage.removeItem(PENDING_RZP_STORAGE_KEY);
+      return null;
+    }
+    return parsed as PendingRzpCheckout;
+  } catch {
+    return null;
+  }
+}
+
+function clearPendingRzpCheckout() {
+  try {
+    sessionStorage.removeItem(PENDING_RZP_STORAGE_KEY);
+  } catch {
+    // Ignore storage errors in restricted environments
+  }
+}
+
 
 function CheckoutSkeleton() {
   return (
@@ -168,6 +216,57 @@ export default function CheckoutPage() {
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
   const [isVerifyingPayment, setIsVerifyingPayment] = useState(false);
   const [pendingOrder] = useState<null>(null);
+
+  // Recover any Razorpay payment that debited right before a browser refresh
+  useEffect(() => {
+    if (authStatus !== "authenticated" || isGuest) return;
+    const pending = readPendingRzpCheckout();
+    if (!pending) return;
+
+    let cancelled = false;
+
+    Promise.resolve()
+      .then(() => {
+        if (!cancelled) setIsVerifyingPayment(true);
+        return customerPaymentApi.recoverPayment({
+          razorpayOrderId: pending.razorpayOrderId,
+          shippingAddressId: pending.shippingAddressId,
+          billingAddressId: pending.billingAddressId,
+          deliveryMethod: pending.deliveryMethod,
+          notes: pending.notes,
+        });
+      })
+      .then((res) => {
+        if (cancelled) return;
+        clearPendingRzpCheckout();
+        if (res.recovered && res.orderNumber && res.orderId) {
+          setIsOrderPlaced(true);
+          queryClient.invalidateQueries({ queryKey: CUSTOMER_ORDERS_QUERY_KEY, refetchType: "all" });
+          queryClient.invalidateQueries({ queryKey: ["customer", "cart"], refetchType: "all" });
+          queryClient.invalidateQueries({ queryKey: ["cart"], refetchType: "all" });
+          router.push(
+            `/checkout/success?orderNumber=${encodeURIComponent(res.orderNumber)}&orderId=${encodeURIComponent(res.orderId)}`
+          );
+        }
+      })
+      .catch((err: unknown) => {
+        if (cancelled) return;
+        clearPendingRzpCheckout();
+        const message =
+          err instanceof Error
+            ? err.message
+            : "We could not finalize your previous payment automatically. Please check My Orders before retrying.";
+        setCheckoutErrorState(message);
+        setMobileVerificationRequired(false);
+      })
+      .finally(() => {
+        if (!cancelled) setIsVerifyingPayment(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [authStatus, isGuest, queryClient, router, setIsOrderPlaced]);
 
 
   // Add Address Modal state
@@ -362,6 +461,9 @@ export default function CheckoutPage() {
   // Pricing calculations
   const items = cart?.items || [];
   const subtotal = Number(cart?.subtotal || 0);
+  const totalDiscount = Number(cart?.totalDiscount || 0);
+  const payableBeforeShipping =
+    cart?.total !== undefined ? Number(cart.total) : Math.max(0, subtotal - totalDiscount);
   // Standard delivery is free within Tamil Nadu and ₹80 elsewhere; Express is flat ₹99.
   const isUsingNewAddress = isGuest || isAddingAddress;
   const deliveryState = isUsingNewAddress
@@ -370,7 +472,7 @@ export default function CheckoutPage() {
   const hasDeliveryState = !!deliveryState?.trim();
   const isFreeDelivery = hasDeliveryState && isFreeDeliveryState(deliveryState);
   const shippingCharge = getShippingCharge(deliveryState, deliveryMethod);
-  const grandTotal = subtotal + shippingCharge;
+  const grandTotal = payableBeforeShipping + shippingCharge;
 
   // Authentication gate
   if (authStatus === "loading" || (cartLoading && !cart) || addressesLoading) {
@@ -555,7 +657,17 @@ export default function CheckoutPage() {
       const razorpayOrder = await customerPaymentApi.createRazorpayOrder({
         orderId: "cart",
         shippingAddressId: shippingId,
+        billingAddressId: shippingId,
+        notes: orderNotes.trim() || undefined,
         deliveryMethod: deliveryMethod,
+      });
+
+      savePendingRzpCheckout({
+        razorpayOrderId: razorpayOrder.razorpayOrderId,
+        shippingAddressId: shippingId,
+        billingAddressId: shippingId,
+        deliveryMethod,
+        notes: orderNotes.trim() || undefined,
       });
 
       // 3. Find address details for prefill
@@ -591,6 +703,7 @@ export default function CheckoutPage() {
         },
         modal: {
           ondismiss: () => {
+            clearPendingRzpCheckout();
             setIsProcessingPayment(false);
             setIsVerifyingPayment(false);
             setCheckoutError(
@@ -617,6 +730,7 @@ export default function CheckoutPage() {
               razorpay_signature: response.razorpay_signature,
             });
 
+            clearPendingRzpCheckout();
             setIsOrderPlaced(true);
             queryClient.invalidateQueries({
               queryKey: CUSTOMER_ORDERS_QUERY_KEY,
@@ -637,9 +751,10 @@ export default function CheckoutPage() {
               )}&orderId=${encodeURIComponent(verifyResult.orderId)}`
             );
           } catch (err: any) {
+            clearPendingRzpCheckout();
             setCheckoutError(
               err.message ||
-                "Payment verification failed. Please contact customer support."
+              "Payment verification failed. Please contact customer support."
             );
           } finally {
             setIsProcessingPayment(false);
@@ -650,11 +765,12 @@ export default function CheckoutPage() {
 
       const razorpayInstance = new (window as any).Razorpay(options);
       razorpayInstance.on("payment.failed", function (response: any) {
+        clearPendingRzpCheckout();
         setIsProcessingPayment(false);
         setIsVerifyingPayment(false);
         setCheckoutError(
           response?.error?.description ||
-            "Transaction was declined or failed. Please try again."
+          "Transaction was declined or failed. Please try again."
         );
       });
       razorpayInstance.open();
@@ -663,7 +779,7 @@ export default function CheckoutPage() {
       setIsVerifyingPayment(false);
       setCheckoutError(
         err.message ||
-          "Failed to initialize payment gateway. Please check item stock and retry."
+        "Failed to initialize payment gateway. Please check item stock and retry."
       );
     }
   };
@@ -863,845 +979,848 @@ export default function CheckoutPage() {
       {isAgent && orderFor === "customer" ? (
         <AgentCartCustomerOrder items={items} subtotal={subtotal} />
       ) : (
-      /* Main Grid Layout */
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-        {/* Left Column: Form & Steps (8 cols) */}
-        <div className="lg:col-span-8 space-y-6">
-          {/* 1. Delivery Address Card */}
-          <div className="rounded-2xl border border-theme-border bg-theme-surface shadow-xs p-5 sm:p-6">
-            <div className="flex items-center justify-between gap-4 mb-4 pb-3 border-b border-theme-border-subtle">
-              <div className="flex items-center gap-2.5">
-                <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-theme-surface-alt border border-theme-border text-theme-primary font-bold text-xs">
-                  1
-                </span>
-                <h2 className="text-base sm:text-lg font-bold text-theme-text-primary flex items-center gap-2">
-                  <MapPin className="h-4 w-4 text-theme-secondary" />
-                  Delivery Address
-                </h2>
+        /* Main Grid Layout */
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+          {/* Left Column: Form & Steps (8 cols) */}
+          <div className="lg:col-span-8 space-y-6">
+            {/* 1. Delivery Address Card */}
+            <div className="rounded-2xl border border-theme-border bg-theme-surface shadow-xs p-5 sm:p-6">
+              <div className="flex items-center justify-between gap-4 mb-4 pb-3 border-b border-theme-border-subtle">
+                <div className="flex items-center gap-2.5">
+                  <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-theme-surface-alt border border-theme-border text-theme-primary font-bold text-xs">
+                    1
+                  </span>
+                  <h2 className="text-base sm:text-lg font-bold text-theme-text-primary flex items-center gap-2">
+                    <MapPin className="h-4 w-4 text-theme-secondary" />
+                    Delivery Address
+                  </h2>
+                </div>
+
+                {!isAddingAddress && !isGuest && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setEditingAddressId(null);
+                      setNewAddressForm({
+                        fullName: "",
+                        phone: "",
+                        addressLine1: "",
+                        addressLine2: "",
+                        landmark: "",
+                        city: "",
+                        state: "",
+                        pincode: "",
+                        country: "India",
+                        addressType: "shipping",
+                        isDefault: true,
+                      });
+                      setArea("");
+                      setFieldErrors({});
+                      setAddressFormError(null);
+                      setIsAddingAddress(true);
+                    }}
+                    className="rounded-xl border-theme-border text-xs font-bold text-theme-primary hover:bg-theme-surface-alt min-h-[36px] cursor-pointer"
+                  >
+                    <Plus className="mr-1 h-3.5 w-3.5" />
+                    Add New
+                  </Button>
+                )}
               </div>
 
+              {/* Address Selection List */}
               {!isAddingAddress && !isGuest && (
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    setEditingAddressId(null);
-                    setNewAddressForm({
-                      fullName: "",
-                      phone: "",
-                      addressLine1: "",
-                      addressLine2: "",
-                      landmark: "",
-                      city: "",
-                      state: "",
-                      pincode: "",
-                      country: "India",
-                      addressType: "shipping",
-                      isDefault: true,
-                    });
-                    setArea("");
-                    setFieldErrors({});
-                    setAddressFormError(null);
-                    setIsAddingAddress(true);
-                  }}
-                  className="rounded-xl border-theme-border text-xs font-bold text-theme-primary hover:bg-theme-surface-alt min-h-[36px] cursor-pointer"
-                >
-                  <Plus className="mr-1 h-3.5 w-3.5" />
-                  Add New
-                </Button>
-              )}
-            </div>
-
-            {/* Address Selection List */}
-            {!isAddingAddress && !isGuest && (
-              <div className="space-y-3">
-                {addresses.length === 0 ? (
-                  <div className="rounded-xl border border-dashed border-theme-border p-6 text-center">
-                    <p className="text-sm font-semibold text-theme-text-primary mb-1">
-                      No saved addresses found
-                    </p>
-                    <p className="text-xs text-theme-text-subtle mb-4">
-                      Please add your delivery address to receive your order at your doorstep.
-                    </p>
-                    <Button
-                      type="button"
-                      onClick={() => setIsAddingAddress(true)}
-                      className="min-h-[44px] rounded-xl bg-theme-primary hover:bg-theme-primary-hover text-white text-xs font-semibold px-4"
-                    >
-                      <Plus className="mr-1.5 h-4 w-4" />
-                      Add Delivery Address
-                    </Button>
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
-                    {addresses.map((addr) => {
-                      const isSelected = effectiveAddressId === addr.id;
-                      return (
-                        <div
-                          key={addr.id}
-                          onClick={() => setSelectedAddressId(addr.id)}
-                          className={`relative rounded-xl border p-4 cursor-pointer transition-all ${
-                            isSelected
-                              ? "border-theme-primary bg-theme-surface-alt/70 shadow-xs ring-1 ring-theme-primary"
-                              : "border-theme-border bg-theme-surface hover:border-theme-border-accent hover:bg-theme-surface-warm"
-                          }`}
-                        >
-                          <div className="flex items-start justify-between gap-2 mb-2">
-                            <div className="flex items-center gap-2">
-                              <span
-                                className={`flex h-4 w-4 items-center justify-center rounded-full border transition-colors ${
-                                  isSelected
-                                    ? "border-theme-primary bg-theme-primary text-white"
-                                    : "border-theme-border-input bg-white"
-                                }`}
-                              >
-                                {isSelected && <Check className="h-2.5 w-2.5 stroke-[3]" />}
-                              </span>
-                              <span className="font-bold text-sm text-theme-text-primary line-clamp-1">
-                                {addr.fullName}
-                              </span>
-                            </div>
-
-                            <div className="flex items-center gap-1.5 shrink-0">
-                              {addr.isDefault && (
-                                <span className="rounded-md bg-theme-status-del-bg px-2 py-0.5 text-[10px] font-extrabold text-theme-status-del-fg">
-                                  Default
-                                </span>
-                              )}
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleEditAddress(addr);
-                                }}
-                                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-semibold text-theme-text-subtle hover:text-theme-primary hover:bg-theme-surface-alt border border-theme-border/60 hover:border-theme-primary/30 transition-colors cursor-pointer"
-                                title="Edit address"
-                                aria-label={`Edit address for ${addr.fullName}`}
-                              >
-                                <Pencil className="h-3 w-3" />
-                                <span>Edit</span>
-                              </button>
-                            </div>
-                          </div>
-
-                          <div className="text-xs text-theme-text-subtle space-y-1 pl-6">
-                            <p className="line-clamp-2">
-                              {addr.addressLine1}
-                              {addr.addressLine2 ? `, ${addr.addressLine2}` : ""}
-                            </p>
-                            <p>
-                              {addr.city}, {addr.state} - {addr.pincode}
-                            </p>
-                            <p className="flex items-center gap-1 text-theme-text-muted pt-0.5">
-                              <Phone className="h-3 w-3" />
-                              {formatPhone(addr.phone)}
-                            </p>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Inline Add Address Form */}
-            {(isAddingAddress || isGuest) && (
-              <form
-                noValidate
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  if (!isGuest) {
-                    void handleCreateAddress(e);
-                  } else {
-                    void handlePlaceGuestOrder();
-                  }
-                }}
-                className="rounded-xl border border-theme-border bg-theme-surface-warm p-4 sm:p-5 space-y-4"
-              >
-                <div className="flex items-center justify-between border-b border-theme-border pb-2.5">
-                  <h3 className="text-sm font-bold text-theme-text-primary">
-                    {isGuest ? "Your Contact & Delivery Details" : editingAddressId ? "Edit Delivery Address" : "New Delivery Address"}
-                  </h3>
-                  {!isGuest && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setIsAddingAddress(false);
-                        setEditingAddressId(null);
-                        setFieldErrors({});
-                        setAddressFormError(null);
-                      }}
-                      className="text-theme-text-subtle hover:text-theme-text-primary cursor-pointer p-1 rounded-md hover:bg-theme-surface-alt transition-colors"
-                    >
-                      <X className="h-4 w-4" />
-                    </button>
-                  )}
-                </div>
-
-                {addressFormError && (
-                  <div className="rounded-lg bg-red-50 border border-red-200 p-2.5 text-xs text-red-600">
-                    {addressFormError}
-                  </div>
-                )}
-
-                {isGuest && (
-                  <div>
-                    <label className="block text-xs font-semibold text-theme-text-secondary mb-1">
-                      Email Address <span className="text-red-600">*</span>
-                    </label>
-                    <input
-                      type="email"
-                      maxLength={EMAIL_MAX_LENGTH}
-                      placeholder="e.g. you@example.com"
-                      value={guestEmail}
-                      onChange={(e) => handleFieldChange("guestEmail", e.target.value)}
-                      onBlur={() => handleFieldBlur("guestEmail")}
-                      className={cn(
-                        "w-full min-h-[44px] rounded-xl border bg-white px-3 text-xs text-theme-text-primary placeholder:text-theme-text-muted focus:outline-none transition-colors",
-                        fieldErrors.guestEmail
-                          ? "border-red-500 bg-red-50/10 focus:border-red-500 focus:ring-1 focus:ring-red-500/50 ring-1 ring-red-500/40"
-                          : "border-theme-border-input focus:border-theme-primary"
-                      )}
-                    />
-                    {fieldErrors.guestEmail ? (
-                      <p className="mt-1 text-xs text-red-500 font-medium animate-in fade-in duration-150">
-                        {fieldErrors.guestEmail}
+                <div className="space-y-3">
+                  {addresses.length === 0 ? (
+                    <div className="rounded-xl border border-dashed border-theme-border p-6 text-center">
+                      <p className="text-sm font-semibold text-theme-text-primary mb-1">
+                        No saved addresses found
                       </p>
-                    ) : (
-                      <p className="mt-1 text-[11px] text-theme-text-muted">
-                        We&apos;ll send your order confirmation here.
+                      <p className="text-xs text-theme-text-subtle mb-4">
+                        Please add your delivery address to receive your order at your doorstep.
                       </p>
-                    )}
-                  </div>
-                )}
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                  <div>
-                    <label className="block text-xs font-semibold text-theme-text-secondary mb-1">
-                      Recipient Name <span className="text-red-600">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="e.g. Ramesh Kumar"
-                      value={newAddressForm.fullName}
-                      onChange={(e) => handleFieldChange("fullName", e.target.value)}
-                      onBlur={() => handleFieldBlur("fullName")}
-                      className={cn(
-                        "w-full min-h-[44px] rounded-xl border bg-white px-3 text-xs text-theme-text-primary placeholder:text-theme-text-muted focus:outline-none transition-colors",
-                        fieldErrors.fullName
-                          ? "border-red-500 bg-red-50/10 focus:border-red-500 focus:ring-1 focus:ring-red-500/50 ring-1 ring-red-500/40"
-                          : "border-theme-border-input focus:border-theme-primary"
-                      )}
-                    />
-                    {fieldErrors.fullName && (
-                      <p className="mt-1 text-xs text-red-500 font-medium animate-in fade-in duration-150">
-                        {fieldErrors.fullName}
-                      </p>
-                    )}
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-semibold text-theme-text-secondary mb-1">
-                      Phone Number <span className="text-red-600">*</span>
-                    </label>
-                    <div className="relative">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-medium text-theme-text-muted">
-                        +91
-                      </span>
-                      <input
-                        type="tel"
-                        maxLength={10}
-                        placeholder="9897567488"
-                        value={newAddressForm.phone}
-                        onChange={(e) => handleFieldChange("phone", e.target.value.replace(/\D/g, "").slice(0, 10))}
-                        onBlur={() => handleFieldBlur("phone")}
-                        className={cn(
-                          "w-full min-h-[44px] rounded-xl border bg-white pl-10 pr-3 text-xs text-theme-text-primary placeholder:text-theme-text-muted focus:outline-none transition-colors",
-                          fieldErrors.phone
-                            ? "border-red-500 bg-red-50/10 focus:border-red-500 focus:ring-1 focus:ring-red-500/50 ring-1 ring-red-500/40"
-                            : "border-theme-border-input focus:border-theme-primary"
-                        )}
-                      />
-                    </div>
-                    {fieldErrors.phone && (
-                      <p className="mt-1 text-xs text-red-500 font-medium animate-in fade-in duration-150">
-                        {fieldErrors.phone}
-                      </p>
-                    )}
-                  </div>
-
-                  <div className="sm:col-span-2">
-                    <label className="block text-xs font-semibold text-theme-text-secondary mb-1">
-                      PIN Code (6 digits) <span className="text-red-600">*</span>
-                    </label>
-                    <div className="relative">
-                      <input
-                        type="text"
-                        inputMode="numeric"
-                        maxLength={6}
-                        placeholder="e.g. 636001"
-                        value={newAddressForm.pincode}
-                        onChange={(e) => handlePincodeChange(e.target.value)}
-                        onBlur={() => handleFieldBlur("pincode")}
-                        className={cn(
-                          "w-full min-h-[44px] rounded-xl border bg-white px-3 text-xs text-theme-text-primary placeholder:text-theme-text-muted focus:outline-none transition-colors",
-                          fieldErrors.pincode || pincodeLookupError
-                            ? "border-red-500 bg-red-50/10 focus:border-red-500 focus:ring-1 focus:ring-red-500/50 ring-1 ring-red-500/40"
-                            : "border-theme-border-input focus:border-theme-primary"
-                        )}
-                      />
-                      {isPincodeLoading && (
-                        <Loader2 className="absolute right-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 animate-spin text-theme-text-muted" />
-                      )}
-                    </div>
-                    {fieldErrors.pincode ? (
-                      <p className="mt-1 text-xs text-red-500 font-medium animate-in fade-in duration-150">
-                        {fieldErrors.pincode}
-                      </p>
-                    ) : pincodeLookupError ? (
-                      <div className="mt-1 space-y-0.5 animate-in fade-in duration-150">
-                        <p className="text-xs text-amber-600 font-medium">
-                          {pincodeLookupError}
-                        </p>
-                        <p className="text-[11px] text-theme-text-subtle">
-                          PIN code lookup failed or timed out. Please enter your City and State manually below.
-                        </p>
-                      </div>
-                    ) : null}
-                  </div>
-
-                  {postOffices.length > 0 && (
-                    <div className="sm:col-span-2">
-                      <label className="block text-xs font-semibold text-theme-text-secondary mb-1">
-                        Select your area
-                        <span className="text-red-600">*</span>
-                      </label>
-                      <Select
-                        options={postOffices.map((po) => {
-                          const cleanDesc = po.description
-                            ?.replace(/•?\s*(non-delivery|delivery)/gi, "")
-                            ?.replace(/^\s*•\s*/, "")
-                            ?.trim();
-                          return {
-                            value: po.value,
-                            label: cleanDesc ? `${po.label} (${cleanDesc})` : po.label,
-                          };
-                        })}
-                        value={area}
-                        onValueChange={(val) => {
-                          setArea(val);
-                          setNewAddressForm((prev) =>
-                            val && (!prev.addressLine2.trim() || prev.addressLine2 === area)
-                              ? { ...prev, addressLine2: val }
-                              : prev
-                          );
-                          if (fieldErrors.area) {
-                            setFieldErrors((prev) => {
-                              const next = { ...prev };
-                              delete next.area;
-                              return next;
-                            });
-                          }
-                        }}
-                        placeholder="Select area / locality…"
-                      />
-                      {fieldErrors.area && (
-                        <p className="mt-1 text-xs text-red-500 font-medium animate-in fade-in duration-150">
-                          {fieldErrors.area}
-                        </p>
-                      )}
-                    </div>
-                  )}
-
-                  <div className="sm:col-span-2">
-                    <label className="block text-xs font-semibold text-theme-text-secondary mb-1">
-                      Flat / House No., Building, Street <span className="text-red-600">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="e.g. 42, Sri Krishna Nagar, Main Road"
-                      value={newAddressForm.addressLine1}
-                      onChange={(e) => handleFieldChange("addressLine1", e.target.value)}
-                      onBlur={() => handleFieldBlur("addressLine1")}
-                      className={cn(
-                        "w-full min-h-[44px] rounded-xl border bg-white px-3 text-xs text-theme-text-primary placeholder:text-theme-text-muted focus:outline-none transition-colors",
-                        fieldErrors.addressLine1
-                          ? "border-red-500 bg-red-50/10 focus:border-red-500 focus:ring-1 focus:ring-red-500/50 ring-1 ring-red-500/40"
-                          : "border-theme-border-input focus:border-theme-primary"
-                      )}
-                    />
-                    {fieldErrors.addressLine1 && (
-                      <p className="mt-1 text-xs text-red-500 font-medium animate-in fade-in duration-150">
-                        {fieldErrors.addressLine1}
-                      </p>
-                    )}
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-semibold text-theme-text-secondary mb-1 flex items-center justify-between">
-                      <span>
-                        City <span className="text-red-600">*</span>
-                      </span>
-                      {pincodeLookupError && (
-                        <span className="text-[10px] text-amber-600 font-normal">
-                          Enter manually
-                        </span>
-                      )}
-                    </label>
-                    <input
-                      type="text"
-                      readOnly={isPincodeLoading}
-                      placeholder={isPincodeLoading ? "Fetching city..." : pincodeLookupError ? "Enter city / district" : "e.g. Namakkal"}
-                      value={newAddressForm.city}
-                      onChange={(e) => handleFieldChange("city", e.target.value)}
-                      onBlur={() => handleFieldBlur("city")}
-                      className={cn(
-                        "w-full min-h-[44px] rounded-xl border bg-white px-3 text-xs text-theme-text-primary placeholder:text-theme-text-muted focus:outline-none transition-colors",
-                        isPincodeLoading && "bg-theme-surface-alt/70 text-theme-text-muted cursor-wait select-none shadow-none",
-                        fieldErrors.city
-                          ? "border-red-500 bg-red-50/10 focus:border-red-500 focus:ring-1 focus:ring-red-500/50 ring-1 ring-red-500/40"
-                          : "border-theme-border-input focus:border-theme-primary"
-                      )}
-                    />
-                    {fieldErrors.city && (
-                      <p className="mt-1 text-xs text-red-500 font-medium animate-in fade-in duration-150">
-                        {fieldErrors.city}
-                      </p>
-                    )}
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-semibold text-theme-text-secondary mb-1 flex items-center justify-between">
-                      <span>
-                        State <span className="text-red-600">*</span>
-                      </span>
-                      {pincodeLookupError && (
-                        <span className="text-[10px] text-amber-600 font-normal">
-                          Enter manually
-                        </span>
-                      )}
-                    </label>
-                    <input
-                      type="text"
-                      readOnly={isPincodeLoading}
-                      placeholder={isPincodeLoading ? "Fetching state..." : pincodeLookupError ? "Enter state" : "e.g. Tamil Nadu"}
-                      value={newAddressForm.state}
-                      onChange={(e) => handleFieldChange("state", e.target.value)}
-                      onBlur={() => handleFieldBlur("state")}
-                      className={cn(
-                        "w-full min-h-[44px] rounded-xl border bg-white px-3 text-xs text-theme-text-primary placeholder:text-theme-text-muted focus:outline-none transition-colors",
-                        isPincodeLoading && "bg-theme-surface-alt/70 text-theme-text-muted cursor-wait select-none shadow-none",
-                        fieldErrors.state
-                          ? "border-red-500 bg-red-50/10 focus:border-red-500 focus:ring-1 focus:ring-red-500/50 ring-1 ring-red-500/40"
-                          : "border-theme-border-input focus:border-theme-primary"
-                      )}
-                    />
-                    {fieldErrors.state && (
-                      <p className="mt-1 text-xs text-red-500 font-medium animate-in fade-in duration-150">
-                        {fieldErrors.state}
-                      </p>
-                    )}
-                  </div>
-                </div>
-
-                {!isGuest && (
-                  <div className="flex items-center justify-between pt-2">
-                    <label className="flex items-center gap-2 text-xs font-medium text-theme-text-secondary cursor-pointer select-none">
-                      <input
-                        type="checkbox"
-                        checked={newAddressForm.isDefault}
-                        onChange={(e) =>
-                          setNewAddressForm((prev) => ({ ...prev, isDefault: e.target.checked }))
-                        }
-                        className="rounded border-theme-border text-theme-primary focus:ring-theme-primary h-4 w-4 cursor-pointer"
-                      />
-                      <span>Make this my default address</span>
-                    </label>
-
-                    <div className="flex items-center gap-2.5">
                       <Button
                         type="button"
-                        variant="ghost"
-                        size="sm"
+                        onClick={() => setIsAddingAddress(true)}
+                        className="min-h-[44px] rounded-xl bg-theme-primary hover:bg-theme-primary-hover text-white text-xs font-semibold px-4"
+                      >
+                        <Plus className="mr-1.5 h-4 w-4" />
+                        Add Delivery Address
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+                      {addresses.map((addr) => {
+                        const isSelected = effectiveAddressId === addr.id;
+                        return (
+                          <div
+                            key={addr.id}
+                            onClick={() => setSelectedAddressId(addr.id)}
+                            className={`relative rounded-xl border p-4 cursor-pointer transition-all ${isSelected
+                                ? "border-theme-primary bg-theme-surface-alt/70 shadow-xs ring-1 ring-theme-primary"
+                                : "border-theme-border bg-theme-surface hover:border-theme-border-accent hover:bg-theme-surface-warm"
+                              }`}
+                          >
+                            <div className="flex items-start justify-between gap-2 mb-2">
+                              <div className="flex items-center gap-2">
+                                <span
+                                  className={`flex h-4 w-4 items-center justify-center rounded-full border transition-colors ${isSelected
+                                      ? "border-theme-primary bg-theme-primary text-white"
+                                      : "border-theme-border-input bg-white"
+                                    }`}
+                                >
+                                  {isSelected && <Check className="h-2.5 w-2.5 stroke-[3]" />}
+                                </span>
+                                <span className="font-bold text-sm text-theme-text-primary line-clamp-1">
+                                  {addr.fullName}
+                                </span>
+                              </div>
+
+                              <div className="flex items-center gap-1.5 shrink-0">
+                                {addr.isDefault && (
+                                  <span className="rounded-md bg-theme-status-del-bg px-2 py-0.5 text-[10px] font-extrabold text-theme-status-del-fg">
+                                    Default
+                                  </span>
+                                )}
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleEditAddress(addr);
+                                  }}
+                                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-semibold text-theme-text-subtle hover:text-theme-primary hover:bg-theme-surface-alt border border-theme-border/60 hover:border-theme-primary/30 transition-colors cursor-pointer"
+                                  title="Edit address"
+                                  aria-label={`Edit address for ${addr.fullName}`}
+                                >
+                                  <Pencil className="h-3 w-3" />
+                                  <span>Edit</span>
+                                </button>
+                              </div>
+                            </div>
+
+                            <div className="text-xs text-theme-text-subtle space-y-1 pl-6">
+                              <p className="line-clamp-2">
+                                {addr.addressLine1}
+                                {addr.addressLine2 ? `, ${addr.addressLine2}` : ""}
+                              </p>
+                              <p>
+                                {addr.city}, {addr.state} - {addr.pincode}
+                              </p>
+                              <p className="flex items-center gap-1 text-theme-text-muted pt-0.5">
+                                <Phone className="h-3 w-3" />
+                                {formatPhone(addr.phone)}
+                              </p>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Inline Add Address Form */}
+              {(isAddingAddress || isGuest) && (
+                <form
+                  noValidate
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    if (!isGuest) {
+                      void handleCreateAddress(e);
+                    } else {
+                      void handlePlaceGuestOrder();
+                    }
+                  }}
+                  className="rounded-xl border border-theme-border bg-theme-surface-warm p-4 sm:p-5 space-y-4"
+                >
+                  <div className="flex items-center justify-between border-b border-theme-border pb-2.5">
+                    <h3 className="text-sm font-bold text-theme-text-primary">
+                      {isGuest ? "Your Contact & Delivery Details" : editingAddressId ? "Edit Delivery Address" : "New Delivery Address"}
+                    </h3>
+                    {!isGuest && (
+                      <button
+                        type="button"
                         onClick={() => {
                           setIsAddingAddress(false);
                           setEditingAddressId(null);
                           setFieldErrors({});
                           setAddressFormError(null);
                         }}
-                        className="min-h-[40px] text-xs font-semibold rounded-xl text-theme-text-subtle cursor-pointer"
+                        className="text-theme-text-subtle hover:text-theme-text-primary cursor-pointer p-1 rounded-md hover:bg-theme-surface-alt transition-colors"
                       >
-                        Cancel
-                      </Button>
-                      <Button
-                        type="submit"
-                        size="sm"
-                        disabled={createAddressMutation.isPending || updateAddressMutation.isPending}
-                        className="min-h-[40px] px-4 text-xs font-bold rounded-xl bg-theme-primary hover:bg-theme-primary-hover text-white cursor-pointer"
-                      >
-                        {createAddressMutation.isPending || updateAddressMutation.isPending ? (
-                          <>
-                            <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
-                            {editingAddressId ? "Updating Address..." : "Saving Address..."}
-                          </>
-                        ) : (
-                          editingAddressId ? "Update Address" : "Save Address"
+                        <X className="h-4 w-4" />
+                      </button>
+                    )}
+                  </div>
+
+                  {addressFormError && (
+                    <div className="rounded-lg bg-red-50 border border-red-200 p-2.5 text-xs text-red-600">
+                      {addressFormError}
+                    </div>
+                  )}
+
+                  {isGuest && (
+                    <div>
+                      <label className="block text-xs font-semibold text-theme-text-secondary mb-1">
+                        Email Address <span className="text-red-600">*</span>
+                      </label>
+                      <input
+                        type="email"
+                        maxLength={EMAIL_MAX_LENGTH}
+                        placeholder="e.g. you@example.com"
+                        value={guestEmail}
+                        onChange={(e) => handleFieldChange("guestEmail", e.target.value)}
+                        onBlur={() => handleFieldBlur("guestEmail")}
+                        className={cn(
+                          "w-full min-h-[44px] rounded-xl border bg-white px-3 text-xs text-theme-text-primary placeholder:text-theme-text-muted focus:outline-none transition-colors",
+                          fieldErrors.guestEmail
+                            ? "border-red-500 bg-red-50/10 focus:border-red-500 focus:ring-1 focus:ring-red-500/50 ring-1 ring-red-500/40"
+                            : "border-theme-border-input focus:border-theme-primary"
                         )}
-                      </Button>
+                      />
+                      {fieldErrors.guestEmail ? (
+                        <p className="mt-1 text-xs text-red-500 font-medium animate-in fade-in duration-150">
+                          {fieldErrors.guestEmail}
+                        </p>
+                      ) : (
+                        <p className="mt-1 text-[11px] text-theme-text-muted">
+                          We&apos;ll send your order confirmation here.
+                        </p>
+                      )}
+                    </div>
+                  )}
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                    <div>
+                      <label className="block text-xs font-semibold text-theme-text-secondary mb-1">
+                        Recipient Name <span className="text-red-600">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="e.g. Ramesh Kumar"
+                        value={newAddressForm.fullName}
+                        onChange={(e) => handleFieldChange("fullName", e.target.value)}
+                        onBlur={() => handleFieldBlur("fullName")}
+                        className={cn(
+                          "w-full min-h-[44px] rounded-xl border bg-white px-3 text-xs text-theme-text-primary placeholder:text-theme-text-muted focus:outline-none transition-colors",
+                          fieldErrors.fullName
+                            ? "border-red-500 bg-red-50/10 focus:border-red-500 focus:ring-1 focus:ring-red-500/50 ring-1 ring-red-500/40"
+                            : "border-theme-border-input focus:border-theme-primary"
+                        )}
+                      />
+                      {fieldErrors.fullName && (
+                        <p className="mt-1 text-xs text-red-500 font-medium animate-in fade-in duration-150">
+                          {fieldErrors.fullName}
+                        </p>
+                      )}
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-theme-text-secondary mb-1">
+                        Phone Number <span className="text-red-600">*</span>
+                      </label>
+                      <div className="relative">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-medium text-theme-text-muted">
+                          +91
+                        </span>
+                        <input
+                          type="tel"
+                          maxLength={10}
+                          placeholder="9897567488"
+                          value={newAddressForm.phone}
+                          onChange={(e) => handleFieldChange("phone", e.target.value.replace(/\D/g, "").slice(0, 10))}
+                          onBlur={() => handleFieldBlur("phone")}
+                          className={cn(
+                            "w-full min-h-[44px] rounded-xl border bg-white pl-10 pr-3 text-xs text-theme-text-primary placeholder:text-theme-text-muted focus:outline-none transition-colors",
+                            fieldErrors.phone
+                              ? "border-red-500 bg-red-50/10 focus:border-red-500 focus:ring-1 focus:ring-red-500/50 ring-1 ring-red-500/40"
+                              : "border-theme-border-input focus:border-theme-primary"
+                          )}
+                        />
+                      </div>
+                      {fieldErrors.phone && (
+                        <p className="mt-1 text-xs text-red-500 font-medium animate-in fade-in duration-150">
+                          {fieldErrors.phone}
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="sm:col-span-2">
+                      <label className="block text-xs font-semibold text-theme-text-secondary mb-1">
+                        PIN Code (6 digits) <span className="text-red-600">*</span>
+                      </label>
+                      <div className="relative">
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          maxLength={6}
+                          placeholder="e.g. 636001"
+                          value={newAddressForm.pincode}
+                          onChange={(e) => handlePincodeChange(e.target.value)}
+                          onBlur={() => handleFieldBlur("pincode")}
+                          className={cn(
+                            "w-full min-h-[44px] rounded-xl border bg-white px-3 text-xs text-theme-text-primary placeholder:text-theme-text-muted focus:outline-none transition-colors",
+                            fieldErrors.pincode || pincodeLookupError
+                              ? "border-red-500 bg-red-50/10 focus:border-red-500 focus:ring-1 focus:ring-red-500/50 ring-1 ring-red-500/40"
+                              : "border-theme-border-input focus:border-theme-primary"
+                          )}
+                        />
+                        {isPincodeLoading && (
+                          <Loader2 className="absolute right-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 animate-spin text-theme-text-muted" />
+                        )}
+                      </div>
+                      {fieldErrors.pincode ? (
+                        <p className="mt-1 text-xs text-red-500 font-medium animate-in fade-in duration-150">
+                          {fieldErrors.pincode}
+                        </p>
+                      ) : pincodeLookupError ? (
+                        <div className="mt-1 space-y-0.5 animate-in fade-in duration-150">
+                          <p className="text-xs text-amber-600 font-medium">
+                            {pincodeLookupError}
+                          </p>
+                          <p className="text-[11px] text-theme-text-subtle">
+                            PIN code lookup failed or timed out. Please enter your City and State manually below.
+                          </p>
+                        </div>
+                      ) : null}
+                    </div>
+
+                    {postOffices.length > 0 && (
+                      <div className="sm:col-span-2">
+                        <label className="block text-xs font-semibold text-theme-text-secondary mb-1">
+                          Select your area
+                          <span className="text-red-600">*</span>
+                        </label>
+                        <Select
+                          options={postOffices.map((po) => {
+                            const cleanDesc = po.description
+                              ?.replace(/•?\s*(non-delivery|delivery)/gi, "")
+                              ?.replace(/^\s*•\s*/, "")
+                              ?.trim();
+                            return {
+                              value: po.value,
+                              label: cleanDesc ? `${po.label} (${cleanDesc})` : po.label,
+                            };
+                          })}
+                          value={area}
+                          onValueChange={(val) => {
+                            setArea(val);
+                            setNewAddressForm((prev) =>
+                              val && (!prev.addressLine2.trim() || prev.addressLine2 === area)
+                                ? { ...prev, addressLine2: val }
+                                : prev
+                            );
+                            if (fieldErrors.area) {
+                              setFieldErrors((prev) => {
+                                const next = { ...prev };
+                                delete next.area;
+                                return next;
+                              });
+                            }
+                          }}
+                          placeholder="Select area / locality…"
+                        />
+                        {fieldErrors.area && (
+                          <p className="mt-1 text-xs text-red-500 font-medium animate-in fade-in duration-150">
+                            {fieldErrors.area}
+                          </p>
+                        )}
+                      </div>
+                    )}
+
+                    <div className="sm:col-span-2">
+                      <label className="block text-xs font-semibold text-theme-text-secondary mb-1">
+                        Flat / House No., Building, Street <span className="text-red-600">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="e.g. 42, Sri Krishna Nagar, Main Road"
+                        value={newAddressForm.addressLine1}
+                        onChange={(e) => handleFieldChange("addressLine1", e.target.value)}
+                        onBlur={() => handleFieldBlur("addressLine1")}
+                        className={cn(
+                          "w-full min-h-[44px] rounded-xl border bg-white px-3 text-xs text-theme-text-primary placeholder:text-theme-text-muted focus:outline-none transition-colors",
+                          fieldErrors.addressLine1
+                            ? "border-red-500 bg-red-50/10 focus:border-red-500 focus:ring-1 focus:ring-red-500/50 ring-1 ring-red-500/40"
+                            : "border-theme-border-input focus:border-theme-primary"
+                        )}
+                      />
+                      {fieldErrors.addressLine1 && (
+                        <p className="mt-1 text-xs text-red-500 font-medium animate-in fade-in duration-150">
+                          {fieldErrors.addressLine1}
+                        </p>
+                      )}
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-theme-text-secondary mb-1 flex items-center justify-between">
+                        <span>
+                          City <span className="text-red-600">*</span>
+                        </span>
+                        {pincodeLookupError && (
+                          <span className="text-[10px] text-amber-600 font-normal">
+                            Enter manually
+                          </span>
+                        )}
+                      </label>
+                      <input
+                        type="text"
+                        readOnly={isPincodeLoading}
+                        placeholder={isPincodeLoading ? "Fetching city..." : pincodeLookupError ? "Enter city / district" : "e.g. Namakkal"}
+                        value={newAddressForm.city}
+                        onChange={(e) => handleFieldChange("city", e.target.value)}
+                        onBlur={() => handleFieldBlur("city")}
+                        className={cn(
+                          "w-full min-h-[44px] rounded-xl border bg-white px-3 text-xs text-theme-text-primary placeholder:text-theme-text-muted focus:outline-none transition-colors",
+                          isPincodeLoading && "bg-theme-surface-alt/70 text-theme-text-muted cursor-wait select-none shadow-none",
+                          fieldErrors.city
+                            ? "border-red-500 bg-red-50/10 focus:border-red-500 focus:ring-1 focus:ring-red-500/50 ring-1 ring-red-500/40"
+                            : "border-theme-border-input focus:border-theme-primary"
+                        )}
+                      />
+                      {fieldErrors.city && (
+                        <p className="mt-1 text-xs text-red-500 font-medium animate-in fade-in duration-150">
+                          {fieldErrors.city}
+                        </p>
+                      )}
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-theme-text-secondary mb-1 flex items-center justify-between">
+                        <span>
+                          State <span className="text-red-600">*</span>
+                        </span>
+                        {pincodeLookupError && (
+                          <span className="text-[10px] text-amber-600 font-normal">
+                            Enter manually
+                          </span>
+                        )}
+                      </label>
+                      <input
+                        type="text"
+                        readOnly={isPincodeLoading}
+                        placeholder={isPincodeLoading ? "Fetching state..." : pincodeLookupError ? "Enter state" : "e.g. Tamil Nadu"}
+                        value={newAddressForm.state}
+                        onChange={(e) => handleFieldChange("state", e.target.value)}
+                        onBlur={() => handleFieldBlur("state")}
+                        className={cn(
+                          "w-full min-h-[44px] rounded-xl border bg-white px-3 text-xs text-theme-text-primary placeholder:text-theme-text-muted focus:outline-none transition-colors",
+                          isPincodeLoading && "bg-theme-surface-alt/70 text-theme-text-muted cursor-wait select-none shadow-none",
+                          fieldErrors.state
+                            ? "border-red-500 bg-red-50/10 focus:border-red-500 focus:ring-1 focus:ring-red-500/50 ring-1 ring-red-500/40"
+                            : "border-theme-border-input focus:border-theme-primary"
+                        )}
+                      />
+                      {fieldErrors.state && (
+                        <p className="mt-1 text-xs text-red-500 font-medium animate-in fade-in duration-150">
+                          {fieldErrors.state}
+                        </p>
+                      )}
                     </div>
                   </div>
-                )}
-              </form>
-            )}
-          </div>
 
-          {/* 2. Delivery Method Card */}
-          <div className="rounded-2xl border border-theme-border bg-theme-surface shadow-xs p-5 sm:p-6">
-            <div className="flex items-center gap-2.5 mb-4 pb-3 border-b border-theme-border-subtle">
-              <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-theme-surface-alt border border-theme-border text-theme-primary font-bold text-xs">
-                2
-              </span>
-              <h2 className="text-base sm:text-lg font-bold text-theme-text-primary flex items-center gap-2">
-                <Truck className="h-4 w-4 text-theme-secondary" />
-                Shipping & Delivery Method
-              </h2>
-            </div>
+                  {!isGuest && (
+                    <div className="flex items-center justify-between pt-2">
+                      <label className="flex items-center gap-2 text-xs font-medium text-theme-text-secondary cursor-pointer select-none">
+                        <input
+                          type="checkbox"
+                          checked={newAddressForm.isDefault}
+                          onChange={(e) =>
+                            setNewAddressForm((prev) => ({ ...prev, isDefault: e.target.checked }))
+                          }
+                          className="rounded border-theme-border text-theme-primary focus:ring-theme-primary h-4 w-4 cursor-pointer"
+                        />
+                        <span>Make this my default address</span>
+                      </label>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-              {/* Standard Delivery Option */}
-              <div
-                className="relative rounded-xl border border-theme-primary bg-theme-surface-alt/70 p-4 text-left shadow-xs ring-2 ring-theme-primary/30 select-none"
-              >
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-2">
-                    <div className="h-4 w-4 rounded-full border border-theme-primary bg-theme-primary flex items-center justify-center">
-                      <div className="h-1.5 w-1.5 rounded-full bg-white" />
+                      <div className="flex items-center gap-2.5">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            setIsAddingAddress(false);
+                            setEditingAddressId(null);
+                            setFieldErrors({});
+                            setAddressFormError(null);
+                          }}
+                          className="min-h-[40px] text-xs font-semibold rounded-xl text-theme-text-subtle cursor-pointer"
+                        >
+                          Cancel
+                        </Button>
+                        <Button
+                          type="submit"
+                          size="sm"
+                          disabled={createAddressMutation.isPending || updateAddressMutation.isPending}
+                          className="min-h-[40px] px-4 text-xs font-bold rounded-xl bg-theme-primary hover:bg-theme-primary-hover text-white cursor-pointer"
+                        >
+                          {createAddressMutation.isPending || updateAddressMutation.isPending ? (
+                            <>
+                              <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                              {editingAddressId ? "Updating Address..." : "Saving Address..."}
+                            </>
+                          ) : (
+                            editingAddressId ? "Update Address" : "Save Address"
+                          )}
+                        </Button>
+                      </div>
                     </div>
-                    <span className="text-xs font-bold text-theme-text-primary">
-                      Standard Delivery
-                    </span>
-                  </div>
-                  <span className="text-xs font-extrabold text-theme-primary">
-                    {isFreeDelivery
-                      ? "FREE"
-                      : formatPrice(
-                          hasDeliveryState ? shippingCharge : STANDARD_DELIVERY_CHARGE
-                        )}
-                  </span>
-                </div>
-                <p className="text-[11px] text-theme-text-subtle flex items-center gap-1 mb-1">
-                  <Clock className="h-3 w-3 text-theme-secondary shrink-0" />
-                  <span>Estimated: {STANDARD_DELIVERY_ESTIMATE}</span>
-                </p>
-                <p className="text-[11px] text-theme-text-muted">
-                  {isFreeDelivery
-                    ? `Free delivery within ${FREE_DELIVERY_STATE}.`
-                    : `Standard doorstep delivery across India. Free within ${FREE_DELIVERY_STATE}.`}
-                </p>
-              </div>
+                  )}
+                </form>
+              )}
             </div>
-          </div>
 
-          {/* 3. Payment Method Card */}
-          <div className="rounded-2xl border border-theme-border bg-theme-surface shadow-xs p-5 sm:p-6">
-            <div className="flex items-center justify-between gap-4 mb-4 pb-3 border-b border-theme-border-subtle">
-              <div className="flex items-center gap-2.5">
+            {/* 2. Delivery Method Card */}
+            <div className="rounded-2xl border border-theme-border bg-theme-surface shadow-xs p-5 sm:p-6">
+              <div className="flex items-center gap-2.5 mb-4 pb-3 border-b border-theme-border-subtle">
                 <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-theme-surface-alt border border-theme-border text-theme-primary font-bold text-xs">
-                  3
+                  2
                 </span>
                 <h2 className="text-base sm:text-lg font-bold text-theme-text-primary flex items-center gap-2">
-                  <CreditCard className="h-4 w-4 text-theme-secondary" />
-                  Payment Method
+                  <Truck className="h-4 w-4 text-theme-secondary" />
+                  Shipping & Delivery Method
                 </h2>
               </div>
 
-              {!isGuest && (
-                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 border border-emerald-200 px-3 py-0.5 text-[11px] font-bold text-emerald-700">
-                  <ShieldCheck className="h-3.5 w-3.5 text-emerald-600" />
-                  Razorpay Secured
-                </span>
-              )}
-            </div>
-
-            {isGuest && (
-              <p className="mb-4 text-[11px] text-theme-text-muted bg-theme-surface-alt/60 border border-theme-border-subtle rounded-lg px-3 py-2">
-                Guest checkout supports Cash on Delivery only.{" "}
-                <Link href="/login?callbackUrl=/checkout" className="font-semibold text-theme-primary hover:underline">
-                  Log in
-                </Link>{" "}
-                to pay online instead.
-              </p>
-            )}
-
-            {/* Payment Method Selector Tabs */}
-            <div className={`grid gap-3 mb-5 ${isGuest ? "grid-cols-1" : "grid-cols-2"}`}>
-              {!isGuest && (
-                <button
-                  type="button"
-                  onClick={() => setPaymentMethod("CARD")}
-                  className={`flex flex-col items-center justify-center p-3.5 rounded-xl border text-center transition-all min-h-[64px] ${
-                    paymentMethod === "CARD" || paymentMethod === "UPI"
-                      ? "border-theme-primary bg-theme-surface-alt font-bold text-theme-primary shadow-xs ring-1 ring-theme-primary"
-                      : "border-theme-border bg-theme-surface text-theme-text-subtle hover:bg-theme-surface-warm"
-                  }`}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                {/* Standard Delivery Option */}
+                <div
+                  className="relative rounded-xl border border-theme-primary bg-theme-surface-alt/70 p-4 text-left shadow-xs ring-2 ring-theme-primary/30 select-none"
                 >
-                  <div className="flex items-center gap-2 mb-1">
-                    <CreditCard className="h-4 w-4 text-theme-primary" />
-                    <span className="text-xs font-black">UPI / Cards / NetBanking</span>
-                  </div>
-                  <span className="text-[11px] font-medium text-theme-text-muted">Online via Razorpay</span>
-                </button>
-              )}
-
-              <button
-                type="button"
-                onClick={() => setPaymentMethod("COD")}
-                className={`flex flex-col items-center justify-center p-3.5 rounded-xl border text-center transition-all min-h-[64px] ${
-                  paymentMethod === "COD"
-                    ? "border-theme-primary bg-theme-surface-alt font-bold text-theme-primary shadow-xs ring-1 ring-theme-primary"
-                    : "border-theme-border bg-theme-surface text-theme-text-subtle hover:bg-theme-surface-warm"
-                }`}
-              >
-                <div className="flex items-center gap-2 mb-1">
-                  <Truck className="h-4 w-4 text-theme-secondary" />
-                  <span className="text-xs font-black">Cash on Delivery</span>
-                </div>
-                <span className="text-[11px] font-medium text-theme-text-muted">Pay upon delivery</span>
-              </button>
-            </div>
-
-            {/* Payment Details Container */}
-            {(paymentMethod === "CARD" || paymentMethod === "UPI") && (
-              <div className="rounded-xl border border-theme-border-subtle bg-theme-surface-alt/60 p-4 sm:p-5 space-y-4">
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <h3 className="text-xs font-bold text-theme-text-primary">
-                      Official Razorpay Payment Gateway
-                    </h3>
-                    <p className="text-[11px] text-theme-text-subtle mt-0.5">
-                      Fast, safe, and encrypted payment with instant order confirmation.
-                    </p>
-                  </div>
-                  <span className="rounded bg-white border border-theme-border px-2 py-0.5 text-[10px] font-bold text-theme-text-secondary shadow-2xs">
-                    256-bit SSL
-                  </span>
-                </div>
-
-                {/* Badges of accepted methods */}
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1">
-                  <div className="rounded-lg bg-white border border-theme-border/80 px-2.5 py-2 text-center shadow-2xs">
-                    <span className="text-[11px] font-bold text-theme-text-primary block">UPI</span>
-                    <span className="text-[10px] text-theme-text-muted">GPay, PhonePe, Paytm</span>
-                  </div>
-                  <div className="rounded-lg bg-white border border-theme-border/80 px-2.5 py-2 text-center shadow-2xs">
-                    <span className="text-[11px] font-bold text-theme-text-primary block">Cards</span>
-                    <span className="text-[10px] text-theme-text-muted">Visa, Master, RuPay</span>
-                  </div>
-                  <div className="rounded-lg bg-white border border-theme-border/80 px-2.5 py-2 text-center shadow-2xs">
-                    <span className="text-[11px] font-bold text-theme-text-primary block">Net Banking</span>
-                    <span className="text-[10px] text-theme-text-muted">All major Indian banks</span>
-                  </div>
-                  <div className="rounded-lg bg-white border border-theme-border/80 px-2.5 py-2 text-center shadow-2xs">
-                    <span className="text-[11px] font-bold text-theme-text-primary block">Wallets</span>
-                    <span className="text-[10px] text-theme-text-muted">Amazon Pay & more</span>
-                  </div>
-                </div>
-
-                <div className="text-[11px] text-theme-text-subtle bg-white/90 border border-theme-border rounded-xl p-3 flex items-center gap-2">
-                  <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
-                  <span>
-                    Clicking <strong>&ldquo;Pay {formatPrice(grandTotal)} via Razorpay&rdquo;</strong> will open the secure checkout dialog where you can complete payment seamlessly.
-                  </span>
-                </div>
-              </div>
-            )}
-
-            {paymentMethod === "COD" && (
-              <div className="rounded-xl border border-amber-200/80 bg-amber-50/40 p-4 sm:p-5 space-y-3">
-                <div className="flex items-start gap-3">
-                  <div className="p-2 rounded-lg bg-amber-100 text-amber-800 shrink-0 mt-0.5">
-                    <Building2 className="h-4 w-4" />
-                  </div>
-                  <div>
-                    <h3 className="text-xs font-bold text-theme-text-primary flex items-center gap-2">
-                      Cash on Delivery
-                      <span className="text-[10px] uppercase tracking-wider font-extrabold px-1.5 py-0.5 rounded bg-amber-200/80 text-amber-900">
-                        Doorstep Payment
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <div className="h-4 w-4 rounded-full border border-theme-primary bg-theme-primary flex items-center justify-center">
+                        <div className="h-1.5 w-1.5 rounded-full bg-white" />
+                      </div>
+                      <span className="text-xs font-bold text-theme-text-primary">
+                        Standard Delivery
                       </span>
-                    </h3>
-                    <p className="text-[11px] text-theme-text-subtle mt-0.5 leading-relaxed">
-                      Pay with physical cash or UPI directly to the courier agent when your package is delivered to your doorstep.
-                    </p>
-                  </div>
-                </div>
-
-                <div className="text-[11px] text-theme-text-subtle bg-white/90 border border-theme-border rounded-xl p-3 flex items-center gap-2">
-                  <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
-                  <span>
-                    No bank account details or online transaction required to place this order. If you ever need to return a product, you can provide your refund bank details directly during the return request.
-                  </span>
-                </div>
-              </div>
-            )}
-          </div>
-
-
-          {/* 4. Delivery Instructions */}
-          <div className="rounded-2xl border border-theme-border bg-theme-surface shadow-xs p-5 sm:p-6">
-            <label className="block text-xs font-bold text-theme-text-primary mb-1.5">
-              Special Delivery Instructions (Optional)
-            </label>
-            <textarea
-              rows={2}
-              maxLength={300}
-              placeholder="e.g. Ring bell twice, leave with security, call before arrival..."
-              value={orderNotes}
-              onChange={(e) => setOrderNotes(e.target.value)}
-              className="w-full rounded-xl border border-theme-border-input bg-white p-3 text-xs text-theme-text-primary placeholder:text-theme-text-muted focus:border-theme-primary focus:outline-none"
-            />
-          </div>
-        </div>
-
-        {/* Right Column: Order Summary Sidebar (4 cols - Sticky) */}
-        <div className="lg:col-span-4 sticky top-24 space-y-4">
-          <div className="rounded-2xl border border-theme-border bg-theme-surface shadow-xs overflow-hidden">
-            <div className="border-b border-theme-border-subtle bg-theme-surface-alt px-5 py-4">
-              <h2 className="text-base font-bold text-theme-text-primary flex items-center gap-2">
-                <ShoppingBag className="h-4 w-4 text-theme-secondary" />
-                Order Summary ({items.length} {items.length === 1 ? "item" : "items"})
-              </h2>
-            </div>
-
-            <div className="p-5 space-y-4">
-              {/* Items Mini List */}
-              <div className="max-h-60 overflow-y-auto space-y-3 divide-y divide-theme-border-subtle pr-1">
-                {items.map((item) => (
-                  <div key={item.id} className="pt-3 first:pt-0 flex items-center gap-3">
-                    <div className="relative h-14 w-14 rounded-xl border border-theme-border bg-theme-surface-alt shrink-0 overflow-hidden">
-                      <ProductImage
-                        src={item.primaryImage}
-                        alt={item.productName}
-                        fallbackText={item.productName}
-                        containerClassName="w-full h-full"
-                        className="w-full h-full object-cover"
-                      />
                     </div>
-
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs font-bold text-theme-text-primary truncate">
-                        {item.productName}
-                      </p>
-                      <p className="text-[11px] text-theme-text-subtle">
-                        {item.variantName}{" "}
-                        {item.measurement
-                          ? `(${formatMeasurementLabel(item.measurement)})`
-                          : ""}
-                      </p>
-                      <p className="text-[11px] text-theme-text-muted">
-                        Qty: {item.quantity} × {formatPrice(item.currentPrice)}
-                      </p>
-                    </div>
-
-                    <div className="text-xs font-bold text-theme-text-primary shrink-0">
-                      {formatPrice(item.itemTotal)}
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              {/* Price Calculation Breakdown */}
-              <div className="border-t border-theme-border-subtle pt-4 space-y-2.5 text-xs">
-                <div className="flex justify-between text-theme-text-subtle">
-                  <span>Items Subtotal</span>
-                  <span className="font-semibold text-theme-text-primary">
-                    {formatPrice(subtotal)}
-                  </span>
-                </div>
-
-                <div className="flex justify-between text-theme-text-subtle items-center">
-                  <div className="flex items-center gap-1.5">
-                    <span>Shipping & Handling</span>
-                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-theme-surface-alt border border-theme-border text-theme-text-muted">
-                      {deliveryMethod === "express" ? "Express" : "Standard"}
+                    <span className="text-xs font-extrabold text-theme-primary">
+                      {isFreeDelivery
+                        ? "FREE"
+                        : formatPrice(
+                          hasDeliveryState ? shippingCharge : STANDARD_DELIVERY_CHARGE
+                        )}
                     </span>
                   </div>
-                  <span className="font-semibold text-theme-text-primary">
-                    {isFreeDelivery ? "FREE" : formatPrice(shippingCharge)}
-                  </span>
-                </div>
-
-                <div className="border-t border-theme-border pt-3 flex justify-between items-baseline">
-                  <span className="text-sm font-bold text-theme-text-primary">
-                    Total Amount
-                  </span>
-                  <span className="text-xl font-extrabold text-theme-primary">
-                    {formatPrice(grandTotal)}
-                  </span>
+                  <p className="text-[11px] text-theme-text-subtle flex items-center gap-1 mb-1">
+                    <Clock className="h-3 w-3 text-theme-secondary shrink-0" />
+                    <span>Estimated: {STANDARD_DELIVERY_ESTIMATE}</span>
+                  </p>
+                  <p className="text-[11px] text-theme-text-muted">
+                    {isFreeDelivery
+                      ? `Free delivery within ${FREE_DELIVERY_STATE}.`
+                      : `Standard doorstep delivery across India. Free within ${FREE_DELIVERY_STATE}.`}
+                  </p>
                 </div>
               </div>
+            </div>
 
-              {/* Place Order CTA Button */}
-              <Button
-                type="button"
-                onClick={handlePlaceOrder}
-                disabled={
-                  createOrderMutation.isPending ||
-                  createGuestOrderMutation.isPending ||
-                  isProcessingPayment ||
-                  isVerifyingPayment ||
-                  (!isGuest && (addressesLoading || !effectiveAddressId))
-                }
-                className="w-full min-h-[48px] rounded-xl bg-theme-primary hover:bg-theme-primary-hover text-white font-bold text-sm shadow-md transition-all disabled:opacity-50"
-              >
-                {isVerifyingPayment ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Verifying Payment...
-                  </>
-                ) : isProcessingPayment ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Opening Razorpay Gateway...
-                  </>
-                ) : createOrderMutation.isPending || createGuestOrderMutation.isPending ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Placing Your Order...
-                  </>
-                ) : paymentMethod === "COD" ? (
-                  <>
-                    <Truck className="mr-2 h-4 w-4" />
-                    Confirm COD Order ({formatPrice(grandTotal)})
-                  </>
-                ) : (
-                  <>
-                    <Lock className="mr-2 h-4 w-4" />
-                    Pay {formatPrice(grandTotal)} via Razorpay
-                  </>
-                )}
-              </Button>
+            {/* 3. Payment Method Card */}
+            <div className="rounded-2xl border border-theme-border bg-theme-surface shadow-xs p-5 sm:p-6">
+              <div className="flex items-center justify-between gap-4 mb-4 pb-3 border-b border-theme-border-subtle">
+                <div className="flex items-center gap-2.5">
+                  <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-theme-surface-alt border border-theme-border text-theme-primary font-bold text-xs">
+                    3
+                  </span>
+                  <h2 className="text-base sm:text-lg font-bold text-theme-text-primary flex items-center gap-2">
+                    <CreditCard className="h-4 w-4 text-theme-secondary" />
+                    Payment Method
+                  </h2>
+                </div>
 
-              <div className="text-[11px] text-center text-theme-text-muted space-y-1 pt-1">
-                {paymentMethod === "COD" ? (
-                  <p className="flex items-center justify-center gap-1.5 font-medium text-amber-700">
-                    <ShieldCheck className="h-3.5 w-3.5 text-amber-600" />
-                    Doorstep Cash Payment • Direct Return Refund Protection
-                  </p>
-                ) : (
-                  <p className="flex items-center justify-center gap-1.5 font-medium text-emerald-700">
+                {!isGuest && (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 border border-emerald-200 px-3 py-0.5 text-[11px] font-bold text-emerald-700">
                     <ShieldCheck className="h-3.5 w-3.5 text-emerald-600" />
-                    256-bit Bank-Grade Encryption by Razorpay
-                  </p>
+                    Razorpay Secured
+                  </span>
                 )}
-                <p>Premium collection delivered securely to your door.</p>
               </div>
 
+              {isGuest && (
+                <p className="mb-4 text-[11px] text-theme-text-muted bg-theme-surface-alt/60 border border-theme-border-subtle rounded-lg px-3 py-2">
+                  Guest checkout supports Cash on Delivery only.{" "}
+                  <Link href="/login?callbackUrl=/checkout" className="font-semibold text-theme-primary hover:underline">
+                    Log in
+                  </Link>{" "}
+                  to pay online instead.
+                </p>
+              )}
+
+              {/* Payment Method Selector Tabs */}
+              <div className={`grid gap-3 mb-5 ${isGuest ? "grid-cols-1" : "grid-cols-2"}`}>
+                {!isGuest && (
+                  <button
+                    type="button"
+                    onClick={() => setPaymentMethod("CARD")}
+                    className={`flex flex-col items-center justify-center p-3.5 rounded-xl border text-center transition-all min-h-[64px] ${paymentMethod === "CARD" || paymentMethod === "UPI"
+                        ? "border-theme-primary bg-theme-surface-alt font-bold text-theme-primary shadow-xs ring-1 ring-theme-primary"
+                        : "border-theme-border bg-theme-surface text-theme-text-subtle hover:bg-theme-surface-warm"
+                      }`}
+                  >
+                    <div className="flex items-center gap-2 mb-1">
+                      <CreditCard className="h-4 w-4 text-theme-primary" />
+                      <span className="text-xs font-black">UPI / Cards / NetBanking</span>
+                    </div>
+                    <span className="text-[11px] font-medium text-theme-text-muted">Online via Razorpay</span>
+                  </button>
+                )}
+
+                <button
+                  type="button"
+                  onClick={() => setPaymentMethod("COD")}
+                  className={`flex flex-col items-center justify-center p-3.5 rounded-xl border text-center transition-all min-h-[64px] ${paymentMethod === "COD"
+                      ? "border-theme-primary bg-theme-surface-alt font-bold text-theme-primary shadow-xs ring-1 ring-theme-primary"
+                      : "border-theme-border bg-theme-surface text-theme-text-subtle hover:bg-theme-surface-warm"
+                    }`}
+                >
+                  <div className="flex items-center gap-2 mb-1">
+                    <Truck className="h-4 w-4 text-theme-secondary" />
+                    <span className="text-xs font-black">Cash on Delivery</span>
+                  </div>
+                  <span className="text-[11px] font-medium text-theme-text-muted">Pay upon delivery</span>
+                </button>
+              </div>
+
+              {/* Payment Details Container */}
+              {(paymentMethod === "CARD" || paymentMethod === "UPI") && (
+                <div className="rounded-xl border border-theme-border-subtle bg-theme-surface-alt/60 p-4 sm:p-5 space-y-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <h3 className="text-xs font-bold text-theme-text-primary">
+                        Official Razorpay Payment Gateway
+                      </h3>
+                      <p className="text-[11px] text-theme-text-subtle mt-0.5">
+                        Fast, safe, and encrypted payment with instant order confirmation.
+                      </p>
+                    </div>
+                    <span className="rounded bg-white border border-theme-border px-2 py-0.5 text-[10px] font-bold text-theme-text-secondary shadow-2xs">
+                      256-bit SSL
+                    </span>
+                  </div>
+
+                  {/* Badges of accepted methods */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1">
+                    <div className="rounded-lg bg-white border border-theme-border/80 px-2.5 py-2 text-center shadow-2xs">
+                      <span className="text-[11px] font-bold text-theme-text-primary block">UPI</span>
+                      <span className="text-[10px] text-theme-text-muted">GPay, PhonePe, Paytm</span>
+                    </div>
+                    <div className="rounded-lg bg-white border border-theme-border/80 px-2.5 py-2 text-center shadow-2xs">
+                      <span className="text-[11px] font-bold text-theme-text-primary block">Cards</span>
+                      <span className="text-[10px] text-theme-text-muted">Visa, Master, RuPay</span>
+                    </div>
+                    <div className="rounded-lg bg-white border border-theme-border/80 px-2.5 py-2 text-center shadow-2xs">
+                      <span className="text-[11px] font-bold text-theme-text-primary block">Net Banking</span>
+                      <span className="text-[10px] text-theme-text-muted">All major Indian banks</span>
+                    </div>
+                    <div className="rounded-lg bg-white border border-theme-border/80 px-2.5 py-2 text-center shadow-2xs">
+                      <span className="text-[11px] font-bold text-theme-text-primary block">Wallets</span>
+                      <span className="text-[10px] text-theme-text-muted">Amazon Pay & more</span>
+                    </div>
+                  </div>
+
+                  <div className="text-[11px] text-theme-text-subtle bg-white/90 border border-theme-border rounded-xl p-3 flex items-center gap-2">
+                    <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
+                    <span>
+                      Clicking <strong>&ldquo;Pay {formatPrice(grandTotal)} via Razorpay&rdquo;</strong> will open the secure checkout dialog where you can complete payment seamlessly.
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              {paymentMethod === "COD" && (
+                <div className="rounded-xl border border-amber-200/80 bg-amber-50/40 p-4 sm:p-5 space-y-3">
+                  <div className="flex items-start gap-3">
+                    <div className="p-2 rounded-lg bg-amber-100 text-amber-800 shrink-0 mt-0.5">
+                      <Building2 className="h-4 w-4" />
+                    </div>
+                    <div>
+                      <h3 className="text-xs font-bold text-theme-text-primary flex items-center gap-2">
+                        Cash on Delivery
+                        <span className="text-[10px] uppercase tracking-wider font-extrabold px-1.5 py-0.5 rounded bg-amber-200/80 text-amber-900">
+                          Doorstep Payment
+                        </span>
+                      </h3>
+                      <p className="text-[11px] text-theme-text-subtle mt-0.5 leading-relaxed">
+                        Pay with physical cash or UPI directly to the courier agent when your package is delivered to your doorstep.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="text-[11px] text-theme-text-subtle bg-white/90 border border-theme-border rounded-xl p-3 flex items-center gap-2">
+                    <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
+                    <span>
+                      No bank account details or online transaction required to place this order. If you ever need to return a product, you can provide your refund bank details directly during the return request.
+                    </span>
+                  </div>
+                </div>
+              )}
+            </div>
+
+
+            {/* 4. Delivery Instructions */}
+            <div className="rounded-2xl border border-theme-border bg-theme-surface shadow-xs p-5 sm:p-6">
+              <label className="block text-xs font-bold text-theme-text-primary mb-1.5">
+                Special Delivery Instructions (Optional)
+              </label>
+              <textarea
+                rows={2}
+                maxLength={300}
+                placeholder="e.g. Ring bell twice, leave with security, call before arrival..."
+                value={orderNotes}
+                onChange={(e) => setOrderNotes(e.target.value)}
+                className="w-full rounded-xl border border-theme-border-input bg-white p-3 text-xs text-theme-text-primary placeholder:text-theme-text-muted focus:border-theme-primary focus:outline-none"
+              />
+            </div>
+          </div>
+
+          {/* Right Column: Order Summary Sidebar (4 cols - Sticky) */}
+          <div className="lg:col-span-4 sticky top-24 space-y-4">
+            <div className="rounded-2xl border border-theme-border bg-theme-surface shadow-xs overflow-hidden">
+              <div className="border-b border-theme-border-subtle bg-theme-surface-alt px-5 py-4">
+                <h2 className="text-base font-bold text-theme-text-primary flex items-center gap-2">
+                  <ShoppingBag className="h-4 w-4 text-theme-secondary" />
+                  Order Summary ({items.length} {items.length === 1 ? "item" : "items"})
+                </h2>
+              </div>
+
+              <div className="p-5 space-y-4">
+                {/* Items Mini List */}
+                <div className="max-h-60 overflow-y-auto space-y-3 divide-y divide-theme-border-subtle pr-1">
+                  {items.map((item) => (
+                    <div key={item.id} className="pt-3 first:pt-0 flex items-center gap-3">
+                      <div className="relative h-14 w-14 rounded-xl border border-theme-border bg-theme-surface-alt shrink-0 overflow-hidden">
+                        <ProductImage
+                          src={item.primaryImage}
+                          alt={item.productName}
+                          fallbackText={item.productName}
+                          containerClassName="w-full h-full"
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-bold text-theme-text-primary truncate">
+                          {item.productName}
+                        </p>
+                        <p className="text-[11px] text-theme-text-subtle">
+                          {item.variantName}{" "}
+                          {item.measurement
+                            ? `(${formatMeasurementLabel(item.measurement)})`
+                            : ""}
+                        </p>
+                        <p className="text-[11px] text-theme-text-muted">
+                          Qty: {item.quantity} × {formatPrice(item.currentPrice)}
+                        </p>
+                      </div>
+
+                      <div className="text-xs font-bold text-theme-text-primary shrink-0">
+                        {formatPrice(item.itemTotal)}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Price Calculation Breakdown */}
+                <div className="border-t border-theme-border-subtle pt-4 space-y-2.5 text-xs">
+                  <div className="flex justify-between text-theme-text-subtle">
+                    <span>Items Subtotal</span>
+                    <span className="font-semibold text-theme-text-primary">
+                      {formatPrice(subtotal)}
+                    </span>
+                  </div>
+
+                  {totalDiscount > 0 && (
+                    <div className="flex justify-between text-emerald-700">
+                      <span>Offer Discount</span>
+                      <span className="font-semibold">-{formatPrice(totalDiscount)}</span>
+                    </div>
+                  )}
+
+                  <div className="flex justify-between text-theme-text-subtle items-center">
+                    <div className="flex items-center gap-1.5">
+                      <span>Shipping & Handling</span>
+                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-theme-surface-alt border border-theme-border text-theme-text-muted">
+                        {deliveryMethod === "express" ? "Express" : "Standard"}
+                      </span>
+                    </div>
+                    <span className="font-semibold text-theme-text-primary">
+                      {isFreeDelivery ? "FREE" : formatPrice(shippingCharge)}
+                    </span>
+                  </div>
+
+                  <div className="border-t border-theme-border pt-3 flex justify-between items-baseline">
+                    <span className="text-sm font-bold text-theme-text-primary">
+                      Total Amount
+                    </span>
+                    <span className="text-xl font-extrabold text-theme-primary">
+                      {formatPrice(grandTotal)}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Place Order CTA Button */}
+                <Button
+                  type="button"
+                  onClick={handlePlaceOrder}
+                  disabled={
+                    createOrderMutation.isPending ||
+                    createGuestOrderMutation.isPending ||
+                    isProcessingPayment ||
+                    isVerifyingPayment ||
+                    (!isGuest && (addressesLoading || !effectiveAddressId))
+                  }
+                  className="w-full min-h-[48px] rounded-xl bg-theme-primary hover:bg-theme-primary-hover text-white font-bold text-sm shadow-md transition-all disabled:opacity-50"
+                >
+                  {isVerifyingPayment ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Verifying Payment...
+                    </>
+                  ) : isProcessingPayment ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Opening Razorpay Gateway...
+                    </>
+                  ) : createOrderMutation.isPending || createGuestOrderMutation.isPending ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Placing Your Order...
+                    </>
+                  ) : paymentMethod === "COD" ? (
+                    <>
+                      <Truck className="mr-2 h-4 w-4" />
+                      Confirm COD Order ({formatPrice(grandTotal)})
+                    </>
+                  ) : (
+                    <>
+                      <Lock className="mr-2 h-4 w-4" />
+                      Pay {formatPrice(grandTotal)} via Razorpay
+                    </>
+                  )}
+                </Button>
+
+                <div className="text-[11px] text-center text-theme-text-muted space-y-1 pt-1">
+                  {paymentMethod === "COD" ? (
+                    <p className="flex items-center justify-center gap-1.5 font-medium text-amber-700">
+                      <ShieldCheck className="h-3.5 w-3.5 text-amber-600" />
+                      Doorstep Cash Payment • Direct Return Refund Protection
+                    </p>
+                  ) : (
+                    <p className="flex items-center justify-center gap-1.5 font-medium text-emerald-700">
+                      <ShieldCheck className="h-3.5 w-3.5 text-emerald-600" />
+                      256-bit Bank-Grade Encryption by Razorpay
+                    </p>
+                  )}
+                  <p>Premium collection delivered securely to your door.</p>
+                </div>
+
+              </div>
             </div>
           </div>
         </div>
-      </div>
       )}
     </div>
   );

@@ -2,10 +2,12 @@ export interface CategoryListItem {
   id: number;
   name: string;
   slug: string;
-  icon?:string;
+  icon?: string;
   description: string | null;
   image: string | null;
   parentId: number | null;
+  parentName?: string | null;
+  parentUuid?: string | null;
   isActive: boolean;
   sortOrder: number;
   _count: {
@@ -19,7 +21,7 @@ export interface CategoryDetail extends CategoryListItem {
   metaDescription: string | null;
   createdAt: Date;
   updatedAt: Date;
-  
+
   parent: {
     id: number;
     name: string;
@@ -49,7 +51,7 @@ export interface GetCategoriesParams {
   page?: number;
   pageSize?: number;
   search?: string;
-  parentId?: number | null;
+  parentId?: number | string | null;
 }
 
 export interface CreateCategoryInput {
@@ -76,6 +78,7 @@ export interface AdminCategoryResponse {
   isActive: boolean;
   sortOrder: number;
   parentId: string | null; // Public UUID of the parent category, if any
+  parentName?: string | null;
   createdAt: Date;
   updatedAt: Date;
 }
