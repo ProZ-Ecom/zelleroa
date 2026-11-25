@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import {
@@ -31,6 +31,56 @@ import {
   useVerifyRazorpayPayment,
 } from "@/features/customers/hooks/use-customer-payment";
 import { loadRazorpayScript } from "@/features/customers/utils/razorpay-loader";
+import { customerPaymentApi } from "@/features/customers/api/customer-payment.api";
+
+const PENDING_RZP_STORAGE_KEY = "zellora_pending_rzp_checkout";
+
+type PendingRzpCheckout = {
+  razorpayOrderId: string;
+  shippingAddressId?: string;
+  billingAddressId?: string;
+  deliveryMethod?: "standard" | "express";
+  notes?: string;
+  couponCode?: string;
+  createdAt: number;
+};
+
+function savePendingRzpCheckout(payload: Omit<PendingRzpCheckout, "createdAt">) {
+  try {
+    sessionStorage.setItem(
+      PENDING_RZP_STORAGE_KEY,
+      JSON.stringify({ ...payload, createdAt: Date.now() })
+    );
+  } catch {
+    // Ignore storage errors in restricted environments
+  }
+}
+
+function readPendingRzpCheckout(): PendingRzpCheckout | null {
+  try {
+    const raw = sessionStorage.getItem(PENDING_RZP_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as Partial<PendingRzpCheckout>;
+    if (
+      !parsed?.razorpayOrderId ||
+      (parsed.createdAt && Date.now() - parsed.createdAt > 30 * 60 * 1000)
+    ) {
+      sessionStorage.removeItem(PENDING_RZP_STORAGE_KEY);
+      return null;
+    }
+    return parsed as PendingRzpCheckout;
+  } catch {
+    return null;
+  }
+}
+
+function clearPendingRzpCheckout() {
+  try {
+    sessionStorage.removeItem(PENDING_RZP_STORAGE_KEY);
+  } catch {
+    // Ignore storage errors in restricted environments
+  }
+}
 import { OrderItemsList } from "@/features/orders/components/OrderItemsList";
 import { OrderTotals } from "@/features/orders/components/OrderTotals";
 import { AppliedReferral } from "@/features/agents/components/AppliedReferral";
@@ -48,6 +98,49 @@ export default function CheckoutPaymentPage() {
   const verifyRazorpayPayment = useVerifyRazorpayPayment();
 
   const [isRazorpayLoading, setIsRazorpayLoading] = useState(false);
+
+  useEffect(() => {
+    if (status !== "authenticated") return;
+    const pending = readPendingRzpCheckout();
+    if (!pending) return;
+
+    let cancelled = false;
+    Promise.resolve()
+      .then(() => {
+        if (!cancelled) setIsRazorpayLoading(true);
+        return customerPaymentApi.recoverPayment({
+          razorpayOrderId: pending.razorpayOrderId,
+          shippingAddressId: pending.shippingAddressId,
+          billingAddressId: pending.billingAddressId,
+          deliveryMethod: pending.deliveryMethod,
+          notes: pending.notes,
+          couponCode: pending.couponCode,
+        });
+      })
+      .then((res) => {
+        if (cancelled) return;
+        clearPendingRzpCheckout();
+        if (res.recovered && res.orderNumber) {
+          toast.success("Payment Successful", "Your order has been verified and placed successfully!");
+          checkout.resetCheckout();
+          router.push(`/checkout/success?orderNumber=${encodeURIComponent(res.orderNumber)}`);
+        }
+      })
+      .catch((err: unknown) => {
+        if (cancelled) return;
+        clearPendingRzpCheckout();
+        const message =
+          err instanceof Error ? err.message : "Please check My Orders before retrying payment.";
+        toast.error("Payment Verification", message);
+      })
+      .finally(() => {
+        if (!cancelled) setIsRazorpayLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [status, checkout, router]);
 
   const {
     data: summary,
@@ -141,7 +234,19 @@ export default function CheckoutPaymentPage() {
       const razorpayOrder = await createRazorpayOrder.mutateAsync({
         orderId: "cart",
         shippingAddressId: String(checkout.addressId),
+        billingAddressId: String(checkout.addressId),
+        notes: checkout.notes || undefined,
+        couponCode: checkout.couponCode ?? undefined,
         deliveryMethod: checkout.deliveryMethod,
+      });
+
+      savePendingRzpCheckout({
+        razorpayOrderId: razorpayOrder.razorpayOrderId,
+        shippingAddressId: String(checkout.addressId),
+        billingAddressId: String(checkout.addressId),
+        deliveryMethod: checkout.deliveryMethod,
+        notes: checkout.notes || undefined,
+        couponCode: checkout.couponCode ?? undefined,
       });
 
       // 3. Configure Razorpay Modal Options
@@ -174,6 +279,7 @@ export default function CheckoutPaymentPage() {
         },
         modal: {
           ondismiss: () => {
+            clearPendingRzpCheckout();
             setIsRazorpayLoading(false);
             toast.error("Payment Incomplete", "You closed the payment window. You can retry whenever you are ready.");
           },
@@ -191,15 +297,18 @@ export default function CheckoutPaymentPage() {
               billingAddressId: String(checkout.addressId),
               deliveryMethod: checkout.deliveryMethod,
               notes: checkout.notes || undefined,
+              couponCode: checkout.couponCode ?? undefined,
               razorpay_order_id: response.razorpay_order_id,
               razorpay_payment_id: response.razorpay_payment_id,
               razorpay_signature: response.razorpay_signature,
             });
 
+            clearPendingRzpCheckout();
             toast.success("Payment Successful", "Your order has been verified and placed successfully!");
             checkout.resetCheckout();
             router.push(`/checkout/success?orderNumber=${verifyResult.orderNumber}`);
           } catch (err: any) {
+            clearPendingRzpCheckout();
             toast.error(
               "Verification Error",
               err?.message || "Payment verification failed. Please contact customer support."
@@ -212,6 +321,7 @@ export default function CheckoutPaymentPage() {
 
       const razorpayInstance = new (window as any).Razorpay(options);
       razorpayInstance.on("payment.failed", function (response: any) {
+        clearPendingRzpCheckout();
         setIsRazorpayLoading(false);
         toast.error(
           "Payment Failed",
@@ -406,17 +516,17 @@ export default function CheckoutPaymentPage() {
                   isRazorpayLoading ||
                   createRazorpayOrder.isPending ||
                   verifyRazorpayPayment.isPending) && (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                )}
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  )}
                 {isAdminUser
                   ? "Payment Disabled for Admin"
                   : verifyRazorpayPayment.isPending
-                  ? "Verifying Payment..."
-                  : isRazorpayLoading || createRazorpayOrder.isPending
-                  ? "Opening Payment Gateway..."
-                  : checkout.paymentMethod === "CASH_ON_DELIVERY"
-                  ? "Place Order (Cash on Delivery)"
-                  : "Pay Online with Razorpay"}
+                    ? "Verifying Payment..."
+                    : isRazorpayLoading || createRazorpayOrder.isPending
+                      ? "Opening Payment Gateway..."
+                      : checkout.paymentMethod === "CASH_ON_DELIVERY"
+                        ? "Place Order (Cash on Delivery)"
+                        : "Pay Online with Razorpay"}
               </Button>
 
               {placeOrder.error && (
