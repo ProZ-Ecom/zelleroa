@@ -955,7 +955,7 @@ textarea:focus-visible {
 /* Centralized Dropdown & Select Design System                        */
 /* ================================================================== */
 
-.ui-dropdown-wrapper {
+:where(.ui-dropdown-wrapper) {
   position: relative;
   width: 100%;
 }
