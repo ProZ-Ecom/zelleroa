@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/components/ui/Toast";
 import { formatDateTime, formatPrice } from "@/lib/utils";
+import { formatPhone } from "@/lib/utils/format-phone";
 import {
   availableActions,
   formatStoreDate,
@@ -409,7 +410,7 @@ export function AdminRequestDetailModal({ kind, uuid, onClose }: Props) {
             <Block title="Customer">
               <p className="font-semibold">{req.customer.name}</p>
               <p className="text-neutral-600">{req.customer.email}</p>
-              <p className="text-neutral-600">{req.customer.phone || "—"}</p>
+              <p className="text-neutral-600">{formatPhone(req.customer.phone)}</p>
             </Block>
             <Block title="Order">
               <p className="font-mono font-semibold">{req.orderNumber}</p>
@@ -472,7 +473,7 @@ export function AdminRequestDetailModal({ kind, uuid, onClose }: Props) {
                       )}
                     </button>
                   </div>
-                  <p className="text-neutral-600 font-medium">Phone: {req.shippingAddress.phone}</p>
+                  <p className="text-neutral-600 font-medium">Phone: {formatPhone(req.shippingAddress.phone)}</p>
                   <p className="text-neutral-700">
                     {req.shippingAddress.addressLine1}
                     {req.shippingAddress.addressLine2 ? `, ${req.shippingAddress.addressLine2}` : ""}
@@ -1254,7 +1255,7 @@ export function AdminRequestDetailModal({ kind, uuid, onClose }: Props) {
                     <div className="pt-2 border-t border-neutral-100">
                       <span className="font-semibold text-neutral-800">Customer Pickup Address:</span>
                       <p className="text-neutral-600 mt-0.5">
-                        {req.shippingAddress.fullName} · {req.shippingAddress.phone}
+                        {req.shippingAddress.fullName} · {formatPhone(req.shippingAddress.phone)}
                         <br />
                         {req.shippingAddress.addressLine1}
                         {req.shippingAddress.addressLine2 ? `, ${req.shippingAddress.addressLine2}` : ""}
@@ -1435,7 +1436,7 @@ export function AdminRequestDetailModal({ kind, uuid, onClose }: Props) {
                     <div className="pt-1.5 border-t border-emerald-200/70 text-emerald-950">
                       <span className="font-semibold">Customer Pickup Location:</span>
                       <p className="text-[11px] text-emerald-900 mt-0.5">
-                        {req.shippingAddress.fullName} · {req.shippingAddress.phone}
+                        {req.shippingAddress.fullName} · {formatPhone(req.shippingAddress.phone)}
                         <br />
                         {req.shippingAddress.addressLine1}, {req.shippingAddress.city} - {req.shippingAddress.pincode}
                       </p>

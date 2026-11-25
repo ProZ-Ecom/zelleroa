@@ -48,7 +48,9 @@ import { useCategories } from "@/features/categories/hooks";
 import { useBrands } from "@/features/brands/hooks";
 import { QuickAddBrandModal } from "@/features/brands/components/QuickAddBrandModal";
 import { useHsnCodes } from "@/features/hsn-codes/hooks";
+import { formatMeasurementLabel } from "@/features/variants/utils/measurement.util";
 import { useUnits } from "@/features/units/hooks";
+import { AdminBreadcrumb } from "@/components/admin/AdminBreadcrumb";
 import { ProductForm, type ProductFormValues } from "@/features/products/components/ProductForm";
 import { ProductAttributesPanel } from "@/features/products/components/ProductAttributesPanel";
 import { ProductImageUploader } from "@/features/products/components/ProductImageUploader";
@@ -78,10 +80,7 @@ type VariantFilter = "active" | "inactive";
 function formatMeasurement(m: any): string {
   if (!m) return "—";
   if (typeof m === "string") return m;
-  if (typeof m === "object" && "value" in m && "unit" in m) {
-    return `${m.value} ${m.unit}`.trim() || "—";
-  }
-  return "—";
+  return formatMeasurementLabel(m) || "—";
 }
 
 function renderColorBadge(colorName?: string | null, colorHex?: string | null) {
@@ -512,17 +511,14 @@ export default function AdminProductDetailsPage() {
   return (
     <div className="w-full space-y-4 text-neutral-900">
       {/* Breadcrumb Navigation */}
-      <div className="flex items-center gap-2 text-xs sm:text-sm font-medium text-neutral-400 pb-1">
-        <Link
-          href="/admin/dashboard/products"
-          className="hover:text-secondary-800 transition-colors"
-        >
-          Products
-        </Link>
-        <span className="opacity-40">/</span>
-        <span className="text-neutral-900 font-semibold truncate max-w-[200px] sm:max-w-md">
-          {product.name}
-        </span>
+      <div className="pb-1">
+        <AdminBreadcrumb
+          items={[
+            { label: "Catalog" },
+            { label: "Products", href: "/admin/dashboard/products" },
+            { label: product.name },
+          ]}
+        />
       </div>
 
       {/* Section 1: Hero Overview + Specifications Card */}
@@ -974,7 +970,7 @@ export default function AdminProductDetailsPage() {
           </div>
         ) : (
           <div className="overflow-x-auto overflow-y-auto max-h-[560px] relative scrollbar-thin">
-            <table className="w-full text-left text-sm border-collapse">
+            <table className="w-full min-w-full table-auto text-left text-sm border-collapse">
               <thead className="sticky top-0 z-30 bg-cream-50 text-[11px] font-bold tracking-wider text-neutral-400 uppercase shadow-[0_1px_0_var(--cream-border)]">
                 <tr>
                   {/* Checkbox */}
@@ -1066,12 +1062,15 @@ export default function AdminProductDetailsPage() {
                           <span className="text-neutral-400 italic">No sizes added</span>
                         ) : (
                           <span className="inline-flex items-center gap-1.5">
-                            <span>{formatMeasurement(variant.measurement)}</span>
+                            <span>
+                              {unitPrices[0]?.sizeValue || formatMeasurement(variant.measurement || unitPrices[0]?.measurement)}
+                            </span>
                             {extraSizes > 0 && (
                               <span
                                 className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-neutral-100 text-neutral-600 border border-neutral-200"
                                 title={unitPrices
-                                  .map((p) => `${p.measurement.value} ${p.measurement.unit}`)
+                                  .map((p) => p.sizeValue || formatMeasurement(p.measurement) || `${p.measurement?.value ?? ""} ${p.measurement?.unit ?? ""}`.trim())
+                                  .filter(Boolean)
                                   .join(", ")}
                               >
                                 +{extraSizes} more

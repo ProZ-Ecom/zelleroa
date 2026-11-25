@@ -3,11 +3,12 @@
 import * as React from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { ShieldCheck } from "lucide-react";
 import { LOGOS, ICONS } from "@/constants/storefront";
 import { ContactFormModal } from "@/features/contact/components/ContactFormModal";
 import { useCustomerCompany } from "@/features/customers/hooks/use-customer-company";
-import { getImageUrl, cn } from "@/lib/utils";
+import { cn } from "@/lib/utils";
 
 const SHOP_LINKS = [
   { label: "Men's Collection", href: "/category/men" },
@@ -32,32 +33,66 @@ const SOCIAL_PLATFORMS = [
     label: "Facebook",
     icon: ICONS.facebook,
     bgClass: "bg-[#1877F2] hover:bg-[#1567d3] shadow-sm shadow-[#1877F2]/25",
-    href: "https://facebook.com",
+    defaultHref: "https://facebook.com",
   },
   {
     name: "instagram",
     label: "Instagram",
     icon: ICONS.instagram,
     bgClass: "bg-gradient-to-tr from-[#f09433] via-[#dc2743] to-[#bc1888] hover:opacity-90 shadow-sm shadow-pink-500/25",
-    href: "https://instagram.com",
+    defaultHref: "https://instagram.com",
   },
   {
     name: "youtube",
     label: "YouTube",
     icon: ICONS.youtube,
     bgClass: "bg-[#FF0000] hover:bg-[#d90000] shadow-sm shadow-red-500/25",
-    href: "https://youtube.com",
+    defaultHref: "https://youtube.com",
   },
   {
     name: "whatsapp",
     label: "WhatsApp",
     icon: ICONS.whatsapp1,
     bgClass: "bg-[#25D366] hover:bg-[#1ebc59] shadow-sm shadow-green-500/25",
-    href: null,
+    defaultHref: null,
   },
 ];
 
 const PAYMENT_METHODS = ["UPI", "Visa", "Mastercard", "RuPay", "NetBanking"];
+
+interface FooterLinkProps extends React.ComponentProps<typeof Link> {
+  children: React.ReactNode;
+}
+
+function FooterLink({ href, onClick, children, ...props }: FooterLinkProps) {
+  const pathname = usePathname();
+
+  const handleClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
+    onClick?.(e);
+    if (e.defaultPrevented) return;
+
+    if (typeof window !== "undefined") {
+      const hrefStr = typeof href === "string" ? href : href.pathname || "";
+      const targetPath = hrefStr.split("?")[0].split("#")[0];
+      const normalizePath = (p: string) => (p.length > 1 && p.endsWith("/") ? p.slice(0, -1) : p);
+
+      if (normalizePath(pathname || "") === normalizePath(targetPath)) {
+        e.preventDefault();
+        window.scrollTo({ top: 0, behavior: "smooth" });
+        document.documentElement.scrollTo?.({ top: 0, behavior: "smooth" });
+        document.body.scrollTo?.({ top: 0, behavior: "smooth" });
+      } else {
+        window.scrollTo({ top: 0, behavior: "instant" });
+      }
+    }
+  };
+
+  return (
+    <Link href={href} onClick={handleClick} scroll={true} {...props}>
+      {children}
+    </Link>
+  );
+}
 
 export function Footer() {
   const [isContactModalOpen, setIsContactModalOpen] = React.useState(false);
@@ -65,14 +100,79 @@ export function Footer() {
   const { data: company } = useCustomerCompany();
 
   const companyName = company?.companyName?.trim() || "Zellora";
-  const companyLogo = company?.logo ? getImageUrl(company.logo) : LOGOS.logo;
+  const socialLinks = company?.socialLinks;
 
   const whatsappLink = React.useMemo(() => {
+    const custom = socialLinks?.whatsapp?.trim();
+    if (custom) {
+      if (custom.startsWith("http://") || custom.startsWith("https://")) {
+        return custom;
+      }
+      const digits = custom.replace(/\D/g, "");
+      if (digits) {
+        const clean = digits.length === 10 ? `91${digits}` : digits;
+        return `https://wa.me/${clean}`;
+      }
+    }
     const phone = company?.phone?.trim();
     const digits = (phone || "8667380899").replace(/\D/g, "");
     const clean = digits.length === 10 ? `91${digits}` : digits;
     return `https://wa.me/${clean}`;
-  }, [company]);
+  }, [company?.phone, socialLinks?.whatsapp]);
+
+  const resolvedSocialPlatforms = React.useMemo(() => {
+    const normalizeUrl = (url?: string | null) => {
+      if (!url || !url.trim()) return null;
+      const t = url.trim();
+      return t.startsWith("http://") || t.startsWith("https://") ? t : `https://${t}`;
+    };
+
+    const list: Array<{
+      name: string;
+      label: string;
+      icon: string | null;
+      bgClass: string;
+      href: string;
+    }> = [];
+
+    for (const platform of SOCIAL_PLATFORMS) {
+      let targetHref: string | null = null;
+      if (platform.name === "whatsapp") {
+        targetHref = whatsappLink;
+      } else if (platform.name === "facebook") {
+        targetHref = normalizeUrl(socialLinks?.facebook) ?? (socialLinks ? null : platform.defaultHref);
+      } else if (platform.name === "instagram") {
+        targetHref = normalizeUrl(socialLinks?.instagram) ?? (socialLinks ? null : platform.defaultHref);
+      } else if (platform.name === "youtube") {
+        targetHref = normalizeUrl(socialLinks?.youtube) ?? (socialLinks ? null : platform.defaultHref);
+      }
+
+      if (targetHref) {
+        list.push({
+          name: platform.name,
+          label: platform.label,
+          icon: platform.icon,
+          bgClass: platform.bgClass,
+          href: targetHref,
+        });
+      }
+    }
+
+    if (socialLinks?.twitter?.trim()) {
+      const twitterUrl = normalizeUrl(socialLinks.twitter);
+      if (twitterUrl) {
+        list.push({
+          name: "twitter",
+          label: "X (Twitter)",
+          icon: null,
+          bgClass: "bg-black hover:bg-neutral-800 shadow-sm shadow-black/25",
+          href: twitterUrl,
+        });
+      }
+    }
+
+    return list;
+  }, [socialLinks, whatsappLink]);
 
   return (
     <footer className="w-full bg-white border-t border-theme-border">
@@ -81,17 +181,22 @@ export function Footer() {
         <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-5">
           {/* Brand */}
           <div className="sm:col-span-2 lg:col-span-1">
-            <div className="flex items-center gap-2">
-              <Image src={companyLogo} alt={companyName} width={32} height={32} className="object-contain" />
-              <div>
-                <p className="text-lg font-extrabold uppercase tracking-tight text-theme-text-primary leading-none">
-                  {companyName}
-                </p>
-                <p className="text-[10px] font-semibold uppercase tracking-wide text-theme-text-subtle">
-                  Lifestyle &amp; Beyond
-                </p>
-              </div>
-            </div>
+            <FooterLink href="/" className="inline-flex items-center gap-2 select-none group">
+              <Image
+                src={LOGOS.logo}
+                alt="Zellora logo"
+                width={100}
+                height={100}
+                className="h-8 sm:h-9 w-auto aspect-square object-contain group-hover:scale-105 transition-transform duration-300 shrink-0"
+              />
+              <Image
+                src={LOGOS.title}
+                alt="Zellora"
+                width={160}
+                height={48}
+                className="h-7 sm:h-8 w-auto object-contain group-hover:scale-105 transition-transform duration-300 shrink-0"
+              />
+            </FooterLink>
             <p className="mt-4 text-sm text-theme-text-subtle leading-relaxed">
               Shop smarter. Shop better. Quality essentials and contemporary lifestyle picks
               for every day.
@@ -108,9 +213,9 @@ export function Footer() {
             <ul className="mt-4 space-y-2.5 text-sm text-theme-text-subtle">
               {SHOP_LINKS.map((link) => (
                 <li key={link.label}>
-                  <Link href={link.href} className="hover:text-theme-primary transition-colors">
+                  <FooterLink href={link.href} className="hover:text-theme-primary transition-colors">
                     {link.label}
-                  </Link>
+                  </FooterLink>
                 </li>
               ))}
             </ul>
@@ -130,19 +235,19 @@ export function Footer() {
                 </button>
               </li>
               <li>
-                <Link href="/orders" className="hover:text-theme-primary transition-colors">
+                <FooterLink href="/orders" className="hover:text-theme-primary transition-colors">
                   Track Order
-                </Link>
+                </FooterLink>
               </li>
               <li>
-                <Link href="/return-refund-policy" className="hover:text-theme-primary transition-colors">
+                <FooterLink href="/return-refund-policy" className="hover:text-theme-primary transition-colors">
                   Returns &amp; Refunds
-                </Link>
+                </FooterLink>
               </li>
               <li>
-                <Link href="/faqs" className="hover:text-theme-primary transition-colors">
+                <FooterLink href="/faqs" className="hover:text-theme-primary transition-colors">
                   Help &amp; FAQs
-                </Link>
+                </FooterLink>
               </li>
               <li>
                 <a
@@ -163,9 +268,9 @@ export function Footer() {
             <ul className="mt-4 space-y-2.5 text-sm text-theme-text-subtle">
               {POLICY_LINKS.map((link) => (
                 <li key={link.label}>
-                  <Link href={link.href} className="hover:text-theme-primary transition-colors">
+                  <FooterLink href={link.href} className="hover:text-theme-primary transition-colors">
                     {link.label}
-                  </Link>
+                  </FooterLink>
                 </li>
               ))}
             </ul>
@@ -178,20 +283,19 @@ export function Footer() {
               Follow our official channels for new arrivals &amp; exclusive offers.
             </p>
             <div className="mt-4 flex items-center gap-3">
-              {SOCIAL_PLATFORMS.map((item) => {
-                const targetHref = item.name === "whatsapp" ? whatsappLink : item.href;
-                return (
-                  <a
-                    key={item.name}
-                    href={targetHref ?? "#"}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    aria-label={`Follow Zellora on ${item.label}`}
-                    className={cn(
-                      "flex h-9 w-9 items-center justify-center rounded-full text-white transition-all duration-200 hover:scale-110 cursor-pointer",
-                      item.bgClass
-                    )}
-                  >
+              {resolvedSocialPlatforms.map((item) => (
+                <a
+                  key={item.name}
+                  href={item.href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label={`Follow Zellora on ${item.label}`}
+                  className={cn(
+                    "flex h-9 w-9 items-center justify-center rounded-full text-white transition-all duration-200 hover:scale-110 cursor-pointer",
+                    item.bgClass
+                  )}
+                >
+                  {item.icon ? (
                     <Image
                       src={item.icon}
                       alt={item.label}
@@ -199,14 +303,21 @@ export function Footer() {
                       height={17}
                       className="object-contain"
                     />
-                  </a>
-                );
-              })}
+                  ) : (
+                    <svg className="w-3.5 h-3.5 fill-current text-white" viewBox="0 0 24 24" aria-hidden="true">
+                      <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+                    </svg>
+                  )}
+                </a>
+              ))}
             </div>
-            <div className="mt-5 space-y-1 text-xs text-theme-text-subtle">
+            <div className="mt-5 space-y-1.5 text-xs text-theme-text-subtle">
               <p className="font-semibold text-theme-text-primary">Customer Support</p>
+              <p className="text-theme-text-muted">
+                For any enquiries or assistance, reach us at:
+              </p>
               <p>
-                <a href="mailto:support@zellora.com" className="hover:text-theme-primary transition-colors">
+                <a href="mailto:support@zellora.com" className="font-medium text-theme-primary hover:underline transition-colors">
                   support@zellora.com
                 </a>
               </p>

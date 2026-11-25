@@ -306,7 +306,7 @@ function PricingContent() {
       <AdminContent className="flex-1 min-h-0">
         <div className="flex h-full flex-col py-1">
           <div className="flex-shrink-0 flex flex-col gap-3">
-            <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
               <div className="flex flex-1 flex-wrap items-center gap-3">
                 <SearchInput
                   placeholder="Search product, item or SKU..."
@@ -315,34 +315,38 @@ function PricingContent() {
                     setSearch(v);
                     resetPage();
                   }}
-                  className="w-full max-w-sm"
+                  className="w-full sm:w-64 max-w-sm shrink-0"
                 />
-                <Select
-                  value={categorySlug}
-                  onValueChange={(v) => {
-                    setCategorySlug(v);
-                    resetPage();
-                  }}
-                  options={[
-                    { value: "", label: "All categories" },
-                    ...(categoryData?.data ?? []).map((c) => ({ value: c.slug, label: c.name })),
-                  ]}
-                  className="w-full sm:w-48"
-                  aria-label="Filter by category"
-                />
-                <Select
-                  value={brandSlug}
-                  onValueChange={(v) => {
-                    setBrandSlug(v);
-                    resetPage();
-                  }}
-                  options={[
-                    { value: "", label: "All brands" },
-                    ...(brandData?.data ?? []).map((b) => ({ value: b.slug, label: b.name })),
-                  ]}
-                  className="w-full sm:w-44"
-                  aria-label="Filter by brand"
-                />
+                <div className="w-full sm:w-48 shrink-0">
+                  <Select
+                    value={categorySlug}
+                    onValueChange={(v) => {
+                      setCategorySlug(v);
+                      resetPage();
+                    }}
+                    options={[
+                      { value: "", label: "All categories" },
+                      ...(categoryData?.data ?? []).map((c) => ({ value: c.slug, label: c.name })),
+                    ]}
+                    className="w-full"
+                    aria-label="Filter by category"
+                  />
+                </div>
+                <div className="w-full sm:w-44 shrink-0">
+                  <Select
+                    value={brandSlug}
+                    onValueChange={(v) => {
+                      setBrandSlug(v);
+                      resetPage();
+                    }}
+                    options={[
+                      { value: "", label: "All brands" },
+                      ...(brandData?.data ?? []).map((b) => ({ value: b.slug, label: b.name })),
+                    ]}
+                    className="w-full"
+                    aria-label="Filter by brand"
+                  />
+                </div>
                 <Checkbox
                   label="At or below cost"
                   checked={belowCost}
@@ -350,6 +354,7 @@ function PricingContent() {
                     setBelowCost(e.target.checked);
                     resetPage();
                   }}
+                  className="shrink-0"
                 />
                 <Checkbox
                   label="No price set"
@@ -358,6 +363,7 @@ function PricingContent() {
                     setUnpriced(e.target.checked);
                     resetPage();
                   }}
+                  className="shrink-0"
                 />
                 <Checkbox
                   label="No purchase cost"
@@ -366,6 +372,7 @@ function PricingContent() {
                     setNoCost(e.target.checked);
                     resetPage();
                   }}
+                  className="shrink-0"
                 />
                 {hasFilters && (
                   <ClearFiltersButton

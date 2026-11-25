@@ -10,14 +10,14 @@ import { constructMetadata } from "@/lib/seo";
 export const metadata: Metadata = constructMetadata({
   title: "About Us",
   description:
-    "ZELLORA INDIA is an online-based fashion business bringing fashion products to customers through a convenient online shopping experience and our Sales Partner network.",
+    "Zellora is an online-based fashion business bringing fashion products to customers through a convenient online shopping experience and our Sales Partner network.",
   canonicalUrl: "/about",
 });
 
 export default function AboutPage() {
   return (
     <div className="w-full">
-      {/* 1. Hero: Welcome to ZELLORA INDIA */}
+      {/* 1. Hero: Welcome to Zellora */}
       <AboutHeroSection />
 
       {/* Highlights ribbon */}

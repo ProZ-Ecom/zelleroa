@@ -177,7 +177,7 @@ export const commissionRateService = {
           isActive,
         },
       });
-      return { id: String(saved.id), scopeKey };
+      return { id: String(saved.id), scopeKey, isUpdate: Boolean(existing) };
     });
   },
 

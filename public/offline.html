@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0" />
+  <title>Offline — Zellora</title>
+  <meta name="theme-color" content="#2563eb" />
+  <link rel="icon" href="/icons/favicon-32x32.png" sizes="32x32" type="image/png" />
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      background: #f8fafc;
+      color: #0f172a;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px 16px;
+    }
+    .card {
+      background: #ffffff;
+      border: 1px solid #e2e8f0;
+      border-radius: 20px;
+      max-width: 460px;
+      width: 100%;
+      padding: 40px 32px;
+      text-align: center;
+      box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.05), 0 8px 10px -6px rgba(15, 23, 42, 0.03);
+    }
+    .logo-container {
+      margin-bottom: 24px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 80px;
+      height: 80px;
+      border-radius: 20px;
+      background: #eff6ff;
+    }
+    .logo-img {
+      width: 52px;
+      height: 52px;
+      object-fit: contain;
+    }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 12px;
+      border-radius: 9999px;
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 16px;
+      background: #fee2e2;
+      color: #991b1b;
+    }
+    .badge.online {
+      background: #dcfce7;
+      color: #166534;
+    }
+    .badge-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: currentColor;
+    }
+    h1 {
+      font-size: 24px;
+      font-weight: 700;
+      color: #0f172a;
+      letter-spacing: -0.02em;
+      margin-bottom: 12px;
+    }
+    p {
+      font-size: 15px;
+      color: #64748b;
+      line-height: 1.6;
+      margin-bottom: 28px;
+    }
+    .actions {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      padding: 13px 20px;
+      border-radius: 12px;
+      font-size: 15px;
+      font-weight: 600;
+      text-decoration: none;
+      cursor: pointer;
+      transition: all 0.15s ease-in-out;
+      border: 1px solid transparent;
+    }
+    .btn-primary {
+      background: #2563eb;
+      color: #ffffff;
+    }
+    .btn-primary:hover {
+      background: #1d4ed8;
+    }
+    .btn-secondary {
+      background: #f1f5f9;
+      color: #0f172a;
+      border-color: #e2e8f0;
+    }
+    .btn-secondary:hover {
+      background: #e2e8f0;
+    }
+    .footer-note {
+      margin-top: 28px;
+      padding-top: 20px;
+      border-top: 1px solid #f1f5f9;
+      font-size: 13px;
+      color: #94a3b8;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="logo-container">
+      <img src="/icons/icon-192x192.png" alt="Zellora" class="logo-img" onerror="this.src='/logo-mark.png'" />
+    </div>
+
+    <div>
+      <span class="badge" id="status-badge">
+        <span class="badge-dot"></span>
+        <span id="status-text">No Connection</span>
+      </span>
+    </div>
+
+    <h1>You are currently offline</h1>
+    <p>
+      It seems you’ve lost internet connectivity. You can retry once your network is restored, or navigate back to previously viewed pages.
+    </p>
+
+    <div class="actions">
+      <button class="btn btn-primary" onclick="retryConnection()" id="retry-btn">
+        Retry Connection
+      </button>
+      <a href="/" class="btn btn-secondary">
+        Return to Home
+      </a>
+    </div>
+
+    <div class="footer-note">
+      Zellora PWA &bull; Luxury Fashion & Lifestyle
+    </div>
+  </div>
+
+  <script>
+    function updateOnlineStatus() {
+      const badge = document.getElementById("status-badge");
+      const statusText = document.getElementById("status-text");
+      const retryBtn = document.getElementById("retry-btn");
+
+      if (navigator.onLine) {
+        badge.className = "badge online";
+        statusText.textContent = "Connection Restored";
+        retryBtn.textContent = "Reconnecting...";
+        setTimeout(() => {
+          window.location.reload();
+        }, 800);
+      } else {
+        badge.className = "badge";
+        statusText.textContent = "No Connection";
+        retryBtn.textContent = "Retry Connection";
+      }
+    }
+
+    function retryConnection() {
+      const retryBtn = document.getElementById("retry-btn");
+      retryBtn.textContent = "Checking...";
+      if (navigator.onLine) {
+        window.location.reload();
+      } else {
+        setTimeout(() => {
+          retryBtn.textContent = "Retry Connection";
+        }, 500);
+      }
+    }
+
+    window.addEventListener("online", updateOnlineStatus);
+    window.addEventListener("offline", updateOnlineStatus);
+  </script>
+</body>
+</html>

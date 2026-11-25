@@ -6,7 +6,7 @@ const flow = [
   {
     id: "zellora",
     icon: Store,
-    title: "ZELLORA INDIA",
+    title: "Zellora",
     description: "Brings fashion products online.",
   },
   {
@@ -58,7 +58,7 @@ export function AboutOurStorySection() {
             {/* Description */}
             <div className="space-y-4 text-about-body text-sm sm:text-base leading-relaxed">
               <p>
-                ZELLORA INDIA operates through an online-based business model where our fashion products are promoted through our Sales Partner network. Customers can explore our products and place orders through the available online channels.
+                Zellora operates through an online-based business model where our fashion products are promoted through our Sales Partner network. Customers can explore our products and place orders through the available online channels.
               </p>
               <p>
                 We promote our products and receive customer orders through our Sales Partners, who play an important role in connecting our products with customers.

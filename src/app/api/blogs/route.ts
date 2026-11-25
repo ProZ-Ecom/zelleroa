@@ -23,11 +23,9 @@ export const POST = createApiHandler(
   {
     POST: async (_request, context) => {
       const body = context.body as ReturnType<typeof createBlogSchema.parse>;
-      const session = context.session;
-      const blog = await blogService.createBlog({
-        ...body,
-        authorId: body.authorId ?? Number(session?.user?.id),
-      });
+      const userIdentifier =
+        context.session?.user?.id || context.session?.user?.email;
+      const blog = await blogService.createBlog(body, userIdentifier);
       return apiCreated(blog, "Blog created successfully");
     },
   },

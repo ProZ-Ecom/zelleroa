@@ -6,6 +6,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import { useSubmitBulkOrderEnquiry } from "../hooks";
 import {
   createBulkOrderSchema,
@@ -85,7 +86,16 @@ export function BulkOrderForm() {
           <label className="block text-sm font-medium text-gray-700 mb-1">
             Phone Number <span className="text-red-600">*</span>
           </label>
-          <input {...register("phone")} className={inputClass} placeholder="Mobile number" />
+          <div className="relative">
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-500 font-medium">
+              +91
+            </span>
+            <input
+              {...register("phone")}
+              className={cn(inputClass, "pl-12")}
+              placeholder="9897567488"
+            />
+          </div>
           <FieldError message={errors.phone?.message} />
         </div>
       </div>

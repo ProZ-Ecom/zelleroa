@@ -29,6 +29,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Radio } from "@/components/ui/Radio";
+import { toast } from "@/components/ui/Toast";
 import { cleanPhoneDisplay } from "@/lib/whatsapp/whatsapp-utils";
 
 const CAMPAIGN_TYPE_OPTIONS: SelectOption[] = [
@@ -224,10 +225,10 @@ function CreateCampaignContent() {
       if (json.success && json.data?.url) {
         setMediaUrl(json.data.url);
       } else {
-        alert(json.message || "Failed to upload image.");
+        toast.error("Upload failed", json.message || "Failed to upload image.");
       }
     } catch (err: unknown) {
-      alert("Image upload error: " + (err as Error)?.message);
+      toast.error("Upload failed", "Image upload error: " + (err as Error)?.message);
     } finally {
       setIsUploadingMedia(false);
     }
@@ -314,14 +315,7 @@ function CreateCampaignContent() {
       <AdminPageHeader
         title="Create WhatsApp Campaign"
         description="Deliver festival offers, flash sales, and product updates safely to 200–500 customers"
-      >
-        <Link href="/admin/dashboard/whatsapp/campaigns">
-          <Button variant="outline" size="sm" className="gap-2 border-neutral-200">
-            <ArrowLeft className="w-4 h-4" />
-            Back to Campaigns
-          </Button>
-        </Link>
-      </AdminPageHeader>
+      />
 
       {/* Tabs */}
       <WhatsAppNavTabs active="campaigns" />
@@ -533,7 +527,7 @@ function CreateCampaignContent() {
           </div>
 
           {/* Customer Table List */}
-          <div className="border border-neutral-200/80 rounded-xl overflow-hidden max-h-[380px] overflow-y-auto">
+          <div className="border border-neutral-200/80 rounded-xl overflow-auto scrollbar-thin max-h-[380px]">
             {isLoadingCustomers ? (
               <div className="p-12 text-center text-neutral-400 flex flex-col items-center gap-2">
                 <Loader2 className="w-6 h-6 animate-spin text-secondary-600" />
@@ -544,8 +538,8 @@ function CreateCampaignContent() {
                 No customers match the current filter or search criteria.
               </div>
             ) : (
-              <table className="w-full text-left text-xs">
-                <thead className="bg-neutral-50 text-neutral-600 uppercase tracking-wider sticky top-0 border-b border-neutral-200 font-semibold">
+              <table className="w-full min-w-full table-auto text-left text-xs">
+                <thead className="bg-neutral-50 text-neutral-600 uppercase tracking-wider sticky top-0 border-b border-neutral-200 font-semibold whitespace-nowrap">
                   <tr>
                     <th className="p-3 w-10 text-center">
                       <div className="flex justify-center">

@@ -23,6 +23,7 @@ import {
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
 import { formatDateTime, formatPrice } from "@/lib/utils";
+import { formatPhone } from "@/lib/utils/format-phone";
 import {
   useStaffDelivery,
   useAcceptDelivery,
@@ -30,6 +31,7 @@ import {
 } from "../hooks";
 import { DeliveryStatusBadge, AssignmentStatusBadge } from "./DeliveryStatusBadge";
 import { MarkDeliveredModal } from "./MarkDeliveredModal";
+import { isManualDeliveryStatusEnabled } from "../lib/delivery-config";
 
 interface StaffDeliveryDetailModalProps {
   isOpen: boolean;
@@ -105,12 +107,17 @@ export function StaffDeliveryDetailModal({
     delivery?.assignmentStatus === "pending" ||
     (!delivery?.acceptedAt && delivery?.status === "pending");
 
+  const isTestingDeliveryEnabled = isManualDeliveryStatusEnabled();
+
   const canMarkOutForDelivery =
+    isTestingDeliveryEnabled &&
     delivery?.assignmentStatus === "accepted" &&
     delivery?.status !== "out_for_delivery" &&
     delivery?.status !== "delivered";
 
-  const canMarkDelivered = delivery?.status === "out_for_delivery";
+  const canMarkDelivered =
+    isTestingDeliveryEnabled &&
+    delivery?.status === "out_for_delivery";
 
   return (
     <>
@@ -217,7 +224,7 @@ export function StaffDeliveryDetailModal({
                     <span className="text-xs text-neutral-400">Phone Number</span>
                     <div className="flex items-center gap-2">
                       <p className="font-mono font-medium text-neutral-900">
-                        {customer?.phone || "—"}
+                        {formatPhone(customer?.phone)}
                       </p>
                       {customer?.phone && (
                         <button

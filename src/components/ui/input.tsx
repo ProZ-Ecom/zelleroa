@@ -49,7 +49,12 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
           )}
 
           {inputPrefix && (
-            <div className="absolute left-10 top-1/2 flex -translate-y-1/2 items-center gap-2 text-sm text-theme-text-muted">
+            <div
+              className={cn(
+                "absolute top-1/2 flex -translate-y-1/2 items-center gap-2 text-sm text-theme-text-muted pointer-events-none",
+                leftIcon ? "left-10" : "left-3.5"
+              )}
+            >
               <span>{inputPrefix}</span>
               <span className="h-5 w-px bg-theme-border" />
             </div>
@@ -65,8 +70,9 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
   error
     ? "!border-red-500 hover:!border-red-500 focus:!border-red-500 focus:!ring-2 focus:!ring-red-500/30 focus-visible:!ring-red-500/30"
     : "border-theme-border hover:border-theme-border-accent focus:border-theme-primary focus:ring-2 focus:ring-theme-primary/20",
-  leftIcon && "pl-10",
-  inputPrefix && "pl-20",
+  leftIcon && !inputPrefix && "pl-10",
+  !leftIcon && inputPrefix && "pl-14",
+  leftIcon && inputPrefix && "pl-22",
   (rightIcon || isPassword) && "pr-11",
   className
 )}

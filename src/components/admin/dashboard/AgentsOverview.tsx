@@ -76,15 +76,15 @@ function AgentsOverview({ agents, periodLabel }: { agents: DashboardAgents; peri
         <Stat icon={Wallet} label="Payout requested" value={formatPrice(agents.payoutRequested)} gradient={AMBER} alert={agents.payoutRequested > 0} />
       </div>
 
-      <div className="mt-5 overflow-x-auto">
+      <div className="mt-5 overflow-x-auto scrollbar-thin">
         {agents.topAgents.length === 0 ? (
           <p className="py-8 text-center text-sm text-[var(--color-neutral-400)]">
             No agent-referred orders in this period
           </p>
         ) : (
-          <table className="w-full text-sm">
+          <table className="w-full min-w-full table-auto text-sm">
             <thead>
-              <tr className="bg-[var(--color-neutral-50)] text-left text-[11px] font-semibold uppercase tracking-wider text-[var(--color-neutral-500)]">
+              <tr className="bg-[var(--color-neutral-50)] text-left text-[11px] font-semibold uppercase tracking-wider text-[var(--color-neutral-500)] whitespace-nowrap">
                 <th className="rounded-l-lg px-3 py-2.5">Agent</th>
                 <th className="px-3 py-2.5">Orders</th>
                 <th className="px-3 py-2.5 text-right">Sales</th>
@@ -95,7 +95,7 @@ function AgentsOverview({ agents, periodLabel }: { agents: DashboardAgents; peri
               {agents.topAgents.map((a, i) => (
                 <tr
                   key={a.id}
-                  className="border-b border-[var(--color-neutral-100)] transition-colors last:border-0 hover:bg-[var(--color-neutral-50)]"
+                  className="border-b border-[var(--color-neutral-100)] transition-colors last:border-0 hover:bg-[var(--color-neutral-50)] whitespace-nowrap"
                 >
                   <td className="px-3 py-3">
                     <div className="flex items-center gap-3">

@@ -21,6 +21,7 @@ import { ErrorState } from "@/components/ui/error-state";
 import { Button } from "@/components/ui/button";
 import { SearchInput } from "@/components/ui/search-input";
 import { formatDateTime, formatPrice } from "@/lib/utils";
+import { formatPhone } from "@/lib/utils/format-phone";
 import {
   useStaffDeliveries,
   useStaffDeliveriesCount,
@@ -32,6 +33,7 @@ import { DeliveryStatsCards } from "./DeliveryStatsCards";
 import { DeliveryStatusTabs } from "./DeliveryStatusTabs";
 import { StaffDeliveryDetailModal } from "./StaffDeliveryDetailModal";
 import { MarkDeliveredModal } from "./MarkDeliveredModal";
+import { isManualDeliveryStatusEnabled } from "../lib/delivery-config";
 import type { StaffDeliveryListItem } from "../types/delivery.types";
 
 interface StaffDeliveryListTableProps {
@@ -169,7 +171,7 @@ export function StaffDeliveryListTable({
               {customer?.name || "Customer"}
             </div>
             <div className="flex items-center gap-1.5 text-[11px] text-neutral-700 font-mono mt-0.5">
-              <span>{customer?.phone || customer?.email || "—"}</span>
+              <span>{formatPhone(customer?.phone, "") || customer?.email || "—"}</span>
               {customer?.phone && (
                 <a
                   href={`tel:${customer.phone}`}
@@ -257,12 +259,17 @@ export function StaffDeliveryListTable({
           row.original.assignmentStatus === "pending" ||
           (!row.original.acceptedAt && row.original.status === "pending");
 
+        const isTestingDeliveryEnabled = isManualDeliveryStatusEnabled();
+
         const canMarkOutForDelivery =
+          isTestingDeliveryEnabled &&
           row.original.assignmentStatus === "accepted" &&
           row.original.status !== "out_for_delivery" &&
           row.original.status !== "delivered";
 
-        const canMarkDelivered = row.original.status === "out_for_delivery";
+        const canMarkDelivered =
+          isTestingDeliveryEnabled &&
+          row.original.status === "out_for_delivery";
 
         return (
           <div className="flex items-center justify-center gap-1.5">

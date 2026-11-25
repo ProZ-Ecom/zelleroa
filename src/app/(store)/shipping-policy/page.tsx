@@ -6,7 +6,7 @@ import { constructMetadata } from "@/lib/seo";
 export const metadata: Metadata = constructMetadata({
   title: "Shipping & Delivery Policy",
   description:
-    "Learn about Zellora India shipping methods, delivery timelines, standard & express delivery charges, tracking, and pan-India shipping policy.",
+    "Learn about Zellora shipping methods, delivery timelines, standard & express delivery charges, tracking, and pan-India shipping policy.",
   canonicalUrl: "/shipping-policy",
 });
 
@@ -25,7 +25,7 @@ export default function ShippingPolicyPage() {
       {/* Intro */}
       <section className="space-y-4">
         <p className="text-base sm:text-lg text-neutral-800 leading-relaxed font-medium">
-          At <strong className="text-neutral-900 font-semibold">ZELLORA INDIA</strong>, we strive to deliver your curated couture and lifestyle collections in the fastest and safest manner possible. Every package is quality-checked and dispatched in tamper-proof packaging.
+          At <strong className="text-neutral-900 font-semibold">Zellora</strong>, we strive to deliver your curated couture and lifestyle collections in the fastest and safest manner possible. Every package is quality-checked and dispatched in tamper-proof packaging.
         </p>
 
         {/* Highlights */}

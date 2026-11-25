@@ -15,6 +15,7 @@ import {
   useDeleteVariantImage,
 } from "@/features/variants/hooks";
 import { toast } from "@/components/ui/Toast";
+import { AdminBreadcrumb } from "@/components/admin/AdminBreadcrumb";
 import { useAdminProduct } from "@/features/products/hooks/use-products";
 import { useUnits } from "@/features/units/hooks";
 import { AdminDetailSkeleton } from "@/components/admin/AdminDetailSkeleton";
@@ -27,11 +28,11 @@ import {
   VariantForm,
   VariantImageUploader,
   VariantCard,
-  VariantCustomerPreviewModal,
   VariantPriceHistoryCard,
   VariantReviewsCard,
   VariantUnitPriceList,
 } from "@/features/variants/components";
+import { formatMeasurementLabel } from "@/features/variants/utils/measurement.util";
 import type { UnitFormItem } from "@/features/variants/components/VariantForm";
 import type { AdminVariantResponse } from "@/features/variants/types";
 import {
@@ -127,7 +128,6 @@ function AdminVariantDetailsContent() {
   const [isUnitPricesModalOpen, setIsUnitPricesModalOpen] = useState(false);
   const [isImageUploaderOpen, setIsImageUploaderOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-  const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
   const [imagePendingDeleteId, setImagePendingDeleteId] = useState<string | null>(null);
 
   // 4. Reference Units for the Edit Modal
@@ -276,8 +276,11 @@ function AdminVariantDetailsContent() {
     );
   }
 
-  const measurementLabel = variant.measurement
-    ? `${variant.measurement.value} ${variant.measurement.unit}`
+  const firstSizeValue = variant.unitPrices?.[0]?.sizeValue;
+  const measurementLabel = firstSizeValue
+    ? firstSizeValue
+    : variant.measurement
+    ? formatMeasurementLabel(variant.measurement) || `${variant.measurement.value} ${variant.measurement.unit}`
     : "—";
 
   const attributes = [
@@ -352,37 +355,17 @@ function AdminVariantDetailsContent() {
   return (
     <div className="w-full space-y-5">
       {/* Top Header / Breadcrumbs Bar */}
-      <div className="flex items-center justify-between gap-4">
-        <div className="flex items-center gap-2 text-xs sm:text-sm font-medium text-neutral-400">
-          <Link
-            href="/admin/dashboard/variants"
-            className="hover:text-secondary-600 transition-colors"
-          >
-            Items
-          </Link>
-          <span className="opacity-40">/</span>
-          {variant.productName && canonicalProductUuid && (
-            <>
-              <Link
-                href={`/admin/dashboard/products/${canonicalProductUuid}`}
-                className="hover:text-secondary-600 transition-colors truncate max-w-[150px] sm:max-w-xs"
-              >
-                {variant.productName}
-              </Link>
-              <span className="opacity-40">/</span>
-            </>
-          )}
-          <span className="text-neutral-900 font-semibold truncate max-w-[200px] sm:max-w-md">
-            {variant.variantName}
-          </span>
-        </div>
-
-        <Link
-          href="/admin/dashboard/variants"
-          className="inline-flex items-center justify-center h-8 px-3 rounded-md text-xs font-semibold bg-white border border-cream-border-subtle text-neutral-700 hover:bg-neutral-50 transition-colors shadow-2xs"
-        >
-          Back to List
-        </Link>
+      <div>
+        <AdminBreadcrumb
+          items={[
+            { label: "Catalog" },
+            { label: "Variants", href: "/admin/dashboard/variants" },
+            ...(variant.productName && canonicalProductUuid
+              ? [{ label: variant.productName, href: `/admin/dashboard/products/${canonicalProductUuid}` }]
+              : []),
+            { label: variant.variantName },
+          ]}
+        />
       </div>
 
       {/* Top Hero / Banner Card */}
@@ -504,17 +487,6 @@ function AdminVariantDetailsContent() {
 
           {/* Action Buttons Row */}
           <div className="flex items-center gap-2 flex-wrap justify-start sm:justify-end">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setIsPreviewModalOpen(true)}
-              className="h-9 bg-white border-cream-border text-secondary-700 hover:bg-secondary-50 cursor-pointer"
-              title="Storefront Customer View Preview"
-            >
-              <Sparkles className="w-3.5 h-3.5 mr-1.5 text-secondary-600" />
-              <span>Customer Preview</span>
-            </Button>
-
             <Button
               variant="outline"
               size="sm"
@@ -886,12 +858,6 @@ function AdminVariantDetailsContent() {
         isLoading={deleteImageMutation.isPending}
       />
 
-      {/* 4. Customer View Live Card Preview Modal */}
-      <VariantCustomerPreviewModal
-        variant={variant}
-        isOpen={isPreviewModalOpen}
-        onClose={() => setIsPreviewModalOpen(false)}
-      />
     </div>
   );
 }

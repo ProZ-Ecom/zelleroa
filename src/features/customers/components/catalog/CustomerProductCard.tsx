@@ -12,6 +12,7 @@ import {
   useWishlistedUnitPriceIds,
 } from "@/features/wishlist/hooks/use-wishlist";
 import { toast } from "@/components/ui/Toast";
+import { styleHref } from "../../utils/style-href";
 import type { CustomerProductListItemDto } from "../../types/catalog.types";
 
 export interface CustomerProductCardProps {
@@ -101,7 +102,7 @@ export function CustomerProductCard({ product }: CustomerProductCardProps) {
       id={product.id}
       name={product.name}
       image={product.image}
-      href={`/products/${product.id}`}
+      href={styleHref(product.id)}
       variants={variants}
       fallbackPrice={product.minPrice}
       priceRangeText={priceRangeText}

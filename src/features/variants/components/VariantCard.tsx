@@ -1,7 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
-import Image from "next/image";
+import React from "react";
 import Link from "next/link";
 import {
   Package,
@@ -17,7 +16,8 @@ import {
   Tag,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { SNACKSLOGOS } from "@/constants/storefront";
+import { ProductImage } from "@/components/common/ProductImage";
+import { formatMeasurementLabel } from "../utils/measurement.util";
 import type { AdminVariantResponse } from "../types";
 
 export interface VariantCardProps {
@@ -32,19 +32,6 @@ export interface VariantCardProps {
   showAdminActions?: boolean;
 }
 
-function resolveFallbackImage(name: string): string {
-  const lower = (name || "").toLowerCase();
-  if (lower.includes("murukku") && lower.includes("kai")) return SNACKSLOGOS.kai_murukku;
-  if (lower.includes("murukku") && lower.includes("thenkuzhal")) return SNACKSLOGOS.thenkuzhal_murukku;
-  if (lower.includes("murukku") || lower.includes("butter")) return SNACKSLOGOS.special_butter_murukku;
-  if (lower.includes("chip")) return SNACKSLOGOS.special_spicy_chips;
-  if (lower.includes("mixture") || lower.includes("namkeen")) return SNACKSLOGOS.mixture;
-  if (lower.includes("laddu")) return SNACKSLOGOS.laddu;
-  if (lower.includes("jalebi")) return SNACKSLOGOS.jalebi;
-  if (lower.includes("palkova")) return SNACKSLOGOS.palkova;
-  return SNACKSLOGOS.special_butter_murukku;
-}
-
 export function VariantCard({
   variant,
   productUuid,
@@ -56,8 +43,6 @@ export function VariantCard({
   onPreview,
   showAdminActions = true,
 }: VariantCardProps) {
-  const [imageError, setImageError] = useState(false);
-
   const effectiveProductUuid = productUuid || variant.productId;
 
   const basePrice = variant.basePrice ?? 0;
@@ -69,9 +54,10 @@ export function VariantCard({
       : 0;
 
   const measurementStr =
-    variant.measurement && typeof variant.measurement === "object"
-      ? `${variant.measurement.value} ${variant.measurement.unit}`
-      : variant.variantName || "Standard";
+    variant.unitPrices?.[0]?.sizeValue ||
+    (variant.measurement && typeof variant.measurement === "object"
+      ? formatMeasurementLabel(variant.measurement) || `${variant.measurement.value} ${variant.measurement.unit}`
+      : variant.variantName || "Standard");
 
   const measurementType =
     variant.measurement && typeof variant.measurement === "object"
@@ -85,29 +71,20 @@ export function VariantCard({
       ? "bg-blue-50 text-blue-800 border-blue-200"
       : "bg-emerald-50 text-emerald-800 border-emerald-200";
 
-  const displayImage = !imageError && variant.primaryImage
-    ? variant.primaryImage
-    : resolveFallbackImage(variant.productName || variant.variantName);
-
   return (
     <div className="group relative flex flex-col justify-between rounded-2xl border border-[var(--color-neutral-200)] bg-white p-3 sm:p-4 shadow-xs transition-all duration-300 hover:border-[var(--color-primary-500)] hover:shadow-xl hover:-translate-y-1">
       {/* Top Media Container */}
       <div className="relative aspect-square w-full overflow-hidden rounded-xl bg-cream-100 border border-cream-border">
-        {displayImage ? (
-          <Image
-            src={displayImage}
-            alt={variant.variantName || "Variant image"}
-            fill
-            sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
-            className="object-cover transition-transform duration-500 group-hover:scale-105"
-            onError={() => setImageError(true)}
-          />
-        ) : (
-          <div className="flex h-full w-full flex-col items-center justify-center text-[var(--color-neutral-400)]">
-            <Package className="h-10 w-10 opacity-50" />
-            <span className="mt-1 text-[10px] font-medium">No Image</span>
-          </div>
-        )}
+        <ProductImage
+          src={variant.primaryImage || null}
+          alt={variant.variantName || "Variant image"}
+          fill
+          containerClassName="h-full w-full"
+          aspectRatio="auto"
+          fallbackText={variant.variantName || variant.productName}
+          sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
+          className="object-cover transition-transform duration-500 group-hover:scale-105"
+        />
 
         {/* Storefront Discount Badge */}
         {discountPercent > 0 && (

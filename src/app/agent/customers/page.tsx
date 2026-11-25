@@ -4,6 +4,7 @@ import { Suspense, useState } from "react";
 import type { AgentCustomerRow } from "@/features/agents/services/agent.service";
 import { errorMessage, useAdminList } from "@/features/agents/hooks/use-admin-agents";
 import { PageHeader, Panel, SimpleTable, StatusBadge, dateOnly, money, TableSkeleton } from "@/features/agents/components/shared";
+import { formatPhone } from "@/lib/utils/format-phone";
 import { ButtonPager } from "@/features/agents/components/AdminPagination";
 import { AdminFilterBar, type FilterField } from "@/features/agents/components/admin/AdminFilterBar";
 
@@ -71,7 +72,7 @@ function AgentCustomersContent() {
                     </span>
                   ),
                 },
-                { header: "Mobile", cell: (r) => r.phone ?? "—" },
+                { header: "Mobile", cell: (r) => formatPhone(r.phone) },
                 { header: "Email", cell: (r) => r.email ?? "—" },
                 { header: "Registered", cell: (r) => dateOnly(r.registeredAt) },
                 { header: "Last order", cell: (r) => dateOnly(r.lastOrderAt) },

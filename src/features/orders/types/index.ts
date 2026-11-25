@@ -45,6 +45,17 @@ export interface OrderItemResponse {
   taxAmount: number;
   /** What the customer actually paid for this line, after the offer. */
   totalPrice: number;
+  /** Whether this order item has an active customer review. */
+  isReviewed?: boolean;
+  /** Summary of the review if one exists. */
+  review?: {
+    id: string;
+    rating: number;
+    title?: string | null;
+    comment?: string | null;
+    isApproved: boolean;
+    createdAt?: Date | string;
+  } | null;
 }
 
 export interface OrderAddressResponse {

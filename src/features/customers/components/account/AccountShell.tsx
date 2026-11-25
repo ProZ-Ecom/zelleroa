@@ -15,6 +15,7 @@ import { calculateCustomerCompletion } from "../../lib/profile-completion";
 import { ProfileAvatarRing } from "@/components/ui/ProfileAvatarRing";
 import { useCustomerOrders } from "../../hooks/use-customer-orders";
 import { useCustomerWishlist } from "../../hooks/use-customer-wishlist";
+import { formatPhone } from "@/lib/utils/format-phone";
 
 interface AccountShellProps {
   activeTab: string;
@@ -108,7 +109,7 @@ export function AccountShell({ activeTab, onTabChange }: AccountShellProps) {
                 </div>
                 {userPhone && (
                   <div className="text-xs text-theme-text-muted mt-0.5">
-                    {userPhone} · Member
+                    {formatPhone(userPhone)} · Member
                   </div>
                 )}
               </div>
@@ -118,7 +119,9 @@ export function AccountShell({ activeTab, onTabChange }: AccountShellProps) {
 
         {/* Mobile Horizontal Swipeable Pill Navigation */}
         <div className="md:hidden w-full flex gap-2 overflow-x-auto pb-1 scrollbar-hide -mx-1 px-1">
-          {navItems.map((item) => {
+          {navItems
+            .filter((item) => item.id !== "logout")
+            .map((item) => {
             const isActive = activeTab === item.id;
             return (
               <button
@@ -169,7 +172,7 @@ export function AccountShell({ activeTab, onTabChange }: AccountShellProps) {
                   </div>
                   {userPhone ? (
                     <div className="text-xs text-theme-text-muted mt-0.5 truncate">
-                      {userPhone}
+                      {formatPhone(userPhone)}
                     </div>
                   ) : (
                     <div className="text-xs text-theme-text-muted mt-0.5">

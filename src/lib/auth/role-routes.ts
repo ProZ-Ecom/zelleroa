@@ -61,6 +61,10 @@ export function resolvePostLoginTarget(
   if (isSafeCallbackUrl(callbackUrl) && callbackUrl !== "/" && isPathAllowedForRole(callbackUrl, role, scope)) {
     return callbackUrl;
   }
+  const roleScope = resolveRoleScope(scope, role);
+  if (roleScope === "CUSTOMER") {
+    return "/";
+  }
   return getRoleHome(role, scope);
 }
 

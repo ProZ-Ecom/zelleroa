@@ -67,9 +67,9 @@ function ReceiveModal({
       size="lg"
     >
       <div className="space-y-4">
-        <div className="overflow-x-auto rounded-xl border border-neutral-200">
-          <table className="w-full text-sm">
-            <thead className="bg-neutral-50 text-left text-xs uppercase text-neutral-500">
+        <div className="overflow-x-auto rounded-xl border border-neutral-200 scrollbar-thin">
+          <table className="w-full min-w-full table-auto text-sm">
+            <thead className="bg-neutral-50 text-left text-xs uppercase text-neutral-500 whitespace-nowrap">
               <tr>
                 <th className="px-3 py-2">Product</th>
                 <th className="px-3 py-2">Remaining</th>
@@ -152,14 +152,6 @@ export default function PurchaseOrderDetailPage() {
       <AdminPageHeader
         title={po.poNumber}
         description={`Vendor: ${po.vendor.name} (${po.vendor.code})`}
-        breadcrumbs={
-          <Link
-            href="/admin/dashboard/purchase-orders"
-            className="inline-flex items-center gap-1 text-sm text-neutral-500 hover:text-neutral-800"
-          >
-            <ArrowLeft className="h-4 w-4" /> Purchase orders
-          </Link>
-        }
         actions={
           <div className="flex flex-wrap items-center gap-2">
             <PurchaseStatusBadge status={s} />
@@ -219,9 +211,9 @@ export default function PurchaseOrderDetailPage() {
             </div>
           )}
 
-          <div className="overflow-x-auto rounded-2xl bg-white">
-            <table className="w-full text-sm">
-              <thead className="bg-neutral-50 text-left text-xs uppercase text-neutral-500">
+          <div className="overflow-x-auto rounded-2xl bg-white scrollbar-thin">
+            <table className="w-full min-w-full table-auto text-sm">
+              <thead className="bg-neutral-50 text-left text-xs uppercase text-neutral-500 whitespace-nowrap">
                 <tr>
                   <th className="px-4 py-3">Product</th>
                   <th className="px-4 py-3">Ordered</th>

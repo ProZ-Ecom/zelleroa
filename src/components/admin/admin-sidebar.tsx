@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -56,6 +56,7 @@ import { Drawer } from "@/components/common/drawer";
 import { LogoutConfirmDialog } from "@/components/common/LogoutConfirmDialog";
 import { useAdminAccess } from "@/features/access";
 import { permissionForAdminPath } from "@/lib/permissions/admin-routes";
+import { isWhatsAppModuleEnabled } from "@/lib/whatsapp/whatsapp-config";
 
 interface SidebarItem {
   label: string;
@@ -106,6 +107,7 @@ const sidebarItems: SidebarItem[] = [
       { label: "Brands", href: "/admin/dashboard/brands", icon: Crown },
       { label: "Attributes", href: "/admin/dashboard/attributes", icon: Tag },
       { label: "Units", href: "/admin/dashboard/units", icon: Ruler },
+      { label: "Reviews", href: "/admin/dashboard/reviews", icon: Star },
     ],
   },
   {
@@ -222,6 +224,20 @@ function IconChip({
   );
 }
 
+function isChildActive(childHref: string, allSiblings: SidebarItem[], currentPath: string): boolean {
+  if (currentPath === childHref) return true;
+  if (currentPath.startsWith(childHref + "/") || currentPath.startsWith(childHref + "?")) {
+    const moreSpecificSibling = allSiblings.some(
+      (s) =>
+        s.href !== childHref &&
+        s.href.length > childHref.length &&
+        (currentPath === s.href || currentPath.startsWith(s.href + "/") || currentPath.startsWith(s.href + "?"))
+    );
+    return !moreSpecificSibling;
+  }
+  return false;
+}
+
 function SidebarItemComponent({
   item,
   pathname,
@@ -235,18 +251,29 @@ function SidebarItemComponent({
   collapsed?: boolean;
   onExpandSidebar?: () => void;
 }) {
+  const hasChildren = Boolean(item.children && item.children.length > 0);
+
+  const isParentActive = hasChildren && item.children
+    ? item.children.some((child) => isChildActive(child.href, item.children!, pathname))
+    : pathname === item.href || (item.href !== "/admin/dashboard" && (pathname.startsWith(item.href + "/") || pathname.startsWith(item.href + "?")));
+
   const [isOpen, setIsOpen] = useState(() => {
     if (item.children) {
-      return item.children.some(
-        (child) => pathname === child.href || pathname.startsWith(child.href + "/")
-      );
+      return item.children.some((child) => isChildActive(child.href, item.children!, pathname));
     }
     return false;
   });
 
-  const isActive =
-    pathname === item.href || (item.href !== "/admin/dashboard" && pathname.startsWith(item.href));
-  const hasChildren = item.children && item.children.length > 0;
+  useEffect(() => {
+    if (hasChildren && item.children) {
+      const active = item.children.some((child) => isChildActive(child.href, item.children!, pathname));
+      if (active) {
+        setIsOpen(true);
+      }
+    }
+  }, [pathname, hasChildren, item.children]);
+
+  const isActive = isParentActive;
 
   if (hasChildren) {
     if (collapsed) {
@@ -289,7 +316,7 @@ function SidebarItemComponent({
           <div className="mt-1 ml-[1.15rem] space-y-0.5 border-l border-neutral-300/70 pl-3">
             {item.children &&
               item.children.map((child) => {
-                const childActive = pathname === child.href;
+                const childActive = isChildActive(child.href, item.children || [], pathname);
                 return (
                   <Link
                     key={child.href}
@@ -374,6 +401,7 @@ function SidebarNavigation({
   // shown only when at least one of its links survives. The permission comes from the same
   // table the page guard uses, so the sidebar can never offer a page that then refuses.
   const navigationItems = useMemo(() => {
+    const isWhatsAppEnabled = isWhatsAppModuleEnabled();
     const canOpen = (href: string) => {
       if (access.isOwner) return true;
       const required = permissionForAdminPath(href);
@@ -382,6 +410,13 @@ function SidebarNavigation({
 
     return sidebarItems
       .map((item) => {
+        if (
+          item.href === "/admin/dashboard/whatsapp" ||
+          item.href.startsWith("/admin/dashboard/whatsapp")
+        ) {
+          if (!isWhatsAppEnabled) return null;
+        }
+
         if (!item.children) return canOpen(item.href) ? item : null;
         const filteredChildren = item.children.filter((child) => {
           if (child.href === "/admin/dashboard/delivery") {
@@ -389,6 +424,9 @@ function SidebarNavigation({
           }
           if (child.href === "/admin/dashboard/orders") {
             return !isStaff && canOpen(child.href);
+          }
+          if (child.href.startsWith("/admin/dashboard/whatsapp")) {
+            return isWhatsAppEnabled && canOpen(child.href);
           }
           return canOpen(child.href);
         });

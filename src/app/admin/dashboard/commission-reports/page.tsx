@@ -42,7 +42,7 @@ export default function CommissionReportsPage() {
           </Panel>
         ) : (
           <>
-            <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:grid-cols-4">
               <MetricCard label="Orders" value={data.totals.orders} />
               <MetricCard label="Sales" value={money(data.totals.sales)} hint="Product value, excl. delivery" />
               <MetricCard label="Total earned" value={money(data.totals.totalEarned)} />

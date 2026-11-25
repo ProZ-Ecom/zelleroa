@@ -46,14 +46,6 @@ export default function PurchaseReturnDetailPage() {
       <AdminPageHeader
         title={ret.returnNumber}
         description={`${ret.vendor.name} (${ret.vendor.code}) · against ${ret.purchaseOrder.poNumber}`}
-        breadcrumbs={
-          <Link
-            href="/admin/dashboard/purchase-returns"
-            className="inline-flex items-center gap-1 text-sm text-neutral-500 hover:text-neutral-800"
-          >
-            <ArrowLeft className="h-4 w-4" /> Purchase returns
-          </Link>
-        }
         actions={
           <div className="flex flex-wrap items-center gap-2">
             <PurchaseReturnStatusBadge status={s} />
@@ -97,9 +89,9 @@ export default function PurchaseReturnDetailPage() {
             </div>
           )}
 
-          <div className="overflow-x-auto rounded-2xl bg-white">
-            <table className="w-full text-sm">
-              <thead className="bg-neutral-50 text-left text-xs uppercase text-neutral-500">
+          <div className="overflow-x-auto rounded-2xl bg-white scrollbar-thin">
+            <table className="w-full min-w-full table-auto text-sm">
+              <thead className="bg-neutral-50 text-left text-xs uppercase text-neutral-500 whitespace-nowrap">
                 <tr>
                   <th className="px-4 py-3">Product</th>
                   <th className="px-4 py-3">Reason</th>

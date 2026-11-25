@@ -196,6 +196,7 @@ export const wishlistService = {
     const unitPrice = wishlistItem.variant_unit_price;
     const variant = unitPrice?.variant;
     const product = wishlistItem.product;
+    const style = wishlistItem.style || variant?.style;
 
     if (
       !unitPrice ||
@@ -206,9 +207,19 @@ export const wishlistService = {
       variant.deleted_at !== null ||
       !product ||
       !product.isActive ||
-      product.deleted_at !== null
+      product.deleted_at !== null ||
+      (style && (!style.isActive || style.deleted_at !== null))
     ) {
-      throw ApiError.badRequest("Product pack size is unavailable or out of stock");
+      throw ApiError.badRequest("Product pack size is unavailable");
+    }
+
+    const inv = unitPrice.inventories;
+    const available = inv
+      ? Math.max(0, (inv.quantity_available ?? 0) - (inv.quantity_reserved ?? 0))
+      : 0;
+
+    if (variant.out_of_stock || (style && style.out_of_stock) || available <= 0) {
+      throw ApiError.badRequest("This item is currently out of stock");
     }
 
     // 3. Add to active cart with the exact variant pack size

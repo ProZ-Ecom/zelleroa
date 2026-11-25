@@ -16,13 +16,13 @@ function PageContainer({
   title,
   description,
   actions,
-  breadcrumbs = [],
+  breadcrumbs,
   children,
 }: PageContainerProps) {
   return (
-    <div className="space-y-6">
+    <div className="flex flex-1 min-h-0 min-w-0 max-w-full flex-col space-y-4 sm:space-y-6">
       <AdminPageHeader
-        breadcrumbs={<AdminBreadcrumb items={breadcrumbs} />}
+        breadcrumbs={breadcrumbs && breadcrumbs.length > 0 ? <AdminBreadcrumb items={breadcrumbs} /> : undefined}
         title={title}
         description={description}
         actions={actions}

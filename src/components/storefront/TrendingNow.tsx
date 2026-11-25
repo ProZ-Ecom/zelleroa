@@ -7,6 +7,7 @@ import { ProductCardSkeleton } from "./cards/ProductCardSkeleton";
 import { useCustomerStyles } from "@/features/customers/hooks/use-customer-catalog";
 import { useCategoryTree } from "@/features/categories/hooks";
 import { formatStylePriceRange, mapStyleToStorefrontProduct } from "@/lib/storefront";
+import { styleHref } from "@/features/customers/utils/style-href";
 
 /**
  * Trending styles on the home page - one card per Style, linking to the Style
@@ -101,6 +102,7 @@ export function TrendingNow() {
             styles.map((style) => (
               <SnackCard
                 key={style.id}
+                href={styleHref(style.id)}
                 product={mapStyleToStorefrontProduct(style)}
                 subtitle={style.category?.name}
                 priceRangeText={formatStylePriceRange(style)}

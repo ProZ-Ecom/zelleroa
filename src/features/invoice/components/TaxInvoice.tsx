@@ -1,4 +1,5 @@
 import { getImageUrl } from "@/lib/utils";
+import { formatPhone } from "@/lib/utils/format-phone";
 import type { InvoiceDto } from "../types";
 
 const money = (value: number) =>
@@ -81,7 +82,7 @@ export function TaxInvoice({ invoice }: { invoice: InvoiceDto }) {
                         {seller.stateCode ? `, Code : ${seller.stateCode}` : ""}
                       </p>
                     )}
-                    {seller.phone && <p>Contact: {seller.phone}</p>}
+                    {seller.phone && <p>Contact: {formatPhone(seller.phone)}</p>}
                     {seller.email && <p>E-Mail: {seller.email}</p>}
                   </div>
                 </div>
@@ -97,7 +98,7 @@ export function TaxInvoice({ invoice }: { invoice: InvoiceDto }) {
                   city={buyer.city}
                   pincode={buyer.pincode}
                 />
-                {buyer.phone && <p>Contact: {buyer.phone}</p>}
+                {buyer.phone && <p>Contact: {formatPhone(buyer.phone)}</p>}
                 {buyer.gstin && <p>GSTIN/UIN: {buyer.gstin}</p>}
                 {buyer.state && (
                   <p>

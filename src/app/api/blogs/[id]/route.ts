@@ -18,7 +18,9 @@ export const PUT = createApiHandler(
       const id = context.params?.id;
       if (!id) return apiError("Blog ID is required", 400);
       const body = context.body as ReturnType<typeof updateBlogSchema.parse>;
-      const blog = await blogService.updateBlog(parseInt(id), body);
+      const userIdentifier =
+        context.session?.user?.id || context.session?.user?.email;
+      const blog = await blogService.updateBlog(parseInt(id, 10), body, userIdentifier);
       return apiSuccess(blog, "Blog updated successfully");
     },
   },
@@ -35,7 +37,7 @@ export const DELETE = createApiHandler(
     DELETE: async (_request, context) => {
       const id = context.params?.id;
       if (!id) return apiError("Blog ID is required", 400);
-      await blogService.deleteBlog(parseInt(id));
+      await blogService.deleteBlog(parseInt(id, 10));
       return apiSuccess(null, "Blog deleted successfully");
     },
   },

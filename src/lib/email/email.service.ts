@@ -1,4 +1,5 @@
 import nodemailer from "nodemailer";
+import type { Transporter } from "nodemailer";
 import {
   getRegistrationOtpEmailTemplate,
   getForgotPasswordOtpEmailTemplate,
@@ -9,21 +10,26 @@ import {
 } from "./templates/contact-email.template";
 
 export const emailService = {
-  getFromAddress() {
+  getFromAddress(): string {
+    const fromName = process.env.SMTP_FROM_NAME || "Zellora";
     const fromEmail =
+      process.env.SMTP_FROM_EMAIL ||
+      process.env.SMTP_USER ||
       process.env.EMAIL_FROM ||
       process.env.EMAIL_USER ||
-      "noreply@zellora.com";
+      "info@zellora.in";
+
     return fromEmail.includes("<")
       ? fromEmail
-      : `"Zellora" <${fromEmail}>`;
+      : `"${fromName.replace(/"/g, "")}" <${fromEmail}>`;
   },
 
-  getTransporter() {
-    const host = process.env.EMAIL_HOST;
-    const portStr = process.env.EMAIL_PORT;
-    const user = process.env.EMAIL_USER;
-    const pass = process.env.EMAIL_PASS;
+  getTransporter(): Transporter | null {
+    const host = process.env.SMTP_HOST || process.env.EMAIL_HOST;
+    const portStr = process.env.SMTP_PORT || process.env.EMAIL_PORT;
+    const user = process.env.SMTP_USER || process.env.EMAIL_USER;
+    const pass = process.env.SMTP_PASSWORD || process.env.EMAIL_PASS;
+    const secureEnv = process.env.SMTP_SECURE;
 
     if (
       !host ||
@@ -36,8 +42,12 @@ export const emailService = {
       return null;
     }
 
-    const port = Number(portStr) || 587;
-    const secure = port === 465; // false for 587 / Brevo
+    const port = Number(portStr) || 465;
+    // Hostinger port 465 uses SSL/TLS (secure: true); port 587 uses STARTTLS (secure: false)
+    const secure =
+      secureEnv !== undefined
+        ? secureEnv === "true" || secureEnv === "1"
+        : port === 465;
 
     return nodemailer.createTransport({
       host,
@@ -47,6 +57,62 @@ export const emailService = {
       connectionTimeout: 15000,
       socketTimeout: 15000,
     });
+  },
+
+  async verifyConnection(): Promise<{ success: boolean; message: string }> {
+    const transporter = this.getTransporter();
+    if (!transporter) {
+      return {
+        success: false,
+        message: "SMTP configuration is incomplete or missing in environment variables.",
+      };
+    }
+
+    try {
+      await transporter.verify();
+      return {
+        success: true,
+        message: "SMTP connection verified successfully with Hostinger.",
+      };
+    } catch (error: any) {
+      console.error("[EMAIL SERVICE] SMTP verification failed:", error);
+      return {
+        success: false,
+        message: error?.message || "Failed to verify SMTP connection.",
+      };
+    }
+  },
+
+  async sendEmail(options: {
+    to: string;
+    subject: string;
+    html: string;
+    text?: string;
+  }): Promise<boolean> {
+    const from = this.getFromAddress();
+    const transporter = this.getTransporter();
+
+    if (!transporter) {
+      console.warn("[EMAIL SERVICE] SMTP is not configured; email was not sent.");
+      return false;
+    }
+
+    try {
+      const info = await transporter.sendMail({
+        from,
+        to: options.to,
+        subject: options.subject,
+        text: options.text,
+        html: options.html,
+      });
+      console.log(
+        `[EMAIL SERVICE] Email sent to ${options.to} (MessageId: ${info.messageId})`
+      );
+      return true;
+    } catch (error) {
+      console.error("[EMAIL SERVICE] Error sending email:", error);
+      return false;
+    }
   },
 
   async sendOtpEmail(
@@ -60,7 +126,6 @@ export const emailService = {
         : getForgotPasswordOtpEmailTemplate(otp);
 
     const from = this.getFromAddress();
-
     const transporter = this.getTransporter();
 
     if (!transporter) {
@@ -96,7 +161,6 @@ export const emailService = {
     });
 
     const from = this.getFromAddress();
-
     const transporter = this.getTransporter();
 
     if (!transporter) {
@@ -114,10 +178,15 @@ export const emailService = {
         text,
         html,
       });
-      console.log(`[EMAIL SERVICE] Contact acknowledgement email sent to ${to} (MessageId: ${info.messageId})`);
+      console.log(
+        `[EMAIL SERVICE] Contact acknowledgement email sent to ${to} (MessageId: ${info.messageId})`
+      );
       return true;
     } catch (error) {
-      console.error("[EMAIL SERVICE] Error sending contact acknowledgement email:", error);
+      console.error(
+        "[EMAIL SERVICE] Error sending contact acknowledgement email:",
+        error
+      );
       return false;
     }
   },
@@ -135,7 +204,6 @@ export const emailService = {
     });
 
     const from = this.getFromAddress();
-
     const transporter = this.getTransporter();
 
     if (!transporter) {
@@ -153,12 +221,16 @@ export const emailService = {
         text,
         html,
       });
-      console.log(`[EMAIL SERVICE] Contact reply email sent to ${to} (MessageId: ${info.messageId})`);
+      console.log(
+        `[EMAIL SERVICE] Contact reply email sent to ${to} (MessageId: ${info.messageId})`
+      );
       return true;
     } catch (error) {
-      console.error("[EMAIL SERVICE] Error sending contact reply email:", error);
+      console.error(
+        "[EMAIL SERVICE] Error sending contact reply email:",
+        error
+      );
       return false;
     }
   },
 };
-
