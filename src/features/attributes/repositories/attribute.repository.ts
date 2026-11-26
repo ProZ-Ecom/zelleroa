@@ -50,6 +50,14 @@ export const attributeRepository = {
 
     const where: Prisma.ProductAttributeWhereInput = { is_active: true };
 
+    if (params.type) {
+      where.type = params.type;
+    }
+
+    if (params.multipleSelection !== undefined) {
+      where.multiple_selection = params.multipleSelection;
+    }
+
     if (params.search) {
       where.OR = [
         { name: { contains: params.search } },

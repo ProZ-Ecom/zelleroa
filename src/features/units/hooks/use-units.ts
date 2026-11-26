@@ -18,6 +18,7 @@ export function useUnits(
   if (params?.page) queryParams.page = params.page;
   if (params?.pageSize) queryParams.pageSize = params.pageSize;
   if (params?.type) queryParams.type = params.type;
+  if (params?.hierarchy) queryParams.hierarchy = params.hierarchy;
 
   return useQuery({
     queryKey: unitKeys.list(queryParams),

@@ -13,16 +13,20 @@ import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { FormModal } from "@/components/common/FormModal";
 import { ExportButton } from "@/components/common/export-button";
+import { ClearFiltersButton } from "@/components/common/clear-filters-button";
 import { exportDataToCsv } from "@/lib/export-csv";
 import { DataTable } from "@/components/admin/data-table/DataTable";
 import { SearchInput } from "@/components/ui/search-input";
+import { Select } from "@/components/ui/select";
 import { Plus, Pencil, Settings2, Trash2 } from "lucide-react";
 import type { ColumnDef } from "@tanstack/react-table";
-import type { AttributeListItem } from "@/features/attributes/types";
+import type { AttributeListItem, AttributeType } from "@/features/attributes/types";
 import { CanAct } from "@/features/access";
 
 export default function AttributesPage() {
   const [search, setSearch] = useState("");
+  const [typeFilter, setTypeFilter] = useState<"" | AttributeType>("");
+  const [selectionFilter, setSelectionFilter] = useState<"" | "true" | "false">("");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
 
@@ -35,7 +39,20 @@ export default function AttributesPage() {
     page,
     pageSize,
     search: search || undefined,
+    type: typeFilter || undefined,
+    multipleSelection:
+      selectionFilter === "" ? undefined : selectionFilter === "true",
   });
+
+  const hasActiveFilters =
+    search.trim() !== "" || typeFilter !== "" || selectionFilter !== "";
+
+  const handleClearFilters = () => {
+    setSearch("");
+    setTypeFilter("");
+    setSelectionFilter("");
+    setPage(1);
+  };
 
   const createMutation = useCreateAttribute();
   const updateMutation = useUpdateAttribute();
@@ -135,18 +152,61 @@ export default function AttributesPage() {
 
       <AdminContent className="flex-1 min-h-0">
         <div className="flex h-full flex-col bg-[var(--color-background)] py-1 rounded-2xl">
-          <div className="flex-shrink-0 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-            <SearchInput
-              placeholder="Search attributes..."
-              defaultValue={search}
-              onSearch={(val) => {
-                setSearch(val);
-                setPage(1);
-              }}
-              className="w-full max-w-md"
-            />
+          <div className="flex-shrink-0 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex flex-1 flex-col gap-2.5 sm:flex-row sm:flex-wrap sm:items-center">
+              <SearchInput
+                placeholder="Search attributes..."
+                value={search}
+                onSearch={(val) => {
+                  setSearch(val);
+                  setPage(1);
+                }}
+                className="w-full sm:w-64 lg:w-72"
+              />
 
-            <div className="flex items-center gap-2">
+              <div className="grid grid-cols-2 gap-2 sm:flex sm:items-center sm:gap-2.5">
+                <Select
+                  value={typeFilter}
+                  onValueChange={(val) => {
+                    setTypeFilter(val as "" | AttributeType);
+                    setPage(1);
+                  }}
+                  searchable={false}
+                  options={[
+                    { value: "", label: "All Types" },
+                    { value: "text", label: "Text" },
+                    { value: "color", label: "Color" },
+                  ]}
+                  aria-label="Filter by attribute type"
+                  className="w-full sm:w-36"
+                />
+
+                <Select
+                  value={selectionFilter}
+                  onValueChange={(val) => {
+                    setSelectionFilter(val as "" | "true" | "false");
+                    setPage(1);
+                  }}
+                  searchable={false}
+                  options={[
+                    { value: "", label: "All Selections" },
+                    { value: "false", label: "Single" },
+                    { value: "true", label: "Multiple" },
+                  ]}
+                  aria-label="Filter by selection mode"
+                  className="w-full sm:w-40"
+                />
+              </div>
+
+              {hasActiveFilters && (
+                <ClearFiltersButton
+                  onClick={handleClearFilters}
+                  className="h-9 sm:h-10 md:h-11"
+                />
+              )}
+            </div>
+
+            <div className="flex flex-wrap items-center justify-end gap-2 shrink-0">
               <ExportButton
                 onClick={() =>
                   exportDataToCsv(
@@ -173,9 +233,9 @@ export default function AttributesPage() {
               <CanAct action="CREATE">
                 <Button
                   onClick={() => setIsCreateOpen(true)}
-                  className="h-11 rounded-xl bg-stone-900 hover:bg-stone-800 text-[#D4AF37] border border-[#D4AF37]/30 shadow-xs px-5 text-sm font-semibold transition-colors"
+                  className="h-9 sm:h-10 md:h-11 rounded-lg sm:rounded-xl bg-stone-900 hover:bg-stone-800 text-[#D4AF37] border border-[#D4AF37]/30 shadow-xs px-4 sm:px-5 text-xs sm:text-sm font-semibold transition-colors"
                 >
-                  <Plus className="mr-2 h-4 w-4 text-[#D4AF37]" />
+                  <Plus className="mr-1.5 sm:mr-2 h-4 w-4 text-[#D4AF37]" />
                   Add Attribute
                 </Button>
               </CanAct>

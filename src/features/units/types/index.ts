@@ -1,4 +1,5 @@
-import type { UnitType } from "../validations/admin-unit.schema";
+import type { UnitHierarchy, UnitType } from "../validations/admin-unit.schema";
+export type { UnitHierarchy, UnitType };
 
 export interface AdminUnitResponse {
   id: string; // Public Unit UUID
@@ -19,4 +20,5 @@ export interface GetAdminUnitsParams {
   pageSize?: number;
   search?: string;
   type?: UnitType;
+  hierarchy?: UnitHierarchy;
 }

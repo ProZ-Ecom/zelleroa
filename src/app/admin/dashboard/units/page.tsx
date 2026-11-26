@@ -22,16 +22,20 @@ import { createAdminUnitSchema } from "@/features/units/validations/admin-unit.s
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { FormModal } from "@/components/common/FormModal";
 import { ExportButton } from "@/components/common/export-button";
+import { ClearFiltersButton } from "@/components/common/clear-filters-button";
 import { exportDataToCsv } from "@/lib/export-csv";
 import { SearchInput } from "@/components/ui/search-input";
+import { Select } from "@/components/ui/select";
 import { Upload, Plus, Pencil, Trash2 } from "lucide-react";
 import type { ColumnDef } from "@tanstack/react-table";
-import type { AdminUnitResponse } from "@/features/units/types";
+import type { AdminUnitResponse, UnitHierarchy, UnitType } from "@/features/units/types";
 import { UnitForm } from "@/features/units/components/UnitForm";
 import { CanAct } from "@/features/access";
 
 export default function AdminUnitsPage() {
   const [search, setSearch] = useState("");
+  const [typeFilter, setTypeFilter] = useState<"" | UnitType>("");
+  const [hierarchyFilter, setHierarchyFilter] = useState<"" | UnitHierarchy>("");
 
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
@@ -50,7 +54,19 @@ export default function AdminUnitsPage() {
       page,
       pageSize,
       search: search || undefined,
+      type: typeFilter || undefined,
+      hierarchy: hierarchyFilter || undefined,
     });
+
+  const hasActiveFilters =
+    search.trim() !== "" || typeFilter !== "" || hierarchyFilter !== "";
+
+  const handleClearFilters = () => {
+    setSearch("");
+    setTypeFilter("");
+    setHierarchyFilter("");
+    setPage(1);
+  };
 
   const { data: baseUnitsData } = useUnits({
     page: 1,
@@ -99,7 +115,7 @@ export default function AdminUnitsPage() {
       accessorKey: "baseUnitId",
       header: "Base Unit",
       cell: ({ row }) => {
-        const baseUnit = units.find(
+        const baseUnit = (baseUnits.length ? baseUnits : units).find(
           (unit) => unit.id === row.original.baseUnitId
         );
 
@@ -183,17 +199,63 @@ export default function AdminUnitsPage() {
 
       <AdminContent className="flex-1 min-h-0">
         <div className="flex h-full flex-col bg-[var(--color-background)] py-1 rounded-2xl">
-          <div className="flex-shrink-0 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-            <SearchInput
-              placeholder="Search units..."
-              defaultValue={search}
-              onSearch={(val) => {
-                setSearch(val);
-                setPage(1);
-              }}
-              className="w-full max-w-md"
-            />
-            <div className="flex items-center gap-2">
+          <div className="flex-shrink-0 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex flex-1 flex-col gap-2.5 sm:flex-row sm:flex-wrap sm:items-center">
+              <SearchInput
+                placeholder="Search units..."
+                value={search}
+                onSearch={(val) => {
+                  setSearch(val);
+                  setPage(1);
+                }}
+                className="w-full sm:w-64 lg:w-72"
+              />
+
+              <div className="grid grid-cols-2 gap-2 sm:flex sm:items-center sm:gap-2.5">
+                <Select
+                  value={typeFilter}
+                  onValueChange={(val) => {
+                    setTypeFilter(val as "" | UnitType);
+                    setPage(1);
+                  }}
+                  searchable={false}
+                  options={[
+                    { value: "", label: "All Types" },
+                    { value: "weight", label: "Weight" },
+                    { value: "volume", label: "Volume" },
+                    { value: "count", label: "Count" },
+                    { value: "size", label: "Size" },
+                  ]}
+                  aria-label="Filter by unit type"
+                  className="w-full sm:w-36"
+                />
+
+                <Select
+                  value={hierarchyFilter}
+                  onValueChange={(val) => {
+                    setHierarchyFilter(val as "" | UnitHierarchy);
+                    setPage(1);
+                  }}
+                  searchable={false}
+                  options={[
+                    { value: "", label: "All Units" },
+                    { value: "base", label: "Base Units" },
+                    { value: "derived", label: "Derived Units" },
+                  ]}
+                  aria-label="Filter by unit role"
+                  className="w-full sm:w-40"
+                />
+              </div>
+
+              {hasActiveFilters && (
+                <ClearFiltersButton
+                  onClick={handleClearFilters}
+                  className="h-9 sm:h-10 md:h-11"
+                />
+              )}
+            </div>
+
+            <div className="flex flex-wrap items-center justify-end gap-2 shrink-0">
               <ExportButton
                 onClick={() =>
                   exportDataToCsv(
@@ -227,18 +289,18 @@ export default function AdminUnitsPage() {
               <Button
                 variant="outline"
                 onClick={() => setIsImportOpen(true)}
-                className="h-11 rounded-xl px-5 text-sm font-semibold"
+                className="h-9 sm:h-10 md:h-11 rounded-lg sm:rounded-xl px-3 sm:px-4 md:px-5 text-xs sm:text-sm font-semibold"
               >
-                <Upload className="mr-2 h-4 w-4" />
+                <Upload className="mr-1.5 sm:mr-2 h-3.5 w-3.5 sm:h-4 sm:w-4" />
                 Import
               </Button>
 
               <CanAct action="CREATE">
                 <Button
                   onClick={() => setIsCreateOpen(true)}
-                  className="h-11 rounded-xl bg-stone-900 hover:bg-stone-800 text-[#D4AF37] border border-[#D4AF37]/30 shadow-xs px-5 text-sm font-semibold transition-colors"
+                  className="h-9 sm:h-10 md:h-11 rounded-lg sm:rounded-xl bg-stone-900 hover:bg-stone-800 text-[#D4AF37] border border-[#D4AF37]/30 shadow-xs px-4 sm:px-5 text-xs sm:text-sm font-semibold transition-colors"
                 >
-                  <Plus className="mr-2 h-4 w-4 text-[#D4AF37]" />
+                  <Plus className="mr-1.5 sm:mr-2 h-4 w-4 text-[#D4AF37]" />
                   Add Unit
                 </Button>
               </CanAct>
