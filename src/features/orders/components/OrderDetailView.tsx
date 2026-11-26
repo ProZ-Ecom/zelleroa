@@ -18,8 +18,9 @@ import {
   ShieldCheck,
   XCircle,
   Undo2,
-  Star,
+  SquarePen,
 } from "lucide-react";
+import { Tooltip } from "@/features/agents/components/Tooltip";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { formatDateTime, formatPrice } from "@/lib/utils";
@@ -339,25 +340,33 @@ export function OrderDetailView({
           )}
 
           {/* Write a Review Action */}
-          {!readOnly && order.status === "delivered" && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                const mapped = (order.items || []).map(toReviewTarget);
-                setReviewModalState({
-                  isOpen: true,
-                  orderNumber: order.orderNumber,
-                  items: mapped,
-                  selectedItem: mapped.find((m) => !m.isReviewed) || mapped[0] || null,
-                });
-              }}
-              className="border-amber-300 bg-amber-50/80 hover:bg-amber-100 text-amber-900 rounded-xl text-xs font-semibold min-h-[36px]"
-            >
-              <Star className="mr-1.5 h-3.5 w-3.5 fill-amber-400 text-amber-500" />
-              <span>{order.items?.length && order.items.every((it) => it.isReviewed) ? "Reviewed" : "Write Review"}</span>
-            </Button>
-          )}
+          {!readOnly && order.status === "delivered" && (() => {
+            const reviewLabel =
+              order.items?.length && order.items.every((it) => it.isReviewed)
+                ? "Reviewed"
+                : "Write Review";
+            return (
+              <Tooltip content={reviewLabel}>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  aria-label={reviewLabel}
+                  onClick={() => {
+                    const mapped = (order.items || []).map(toReviewTarget);
+                    setReviewModalState({
+                      isOpen: true,
+                      orderNumber: order.orderNumber,
+                      items: mapped,
+                      selectedItem: mapped.find((m) => !m.isReviewed) || mapped[0] || null,
+                    });
+                  }}
+                  className="border-amber-300 bg-amber-50/80 hover:bg-amber-100 text-amber-900 rounded-xl h-9 w-9 p-0"
+                >
+                  <SquarePen className="h-4 w-4" />
+                </Button>
+              </Tooltip>
+            );
+          })()}
         </div>
       </div>
 

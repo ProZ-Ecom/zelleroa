@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { Star, Check } from "lucide-react";
+import { SquarePen, Check } from "lucide-react";
+import { Tooltip } from "@/features/agents/components/Tooltip";
 import { getImageUrl, formatPrice } from "@/lib/utils";
 import { ProductImage } from "@/components/common/ProductImage";
 import type { OrderItemResponse, OrderItemDisplay } from "../types";
@@ -129,14 +130,16 @@ export function OrderItemsList({
                         <span>Reviewed</span>
                       </span>
                     ) : (
-                      <button
-                        type="button"
-                        onClick={() => onReviewItem(item)}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200 transition-colors cursor-pointer shadow-2xs"
-                      >
-                        <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-500" />
-                        <span>Write Review</span>
-                      </button>
+                      <Tooltip content="Write Review">
+                        <button
+                          type="button"
+                          aria-label="Write Review"
+                          onClick={() => onReviewItem(item)}
+                          className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200 transition-colors cursor-pointer shadow-2xs"
+                        >
+                          <SquarePen className="h-4 w-4" />
+                        </button>
+                      </Tooltip>
                     )}
                   </div>
                 )}

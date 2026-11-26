@@ -3,7 +3,8 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Check, Package, X, CreditCard, Loader2, AlertCircle, Undo2, PackageCheck, Clock, Truck, Star } from "lucide-react";
+import { Check, Package, X, CreditCard, Loader2, AlertCircle, Undo2, PackageCheck, Clock, Truck, SquarePen } from "lucide-react";
+import { Tooltip } from "@/features/agents/components/Tooltip";
 import { formatPrice } from "@/lib/utils";
 import type { OrderDetailResponse } from "@/features/orders/types";
 import { useCustomerOrders, useCancelCustomerOrder } from "../../hooks/use-customer-orders";
@@ -719,32 +720,8 @@ export function OrdersTab({
                             )}
                           </div>
                         </div>
-                        <div className="flex flex-col items-end gap-1 flex-shrink-0">
-                          <div className="text-xs sm:text-sm font-bold text-theme-primary">
-                            {formatPrice(it.totalPrice ?? it.unitPrice ?? 0)}
-                          </div>
-                          {order.status === "delivered" && (
-                            <button
-                              type="button"
-                              onClick={() => {
-                                const mapped = (order.items || []).map(toReviewTarget);
-                                setReviewModalState({
-                                  isOpen: true,
-                                  orderNumber: order.orderNumber,
-                                  items: mapped,
-                                  selectedItem: toReviewTarget(it),
-                                });
-                              }}
-                              className={`text-[11px] font-semibold inline-flex items-center gap-1 px-2 py-0.5 rounded cursor-pointer transition-colors ${
-                                it.isReviewed
-                                  ? "text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200"
-                                  : "text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200"
-                              }`}
-                            >
-                              <Star className={`h-3 w-3 ${it.isReviewed ? "fill-emerald-500 text-emerald-500" : "fill-amber-400 text-amber-400"}`} />
-                              <span>{it.isReviewed ? "Reviewed" : "Review"}</span>
-                            </button>
-                          )}
+                        <div className="text-xs sm:text-sm font-bold text-theme-primary flex-shrink-0">
+                          {formatPrice(it.totalPrice ?? it.unitPrice ?? 0)}
                         </div>
                       </div>
                     ))
@@ -904,24 +881,32 @@ export function OrdersTab({
                   )}
 
                   {/* "Write a Review" button for delivered orders */}
-                  {order.status === "delivered" && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const mapped = (order.items || []).map(toReviewTarget);
-                        setReviewModalState({
-                          isOpen: true,
-                          orderNumber: order.orderNumber,
-                          items: mapped,
-                          selectedItem: mapped.find((m) => !m.isReviewed) || mapped[0] || null,
-                        });
-                      }}
-                      className="border border-amber-300 bg-amber-50/80 hover:bg-amber-100/90 text-amber-900 text-xs font-semibold uppercase tracking-wider py-2.5 px-4 rounded-lg cursor-pointer min-h-[40px] inline-flex items-center gap-1.5 shadow-2xs transition-colors"
-                    >
-                      <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-500" />
-                      <span>{order.items?.length && order.items.every((it) => it.isReviewed) ? "Reviewed" : "Write Review"}</span>
-                    </button>
-                  )}
+                  {order.status === "delivered" && (() => {
+                    const reviewLabel =
+                      order.items?.length && order.items.every((it) => it.isReviewed)
+                        ? "Reviewed"
+                        : "Write Review";
+                    return (
+                      <Tooltip content={reviewLabel} wrapperClassName="shrink-0">
+                        <button
+                          type="button"
+                          aria-label={reviewLabel}
+                          onClick={() => {
+                            const mapped = (order.items || []).map(toReviewTarget);
+                            setReviewModalState({
+                              isOpen: true,
+                              orderNumber: order.orderNumber,
+                              items: mapped,
+                              selectedItem: mapped.find((m) => !m.isReviewed) || mapped[0] || null,
+                            });
+                          }}
+                          className="border border-amber-300 bg-amber-50/80 hover:bg-amber-100/90 text-amber-900 min-h-[40px] px-3.5 py-2.5 rounded-lg cursor-pointer inline-flex items-center justify-center shrink-0 shadow-2xs transition-colors"
+                        >
+                          <SquarePen className="h-4 w-4" />
+                        </button>
+                      </Tooltip>
+                    );
+                  })()}
 
                   <Link href="/contact">
                     <button
