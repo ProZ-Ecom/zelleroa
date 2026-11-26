@@ -3,6 +3,9 @@ import { z } from "zod";
 export const unitTypeEnum = z.enum(["weight", "volume", "count", "size"]);
 export type UnitType = z.infer<typeof unitTypeEnum>;
 
+export const unitHierarchyEnum = z.enum(["base", "derived"]);
+export type UnitHierarchy = z.infer<typeof unitHierarchyEnum>;
+
 export const createAdminUnitSchema = z
   .object({
     name: z
@@ -51,6 +54,7 @@ export const adminUnitsQuerySchema = z.object({
   pageSize: z.coerce.number().int().min(1).max(100).default(10).optional(),
   search: z.string().trim().optional(),
   type: unitTypeEnum.optional(),
+  hierarchy: unitHierarchyEnum.optional(),
 });
 
 export type AdminUnitsQueryInput = z.infer<typeof adminUnitsQuerySchema>;

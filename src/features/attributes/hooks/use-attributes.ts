@@ -16,6 +16,10 @@ export function useAdminAttributes(params?: GetAdminAttributesParams) {
   if (params?.search) queryParams.search = params.search;
   if (params?.page) queryParams.page = params.page;
   if (params?.pageSize) queryParams.pageSize = params.pageSize;
+  if (params?.type) queryParams.type = params.type;
+  if (params?.multipleSelection !== undefined) {
+    queryParams.multipleSelection = String(params.multipleSelection);
+  }
 
   return useQuery({
     queryKey: attributeKeys.list(queryParams),

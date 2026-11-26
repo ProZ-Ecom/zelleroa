@@ -69,6 +69,7 @@ import {
 import { usePincodeLookup } from "@/features/addresses/hooks/use-pincode-lookup";
 import type { CustomerAddressResponse } from "@/features/customers/types/customer-address.types";
 import { loadRazorpayScript } from "@/features/customers/utils/razorpay-loader";
+import { AppliedOfferTag } from "@/features/offers/components/AppliedOfferTag";
 
 const PENDING_RZP_STORAGE_KEY = "zellora_pending_rzp_checkout";
 
@@ -1714,10 +1715,23 @@ export default function CheckoutPage() {
                         <p className="text-[11px] text-theme-text-muted">
                           Qty: {item.quantity} × {formatPrice(item.currentPrice)}
                         </p>
+                        <AppliedOfferTag
+                          offer={item.offer}
+                          discountAmount={item.discountAmount}
+                          freeQuantity={item.freeQuantity}
+                          compact
+                        />
                       </div>
 
-                      <div className="text-xs font-bold text-theme-text-primary shrink-0">
-                        {formatPrice(item.itemTotal)}
+                      <div className="text-right shrink-0">
+                        {item.originalItemTotal > item.itemTotal && (
+                          <p className="text-[10px] text-theme-text-muted line-through">
+                            {formatPrice(item.originalItemTotal)}
+                          </p>
+                        )}
+                        <p className="text-xs font-bold text-theme-text-primary">
+                          {formatPrice(item.itemTotal)}
+                        </p>
                       </div>
                     </div>
                   ))}

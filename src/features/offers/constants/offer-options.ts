@@ -86,3 +86,27 @@ export function offerValueFieldLabel(type: OfferType): string {
       return "Discount Value";
   }
 }
+
+/**
+ * Compact discount badge for an applied `OfferBreakdown` (where BXGY does not
+ * carry `buyQuantity`/`getQuantity`, so `freeQuantity` is used instead).
+ */
+export function formatAppliedOfferLabel(
+  offer: { type: OfferType; value: number },
+  freeQuantity?: number
+): string {
+  switch (offer.type) {
+    case "percentage":
+      return `${offer.value}% OFF`;
+    case "flat":
+      return `₹${offer.value} OFF`;
+    case "special_price":
+      return `At ₹${offer.value}`;
+    case "bxgy":
+      return freeQuantity && freeQuantity > 0
+        ? `${freeQuantity} Free`
+        : "Buy & Get Free";
+    default:
+      return "Offer";
+  }
+}
