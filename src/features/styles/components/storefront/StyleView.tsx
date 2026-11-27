@@ -197,6 +197,7 @@ export type ItemViewProps = StyleViewProps;
     const description = style?.description?.trim();
     const wishlistPending = addToWishlist.isPending || removeFromWishlist.isPending;
     const maxQuantity = purchasable?.stock ?? 0;
+    const isOutOfStock = !inStock || (!missingSelection && !purchasable);
 
     return (
       <div className={cn("space-y-12", className)}>
@@ -378,7 +379,7 @@ export type ItemViewProps = StyleViewProps;
                 <Button
                   type="button"
                   onClick={handleAddToCart}
-                  disabled={addToCart.isPending || !inStock}
+                  disabled={addToCart.isPending || isOutOfStock}
                   className="h-12 flex-1 rounded-xl text-sm font-semibold shadow-md shadow-theme-primary/20 transition-all hover:shadow-lg hover:shadow-theme-primary/30"
                 >
                   {addToCart.isPending ? (
@@ -389,7 +390,7 @@ export type ItemViewProps = StyleViewProps;
                   ) : (
                     <>
                       <ShoppingBag className="mr-2 h-4 w-4" />
-                      {inStock ? "Add to cart" : "Out of stock"}
+                      {isOutOfStock ? "Out of stock" : "Add to cart"}
                     </>
                   )}
                 </Button>

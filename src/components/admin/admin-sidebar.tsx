@@ -436,7 +436,7 @@ function SidebarNavigation({
   }, [isStaff, access]);
 
   return (
-    <nav className="relative flex-1 space-y-0.5 overflow-y-auto overflow-x-hidden scrollbar-hide px-3 pt-2 pb-6 [mask-image:linear-gradient(to_bottom,black_calc(100%-24px),transparent)]">
+    <nav className="relative flex-1 min-h-0 space-y-0.5 overflow-y-auto overflow-x-hidden scrollbar-sidebar px-3 pt-2 pb-6">
       {navigationItems.map((item) => (
         <div key={item.href}>
           {item.section &&
@@ -544,14 +544,14 @@ function AdminSidebar({
         title={<SidebarBrand />}
         className="w-[280px] max-w-[calc(100vw-2rem)] bg-neutral-50"
       >
-        <div className="flex h-full flex-col">
+        <div className="flex h-full min-h-0 flex-col">
           <SidebarNavigation pathname={pathname} onNavigate={onMobileClose} />
           <SidebarFooter />
         </div>
       </Drawer>
       <aside
         className={cn(
-          "relative hidden h-screen flex-col border-r border-neutral-300/80 bg-secondary-100 shadow-[2px_0_12px_-4px_rgba(0,0,0,0.06)] transition-[width] duration-200 lg:flex",
+          "relative hidden h-screen h-[100dvh] flex-col border-r border-neutral-300/80 bg-secondary-100 shadow-[2px_0_12px_-4px_rgba(0,0,0,0.06)] transition-[width] duration-200 lg:flex",
           collapsed ? "w-20" : "w-64"
         )}
       >

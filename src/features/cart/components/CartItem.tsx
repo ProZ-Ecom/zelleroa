@@ -158,22 +158,24 @@ function CartItem({
           {itemHref ? (
             <Link
               href={itemHref}
-              className="block overflow-hidden rounded-xl border border-theme-border-subtle bg-theme-surface-alt h-20 w-20 sm:h-24 sm:w-24 transition-transform group-hover:scale-102"
+              className="relative z-0 block overflow-hidden rounded-xl border border-theme-border-subtle bg-theme-surface-alt h-20 w-20 sm:h-24 sm:w-24 transition-transform group-hover:scale-102"
             >
               <ProductImage
                 src={primaryImageUrl}
                 alt={productName}
                 fallbackText={productName}
+                fallbackSize="compact"
                 containerClassName="w-full h-full rounded-xl"
                 className="w-full h-full object-cover"
               />
             </Link>
           ) : (
-            <div className="overflow-hidden rounded-xl border border-theme-border-subtle bg-theme-surface-alt h-20 w-20 sm:h-24 sm:w-24 flex flex-col items-center justify-center text-xs font-medium text-theme-text-subtle">
+            <div className="relative z-0 overflow-hidden rounded-xl border border-theme-border-subtle bg-theme-surface-alt h-20 w-20 sm:h-24 sm:w-24 flex flex-col items-center justify-center text-xs font-medium text-theme-text-subtle">
               <ProductImage
                 src={primaryImageUrl}
                 alt={productName}
                 fallbackText={productName}
+                fallbackSize="compact"
                 containerClassName="w-full h-full rounded-xl"
                 className="w-full h-full object-cover"
               />
@@ -181,7 +183,7 @@ function CartItem({
           )}
 
           {discountPercent > 0 && (
-            <span className="absolute -top-1.5 -left-1.5 rounded-full bg-theme-primary px-1.5 py-0.5 text-[10px] sm:text-xs font-bold text-theme-primary-fg shadow-xs">
+            <span className="absolute -top-1.5 -left-1.5 z-20 pointer-events-none rounded-full bg-theme-primary px-1.5 py-0.5 text-[10px] sm:text-xs font-bold text-theme-primary-fg shadow-xs">
               -{discountPercent}%
             </span>
           )}
