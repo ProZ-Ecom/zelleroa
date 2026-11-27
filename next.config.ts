@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import os from "os";
 import path from "path";
 
 // Ensure Node memory allocation is 8GB across all Next.js worker threads
@@ -8,6 +9,8 @@ if (!process.env.NODE_OPTIONS?.includes("max-old-space-size")) {
 
 const nextConfig: NextConfig = {
   outputFileTracingRoot: path.resolve(__dirname),
+  // Avoid allocating source-map buffers in worker processes during static prerendering.
+  enablePrerenderSourceMaps: false,
   // typescript: {
   //   ignoreBuildErrors: false,
   // },
@@ -33,6 +36,9 @@ const nextConfig: NextConfig = {
   ],
 
   experimental: {
+    // Cap page-data / static-generation workers (default is cpuCount - 1 = 11 here),
+    // which otherwise exceeds Windows commit memory on ~8 GB hosts during `next build`.
+    cpus: os.totalmem() <= 10 * 1024 ** 3 ? 2 : 4,
     // The webpack dev server restarts itself ("approaching the used memory
     // threshold") once the heap nears its limit, throwing away every compiled
     // route. Trading a little compile speed for lower peak memory avoids that.
