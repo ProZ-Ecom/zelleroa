@@ -30,9 +30,14 @@ import { cn } from "@/lib/utils";
 export interface ContactFormModalProps {
   open: boolean;
   onClose: () => void;
+  initialSubject?: string;
 }
 
-export function ContactFormModal({ open, onClose }: ContactFormModalProps) {
+export function ContactFormModal({
+  open,
+  onClose,
+  initialSubject,
+}: ContactFormModalProps) {
   const [mounted, setMounted] = React.useState(false);
   const [isSuccess, setIsSuccess] = React.useState(false);
 
@@ -87,11 +92,11 @@ export function ContactFormModal({ open, onClose }: ContactFormModalProps) {
         name: initialName,
         email: initialEmail,
         phone: initialPhone,
-        subject: "",
+        subject: (initialSubject || "").slice(0, 200),
         message: "",
       });
     }
-  }, [open, profile, session]);
+  }, [open, profile, session, initialSubject]);
 
   // Handle ESC key to close modal & lock scroll
   React.useEffect(() => {

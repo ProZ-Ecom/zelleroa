@@ -21,6 +21,7 @@ import { RequestWizard } from "@/features/returns/components/RequestWizard";
 import { ShipReturnModal } from "@/features/returns/components/ShipReturnModal";
 import type { RequestSummary } from "@/features/returns/lib/summary";
 import { WriteReviewModal, type ReviewTargetItem } from "@/features/reviews/components/WriteReviewModal";
+import { ContactFormModal } from "@/features/contact/components/ContactFormModal";
 
 const STATUS_OPTIONS: DropdownOption[] = [
   { value: "all", label: "All Orders" },
@@ -85,6 +86,7 @@ export function OrdersTab({
     items?: ReviewTargetItem[];
     selectedItem?: ReviewTargetItem | null;
   }>({ isOpen: false });
+  const [helpOrderSubject, setHelpOrderSubject] = useState<string | null>(null);
   const cancelMutation = useCancelCustomerOrder();
   const addToCartMutation = useAddToCartMutation();
   const createRazorpayOrderMutation = useCreateRazorpayOrder();
@@ -908,14 +910,16 @@ export function OrdersTab({
                     );
                   })()}
 
-                  <Link href="/contact">
-                    <button
-                      type="button"
-                      className="border border-theme-border hover:bg-theme-surface-alt text-theme-text-subtle text-xs font-semibold uppercase tracking-wider py-2.5 px-4 rounded-lg transition-colors cursor-pointer min-h-[40px]"
-                    >
-                      Need Help
-                    </button>
-                  </Link>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const orderRef = order.orderNumber || `#${String(order.id).slice(0, 8)}`;
+                      setHelpOrderSubject(`Help with Order ${orderRef}`);
+                    }}
+                    className="border border-theme-border hover:bg-theme-surface-alt text-theme-text-subtle text-xs font-semibold uppercase tracking-wider py-2.5 px-4 rounded-lg transition-colors cursor-pointer min-h-[40px]"
+                  >
+                    Need Help
+                  </button>
 
                   {isOrderCancellable(order.status) && (
                     <button
@@ -1229,6 +1233,12 @@ export function OrdersTab({
           }}
         />
       )}
+
+      <ContactFormModal
+        open={Boolean(helpOrderSubject)}
+        initialSubject={helpOrderSubject ?? undefined}
+        onClose={() => setHelpOrderSubject(null)}
+      />
     </div>
   );
 }
