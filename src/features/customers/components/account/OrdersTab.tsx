@@ -1,10 +1,31 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Check, Package, X, CreditCard, Loader2, AlertCircle, Undo2, PackageCheck, Clock, Truck, SquarePen } from "lucide-react";
-import { Tooltip } from "@/features/agents/components/Tooltip";
+import {
+  Check,
+  Package,
+  X,
+  CreditCard,
+  Loader2,
+  AlertCircle,
+  Undo2,
+  PackageCheck,
+  Clock,
+  Truck,
+  Star,
+  Copy,
+  Eye,
+  MoreVertical,
+  Download,
+  RotateCcw,
+  HelpCircle,
+  MapPin,
+  XCircle,
+  ChevronDown,
+  ChevronUp,
+} from "lucide-react";
 import { formatPrice } from "@/lib/utils";
 import type { OrderDetailResponse } from "@/features/orders/types";
 import { useCustomerOrders, useCancelCustomerOrder } from "../../hooks/use-customer-orders";
@@ -21,6 +42,7 @@ import { RequestWizard } from "@/features/returns/components/RequestWizard";
 import { ShipReturnModal } from "@/features/returns/components/ShipReturnModal";
 import type { RequestSummary } from "@/features/returns/lib/summary";
 import { WriteReviewModal, type ReviewTargetItem } from "@/features/reviews/components/WriteReviewModal";
+import { ContactFormModal } from "@/features/contact/components/ContactFormModal";
 
 const STATUS_OPTIONS: DropdownOption[] = [
   { value: "all", label: "All Orders" },
@@ -85,6 +107,41 @@ export function OrdersTab({
     items?: ReviewTargetItem[];
     selectedItem?: ReviewTargetItem | null;
   }>({ isOpen: false });
+  const [helpOrderSubject, setHelpOrderSubject] = useState<string | null>(null);
+  const [openMenuOrderId, setOpenMenuOrderId] = useState<string | null>(null);
+  const [copiedOrderId, setCopiedOrderId] = useState<string | null>(null);
+  const [expandedOrderIds, setExpandedOrderIds] = useState<Record<string, boolean>>({});
+  const openMenuRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!openMenuOrderId) return;
+    const handlePointerDown = (e: PointerEvent) => {
+      if (openMenuRef.current && !openMenuRef.current.contains(e.target as Node)) {
+        setOpenMenuOrderId(null);
+      }
+    };
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpenMenuOrderId(null);
+    };
+    window.addEventListener("pointerdown", handlePointerDown);
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.removeEventListener("pointerdown", handlePointerDown);
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [openMenuOrderId]);
+
+  const handleCopyOrderNumber = (orderId: string, orderRef: string) => {
+    navigator.clipboard
+      ?.writeText(orderRef)
+      .then(() => {
+        setCopiedOrderId(orderId);
+        setTimeout(() => {
+          setCopiedOrderId((prev) => (prev === orderId ? null : prev));
+        }, 1500);
+      })
+      .catch(() => {});
+  };
   const cancelMutation = useCancelCustomerOrder();
   const addToCartMutation = useAddToCartMutation();
   const createRazorpayOrderMutation = useCreateRazorpayOrder();
@@ -562,88 +619,173 @@ export function OrdersTab({
             const effectiveStatusLabel = returnMeta?.label ?? order.status.replace(/_/g, " ");
             const shipDaysInfo = activeReturn ? getReturnShipDaysLeft(activeReturn) : null;
 
+            const normalizedStatus = order.status?.toLowerCase() ?? "";
+            const isDelivered = normalizedStatus === "delivered";
+            const isCancelled = normalizedStatus === "cancelled";
+            const isReturned = normalizedStatus === "returned";
+
+            const cardAccentBorder = isDelivered
+              ? "border-l-emerald-600"
+              : isCancelled
+              ? "border-l-red-500"
+              : isReturned
+              ? "border-l-purple-600"
+              : "border-l-blue-600";
+
+            const orderRef = order.orderNumber || `#${String(order.id).slice(0, 8)}`;
+            const cleanOrderNumber = orderRef.replace(/^#/, "");
+            const placedDateLabel = order.createdAt
+              ? formatStoreDate(new Date(order.createdAt))
+              : "—";
+            const deliveredDateValue =
+              order.deliveredAt ?? order.returnWindow?.deliveredAt ?? null;
+            const deliveredDateLabel =
+              isDelivered && deliveredDateValue
+                ? formatStoreDate(new Date(deliveredDateValue))
+                : null;
+
+            const currentStepIdx = getTrackingStepIndex(order.status);
+            const cardSteps = [
+              { label: "Ordered" },
+              {
+                label:
+                  normalizedStatus === "packed" || normalizedStatus === "processing"
+                    ? "Packed"
+                    : "Shipped",
+              },
+              { label: "Out for delivery" },
+              {
+                label: isCancelled ? "Cancelled" : isReturned ? "Returned" : "Delivered",
+              },
+            ];
+
+            const isAllReviewed = Boolean(
+              order.items?.length && order.items.every((it) => it.isReviewed)
+            );
+
+            const method = String((order as any).paymentMethod || "").toUpperCase();
+            const paymentDetailsMethod = String(
+              (order as any).paymentDetails?.method || ""
+            ).toUpperCase();
+            const notes = String((order as any).notes || "").toUpperCase();
+            const isCod =
+              method === "COD" ||
+              method.includes("CASH") ||
+              paymentDetailsMethod.includes("COD") ||
+              paymentDetailsMethod.includes("CASH") ||
+              notes.includes("COD") ||
+              notes.includes("CASH ON DELIVERY") ||
+              Boolean((order as any).bankDetails?.accountHolder);
+            const canPay =
+              order.paymentStatus === "pending" && !isCancelled && !isCod;
+
+            const latestCourierEvent = order.courierShipment?.timeline?.[0];
+            const latestHistoryEvent = order.statusHistory?.[0];
+            const trackingUpdateText = latestCourierEvent
+              ? [latestCourierEvent.location, latestCourierEvent.note || latestCourierEvent.status]
+                  .filter(Boolean)
+                  .join(" · ")
+              : latestHistoryEvent?.note || null;
+            const trackingUpdateTime = latestCourierEvent?.trackedAt
+              ? new Date(latestCourierEvent.trackedAt).toLocaleString("en-IN", {
+                  day: "numeric",
+                  month: "short",
+                  hour: "numeric",
+                  minute: "2-digit",
+                })
+              : null;
+
+            const itemsNetTotal = Math.max(
+              0,
+              Number(order.subtotal ?? 0) - Number(order.discountAmount ?? 0)
+            );
+            const shippingCost = Number(order.shippingCharge ?? 0);
+            const taxCost = Number(order.taxAmount ?? 0);
+            const isMenuOpen = openMenuOrderId === order.id;
+
             return (
               <div
                 key={order.id}
-                className="bg-theme-surface border border-theme-border rounded-2xl overflow-hidden shadow-2xs hover:shadow-sm hover:border-theme-border-accent transition-all duration-200"
+                className={`relative bg-white border border-slate-200 border-l-4 ${cardAccentBorder} ${
+                  isMenuOpen ? "z-30" : ""
+                } rounded-2xl shadow-2xs hover:shadow-sm transition-all duration-200`}
               >
                 {/* Card Header Bar */}
-                <div className="flex justify-between items-center gap-4 flex-wrap px-5 py-3.5 bg-theme-surface-alt border-b border-theme-border-subtle">
-                  <div className="flex items-center gap-5 sm:gap-7 flex-wrap">
-                    <div>
-                      <div className="text-[10px] uppercase tracking-wider font-semibold text-theme-text-muted">
-                        Order
-                      </div>
+                <div className="flex justify-between items-start sm:items-center gap-3 flex-wrap px-4 sm:px-5 py-3.5 border-b border-slate-100">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-1.5 flex-wrap text-xs sm:text-sm">
+                      <span className="text-slate-500 font-medium">Order</span>
                       <Link
                         href={`/orders/${order.id}`}
-                        className="text-xs sm:text-sm font-bold text-theme-text-primary mt-0.5 font-mono hover:text-theme-primary hover:underline transition-colors block"
+                        className="font-bold text-slate-900 font-mono hover:text-blue-600 hover:underline transition-colors"
                         title="View order details"
                       >
-                        {order.orderNumber || `#${String(order.id).slice(0, 8)}`}
+                        #{cleanOrderNumber}
                       </Link>
+                      <button
+                        type="button"
+                        onClick={() => handleCopyOrderNumber(order.id, cleanOrderNumber)}
+                        aria-label="Copy order number"
+                        title={copiedOrderId === order.id ? "Copied!" : "Copy order number"}
+                        className="inline-flex h-6 w-6 items-center justify-center rounded-md text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition-colors cursor-pointer"
+                      >
+                        {copiedOrderId === order.id ? (
+                          <Check className="h-3.5 w-3.5 text-emerald-600" />
+                        ) : (
+                          <Copy className="h-3.5 w-3.5" />
+                        )}
+                      </button>
                     </div>
 
-                    <div>
-                      <div className="text-[10px] uppercase tracking-wider font-semibold text-theme-text-muted">
-                        Placed
-                      </div>
-                      <div className="text-xs sm:text-sm font-semibold text-theme-text-primary mt-0.5">
-                        {order.createdAt
-                          ? new Date(order.createdAt).toLocaleDateString("en-IN", {
-                              day: "2-digit",
-                              month: "short",
-                              year: "numeric",
-                            })
-                          : "\u2014"}
-                      </div>
+                    <div className="text-xs text-slate-500 mt-0.5 flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
+                      <span>Placed {placedDateLabel}</span>
+                      {deliveredDateLabel && (
+                        <>
+                          <span>·</span>
+                          <span>Delivered {deliveredDateLabel}</span>
+                        </>
+                      )}
+                      {!isDelivered && !isCancelled && !isReturned && order.placedByAgent?.name && (
+                        <>
+                          <span>·</span>
+                          <span>Via {order.placedByAgent.name}</span>
+                        </>
+                      )}
                     </div>
-
-                    <div>
-                      <div className="text-[10px] uppercase tracking-wider font-semibold text-theme-text-muted">
-                        Total
-                      </div>
-                      <div className="text-xs sm:text-sm font-bold text-theme-primary mt-0.5">
-                        {formatPrice(order.totalAmount)}
-                      </div>
-                    </div>
-
-                    {itemCount > 0 && (
-                      <div>
-                        <div className="text-[10px] uppercase tracking-wider font-semibold text-theme-text-muted">
-                          Items
-                        </div>
-                        <div className="text-xs sm:text-sm font-semibold text-theme-text-primary mt-0.5">
-                          {itemCount}
-                        </div>
-                      </div>
-                    )}
                   </div>
 
                   <div className="flex items-center gap-2 flex-wrap">
                     {activeReturn?.returnNumber && (
-                      <span className="inline-flex items-center gap-1 font-mono text-[11px] font-bold text-emerald-800 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200 shadow-2xs">
+                      <span className="inline-flex items-center gap-1 font-mono text-[11px] font-bold text-emerald-800 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200">
                         Return ID: {activeReturn.returnNumber}
                       </span>
                     )}
                     <span
-                      className={`inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider px-3 py-1.5 rounded-full border ${effectiveStatusMeta.bg}`}
+                      className={`inline-flex items-center gap-1.5 text-xs font-semibold capitalize px-3 py-1 rounded-full border ${effectiveStatusMeta.bg}`}
                     >
-                      <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${effectiveStatusMeta.dot}`} />
+                      {isDelivered && !returnMeta ? (
+                        <Check className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
+                      ) : (
+                        <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${effectiveStatusMeta.dot}`} />
+                      )}
                       {effectiveStatusLabel}
                     </span>
 
-                    {/* Time left for customer shipment badge in card header */}
                     {activeReturn?.status === "approved" && shipDaysInfo && (
                       <span
                         suppressHydrationWarning
-                        className={`inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-full border shadow-2xs ${
+                        className={`inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-full border ${
                           shipDaysInfo.expired
                             ? "bg-red-50 text-red-700 border-red-200"
                             : shipDaysInfo.daysLeft <= 1
                             ? "bg-amber-50 text-amber-800 border-amber-300 animate-pulse"
                             : "bg-blue-50 text-blue-800 border-blue-200"
                         }`}
-                        title={shipDaysInfo.deadline ? `Courier return deadline: ${formatStoreDate(shipDaysInfo.deadline)}` : undefined}
+                        title={
+                          shipDaysInfo.deadline
+                            ? `Courier return deadline: ${formatStoreDate(shipDaysInfo.deadline)}`
+                            : undefined
+                        }
                       >
                         <Clock className="h-3 w-3" />
                         {shipDaysInfo.expired
@@ -654,9 +796,260 @@ export function OrdersTab({
                   </div>
                 </div>
 
-                {/* Shipment Alert Banner when return is approved */}
-                {activeReturn?.status === "approved" && (
-                  <div className="mx-5 mt-3.5 rounded-xl border border-blue-200 bg-blue-50/70 p-3 text-xs text-blue-950 flex items-start gap-2.5">
+                {/* 4-Step Order Progress Bar */}
+                <div className="px-4 sm:px-5 py-3.5 border-b border-slate-100">
+                  <div className="grid grid-cols-4 items-start">
+                    {cardSteps.map((step, idx) => {
+                      const isDoneOrActive = idx <= currentStepIdx;
+                      const isActive = idx === currentStepIdx;
+                      const isFirst = idx === 0;
+                      const isLast = idx === cardSteps.length - 1;
+
+                      const ringTone = isDelivered
+                        ? "border-emerald-600"
+                        : isCancelled && isLast && isDoneOrActive
+                        ? "border-red-500"
+                        : isReturned && isLast && isDoneOrActive
+                        ? "border-purple-600"
+                        : isDoneOrActive
+                        ? "border-blue-600"
+                        : "border-slate-300";
+
+                      const dotTone = isDelivered
+                        ? "bg-emerald-600"
+                        : isCancelled && isLast && isDoneOrActive
+                        ? "bg-red-500"
+                        : isReturned && isLast && isDoneOrActive
+                        ? "bg-purple-600"
+                        : isDoneOrActive
+                        ? "bg-blue-600"
+                        : "bg-slate-300";
+
+                      const leftLineTone =
+                        idx <= currentStepIdx
+                          ? isDelivered
+                            ? "bg-emerald-600"
+                            : "bg-blue-600"
+                          : "bg-slate-200";
+
+                      const rightLineTone =
+                        idx < currentStepIdx
+                          ? isDelivered
+                            ? "bg-emerald-600"
+                            : "bg-blue-600"
+                          : "bg-slate-200";
+
+                      return (
+                        <div key={step.label} className="flex flex-col items-center text-center min-w-0">
+                          <div className="flex w-full items-center">
+                            <span
+                              className={`h-[1.5px] flex-1 ${
+                                isFirst ? "bg-transparent" : leftLineTone
+                              }`}
+                            />
+                            <span
+                              className={`grid h-5 w-5 shrink-0 place-items-center rounded-full border-[1.5px] bg-white ${ringTone}`}
+                            >
+                              <span className={`h-2 w-2 rounded-full ${dotTone}`} />
+                            </span>
+                            <span
+                              className={`h-[1.5px] flex-1 ${
+                                isLast ? "bg-transparent" : rightLineTone
+                              }`}
+                            />
+                          </div>
+                          <span
+                            className={`mt-1.5 text-[10px] sm:text-xs leading-tight px-0.5 truncate max-w-full ${
+                              isActive
+                                ? "font-bold text-slate-900"
+                                : isDoneOrActive
+                                ? "font-medium text-slate-600"
+                                : "text-slate-400"
+                            }`}
+                            title={step.label}
+                          >
+                            {step.label}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Ordered Items List (capped at 2 items until expanded) */}
+                <div className="px-4 sm:px-5 py-3.5 flex flex-col divide-y divide-slate-100">
+                  {order.items && order.items.length > 0 ? (
+                    (() => {
+                      const MAX_VISIBLE_ITEMS = 2;
+                      const allItems = order.items;
+                      const hasMoreItems = allItems.length > MAX_VISIBLE_ITEMS;
+                      const isItemsExpanded = Boolean(expandedOrderIds[order.id]);
+                      const visibleItems =
+                        hasMoreItems && !isItemsExpanded
+                          ? allItems.slice(0, MAX_VISIBLE_ITEMS)
+                          : allItems;
+                      const hiddenCount = allItems.length - MAX_VISIBLE_ITEMS;
+
+                      return (
+                        <>
+                          {visibleItems.map((it, idx) => {
+                            const lineTotal = Number(it.totalPrice ?? it.unitPrice ?? 0);
+                            const qty = Math.max(1, Number(it.quantity || 1));
+                            const eachPrice = lineTotal / qty;
+                            const dedupedAttrs = it.attributes?.length
+                              ? it.attributes.filter(
+                                  (a, i, arr) =>
+                                    arr.findIndex(
+                                      (b) =>
+                                        b.value === a.value &&
+                                        b.name.toLowerCase().startsWith("colo") ===
+                                          a.name.toLowerCase().startsWith("colo")
+                                    ) === i
+                                )
+                              : [];
+
+                            return (
+                              <div
+                                key={it.id || idx}
+                                className="flex items-start sm:items-center gap-3.5 py-2.5 first:pt-0 last:pb-0"
+                              >
+                                <div className="relative w-14 h-14 sm:w-16 sm:h-16 rounded-xl flex-shrink-0 border border-slate-200 bg-slate-50">
+                                  <ProductImage
+                                    src={it.primaryImage || (it as any).image || null}
+                                    alt={it.productName || "Fashion Item"}
+                                    fallbackText={it.productName || "Fashion Item"}
+                                    fallbackSize="compact"
+                                    containerClassName="relative z-0 w-full h-full rounded-xl overflow-hidden"
+                                    className="w-full h-full object-cover"
+                                  />
+                                  <span className="absolute -top-1.5 -right-1.5 z-20 pointer-events-none rounded-full bg-slate-900 px-1.5 py-0.5 text-[10px] font-bold text-white shadow-xs leading-none">
+                                    ×{qty}
+                                  </span>
+                                </div>
+
+                                <div className="flex-1 min-w-0">
+                                  <div className="text-sm sm:text-[15px] font-bold text-slate-900 truncate">
+                                    {it.productName || "Fashion Item"}
+                                  </div>
+                                  {((it.itemName && it.itemName !== it.productName) || it.sku) && (
+                                    <div className="text-xs text-slate-500 truncate mt-0.5">
+                                      {it.itemName && it.itemName !== it.productName
+                                        ? it.itemName
+                                        : `SKU: ${it.sku}`}
+                                    </div>
+                                  )}
+
+                                  <div className="flex flex-wrap items-center gap-1.5 mt-2">
+                                    {dedupedAttrs.length > 0 ? (
+                                      dedupedAttrs.map((attr) => {
+                                        const isColor = attr.name.toLowerCase().startsWith("colo");
+                                        return (
+                                          <span
+                                            key={`${attr.name}-${attr.value}`}
+                                            className="inline-flex items-center gap-1.5 rounded-md border border-slate-200 bg-slate-50 px-2 py-0.5 text-[11px] font-medium text-slate-700"
+                                          >
+                                            {isColor && it.colorHex && (
+                                              <span
+                                                className="h-2.5 w-2.5 rounded-full border border-slate-300 shrink-0"
+                                                style={{ backgroundColor: it.colorHex }}
+                                              />
+                                            )}
+                                            <span>
+                                              {isColor ? attr.value : `${attr.name}: ${attr.value}`}
+                                            </span>
+                                          </span>
+                                        );
+                                      })
+                                    ) : (
+                                      <>
+                                        {it.colorName && (
+                                          <span className="inline-flex items-center gap-1.5 rounded-md border border-slate-200 bg-slate-50 px-2 py-0.5 text-[11px] font-medium text-slate-700">
+                                            {it.colorHex && (
+                                              <span
+                                                className="h-2.5 w-2.5 rounded-full border border-slate-300 shrink-0"
+                                                style={{ backgroundColor: it.colorHex }}
+                                              />
+                                            )}
+                                            <span>{it.colorName}</span>
+                                          </span>
+                                        )}
+                                        {it.variantName && it.variantName !== it.colorName && (
+                                          <span className="inline-flex items-center rounded-md border border-slate-200 bg-slate-50 px-2 py-0.5 text-[11px] font-medium text-slate-700">
+                                            {it.variantName}
+                                          </span>
+                                        )}
+                                      </>
+                                    )}
+                                    <span className="inline-flex items-center rounded-md border border-slate-200 bg-slate-50 px-2 py-0.5 text-[11px] font-medium text-slate-700">
+                                      Qty {qty}
+                                    </span>
+                                  </div>
+                                </div>
+
+                                <div className="text-right flex-shrink-0">
+                                  <div className="text-sm sm:text-base font-bold text-slate-900 tabular-nums">
+                                    {formatPrice(lineTotal)}
+                                  </div>
+                                  <div className="text-[11px] text-slate-500 mt-0.5 tabular-nums">
+                                    {formatPrice(eachPrice)} each
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
+
+                          {hasMoreItems && (
+                            <div className="pt-2.5">
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setExpandedOrderIds((prev) => ({
+                                    ...prev,
+                                    [order.id]: !isItemsExpanded,
+                                  }))
+                                }
+                                className="w-full flex items-center justify-between gap-2 rounded-xl border border-slate-200 bg-slate-50/80 hover:bg-slate-100 px-3 py-2 text-xs font-semibold text-slate-700 transition-colors cursor-pointer"
+                              >
+                                {isItemsExpanded ? (
+                                  <>
+                                    <span>Showing all {allItems.length} items</span>
+                                    <span className="inline-flex items-center gap-1 text-blue-600">
+                                      Show less
+                                      <ChevronUp className="h-3.5 w-3.5" />
+                                    </span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <span className="inline-flex items-center gap-2">
+                                      <span className="inline-flex items-center rounded-full bg-slate-900 px-2 py-0.5 text-[11px] font-bold text-white">
+                                        +{hiddenCount}
+                                      </span>
+                                      <span>
+                                        more {hiddenCount === 1 ? "item" : "items"} in this order
+                                      </span>
+                                    </span>
+                                    <span className="inline-flex items-center gap-1 text-blue-600">
+                                      View all
+                                      <ChevronDown className="h-3.5 w-3.5" />
+                                    </span>
+                                  </>
+                                )}
+                              </button>
+                            </div>
+                          )}
+                        </>
+                      );
+                    })()
+                  ) : (
+                    <div className="text-xs text-slate-500 py-3">
+                      Order details available in invoice.
+                    </div>
+                  )}
+                </div>
+
+                {/* Contextual Info Banner */}
+                {activeReturn?.status === "approved" ? (
+                  <div className="mx-4 sm:mx-5 mb-3.5 rounded-xl border border-blue-200 bg-blue-50/70 p-3 text-xs text-blue-950 flex items-start gap-2.5">
                     <Truck className="h-4 w-4 text-blue-700 shrink-0 mt-0.5" />
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between gap-2 flex-wrap">
@@ -674,262 +1067,264 @@ export function OrdersTab({
                           >
                             {shipDaysInfo.expired
                               ? "Shipping deadline passed"
-                              : `${shipDaysInfo.daysLeft} ${shipDaysInfo.daysLeft === 1 ? "day" : "days"} left to ship${shipDaysInfo.deadline ? ` (by ${formatStoreDate(shipDaysInfo.deadline)})` : ""}`}
+                              : `${shipDaysInfo.daysLeft} ${shipDaysInfo.daysLeft === 1 ? "day" : "days"} left to ship${
+                                  shipDaysInfo.deadline ? ` (by ${formatStoreDate(shipDaysInfo.deadline)})` : ""
+                                }`}
                           </span>
                         )}
                       </div>
                       <p className="text-[11px] text-blue-800 mt-1">
-                        Please pack the item and courier it to the seller. Then click <strong>&quot;I have shipped the item&quot;</strong> below to enter your tracking details.
+                        Please pack the item and courier it to the seller. Then click{" "}
+                        <strong>&quot;I have shipped the item&quot;</strong> below to enter your tracking details.
                       </p>
                     </div>
                   </div>
-                )}
+                ) : isDelivered &&
+                  order.returnWindow?.eligible &&
+                  (order.returnWindow.daysLeft ?? 0) > 0 ? (
+                  <div className="mx-4 sm:mx-5 mb-3.5 rounded-xl border border-amber-200/80 bg-amber-50/70 px-3.5 py-2.5 text-xs text-amber-950 flex items-center gap-2">
+                    <Clock className="h-4 w-4 text-amber-700 shrink-0" />
+                    <span>
+                      Return / replace window closes in{" "}
+                      <strong>
+                        {order.returnWindow.daysLeft}{" "}
+                        {order.returnWindow.daysLeft === 1 ? "day" : "days"}
+                      </strong>
+                      {order.returnWindow.deadline
+                        ? ` (${formatStoreDate(new Date(order.returnWindow.deadline))})`
+                        : ""}
+                    </span>
+                  </div>
+                ) : isOngoing && trackingUpdateText ? (
+                  <div className="mx-4 sm:mx-5 mb-3.5 rounded-xl border border-blue-200/80 bg-blue-50/60 px-3.5 py-2.5 text-xs text-slate-700 flex items-center gap-2">
+                    <MapPin className="h-4 w-4 text-blue-600 shrink-0" />
+                    <span className="truncate">
+                      {trackingUpdateText}
+                      {trackingUpdateTime ? ` · Updated ${trackingUpdateTime}` : ""}
+                    </span>
+                  </div>
+                ) : null}
 
-                {/* Ordered Items List */}
-                <div className="px-5 py-4 flex flex-col divide-y divide-theme-border-subtle">
-                  {order.items && order.items.length > 0 ? (
-                    order.items.map((it, idx) => (
-                      <div key={idx} className="flex items-center gap-3.5 py-2.5 first:pt-0 last:pb-0">
-                        <div className="w-12 h-12 rounded-lg flex-shrink-0 overflow-hidden border border-theme-border-subtle">
-                          <ProductImage
-                            src={it.primaryImage || (it as any).image || null}
-                            alt={it.productName || "Fashion Item"}
-                            fallbackText={it.productName || "Fashion Item"}
-                            containerClassName="w-full h-full"
-                            className="w-full h-full object-cover"
-                          />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="text-xs sm:text-sm font-semibold text-theme-text-primary truncate">
-                            {it.productName || "Fashion Item"}
-                          </div>
-                          <div className="text-[11px] text-theme-text-muted mt-0.5 flex items-center gap-2">
-                            {it.quantity && <span>Qty: {it.quantity}</span>}
-                            {(it.attributes?.length ? it.attributes.map((a) => `${a.name}: ${a.value}`).join(" | ") : it.variantName) && (
-                              <>
-                                <span className="w-1 h-1 rounded-full bg-theme-border inline-block" />
-                                <span className="truncate">
-                                  {it.attributes?.length
-                                    ? it.attributes
-                                        .filter((a, i, arr) => arr.findIndex((b) => b.value === a.value && b.name.toLowerCase().startsWith("colo") === a.name.toLowerCase().startsWith("colo")) === i)
-                                        .map((a) => `${a.name}: ${a.value}`)
-                                        .join(" | ")
-                                    : it.variantName}
-                                </span>
-                              </>
-                            )}
-                          </div>
-                        </div>
-                        <div className="text-xs sm:text-sm font-bold text-theme-primary flex-shrink-0">
-                          {formatPrice(it.totalPrice ?? it.unitPrice ?? 0)}
-                        </div>
-                      </div>
-                    ))
-                  ) : (
-                    <div className="text-xs text-theme-text-muted py-3">
-                      Order details available in invoice.
+                {/* Card Footer: Totals + Actions */}
+                <div className="px-4 sm:px-5 py-3.5 border-t border-slate-100 flex flex-col sm:flex-row sm:items-end justify-between gap-3">
+                  <div>
+                    <div className="text-xs text-slate-500">
+                      Order total · {itemCount} {itemCount === 1 ? "item" : "items"}
                     </div>
-                  )}
-                </div>
+                    <div className="text-lg sm:text-xl font-extrabold text-slate-900 tabular-nums mt-0.5">
+                      {formatPrice(order.totalAmount)}
+                    </div>
+                    <div className="text-[11px] text-slate-500 mt-0.5">
+                      Items {formatPrice(itemsNetTotal)}
+                      {shippingCost > 0
+                        ? ` + Delivery ${formatPrice(shippingCost)}`
+                        : " · Free delivery"}
+                      {taxCost > 0 ? ` + Tax ${formatPrice(taxCost)}` : ""}
+                    </div>
+                  </div>
 
-                {/* Card Action Buttons */}
-                <div className="px-5 pb-4 pt-1 flex items-center gap-2.5 flex-wrap border-t border-theme-border-subtle">
-                  {/* Pay Now button — ONLY for online payment orders (Card/UPI/Razorpay) when payment is pending */}
-                  {(() => {
-                    const method = String((order as any).paymentMethod || "").toUpperCase();
-                    const paymentDetailsMethod = String((order as any).paymentDetails?.method || "").toUpperCase();
-                    const notes = String((order as any).notes || "").toUpperCase();
-
-                    const isCod =
-                      method === "COD" ||
-                      method.includes("CASH") ||
-                      paymentDetailsMethod.includes("COD") ||
-                      paymentDetailsMethod.includes("CASH") ||
-                      notes.includes("COD") ||
-                      notes.includes("CASH ON DELIVERY") ||
-
-
-                      Boolean((order as any).bankDetails?.accountHolder);
-                    const canPay =
-                      order.paymentStatus === "pending" &&
-                      order.status !== "cancelled" &&
-                      !isCod;
-                    return canPay;
-                  })() && (
-                    <button
-                      type="button"
-                      disabled={payingOrderId === order.id}
-                      onClick={() => handlePayOrder(order)}
-                      className="inline-flex items-center gap-1.5 bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold uppercase tracking-wider py-2.5 px-4 rounded-lg transition-colors cursor-pointer min-h-[40px] disabled:opacity-60"
-                    >
-                      {payingOrderId === order.id ? (
-                        <>
-                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                          Processing...
-                        </>
-                      ) : (
-                        <>
-                          <CreditCard className="h-3.5 w-3.5" />
-                          Pay Now
-                        </>
-                      )}
-                    </button>
-                  )}
-
-                  {isOngoing ? (
-                    <button
-                      type="button"
-                      onClick={() => setTrackingOrder(order)}
-                      className="bg-theme-primary hover:bg-theme-primary-hover text-theme-primary-fg text-xs font-semibold uppercase tracking-wider py-2.5 px-4 rounded-lg transition-colors cursor-pointer min-h-[40px]"
-                    >
-                      Track Order
-                    </button>
-                  ) : (
-                    <button
-                      type="button"
-                      disabled={isReordering}
-                      onClick={() => handleReorder(order)}
-                      className={`text-xs font-semibold uppercase tracking-wider py-2.5 px-4 rounded-lg transition-colors cursor-pointer min-h-[40px] ${
-                        isReordered
-                          ? "bg-green-600 text-white"
-                          : "bg-theme-primary hover:bg-theme-primary-hover text-theme-primary-fg"
-                      } disabled:opacity-50`}
-                    >
-                      {isReordering ? (
-                        "Adding to Cart..."
-                      ) : isReordered ? (
-                        <span className="inline-flex items-center gap-1">
-                          <Check className="h-3.5 w-3.5" /> Added to Cart
-                        </span>
-                      ) : (
-                        "Reorder"
-                      )}
-                    </button>
-                  )}
-
-                  <button
-                    type="button"
-                    onClick={() =>
-                      window.open(`/invoice/${order.id}`, "_blank", "noopener")
-                    }
-                    className="border border-theme-border hover:bg-theme-surface-alt text-theme-text-subtle text-xs font-semibold uppercase tracking-wider py-2.5 px-4 rounded-lg transition-colors cursor-pointer min-h-[40px]"
-                  >
-                    Invoice
-                  </button>
-
-                  <Link href={`/orders/${order.id}`}>
-                    <button
-                      type="button"
-                      className="border border-theme-border hover:bg-theme-surface-alt text-theme-text-subtle text-xs font-semibold uppercase tracking-wider py-2.5 px-4 rounded-lg transition-colors cursor-pointer min-h-[40px]"
-                    >
-                      View Details
-                    </button>
-                  </Link>
-
-                  {order.status === "delivered" && (
-                    order.returnWindow && !order.returnWindow.eligible ? (
-                      <span
-                        className="border border-theme-border bg-theme-surface-alt text-theme-text-muted text-xs font-semibold uppercase tracking-wider py-2.5 px-4 rounded-lg inline-flex items-center gap-1.5 cursor-not-allowed select-none opacity-70"
-                        title="Return period expired (only allowed within 3 days of delivery)"
+                  <div className="flex items-center justify-end gap-2 flex-wrap sm:flex-nowrap">
+                    {activeReturn?.status === "approved" && (
+                      <button
+                        type="button"
+                        onClick={() => setShippingReturn(activeReturn)}
+                        className="inline-flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold py-2 px-3 rounded-xl transition-colors cursor-pointer h-10 shadow-xs whitespace-nowrap"
                       >
-                        <Undo2 className="h-3.5 w-3.5 text-theme-text-muted" />
-                        Return Expired (3-Day Limit)
-                      </span>
+                        <PackageCheck className="h-4 w-4" />
+                        <span>Shipped Item</span>
+                      </button>
+                    )}
+
+                    <Link href={`/orders/${order.id}`}>
+                      <button
+                        type="button"
+                        className="border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs sm:text-sm font-semibold px-3.5 h-10 rounded-xl transition-colors cursor-pointer inline-flex items-center gap-1.5 whitespace-nowrap"
+                      >
+                        <Eye className="h-4 w-4 text-slate-500" />
+                        <span>Details</span>
+                      </button>
+                    </Link>
+
+                    {canPay ? (
+                      <button
+                        type="button"
+                        disabled={payingOrderId === order.id}
+                        onClick={() => handlePayOrder(order)}
+                        className="inline-flex items-center gap-1.5 bg-amber-600 hover:bg-amber-700 text-white text-xs sm:text-sm font-semibold px-4 h-10 rounded-xl transition-colors cursor-pointer disabled:opacity-60 shadow-xs whitespace-nowrap"
+                      >
+                        {payingOrderId === order.id ? (
+                          <>
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                            <span>Processing...</span>
+                          </>
+                        ) : (
+                          <>
+                            <CreditCard className="h-4 w-4" />
+                            <span>Pay Now</span>
+                          </>
+                        )}
+                      </button>
+                    ) : isDelivered ? (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const mapped = (order.items || []).map(toReviewTarget);
+                          setReviewModalState({
+                            isOpen: true,
+                            orderNumber: order.orderNumber,
+                            items: mapped,
+                            selectedItem:
+                              mapped.find((m) => !m.isReviewed) || mapped[0] || null,
+                          });
+                        }}
+                        className="bg-blue-600 hover:bg-blue-700 text-white text-xs sm:text-sm font-semibold px-4 h-10 rounded-xl transition-colors cursor-pointer inline-flex items-center gap-1.5 shadow-xs whitespace-nowrap"
+                      >
+                        <Star className="h-4 w-4" />
+                        <span>{isAllReviewed ? "Reviewed" : "Rate & Review"}</span>
+                      </button>
+                    ) : isOngoing ? (
+                      <button
+                        type="button"
+                        onClick={() => setTrackingOrder(order)}
+                        className="bg-blue-600 hover:bg-blue-700 text-white text-xs sm:text-sm font-semibold px-4 h-10 rounded-xl transition-colors cursor-pointer inline-flex items-center gap-1.5 shadow-xs whitespace-nowrap"
+                      >
+                        <Truck className="h-4 w-4" />
+                        <span>Track Order</span>
+                      </button>
                     ) : (
                       <button
                         type="button"
-                        onClick={() =>
-                          setReturnTarget({ orderId: order.id, mode: "return" })
-                        }
-                        className="btn-return-replace text-xs font-bold uppercase tracking-wider py-2.5 px-4 rounded-lg cursor-pointer min-h-[40px] inline-flex items-center gap-1.5 shadow-xs"
+                        disabled={isReordering}
+                        onClick={() => handleReorder(order)}
+                        className="bg-blue-600 hover:bg-blue-700 text-white text-xs sm:text-sm font-semibold px-4 h-10 rounded-xl transition-colors cursor-pointer inline-flex items-center gap-1.5 shadow-xs disabled:opacity-50 whitespace-nowrap"
                       >
-                        <Undo2 className="h-3.5 w-3.5 stroke-[2.5]" />
-                        <span>Return / Replace</span>
-                        {order.returnWindow?.daysLeft ? (
-                          <span className="return-badge ml-1 rounded px-1.5 py-0.5 text-[10px] font-extrabold tracking-normal">
-                            {order.returnWindow.daysLeft}d left
-                          </span>
-                        ) : null}
-                      </button>
-                    )
-                  )}
-
-                  {/* "I have shipped the item" button shown after return/replace button, ONLY when return status is approved */}
-                  {activeReturn?.status === "approved" && (
-                    <button
-                      type="button"
-                      onClick={() => setShippingReturn(activeReturn)}
-                      className="inline-flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold uppercase tracking-wider py-2.5 px-4 rounded-lg transition-colors cursor-pointer min-h-[40px] shadow-xs"
-                    >
-                      <PackageCheck className="h-3.5 w-3.5" />
-                      <span>I have shipped the item</span>
-                      {shipDaysInfo && (
-                        <span
-                          suppressHydrationWarning
-                          className={`ml-1 rounded px-1.5 py-0.5 text-[10px] font-extrabold tracking-normal ${
-                            shipDaysInfo.expired
-                              ? "bg-red-500 text-white"
-                              : shipDaysInfo.daysLeft <= 1
-                              ? "bg-amber-400 text-amber-950 font-black"
-                              : "bg-white/25 text-white"
-                          }`}
-                        >
-                          {shipDaysInfo.expired ? "Expired" : `${shipDaysInfo.daysLeft}d left`}
+                        <RotateCcw className="h-4 w-4" />
+                        <span>
+                          {isReordering
+                            ? "Adding..."
+                            : isReordered
+                            ? "Added"
+                            : "Buy Again"}
                         </span>
-                      )}
-                    </button>
-                  )}
+                      </button>
+                    )}
 
-                  {/* "Write a Review" button for delivered orders */}
-                  {order.status === "delivered" && (() => {
-                    const reviewLabel =
-                      order.items?.length && order.items.every((it) => it.isReviewed)
-                        ? "Reviewed"
-                        : "Write Review";
-                    return (
-                      <Tooltip content={reviewLabel} wrapperClassName="shrink-0">
-                        <button
-                          type="button"
-                          aria-label={reviewLabel}
-                          onClick={() => {
-                            const mapped = (order.items || []).map(toReviewTarget);
-                            setReviewModalState({
-                              isOpen: true,
-                              orderNumber: order.orderNumber,
-                              items: mapped,
-                              selectedItem: mapped.find((m) => !m.isReviewed) || mapped[0] || null,
-                            });
-                          }}
-                          className="border border-amber-300 bg-amber-50/80 hover:bg-amber-100/90 text-amber-900 min-h-[40px] px-3.5 py-2.5 rounded-lg cursor-pointer inline-flex items-center justify-center shrink-0 shadow-2xs transition-colors"
+                    {/* Overflow Actions Menu */}
+                    <div
+                      className="relative"
+                      ref={isMenuOpen ? openMenuRef : null}
+                    >
+                      <button
+                        type="button"
+                        aria-label="More order actions"
+                        aria-expanded={isMenuOpen}
+                        onClick={() =>
+                          setOpenMenuOrderId(isMenuOpen ? null : order.id)
+                        }
+                        className="h-10 w-10 rounded-xl border border-slate-300 hover:border-slate-400 bg-white hover:bg-slate-50 text-slate-700 inline-flex items-center justify-center transition-colors cursor-pointer"
+                      >
+                        <MoreVertical className="h-4 w-4" />
+                      </button>
+
+                      {isMenuOpen && (
+                        <div
+                          role="menu"
+                          className="absolute right-0 top-full mt-2 w-56 rounded-2xl border border-slate-200 bg-white p-1.5 shadow-xl z-40 animate-in fade-in zoom-in-95 duration-100"
                         >
-                          <SquarePen className="h-4 w-4" />
-                        </button>
-                      </Tooltip>
-                    );
-                  })()}
+                          {isDelivered && (
+                            order.returnWindow && !order.returnWindow.eligible ? (
+                              <div
+                                className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-xs text-slate-400 cursor-not-allowed select-none"
+                                title="Return period expired (only allowed within 3 days of delivery)"
+                              >
+                                <Undo2 className="h-4 w-4 shrink-0" />
+                                <span>Return Expired (3-Day Limit)</span>
+                              </div>
+                            ) : (
+                              <button
+                                type="button"
+                                role="menuitem"
+                                onClick={() => {
+                                  setOpenMenuOrderId(null);
+                                  setReturnTarget({ orderId: order.id, mode: "return" });
+                                }}
+                                className="w-full flex items-center justify-between gap-2 px-3 py-2.5 rounded-xl text-xs sm:text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors cursor-pointer text-left"
+                              >
+                                <span className="flex items-center gap-2.5">
+                                  <Undo2 className="h-4 w-4 text-slate-500 shrink-0" />
+                                  <span>Return / Replace</span>
+                                </span>
+                                {order.returnWindow?.daysLeft ? (
+                                  <span className="rounded-md bg-amber-100 px-1.5 py-0.5 text-[10px] font-extrabold text-amber-800 whitespace-nowrap">
+                                    {order.returnWindow.daysLeft}D LEFT
+                                  </span>
+                                ) : null}
+                              </button>
+                            )
+                          )}
 
-                  <Link href="/contact">
-                    <button
-                      type="button"
-                      className="border border-theme-border hover:bg-theme-surface-alt text-theme-text-subtle text-xs font-semibold uppercase tracking-wider py-2.5 px-4 rounded-lg transition-colors cursor-pointer min-h-[40px]"
-                    >
-                      Need Help
-                    </button>
-                  </Link>
+                          <button
+                            type="button"
+                            role="menuitem"
+                            onClick={() => {
+                              setOpenMenuOrderId(null);
+                              window.open(`/invoice/${order.id}`, "_blank", "noopener");
+                            }}
+                            className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-xs sm:text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors cursor-pointer text-left"
+                          >
+                            <Download className="h-4 w-4 text-slate-500 shrink-0" />
+                            <span>Download Invoice</span>
+                          </button>
 
-                  {isOrderCancellable(order.status) && (
-                    <button
-                      type="button"
-                      disabled={cancelMutation.isPending}
-                      onClick={() => {
-                        setCancelError(null);
-                        setCancelTarget(order);
-                      }}
-                      className="border border-red-200 hover:bg-red-50 text-red-600 text-xs font-semibold uppercase tracking-wider py-2.5 px-4 rounded-lg transition-colors cursor-pointer min-h-[40px] disabled:opacity-50 ml-auto"
-                    >
-                      Cancel Order
-                    </button>
-                  )}
+                          {(isDelivered || isOngoing) && (
+                            <button
+                              type="button"
+                              role="menuitem"
+                              disabled={isReordering}
+                              onClick={() => {
+                                setOpenMenuOrderId(null);
+                                handleReorder(order);
+                              }}
+                              className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-xs sm:text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors cursor-pointer text-left disabled:opacity-50"
+                            >
+                              <RotateCcw className="h-4 w-4 text-slate-500 shrink-0" />
+                              <span>{isReordering ? "Adding to Cart..." : "Buy Again"}</span>
+                            </button>
+                          )}
+
+                          {isOrderCancellable(order.status) && (
+                            <button
+                              type="button"
+                              role="menuitem"
+                              disabled={cancelMutation.isPending}
+                              onClick={() => {
+                                setOpenMenuOrderId(null);
+                                setCancelError(null);
+                                setCancelTarget(order);
+                              }}
+                              className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-xs sm:text-sm font-medium text-red-600 hover:bg-red-50 transition-colors cursor-pointer text-left disabled:opacity-50"
+                            >
+                              <XCircle className="h-4 w-4 shrink-0" />
+                              <span>Cancel Order</span>
+                            </button>
+                          )}
+
+                          <button
+                            type="button"
+                            role="menuitem"
+                            onClick={() => {
+                              setOpenMenuOrderId(null);
+                              setHelpOrderSubject(`Help with Order #${cleanOrderNumber}`);
+                            }}
+                            className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-xs sm:text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors cursor-pointer text-left"
+                          >
+                            <HelpCircle className="h-4 w-4 text-slate-500 shrink-0" />
+                            <span>Need Help?</span>
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 </div>
 
                 {/* Payment error banner - only shown on the specific order that failed */}
@@ -1229,6 +1624,12 @@ export function OrdersTab({
           }}
         />
       )}
+
+      <ContactFormModal
+        open={Boolean(helpOrderSubject)}
+        initialSubject={helpOrderSubject ?? undefined}
+        onClose={() => setHelpOrderSubject(null)}
+      />
     </div>
   );
 }

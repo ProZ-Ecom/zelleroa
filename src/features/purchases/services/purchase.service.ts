@@ -666,22 +666,35 @@ export const purchaseService = {
       orderBy: { id: "desc" },
       take: 25,
     });
-    return rows.map((r) => ({
-      variantUnitPriceId: Number(r.id),
-      label: [
-        productName(r),
-        r.variant?.variant_name,
-        r.variant?.color_name,
-        r.attribute_value?.value ?? r.product_units?.name,
-      ]
-        .filter(Boolean)
-        .join(" · "),
-      productName: productName(r),
-      colorName: r.variant?.color_name ?? null,
-      sizeName: r.attribute_value?.value ?? null,
-      sku: r.sku,
-      stock: r.inventories?.quantity_available ?? 0,
-      reorderLevel: r.inventories?.reorderLevel ?? 0,
-    }));
+    return rows.map((r) => {
+      const product = productName(r);
+      const style = r.variant?.style?.name;
+      const color = r.variant?.color_name ?? r.variant?.variant_name;
+      const size = r.attribute_value?.value ?? r.product_units?.name;
+
+      // Deduplicate segments (e.g. if product falls back to style name) and keep order:
+      // Product · Style · Color(variant) · Size(variant)
+      const labelParts: string[] = [];
+      for (const part of [product, style, color, size]) {
+        const trimmed = part?.trim();
+        if (
+          trimmed &&
+          !labelParts.some((existing) => existing.toLowerCase() === trimmed.toLowerCase())
+        ) {
+          labelParts.push(trimmed);
+        }
+      }
+
+      return {
+        variantUnitPriceId: Number(r.id),
+        label: labelParts.join(" · "),
+        productName: product,
+        colorName: r.variant?.color_name ?? null,
+        sizeName: r.attribute_value?.value ?? null,
+        sku: r.sku,
+        stock: r.inventories?.quantity_available ?? 0,
+        reorderLevel: r.inventories?.reorderLevel ?? 0,
+      };
+    });
   },
 };
