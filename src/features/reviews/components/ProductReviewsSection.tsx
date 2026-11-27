@@ -163,16 +163,15 @@ export function ProductReviewsSection({
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8">
             {displayedReviews.map((review: PublicReviewItem) => {
             const initials = getInitials(review.customerName);
-            const location = review.title || "Verified Customer";
 
             return (
               <div
                 key={review.id}
-                className="bg-white rounded-2xl sm:rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-xs hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300 flex flex-col justify-between animate-in fade-in duration-200"
+                className="bg-white rounded-2xl sm:rounded-3xl p-6 sm:p-7 border border-slate-200 shadow-xs hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300 flex flex-col justify-between animate-in fade-in duration-200"
               >
                 <div>
                   {/* Star Rating */}
-                  <div className="flex items-center gap-1 text-amber-500 mb-5">
+                  <div className="flex items-center gap-1 text-amber-500 mb-3.5">
                     {Array.from({ length: 5 }).map((_, i) => (
                       <Star
                         key={i}
@@ -185,15 +184,24 @@ export function ProductReviewsSection({
                     ))}
                   </div>
 
-                  {/* Comment Quote */}
-                  <p className="text-slate-700 text-sm sm:text-[14.5px] leading-relaxed italic font-normal">
-                    &ldquo;{review.comment}&rdquo;
-                  </p>
+                  {/* Review Headline */}
+                  {review.title && (
+                    <h4 className="text-sm sm:text-base font-bold text-slate-900 mb-2 leading-snug">
+                      {review.title}
+                    </h4>
+                  )}
+
+                  {/* Comment Body */}
+                  {review.comment && (
+                    <p className="text-slate-600 text-xs sm:text-sm leading-relaxed">
+                      &ldquo;{review.comment}&rdquo;
+                    </p>
+                  )}
                 </div>
 
                 {/* Reviewer Profile */}
-                <div className="mt-7 pt-5 border-t border-slate-100 flex items-center gap-3.5">
-                  <div className="w-10 h-10 rounded-full bg-blue-50 text-[var(--primary-base)] font-bold text-xs flex items-center justify-center shrink-0 shadow-2xs">
+                <div className="mt-6 pt-4 border-t border-slate-100 flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-full bg-blue-50 text-[var(--primary-base)] font-bold text-xs flex items-center justify-center shrink-0 shadow-2xs">
                     {initials}
                   </div>
 
@@ -201,15 +209,18 @@ export function ProductReviewsSection({
                     <span className="text-sm font-bold text-slate-900 truncate">
                       {review.customerName}
                     </span>
-                    <div className="text-xs text-emerald-700 font-medium flex flex-wrap items-center gap-1 mt-0.5">
+                    <div className="text-xs text-emerald-700 font-medium flex items-center gap-1.5 mt-0.5">
                       <span className="inline-flex items-center gap-1">
                         <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
                         <span>Verified Buyer</span>
                       </span>
-                      {location && (
-                        <span className="inline-flex items-center text-slate-500 truncate">
-                
-                          <span className="truncate">{location}</span>
+                      {review.createdAt && (
+                        <span className="text-slate-400 text-[11px]">
+                          • {new Date(review.createdAt).toLocaleDateString("en-IN", {
+                            day: "numeric",
+                            month: "short",
+                            year: "numeric",
+                          })}
                         </span>
                       )}
                     </div>

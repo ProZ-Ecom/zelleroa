@@ -21,8 +21,8 @@ import { ErrorState } from "@/components/ui/error-state";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
 import { SearchInput } from "@/components/ui/search-input";
-import { ClearFiltersButton } from "@/components/common/clear-filters-button";
 import { ExportButton } from "@/components/common/export-button";
+import { ClearFiltersButton } from "@/components/common/clear-filters-button";
 import { exportDataToCsv } from "@/lib/export-csv";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { formatDateTime } from "@/lib/utils";
@@ -91,12 +91,18 @@ export function AdminReviewListTable({
   };
 
   const hasActiveFilters =
-    search.trim() !== "" || ratingFilter !== undefined || statusFilter !== "all";
+    search.trim() !== "" ||
+    ratingFilter !== undefined ||
+    statusFilter !== "all" ||
+    sortBy !== "createdAt" ||
+    sortOrder !== "desc";
 
   const handleClearFilters = () => {
     setSearch("");
     setRatingFilter(undefined);
     setStatusFilter("all");
+    setSortBy("createdAt");
+    setSortOrder("desc");
     setPage(1);
   };
 
@@ -222,9 +228,15 @@ export function AdminReviewListTable({
       cell: ({ row }) => {
         const review = row.original;
         const hasImages = Array.isArray(review.images) && review.images.length > 0;
+        const comment = review.comment?.trim() || "";
+        const MAX_COMMENT_LENGTH = 50;
+        const isLong = comment.length > MAX_COMMENT_LENGTH;
+        const displayComment = isLong
+          ? `${comment.slice(0, MAX_COMMENT_LENGTH).trimEnd()}...`
+          : comment;
 
         return (
-          <div className="min-w-[240px] max-w-[340px] space-y-1 py-1">
+          <div className="min-w-[200px] max-w-[320px] space-y-1 py-1">
             <div className="flex items-center gap-2">
               <ReviewRatingStars rating={review.rating} size="xs" />
               {hasImages && (
@@ -236,13 +248,21 @@ export function AdminReviewListTable({
             </div>
 
             {review.title && (
-              <div className="text-xs font-bold text-neutral-900 truncate">
+              <div
+                className="text-xs font-bold text-neutral-900 truncate"
+                title={review.title}
+              >
                 {review.title}
               </div>
             )}
 
-            <div className="text-xs text-neutral-600 line-clamp-2 leading-relaxed">
-              {review.comment || (
+            <div
+              className="text-xs text-neutral-600 truncate leading-relaxed"
+              title={review.comment || undefined}
+            >
+              {displayComment ? (
+                <span>{displayComment}</span>
+              ) : (
                 <span className="italic text-neutral-400">No review text</span>
               )}
             </div>
@@ -324,144 +344,127 @@ export function AdminReviewListTable({
   ];
 
   return (
-    <div className="flex flex-1 h-full min-h-0 flex-col overflow-hidden bg-[var(--color-background)] rounded-2xl">
+    <div className="flex flex-1 h-full min-h-0 w-full min-w-0 flex-col bg-[var(--color-background)] rounded-2xl">
       {/* Top Filter and Controls Bar */}
-      <div className="flex-shrink-0 mb-4 flex flex-col lg:flex-row lg:items-center justify-between gap-3">
-        {/* Left Side: Search, Rating Filter & Sort */}
-        <div className="flex items-center gap-2.5 flex-wrap sm:flex-nowrap w-full lg:w-auto">
-          <div className="w-full sm:w-72">
+      <div className="flex-shrink-0 mb-4 flex flex-col gap-3">
+        {/* Row 1: Filters on the left, Export & Refresh right-aligned */}
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex flex-1 flex-col gap-2.5 sm:flex-row sm:flex-wrap sm:items-center">
+            {/* Search Input */}
             <SearchInput
               value={search}
-              onChange={(e) => {
-                setSearch(e.target.value);
+              onSearch={(val) => {
+                setSearch(val);
                 setPage(1);
               }}
               placeholder="Search by customer, text..."
-              className="h-9.5 text-xs"
+              className="w-full sm:w-56 md:w-64"
             />
+
+            <div className="grid grid-cols-2 gap-2 sm:flex sm:items-center sm:gap-2.5">
+              {/* Rating Dropdown Filter */}
+              <Select
+                value={ratingFilter === undefined ? "all" : String(ratingFilter)}
+                onValueChange={(val) => handleRatingChange(val)}
+                searchable={false}
+                options={[
+                  { value: "all", label: "All Stars" },
+                  { value: "5", label: "⭐⭐⭐⭐⭐ (5 Stars)" },
+                  { value: "4", label: "⭐⭐⭐⭐ (4 Stars)" },
+                  { value: "3", label: "⭐⭐⭐ (3 Stars)" },
+                  { value: "2", label: "⭐⭐ (2 Stars)" },
+                  { value: "1", label: "⭐ (1 Star)" },
+                ]}
+                aria-label="Filter by rating"
+                className="w-full sm:w-40"
+              />
+
+              {/* Sort Dropdown */}
+              <Select
+                value={`${sortBy}_${sortOrder}`}
+                onValueChange={(val) => handleSortChange(val)}
+                searchable={false}
+                options={[
+                  { value: "createdAt_desc", label: "Newest First" },
+                  { value: "createdAt_asc", label: "Oldest First" },
+                  { value: "rating_desc", label: "Highest Rating" },
+                  { value: "rating_asc", label: "Lowest Rating" },
+                ]}
+                aria-label="Sort reviews"
+                className="w-full sm:w-40"
+              />
+            </div>
+
+            {hasActiveFilters && (
+              <ClearFiltersButton
+                onClick={handleClearFilters}
+                className="h-9 sm:h-10 md:h-11"
+              />
+            )}
           </div>
 
-          {/* Rating Dropdown Filter */}
-          <div className="w-44">
-            <Select
-              size="sm"
-              value={ratingFilter === undefined ? "all" : String(ratingFilter)}
-              onValueChange={(val) => handleRatingChange(val)}
-              searchable={false}
-              options={[
-                { value: "all", label: "All Stars" },
-                { value: "5", label: "⭐⭐⭐⭐⭐ (5 Stars)" },
-                { value: "4", label: "⭐⭐⭐⭐ (4 Stars)" },
-                { value: "3", label: "⭐⭐⭐ (3 Stars)" },
-                { value: "2", label: "⭐⭐ (2 Stars)" },
-                { value: "1", label: "⭐ (1 Star)" },
-              ]}
-              aria-label="Filter by rating"
+          <div className="flex flex-wrap items-center justify-end gap-2 shrink-0">
+            <ExportButton
+              onClick={() =>
+                exportDataToCsv(
+                  reviews.map((r) => ({
+                    Customer: r.customer?.name || "Verified Customer",
+                    Product: r.product?.name || "Product",
+                    SKU: r.variant?.sku || "",
+                    Rating: r.rating,
+                    Title: r.title || "",
+                    Comment: r.comment || "",
+                    Status: r.isApproved ? "Approved" : "Unapproved",
+                    Date: r.createdAt ? new Date(r.createdAt).toLocaleDateString("en-IN") : "",
+                  })),
+                  "reviews"
+                )
+              }
+              disabled={reviews.length === 0}
             />
+
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => refetch()}
+              disabled={isFetching}
+              className="h-9 sm:h-10 md:h-11 rounded-lg sm:rounded-xl border-cream-border bg-white hover:bg-cream-100 text-neutral-700 px-3 shrink-0 shadow-xs cursor-pointer"
+              title="Refresh review list"
+              aria-label="Refresh review list"
+            >
+              <RotateCcw
+                className={`h-3.5 w-3.5 sm:h-4 sm:w-4 ${isFetching ? "animate-spin text-secondary-600" : ""}`}
+              />
+            </Button>
           </div>
-
-          {/* Sort Dropdown */}
-          <div className="w-40">
-            <Select
-              size="sm"
-              value={`${sortBy}_${sortOrder}`}
-              onValueChange={(val) => handleSortChange(val)}
-              searchable={false}
-              options={[
-                { value: "createdAt_desc", label: "Newest First" },
-                { value: "createdAt_asc", label: "Oldest First" },
-                { value: "rating_desc", label: "Highest Rating" },
-                { value: "rating_asc", label: "Lowest Rating" },
-              ]}
-              aria-label="Sort reviews"
-            />
-          </div>
-
-          {/* Export Button */}
-          <ExportButton
-            onClick={() =>
-              exportDataToCsv(
-                reviews.map((r) => ({
-                  Customer: r.customer?.name || "Verified Customer",
-                  Product: r.product?.name || "Product",
-                  SKU: r.variant?.sku || "",
-                  Rating: r.rating,
-                  Title: r.title || "",
-                  Comment: r.comment || "",
-                  Status: r.isApproved ? "Approved" : "Unapproved",
-                  Date: r.createdAt ? new Date(r.createdAt).toLocaleDateString("en-IN") : "",
-                })),
-                "reviews"
-              )
-            }
-            disabled={reviews.length === 0}
-            className="h-9.5"
-          />
-
-          {/* Refresh Button */}
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => refetch()}
-            disabled={isFetching}
-            className="h-9.5 border-cream-border hover:bg-cream-100 text-neutral-700 px-3 shrink-0"
-            title="Refresh review list"
-          >
-            <RotateCcw
-              className={`w-3.5 h-3.5 ${isFetching ? "animate-spin text-secondary-600" : ""}`}
-            />
-          </Button>
-
-          {hasActiveFilters && <ClearFiltersButton onClick={handleClearFilters} className="h-9.5" />}
         </div>
 
-        {/* Right Side: Status Tabs (Segmented) */}
-        <div className="w-full lg:w-auto overflow-x-auto">
-          <ReviewStatusTabs
-            tabs={tabs}
-            activeTab={statusFilter}
-            onChange={handleTabChange}
-          />
+        {/* Row 2: Status Tabs */}
+        <div className="flex items-center">
+          <div className="w-full sm:w-auto overflow-x-auto scrollbar-none">
+            <ReviewStatusTabs
+              tabs={tabs}
+              activeTab={statusFilter}
+              onChange={handleTabChange}
+              className="w-max min-w-full sm:min-w-0"
+            />
+          </div>
         </div>
       </div>
 
       {/* Main Table Container */}
-      <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
+      <div className="flex-1 min-h-[420px] w-full rounded-2xl overflow-hidden flex flex-col bg-white border border-cream-border shadow-2xs">
         {isLoading ? (
-          <div className="flex-1 flex items-center justify-center rounded-2xl border border-cream-border bg-white p-12">
+          <div className="flex-1 flex items-center justify-center p-12">
             <LoadingState text="Loading reviews..." />
           </div>
         ) : error ? (
-          <div className="flex-1 flex items-center justify-center rounded-2xl border border-cream-border bg-white p-12">
+          <div className="flex-1 flex items-center justify-center p-12">
             <ErrorState
               title="Failed to load reviews"
               message={(error as Error)?.message || "Please check your network and try again"}
               onRetry={() => refetch()}
             />
-          </div>
-        ) : reviews.length === 0 ? (
-          <div className="flex-1 flex items-center justify-center rounded-2xl border border-cream-border bg-white p-12 text-center">
-            <div>
-              <Star className="mx-auto h-10 w-10 text-neutral-300 stroke-1" />
-              <h3 className="mt-3 text-sm font-bold text-neutral-900">
-                No reviews found
-              </h3>
-              <p className="mt-1 text-xs text-neutral-500 max-w-sm mx-auto">
-                {hasActiveFilters
-                  ? "No reviews match your current search or filter criteria."
-                  : "No customer reviews have been submitted yet."}
-              </p>
-              {hasActiveFilters && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleClearFilters}
-                  className="mt-4 text-xs font-semibold"
-                >
-                  Clear all filters
-                </Button>
-              )}
-            </div>
           </div>
         ) : (
           <DataTable
@@ -476,7 +479,12 @@ export function AdminReviewListTable({
               setPageSize(newSize);
               setPage(1);
             }}
-            className="bg-white border border-cream-border shadow-2xs"
+            emptyMessage={
+              hasActiveFilters
+                ? "No reviews match your current search or filter criteria."
+                : "No customer reviews have been submitted yet."
+            }
+            className="bg-white border-0"
           />
         )}
       </div>

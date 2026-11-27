@@ -23,8 +23,8 @@ function AdminHeader({ onMenuClick }: AdminHeaderProps) {
   };
 
   return (
-    <header className="flex h-16 items-center justify-between border-b border-neutral-200 bg-neutral-50 px-4 lg:hidden">
-      <div className="flex items-center gap-4">
+    <header className="flex h-14 sm:h-16 items-center justify-between border-b border-neutral-200 bg-neutral-50 px-3 sm:px-4 lg:hidden shrink-0">
+      <div className="flex items-center gap-3 sm:gap-4">
         <Button
           variant="ghost"
           size="icon"
@@ -34,7 +34,7 @@ function AdminHeader({ onMenuClick }: AdminHeaderProps) {
         >
           <Menu className="h-5 w-5" />
         </Button>
-        <h1 className="font-hanken text-secondary-600 text-lg font-semibold">Admin Dashboard</h1>
+        <h1 className="font-hanken text-secondary-600 text-base sm:text-lg font-semibold truncate">Admin Dashboard</h1>
       </div>
 
       <div className="flex items-center gap-4">

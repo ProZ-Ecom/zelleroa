@@ -16,7 +16,10 @@ export const PUT = createApiHandler(
     PUT: async (_request, context) => {
       const actor = await resolveActor(context.session);
       const saved = await commissionRateService.upsert(context.body as z.infer<typeof upsertRateSchema>, actor);
-      return apiSuccess(saved, "Commission rate saved. Existing commissions are not changed.");
+      const message = saved.isUpdate
+        ? "Commission rate updated successfully"
+        : "Commission rate added successfully";
+      return apiSuccess(saved, message);
     },
   },
   { requireAuth: true, requiredRole: ["ADMIN"], bodySchema: upsertRateSchema }

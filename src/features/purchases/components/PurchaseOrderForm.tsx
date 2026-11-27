@@ -276,9 +276,9 @@ export function PurchaseOrderForm({ initial, isLoading, submitLabel, mode = "dra
         </div>
       </div>
 
-      <div className="overflow-x-auto rounded-xl border border-neutral-200">
-        <table className="w-full text-sm">
-          <thead className="bg-neutral-50 text-left text-xs uppercase text-neutral-500">
+      <div className="overflow-x-auto rounded-xl border border-neutral-200 scrollbar-thin">
+        <table className="w-full min-w-full table-auto text-sm">
+          <thead className="bg-neutral-50 text-left text-xs uppercase text-neutral-500 whitespace-nowrap">
             <tr>
               <th className="px-4 py-2.5">Product</th>
               <th className="px-4 py-2.5">Color</th>

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useQueryClient } from "@tanstack/react-query";
 import { apiClient } from "@/lib/api/api-client";
 import { formatPrice } from "@/lib/utils";
+import { formatPhone } from "@/lib/utils/format-phone";
 import { getShippingCharge } from "@/features/orders/shipping";
 import type { CartItemResponse } from "@/features/cart/types/cart.types";
 import { customerCartApi } from "@/features/customers/api/customer-cart.api";
@@ -166,7 +167,7 @@ export function AgentCartCustomerOrder({ items, subtotal }: { items: CartItemRes
                 const code = c.customerCode ? (c.customerCode.length > 12 ? c.customerCode.slice(0, 8) + "…" : c.customerCode) : "";
                 return {
                   value: c.id,
-                  label: `${c.name}${code ? ` (${code})` : ""}${c.phone ? ` · ${c.phone}` : ""}`,
+                  label: `${c.name}${code ? ` (${code})` : ""}${c.phone ? ` · ${formatPhone(c.phone)}` : ""}`,
                 };
               })}
               value={customerId}

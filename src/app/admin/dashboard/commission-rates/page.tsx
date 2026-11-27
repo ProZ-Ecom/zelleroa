@@ -5,6 +5,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Loader2, Trash2 } from "lucide-react";
 import { apiClient } from "@/lib/api/api-client";
 import { toast } from "@/components/ui/Toast";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Select } from "@/components/ui/select";
 import { PageContainer } from "@/components/admin/PageContainer";
 import { errorMessage, useAdminObject } from "@/features/agents/hooks/use-admin-agents";
@@ -13,7 +14,9 @@ import { Panel, SimpleTable, StatusBadge, TableSkeleton, Tooltip, dateOnly, fiel
 interface RateRow {
   id: string;
   scope: "global" | "category" | "product";
+  categoryId?: string | null;
   categoryName: string | null;
+  productId?: string | null;
   productName: string | null;
   percentage: number;
   isActive: boolean;
@@ -42,6 +45,8 @@ export default function CommissionRatesPage() {
   const [days, setDays] = useState<string>("");
   const [savingDays, setSavingDays] = useState(false);
   const [savingAuto, setSavingAuto] = useState(false);
+  const [rateToDelete, setRateToDelete] = useState<RateRow | null>(null);
+  const [isRemoving, setIsRemoving] = useState(false);
 
   const refresh = () => qc.invalidateQueries({ queryKey: ["agents-admin"] });
 
@@ -57,15 +62,27 @@ export default function CommissionRatesPage() {
       setFormError(scope === "category" ? "Select a category" : "Select a product");
       return;
     }
+    const isExisting = (rates.data ?? []).some((r) => {
+      if (scope === "global") return r.scope === "global";
+      if (scope === "category") return r.scope === "category" && r.categoryId === targetId;
+      if (scope === "product") return r.scope === "product" && r.productId === targetId;
+      return false;
+    });
+
     setSaving(true);
     try {
-      await apiClient.put("/api/admin/commission-rates", {
+      const res = await apiClient.put<{ isUpdate?: boolean }>("/api/admin/commission-rates", {
         scope,
         percentage: pct,
         ...(scope === "category" ? { categoryId: targetId } : {}),
         ...(scope === "product" ? { productId: targetId } : {}),
       });
-      toast.success("Commission rate saved", "Existing commissions are not changed.");
+      const isUpdate = res.data?.isUpdate ?? isExisting;
+      if (isUpdate) {
+        toast.success("Commission rate updated", "Commission rate has been updated successfully.");
+      } else {
+        toast.success("Commission rate added", "Commission rate has been added successfully.");
+      }
       setPercentage("");
       await refresh();
     } catch (err) {
@@ -75,14 +92,18 @@ export default function CommissionRatesPage() {
     }
   };
 
-  const removeRate = async (r: RateRow) => {
-    if (!window.confirm("Remove this commission rate? Existing commissions are not affected.")) return;
+  const confirmRemoveRate = async () => {
+    if (!rateToDelete) return;
+    setIsRemoving(true);
     try {
-      await apiClient.delete(`/api/admin/commission-rates`, { params: { id: r.id } });
-      toast.success("Rate removed");
+      await apiClient.delete(`/api/admin/commission-rates`, { params: { id: rateToDelete.id } });
+      toast.success("Commission rate removed", "The commission rate has been removed successfully.");
+      setRateToDelete(null);
       await refresh();
     } catch (err) {
       toast.error("Could not remove the rate", errorMessage(err));
+    } finally {
+      setIsRemoving(false);
     }
   };
 
@@ -237,7 +258,7 @@ export default function CommissionRatesPage() {
                   header: "",
                   cell: (r) => (
                     <Tooltip content="Remove this commission rate" side="left">
-                      <button type="button" onClick={() => removeRate(r)} aria-label="Remove this commission rate" className="inline-flex items-center gap-1 text-xs font-semibold text-red-600 hover:underline">
+                      <button type="button" onClick={() => setRateToDelete(r)} aria-label="Remove this commission rate" className="inline-flex items-center gap-1 text-xs font-semibold text-red-600 hover:underline">
                         <Trash2 className="h-3.5 w-3.5" /> Remove
                       </button>
                     </Tooltip>
@@ -248,6 +269,17 @@ export default function CommissionRatesPage() {
           )}
         </Panel>
       </div>
+
+      <ConfirmDialog
+        open={!!rateToDelete}
+        onClose={() => setRateToDelete(null)}
+        onConfirm={confirmRemoveRate}
+        title="Remove Commission Rate"
+        description="Are you sure you want to remove this commission rate? Existing commissions are not affected."
+        confirmText="Remove"
+        variant="destructive"
+        isLoading={isRemoving}
+      />
     </PageContainer>
   );
 }

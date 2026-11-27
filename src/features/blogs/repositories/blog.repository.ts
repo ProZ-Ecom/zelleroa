@@ -1,16 +1,48 @@
 import { db } from "@/lib/db/prisma";
 import { Prisma } from "@/generated/prisma";
-import type { GetBlogsParams } from "../types";
+import type { GetBlogsParams, BlogListItem } from "../types";
 
 const blogListInclude = Prisma.validator<Prisma.BlogInclude>()({
-  author: { select: { name: true } },
+  author: { select: { id: true, name: true, email: true } },
 });
 
+export function formatBlogListItem(blog: any): BlogListItem {
+  let status = "DRAFT";
+  if (blog.is_active === false) {
+    status = "ARCHIVED";
+  } else if (blog.is_published) {
+    status = "PUBLISHED";
+  }
+
+  return {
+    id: Number(blog.id),
+    title: blog.title,
+    slug: blog.slug,
+    content: blog.content,
+    excerpt: blog.excerpt ?? null,
+    image: blog.featured_image ?? blog.image ?? null,
+    authorId: blog.authorId ? Number(blog.authorId) : 0,
+    status,
+    metaTitle: blog.metaTitle ?? null,
+    metaDescription: blog.metaDescription ?? null,
+    publishedAt: blog.publishedAt,
+    createdAt: blog.createdAt,
+    author: blog.author ? { name: blog.author.name } : undefined,
+    is_published: blog.is_published,
+    is_active: blog.is_active,
+  } as BlogListItem;
+}
+
 function buildBlogWhere(params: GetBlogsParams): Prisma.BlogWhereInput {
-  const where: Prisma.BlogWhereInput = { is_active: true };
+  const where: Prisma.BlogWhereInput = {};
 
   if (params.status) {
-    where.is_published = params.status === "PUBLISHED" || params.status === "published";
+    if (params.status === "ARCHIVED" || params.status === "archived") {
+      where.is_active = false;
+    } else {
+      where.is_active = true;
+      where.is_published = params.status === "PUBLISHED" || params.status === "published";
+    }
   }
 
   if (params.search) {
@@ -38,7 +70,7 @@ export const blogRepository = {
     ]);
 
     return {
-      data,
+      data: data.map(formatBlogListItem),
       meta: {
         page,
         limit,
@@ -48,40 +80,40 @@ export const blogRepository = {
     };
   },
 
-  async findById(id: number) {
-    return db.blog.findUnique({
-      where: { id },
-      include: {
-        author: { select: { id: true, name: true, email: true } },
-      },
+  async findById(id: number | bigint) {
+    const blog = await db.blog.findUnique({
+      where: { id: BigInt(id) },
+      include: blogListInclude,
     });
+    return blog ? formatBlogListItem(blog) : null;
   },
 
   async findBySlug(slug: string) {
-    return db.blog.findUnique({
+    const blog = await db.blog.findUnique({
       where: { slug },
-      include: {
-        author: { select: { id: true, name: true, email: true } },
-      },
+      include: blogListInclude,
     });
+    return blog ? formatBlogListItem(blog) : null;
   },
 
   async create(data: Prisma.BlogCreateInput) {
-    return db.blog.create({
+    const blog = await db.blog.create({
       data,
       include: blogListInclude,
     });
+    return formatBlogListItem(blog);
   },
 
-  async update(id: number, data: Prisma.BlogUpdateInput) {
-    return db.blog.update({
-      where: { id },
+  async update(id: number | bigint, data: Prisma.BlogUpdateInput) {
+    const blog = await db.blog.update({
+      where: { id: BigInt(id) },
       data,
       include: blogListInclude,
     });
+    return formatBlogListItem(blog);
   },
 
-  async delete(id: number) {
-    return db.blog.delete({ where: { id } });
+  async delete(id: number | bigint) {
+    return db.blog.delete({ where: { id: BigInt(id) } });
   },
 };

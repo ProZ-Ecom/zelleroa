@@ -260,7 +260,7 @@ function RegisterForm() {
             name="phone"
             label="Mobile Number"
             type="tel"
-            placeholder="Enter 10-digit mobile number"
+            placeholder="9897567488"
             autoComplete="tel"
             leftIcon={<Phone size={18} />}
             inputPrefix="+91"

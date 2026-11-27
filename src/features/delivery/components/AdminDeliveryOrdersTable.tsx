@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
 import { SearchInput } from "@/components/ui/search-input";
 import { formatDateTime, formatPrice } from "@/lib/utils";
+import { formatPhone } from "@/lib/utils/format-phone";
 import { ExportButton } from "@/components/common/export-button";
 import { exportDataToCsv } from "@/lib/export-csv";
 import { useAdminDeliveryOrders, useAdminDeliveryStaff } from "../hooks";
@@ -88,7 +89,7 @@ export function AdminDeliveryOrdersTable() {
               {customer?.name || "Customer"}
             </div>
             <div className="text-[11px] text-neutral-500 font-mono truncate">
-              {customer?.phone || customer?.email || "—"}
+              {formatPhone(customer?.phone, "") || customer?.email || "—"}
             </div>
           </div>
         );
@@ -137,7 +138,7 @@ export function AdminDeliveryOrdersTable() {
             </div>
             {staff.phone && (
               <div className="text-[10.5px] text-neutral-500 font-mono mt-0.5">
-                {staff.phone}
+                {formatPhone(staff.phone)}
               </div>
             )}
           </div>
@@ -270,7 +271,7 @@ export function AdminDeliveryOrdersTable() {
                 { value: "", label: "All Delivery Staff" },
                 ...staffList.map((s) => ({
                   value: s.id,
-                  label: `${s.name} (${s.phone || "Staff"})`,
+                  label: `${s.name} (${formatPhone(s.phone, "Staff")})`,
                 })),
               ]}
               aria-label="Filter by delivery staff"
@@ -285,7 +286,7 @@ export function AdminDeliveryOrdersTable() {
                 orders.map((o) => ({
                   OrderNumber: o.orderNumber,
                   Customer: o.customer?.name || "Customer",
-                  Phone: o.customer?.phone || "",
+                  Phone: formatPhone(o.customer?.phone, ""),
                   Address: `${o.shippingAddress?.addressLine1 || ""}, ${o.shippingAddress?.city || ""} - ${o.shippingAddress?.pincode || ""}`,
                   AssignedStaff: o.shipment?.deliveryStaff?.name || "Unassigned",
                   TotalAmount: o.totalAmount,

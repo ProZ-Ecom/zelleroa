@@ -8,6 +8,7 @@ import { ProductImage } from "@/components/common/ProductImage";
 import { QuantitySelector } from "./QuantitySelector";
 import { formatPrice } from "@/lib/utils";
 import { styleHref } from "@/features/customers/utils/style-href";
+import { AppliedOfferTag } from "@/features/offers/components/AppliedOfferTag";
 
 interface CartItemProps {
   item: any;
@@ -52,6 +53,10 @@ function CartItem({
   );
 
   const itemTotal = Number(item.itemTotal ?? effectivePrice * quantity);
+  const originalItemTotal = Number(item.originalItemTotal ?? basePrice * quantity);
+  const discountAmount = Number(item.discountAmount ?? Math.max(0, originalItemTotal - itemTotal));
+  const freeQuantity = Number(item.freeQuantity ?? 0);
+  const appliedOffer = item.offer ?? null;
 
   const discountPercent = Number(
     item.discountPercent ??
@@ -153,22 +158,24 @@ function CartItem({
           {itemHref ? (
             <Link
               href={itemHref}
-              className="block overflow-hidden rounded-xl border border-theme-border-subtle bg-theme-surface-alt h-20 w-20 sm:h-24 sm:w-24 transition-transform group-hover:scale-102"
+              className="relative z-0 block overflow-hidden rounded-xl border border-theme-border-subtle bg-theme-surface-alt h-20 w-20 sm:h-24 sm:w-24 transition-transform group-hover:scale-102"
             >
               <ProductImage
                 src={primaryImageUrl}
                 alt={productName}
                 fallbackText={productName}
+                fallbackSize="compact"
                 containerClassName="w-full h-full rounded-xl"
                 className="w-full h-full object-cover"
               />
             </Link>
           ) : (
-            <div className="overflow-hidden rounded-xl border border-theme-border-subtle bg-theme-surface-alt h-20 w-20 sm:h-24 sm:w-24 flex flex-col items-center justify-center text-xs font-medium text-theme-text-subtle">
+            <div className="relative z-0 overflow-hidden rounded-xl border border-theme-border-subtle bg-theme-surface-alt h-20 w-20 sm:h-24 sm:w-24 flex flex-col items-center justify-center text-xs font-medium text-theme-text-subtle">
               <ProductImage
                 src={primaryImageUrl}
                 alt={productName}
                 fallbackText={productName}
+                fallbackSize="compact"
                 containerClassName="w-full h-full rounded-xl"
                 className="w-full h-full object-cover"
               />
@@ -176,7 +183,7 @@ function CartItem({
           )}
 
           {discountPercent > 0 && (
-            <span className="absolute -top-1.5 -left-1.5 rounded-full bg-theme-primary px-1.5 py-0.5 text-[10px] sm:text-xs font-bold text-theme-primary-fg shadow-xs">
+            <span className="absolute -top-1.5 -left-1.5 z-20 pointer-events-none rounded-full bg-theme-primary px-1.5 py-0.5 text-[10px] sm:text-xs font-bold text-theme-primary-fg shadow-xs">
               -{discountPercent}%
             </span>
           )}
@@ -242,13 +249,26 @@ function CartItem({
               </span>
             )}
           </div>
+
+          <AppliedOfferTag
+            offer={appliedOffer}
+            discountAmount={discountAmount}
+            freeQuantity={freeQuantity}
+          />
         </div>
 
         {/* Desktop Controls (hidden on mobile screen) */}
         <div className="hidden sm:flex flex-col items-end gap-3 shrink-0">
           <div className="text-right">
-            <div className="text-base sm:text-lg font-bold text-theme-text-primary">
-              {formatPrice(itemTotal)}
+            <div className="flex items-baseline justify-end gap-2">
+              {originalItemTotal > itemTotal && (
+                <span className="text-xs text-theme-text-muted line-through">
+                  {formatPrice(originalItemTotal)}
+                </span>
+              )}
+              <span className="text-base sm:text-lg font-bold text-theme-text-primary">
+                {formatPrice(itemTotal)}
+              </span>
             </div>
             <div className="text-[11px] text-theme-text-muted">
               {quantity} × {formatPrice(effectivePrice)}
@@ -314,8 +334,15 @@ function CartItem({
         </div>
 
         <div className="text-right">
-          <div className="text-base font-bold text-theme-text-primary">
-            {formatPrice(itemTotal)}
+          <div className="flex items-baseline justify-end gap-1.5">
+            {originalItemTotal > itemTotal && (
+              <span className="text-xs text-theme-text-muted line-through">
+                {formatPrice(originalItemTotal)}
+              </span>
+            )}
+            <span className="text-base font-bold text-theme-text-primary">
+              {formatPrice(itemTotal)}
+            </span>
           </div>
           <div className="text-[11px] text-theme-text-muted">
             {quantity} × {formatPrice(effectivePrice)}

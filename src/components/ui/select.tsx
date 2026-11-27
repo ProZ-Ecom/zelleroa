@@ -354,7 +354,7 @@ const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
     return (
       <div
         ref={containerRef}
-        className={cn("ui-dropdown-wrapper relative", className)}
+        className={cn("ui-dropdown-wrapper relative w-full", className)}
         onKeyDown={handleKeyDown}
       >
         {/* Hidden Native Select for Form Libraries (e.g. react-hook-form) */}

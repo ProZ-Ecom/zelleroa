@@ -148,6 +148,8 @@ function isUnresolvableImageSrc(src?: string | null): boolean {
     trimmed === "null" ||
     trimmed === "undefined" ||
     trimmed === "/images/placeholder.png" ||
+    trimmed === "/images/category_img.png" ||
+    trimmed.includes("category_img.png") ||
     (trimmed.startsWith("/logos/") && trimmed.endsWith(".png"))
   ) {
     return true;

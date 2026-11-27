@@ -62,8 +62,8 @@ function CartSummary({
           </div>
 
           {summary.discount > 0 && (
-            <div className="flex justify-between text-theme-status-del-fg">
-              <span>Special Discount</span>
+            <div className="flex justify-between text-emerald-700">
+              <span>Offer Discount</span>
               <span className="font-semibold">
                 -{formatPrice(summary.discount)}
               </span>

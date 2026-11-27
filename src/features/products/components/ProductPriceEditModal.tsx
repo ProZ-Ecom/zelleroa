@@ -275,7 +275,7 @@ export function ProductPriceEditModal({
           </div>
         ) : (
           <div className="overflow-x-auto rounded-xl border border-cream-border max-h-[420px] overflow-y-auto scrollbar-thin">
-            <table className="w-full text-left text-sm border-collapse">
+            <table className="w-full min-w-full table-auto text-left text-sm border-collapse">
               <thead className="sticky top-0 z-20 bg-cream-50 text-[11px] font-bold text-neutral-400 uppercase tracking-wider border-b border-cream-border shadow-[0_1px_0_var(--cream-border)]">
                 <tr>
                   <th className="px-4 py-3 min-w-[220px]">Item / Pack</th>

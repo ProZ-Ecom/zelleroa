@@ -26,6 +26,8 @@ export interface GetAdminAttributesParams {
   page?: number;
   pageSize?: number;
   search?: string;
+  type?: AttributeType;
+  multipleSelection?: boolean;
 }
 
 /**

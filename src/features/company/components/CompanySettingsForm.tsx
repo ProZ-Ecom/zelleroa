@@ -322,7 +322,7 @@ export function CompanySettingsForm() {
             <Input
               value={formData.phone || ""}
               onChange={(e) => handleInputChange("phone", e.target.value)}
-              placeholder="Enter the primary phone or WhatsApp number"
+              placeholder="e.g. +91 9897567488"
             />
           </div>
 

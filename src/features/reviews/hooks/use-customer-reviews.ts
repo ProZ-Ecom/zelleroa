@@ -13,14 +13,29 @@ interface UseSubmitCustomerReviewOptions {
 }
 
 export function useReviewEligibility(params: {
+  orderItemId?: string | null;
   variantId?: string | null;
   productId?: string | null;
+  variantUnitPriceId?: string | null;
+  enabled?: boolean;
 }) {
-  const target = params.variantId || params.productId;
+  const target =
+    params.orderItemId ||
+    params.variantUnitPriceId ||
+    params.variantId ||
+    params.productId;
+  const isQueryEnabled = params.enabled !== undefined ? params.enabled && Boolean(target) : Boolean(target);
   return useQuery({
-    queryKey: ["reviews", "eligibility", params.variantId ?? null, params.productId ?? null],
+    queryKey: [
+      "reviews",
+      "eligibility",
+      params.orderItemId ?? null,
+      params.variantUnitPriceId ?? null,
+      params.variantId ?? null,
+      params.productId ?? null,
+    ],
     queryFn: () => customerReviewsApi.getEligibility(params),
-    enabled: Boolean(target),
+    enabled: isQueryEnabled,
     staleTime: 1000 * 30,
   });
 }
@@ -45,6 +60,7 @@ export function useSubmitCustomerReview(options?: UseSubmitCustomerReviewOptions
       queryClient.invalidateQueries({ queryKey: ["variants"] });
       queryClient.invalidateQueries({ queryKey: ["products"] });
       queryClient.invalidateQueries({ queryKey: ["reviews"] });
+      queryClient.invalidateQueries({ queryKey: ["customer", "orders"] });
 
       options?.onSuccess?.(data);
     },

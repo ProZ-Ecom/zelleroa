@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import { SquarePen, Check } from "lucide-react";
+import { Tooltip } from "@/features/agents/components/Tooltip";
 import { getImageUrl, formatPrice } from "@/lib/utils";
 import { ProductImage } from "@/components/common/ProductImage";
 import type { OrderItemResponse, OrderItemDisplay } from "../types";
@@ -8,11 +10,15 @@ import type { OrderItemResponse, OrderItemDisplay } from "../types";
 interface OrderItemsListProps {
   items: (OrderItemResponse | OrderItemDisplay)[];
   compact?: boolean;
+  isDelivered?: boolean;
+  onReviewItem?: (item: OrderItemResponse | OrderItemDisplay) => void;
 }
 
 export function OrderItemsList({
   items,
   compact = false,
+  isDelivered = false,
+  onReviewItem,
 }: OrderItemsListProps) {
   if (!items || items.length === 0) {
     return (
@@ -100,7 +106,7 @@ export function OrderItemsList({
             </div>
 
             {!compact && (
-              <div className="text-right shrink-0">
+              <div className="text-right shrink-0 flex flex-col items-end">
                 <p className="text-sm font-semibold">{formatPrice(totalPrice)}</p>
                 {discount > 0 && (
                   <p className="text-xs text-muted-foreground line-through">
@@ -115,6 +121,28 @@ export function OrderItemsList({
                 <p className="text-xs text-muted-foreground">
                   {formatPrice(unitPrice)} x {item.quantity}
                 </p>
+
+                {isDelivered && onReviewItem && (
+                  <div className="mt-2.5">
+                    {"isReviewed" in item && item.isReviewed ? (
+                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                        <Check className="w-3 h-3 text-emerald-600" />
+                        <span>Reviewed</span>
+                      </span>
+                    ) : (
+                      <Tooltip content="Write Review">
+                        <button
+                          type="button"
+                          aria-label="Write Review"
+                          onClick={() => onReviewItem(item)}
+                          className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200 transition-colors cursor-pointer shadow-2xs"
+                        >
+                          <SquarePen className="h-4 w-4" />
+                        </button>
+                      </Tooltip>
+                    )}
+                  </div>
+                )}
               </div>
             )}
           </div>

@@ -9,6 +9,7 @@ import { ClearFiltersButton } from "@/components/common/clear-filters-button";
 import { ExportButton } from "@/components/common/export-button";
 import { exportDataToCsv } from "@/lib/export-csv";
 import { formatDateTime } from "@/lib/utils";
+import { formatPhone } from "@/lib/utils/format-phone";
 import {
   REPLACEMENT_STATUSES,
   RETURN_SELECTABLE_STATUSES,
@@ -89,7 +90,7 @@ export function AdminRequestsTable({ kind }: { kind: RequestKind }) {
                 ReturnId: r.returnNumber || r.id.slice(0, 8).toUpperCase(),
                 OrderNumber: r.orderNumber,
                 Customer: r.customer.name,
-                CustomerContact: r.customer.phone || r.customer.email || "",
+                CustomerContact: formatPhone(r.customer.phone, "") || r.customer.email || "",
                 Products: r.items.map((i) => i.productName).join(", "),
                 Reason: r.reason,
                 RequestedAt: formatDateTime(r.requestedAt),
@@ -113,8 +114,8 @@ export function AdminRequestsTable({ kind }: { kind: RequestKind }) {
       </form>
 
       <div className="min-h-0 flex-1 overflow-auto scrollbar-table rounded-xl border border-cream-border-subtle bg-white">
-        <table className="w-full min-w-[900px] text-left text-xs">
-          <thead className="sticky top-0 z-10 bg-stone-900 text-[11px] font-bold uppercase tracking-wider text-[#D4AF37] border-b border-stone-800 shadow-[0_1px_3px_rgba(28,25,23,0.2)]">
+        <table className="w-full min-w-full table-auto text-left text-xs">
+          <thead className="sticky top-0 z-10 bg-stone-900 text-[11px] font-bold uppercase tracking-wider text-[#D4AF37] border-b border-stone-800 shadow-[0_1px_3px_rgba(28,25,23,0.2)] whitespace-nowrap">
             <tr>
               <th className="px-3 py-2.5">Request</th>
               <th className="px-3 py-2.5">Order</th>
@@ -175,7 +176,7 @@ export function AdminRequestsTable({ kind }: { kind: RequestKind }) {
                 <td className="px-3 py-2.5 font-mono font-semibold">{r.orderNumber}</td>
                 <td className="px-3 py-2.5">
                   <div className="font-semibold">{r.customer.name}</div>
-                  <div className="text-neutral-500">{r.customer.phone || r.customer.email}</div>
+                  <div className="text-neutral-500">{formatPhone(r.customer.phone, "") || r.customer.email}</div>
                 </td>
                 <td className="px-3 py-2.5">
                   {r.items.map((i) => (

@@ -62,7 +62,7 @@ export const COURIERS: readonly CourierDefinition[] = [
 
 export const COURIER_CODES = COURIERS.map((c) => c.code) as [string, ...string[]];
 
-export const DEFAULT_COURIER_CODE = "INDIA_POST";
+export const DEFAULT_COURIER_CODE = "ST_COURIER";
 
 export function getCourier(code?: string | null): CourierDefinition | undefined {
   return COURIERS.find((c) => c.code === code);

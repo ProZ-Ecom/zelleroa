@@ -233,7 +233,7 @@ const numberField = (name: NumericField) => {
 
   return (
     <div className="flex flex-1 min-h-0 flex-col">
-      <AdminBreadcrumb items={[{ label: "Coupons" }]} />
+      
       <AdminPageHeader
         title="Coupons"
         description="Manage discount coupons"
@@ -332,7 +332,7 @@ const numberField = (name: NumericField) => {
             )}
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Type <span className="text-error-600">*</span>
@@ -367,7 +367,7 @@ const numberField = (name: NumericField) => {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Min Order Amount
@@ -412,7 +412,7 @@ const numberField = (name: NumericField) => {
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Starts At

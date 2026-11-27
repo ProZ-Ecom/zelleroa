@@ -4,6 +4,7 @@ import { MapPin, Pencil, Trash2, Star, Check } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { formatPhone } from "@/lib/utils/format-phone";
 import type { AddressItem } from "../types";
 
 interface AddressCardProps {
@@ -93,7 +94,7 @@ export function AddressCard({
       </div>
 
       <p className="mt-2 text-sm text-muted-foreground">{formatAddress(address)}</p>
-      <p className="mt-1 text-xs text-muted-foreground">Mobile: {address.phone}</p>
+      <p className="mt-1 text-xs text-muted-foreground">Mobile: {formatPhone(address.phone)}</p>
 
       <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2">

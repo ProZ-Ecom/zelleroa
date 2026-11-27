@@ -132,13 +132,25 @@ export default function AdminStylesPage() {
       accessorKey: "colors",
       header: "Color",
       cell: ({ row }) => {
-        const colors = row.original.colors ?? [];
+        const colors = (row.original.colors ?? []).filter(Boolean);
         if (!colors.length) {
           return <span className="text-[var(--color-neutral-400)]">—</span>;
         }
+        if (colors.length <= 2) {
+          return (
+            <span className="text-[var(--color-neutral-700)] text-sm">
+              {colors.join(", ")}
+            </span>
+          );
+        }
+        const visibleColors = colors.slice(0, 2);
+        const remainingCount = colors.length - 2;
         return (
-          <span className="text-[var(--color-neutral-700)] text-sm">
-            {colors.join(", ")}
+          <span className="text-[var(--color-neutral-700)] text-sm inline-flex items-center flex-wrap gap-1" title={colors.join(", ")}>
+            <span>{visibleColors.join(", ")}</span>
+            <span className="text-xs font-semibold text-secondary-600 bg-secondary-50 px-1.5 py-0.5 rounded border border-secondary-200/60 whitespace-nowrap cursor-help">
+              (+{remainingCount} more)
+            </span>
           </span>
         );
       },

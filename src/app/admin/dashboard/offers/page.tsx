@@ -463,17 +463,62 @@ export default function AdminOffersPage() {
         <div className="flex h-full flex-col rounded-2xl bg-[var(--color-background)] py-1">
           {/* Filters */}
           <div className="flex-shrink-0 space-y-3">
-            <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
-              <SearchInput
-                placeholder="Search offers by name or code..."
-                value={filters.search}
-                onSearch={(value) => setFilter("search", value)}
-                className="w-full max-w-md"
-              />
-              {hasActiveFilters && <ClearFiltersButton onClick={clearFilters} />}
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+              <div className="flex flex-1 flex-wrap items-center gap-3">
+                <SearchInput
+                  placeholder="Search offers by name or code..."
+                  value={filters.search}
+                  onSearch={(value) => setFilter("search", value)}
+                  className="w-full sm:w-64 md:w-80"
+                />
+
+                <div className="flex flex-wrap items-center gap-2">
+                  <div className="flex items-center gap-1.5">
+                    <Label
+                      htmlFor="offer-from"
+                      className="text-xs font-medium text-neutral-500 whitespace-nowrap cursor-pointer"
+                    >
+                      From:
+                    </Label>
+                    <div className="w-36 sm:w-40">
+                      <Input
+                        id="offer-from"
+                        type="date"
+                        value={filters.startDate}
+                        max={filters.endDate || undefined}
+                        onChange={(e) => setFilter("startDate", e.target.value)}
+                        className="h-11 rounded-xl text-xs sm:text-sm"
+                        aria-label="Filter offers from date"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-1.5">
+                    <Label
+                      htmlFor="offer-to"
+                      className="text-xs font-medium text-neutral-500 whitespace-nowrap cursor-pointer"
+                    >
+                      To:
+                    </Label>
+                    <div className="w-36 sm:w-40">
+                      <Input
+                        id="offer-to"
+                        type="date"
+                        value={filters.endDate}
+                        min={filters.startDate || undefined}
+                        onChange={(e) => setFilter("endDate", e.target.value)}
+                        className="h-11 rounded-xl text-xs sm:text-sm"
+                        aria-label="Filter offers to date"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {hasActiveFilters && <ClearFiltersButton onClick={clearFilters} />}
+              </div>
             </div>
 
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
+            <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
               <Select
                 value={filters.level}
                 options={[{ value: "", label: "All levels" }, ...OFFER_LEVEL_OPTIONS]}
@@ -525,32 +570,6 @@ export default function AdminOffersPage() {
                 className="h-11 rounded-xl"
                 onValueChange={(value) => setFilter("productId", value)}
               />
-              <div className="flex items-end gap-2">
-                <div className="flex-1">
-                  <Label htmlFor="offer-from" className="text-[11px] text-neutral-500">
-                    From
-                  </Label>
-                  <Input
-                    id="offer-from"
-                    type="date"
-                    value={filters.startDate}
-                    onChange={(e) => setFilter("startDate", e.target.value)}
-                    className="h-11 rounded-xl"
-                  />
-                </div>
-                <div className="flex-1">
-                  <Label htmlFor="offer-to" className="text-[11px] text-neutral-500">
-                    To
-                  </Label>
-                  <Input
-                    id="offer-to"
-                    type="date"
-                    value={filters.endDate}
-                    onChange={(e) => setFilter("endDate", e.target.value)}
-                    className="h-11 rounded-xl"
-                  />
-                </div>
-              </div>
             </div>
           </div>
 

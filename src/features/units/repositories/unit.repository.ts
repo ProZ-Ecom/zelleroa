@@ -64,6 +64,12 @@ export const unitRepository = {
       where.type = params.type;
     }
 
+    if (params.hierarchy === "base") {
+      where.base_unit_id = null;
+    } else if (params.hierarchy === "derived") {
+      where.base_unit_id = { not: null };
+    }
+
     if (params.search) {
       where.OR = [
         { name: { contains: params.search } },

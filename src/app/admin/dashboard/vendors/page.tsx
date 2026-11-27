@@ -14,6 +14,7 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { FormModal } from "@/components/common/FormModal";
 import { ExportButton } from "@/components/common/export-button";
 import { exportDataToCsv } from "@/lib/export-csv";
+import { formatPhone } from "@/lib/utils/format-phone";
 import { SearchInput } from "@/components/ui/search-input";
 import { useVendors, useVendorMutations } from "@/features/purchases/hooks";
 import { VendorForm } from "@/features/purchases/components/VendorForm";
@@ -56,14 +57,33 @@ export default function VendorsPage() {
     {
       accessorKey: "contactPerson",
       header: "Contact",
-      cell: ({ row }) => (
-        <div className="text-sm text-[var(--color-neutral-700)]">
-          <p>{row.original.contactPerson || "—"}</p>
-          <p className="text-xs text-[var(--color-neutral-500)]">
-            {[row.original.phone, row.original.email].filter(Boolean).join(" · ")}
-          </p>
-        </div>
-      ),
+      cell: ({ row }) => {
+        const contactPerson = row.original.contactPerson?.trim();
+        const contactInfo = [formatPhone(row.original.phone), row.original.email?.trim()]
+          .filter((v) => Boolean(v) && v !== "—")
+          .join(" · ");
+
+        if (!contactPerson && !contactInfo) {
+          return <span className="text-sm text-[var(--color-neutral-500)]">—</span>;
+        }
+
+        return (
+          <div className="text-sm text-[var(--color-neutral-700)]">
+            {contactPerson && <p className="font-medium">{contactPerson}</p>}
+            {contactInfo && (
+              <p
+                className={
+                  contactPerson
+                    ? "text-xs text-[var(--color-neutral-500)]"
+                    : "text-sm text-[var(--color-neutral-700)]"
+                }
+              >
+                {contactInfo}
+              </p>
+            )}
+          </div>
+        );
+      },
     },
     {
       accessorKey: "gstin",
@@ -148,7 +168,7 @@ export default function VendorsPage() {
                       { header: "Vendor Name", accessor: (v) => v.name },
                       { header: "Vendor Code", accessor: (v) => v.code },
                       { header: "Contact Person", accessor: (v) => v.contactPerson || "—" },
-                      { header: "Phone", accessor: (v) => v.phone || "—" },
+                      { header: "Phone", accessor: (v) => formatPhone(v.phone, "—") },
                       { header: "Email", accessor: (v) => v.email || "—" },
                       { header: "GSTIN", accessor: (v) => v.gstin || "—" },
                       { header: "Address", accessor: (v) => v.address || "—" },

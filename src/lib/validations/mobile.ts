@@ -10,7 +10,8 @@ export const MOBILE_INVALID_MESSAGE =
 export function getMobileError(raw: string): string | null {
   const val = raw.trim();
   if (!val) return "Mobile number is required";
-  return MOBILE_REGEX.test(val) ? null : MOBILE_INVALID_MESSAGE;
+  const clean = val.replace(/^(\+91|91)/, "").replace(/[\s-]/g, "");
+  return MOBILE_REGEX.test(clean) ? null : MOBILE_INVALID_MESSAGE;
 }
 
 /**
@@ -24,7 +25,10 @@ export const mobileInputField = z
     const message = getMobileError(val);
     if (message) ctx.addIssue({ code: "custom", message });
   })
-  .transform((val) => `+91${val}`);
+  .transform((val) => {
+    const clean = val.replace(/^(\+91|91)/, "").replace(/[\s-]/g, "");
+    return `+91${clean}`;
+  });
 
 /**
  * Same rule, but also accepts a value already in stored "+91XXXXXXXXXX" form
@@ -34,8 +38,10 @@ export const mobileStoredOrInputField = z
   .string({ message: "Mobile number is required" })
   .trim()
   .superRefine((val, ctx) => {
-    if (STORED_MOBILE_REGEX.test(val)) return;
     const message = getMobileError(val);
     if (message) ctx.addIssue({ code: "custom", message });
   })
-  .transform((val) => (MOBILE_REGEX.test(val) ? `+91${val}` : val));
+  .transform((val) => {
+    const clean = val.replace(/^(\+91|91)/, "").replace(/[\s-]/g, "");
+    return `+91${clean}`;
+  });

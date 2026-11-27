@@ -222,9 +222,10 @@ export default function ValuationPage() {
       <AdminContent className="flex-1 min-h-0">
         <div className="flex h-full flex-col py-1">
           <div className="flex-shrink-0 space-y-4">
-            <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-              <div className="flex flex-wrap items-center gap-3">
-                <div className="inline-flex rounded-lg border border-[var(--color-neutral-200)] bg-white p-0.5">
+            <div className="flex flex-col gap-3">
+              {/* Row 1: Mode Switcher */}
+              <div className="flex items-center">
+                <div className="inline-flex rounded-lg border border-[var(--color-neutral-200)] bg-white p-0.5 shrink-0">
                   {(
                     [
                       ["stock", "Stock valuation"],
@@ -245,46 +246,55 @@ export default function ValuationPage() {
                     </button>
                   ))}
                 </div>
+              </div>
 
-                <Select
-                  value={groupBy}
-                  onValueChange={(v) => setGroupBy(v as ValuationGroupBy)}
-                  options={[
-                    { value: "category", label: "By category" },
-                    { value: "brand", label: "By brand" },
-                  ]}
-                  className="w-40"
-                  aria-label="Group rows by"
-                />
-                <Select
-                  value={categorySlug}
-                  onValueChange={setCategorySlug}
-                  options={[
-                    { value: "", label: "All categories" },
-                    ...(categoryData?.data ?? []).map((c) => ({ value: c.slug, label: c.name })),
-                  ]}
-                  className="w-44"
-                  aria-label="Filter by category"
-                />
-                <Select
-                  value={brandSlug}
-                  onValueChange={setBrandSlug}
-                  options={[
-                    { value: "", label: "All brands" },
-                    ...(brandData?.data ?? []).map((b) => ({ value: b.slug, label: b.name })),
-                  ]}
-                  className="w-40"
-                  aria-label="Filter by brand"
-                />
+              {/* Row 2: Select Filters & Export Button in single line on left */}
+              <div className="flex flex-wrap items-center gap-3">
+                <div className="w-36 sm:w-40 shrink-0">
+                  <Select
+                    value={groupBy}
+                    onValueChange={(v) => setGroupBy(v as ValuationGroupBy)}
+                    options={[
+                      { value: "category", label: "By category" },
+                      { value: "brand", label: "By brand" },
+                    ]}
+                    className="w-full"
+                    aria-label="Group rows by"
+                  />
+                </div>
+                <div className="w-40 sm:w-48 shrink-0">
+                  <Select
+                    value={categorySlug}
+                    onValueChange={setCategorySlug}
+                    options={[
+                      { value: "", label: "All categories" },
+                      ...(categoryData?.data ?? []).map((c) => ({ value: c.slug, label: c.name })),
+                    ]}
+                    className="w-full"
+                    aria-label="Filter by category"
+                  />
+                </div>
+                <div className="w-36 sm:w-40 shrink-0">
+                  <Select
+                    value={brandSlug}
+                    onValueChange={setBrandSlug}
+                    options={[
+                      { value: "", label: "All brands" },
+                      ...(brandData?.data ?? []).map((b) => ({ value: b.slug, label: b.name })),
+                    ]}
+                    className="w-full"
+                    aria-label="Filter by brand"
+                  />
+                </div>
 
                 {view === "sales" && (
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 shrink-0">
                     <Input
                       type="date"
                       value={from}
                       max={to}
                       onChange={(e) => setFrom(e.target.value)}
-                      className="w-40"
+                      className="w-36 sm:w-40"
                       aria-label="From date"
                     />
                     <span className="text-xs text-[var(--color-neutral-500)]">to</span>
@@ -293,11 +303,15 @@ export default function ValuationPage() {
                       value={to}
                       min={from}
                       onChange={(e) => setTo(e.target.value)}
-                      className="w-40"
+                      className="w-36 sm:w-40"
                       aria-label="To date"
                     />
                   </div>
                 )}
+
+                <div className="shrink-0">
+                  <ExportButton onClick={exportRows} disabled={(active.data?.rows.length ?? 0) === 0} />
+                </div>
 
                 {hasFilters && (
                   <ClearFiltersButton
@@ -308,12 +322,10 @@ export default function ValuationPage() {
                   />
                 )}
               </div>
-
-              <ExportButton onClick={exportRows} disabled={(active.data?.rows.length ?? 0) === 0} />
             </div>
 
             {view === "stock" && stockTotals && (
-              <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 lg:grid-cols-4">
                 <StatTile
                   label="Stock at cost"
                   value={money(stockTotals.costValue)}
@@ -333,7 +345,7 @@ export default function ValuationPage() {
             )}
 
             {view === "sales" && salesTotals && (
-              <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 lg:grid-cols-4">
                 <StatTile
                   label="Revenue"
                   value={money(salesTotals.revenue)}

@@ -20,6 +20,8 @@ import {
   Calendar,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { toast } from "@/components/ui/Toast";
 
 interface CampaignItem {
   id: string;
@@ -44,6 +46,8 @@ export default function WhatsAppCampaignsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [filterStatus, setFilterStatus] = useState<string>("ALL");
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
+  const [campaignToDelete, setCampaignToDelete] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const loadCampaigns = React.useCallback(async (showSpinner = false) => {
     if (showSpinner) setIsLoading(true);
@@ -99,36 +103,37 @@ export default function WhatsAppCampaignsPage() {
       if (json.success) {
         await loadCampaigns(false);
       } else {
-        alert(json.message || "Failed to perform action");
+        toast.error("Action failed", json.message || "Failed to perform action");
       }
     } catch (err: unknown) {
-      alert((err as Error)?.message || "Action failed");
+      toast.error("Action failed", (err as Error)?.message || "Action failed");
     } finally {
       setActionLoadingId(null);
     }
   };
 
   // Delete Campaign
-  const handleDelete = async (campaignId: string) => {
-    if (!confirm("Are you sure you want to delete this campaign? This action cannot be undone.")) {
-      return;
-    }
-
-    setActionLoadingId(`${campaignId}-DELETE`);
+  const confirmDelete = async () => {
+    if (!campaignToDelete) return;
+    setIsDeleting(true);
+    setActionLoadingId(`${campaignToDelete}-DELETE`);
     try {
-      const res = await fetch(`/api/admin/whatsapp/campaigns/${campaignId}`, {
+      const res = await fetch(`/api/admin/whatsapp/campaigns/${campaignToDelete}`, {
         method: "DELETE",
       });
       const json = await res.json();
       if (json.success) {
-        setCampaigns((prev) => prev.filter((c) => c.id !== campaignId));
+        setCampaigns((prev) => prev.filter((c) => c.id !== campaignToDelete));
+        toast.success("Campaign deleted", "The campaign has been deleted successfully.");
+        setCampaignToDelete(null);
       } else {
-        alert(json.message || "Failed to delete campaign");
+        toast.error("Failed to delete campaign", json.message || "Failed to delete campaign");
       }
     } catch (err: unknown) {
-      alert((err as Error)?.message || "Delete failed");
+      toast.error("Delete failed", (err as Error)?.message || "Delete failed");
     } finally {
       setActionLoadingId(null);
+      setIsDeleting(false);
     }
   };
 
@@ -153,7 +158,7 @@ export default function WhatsAppCampaignsPage() {
       <WhatsAppNavTabs />
 
       {/* Metric Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="bg-white rounded-2xl border border-neutral-200/80 p-5 shadow-xs flex items-center gap-4">
           <div className="h-11 w-11 rounded-xl bg-secondary-50 text-secondary-600 flex items-center justify-center">
             <Send className="h-5 w-5" />
@@ -434,7 +439,7 @@ export default function WhatsAppCampaignsPage() {
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => handleDelete(camp.id)}
+                      onClick={() => setCampaignToDelete(camp.id)}
                       disabled={actionLoadingId === `${camp.id}-DELETE`}
                       className="h-8 text-xs text-red-500 hover:text-red-700 hover:bg-red-50 p-2"
                     >
@@ -447,6 +452,17 @@ export default function WhatsAppCampaignsPage() {
           })}
         </div>
       )}
+
+      <ConfirmDialog
+        open={!!campaignToDelete}
+        onClose={() => setCampaignToDelete(null)}
+        onConfirm={confirmDelete}
+        title="Delete Campaign"
+        description="Are you sure you want to delete this campaign? This action cannot be undone."
+        confirmText="Delete"
+        variant="destructive"
+        isLoading={isDeleting}
+      />
     </div>
   );
 }

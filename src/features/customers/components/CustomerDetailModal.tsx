@@ -18,6 +18,7 @@ import {
   Clock,
 } from "lucide-react";
 import type { AdminCustomerListItemDto } from "../types/admin-customer.types";
+import { formatPhone } from "@/lib/utils/format-phone";
 
 interface CustomerDetailModalProps {
   customer: AdminCustomerListItemDto | null;
@@ -193,7 +194,7 @@ export function CustomerDetailModal({
               <div>
                 <p className="text-xs text-neutral-500">Phone Number</p>
                 <p className="font-medium text-neutral-900">
-                  {customer.phone || "-"}
+                  {formatPhone(customer.phone, "-")}
                 </p>
               </div>
             </div>
@@ -203,7 +204,7 @@ export function CustomerDetailModal({
               <div>
                 <p className="text-xs text-neutral-500">WhatsApp Number</p>
                 <p className="font-medium text-neutral-900">
-                  {customer.whatsappNo || customer.phone || "-"}
+                  {formatPhone(customer.whatsappNo || customer.phone, "-")}
                 </p>
               </div>
             </div>

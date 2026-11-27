@@ -17,6 +17,7 @@ export const GET = createApiHandler(
         pageSize: query?.pageSize ?? 10,
         search: query?.search,
         type: query?.type,
+        hierarchy: query?.hierarchy,
       });
 
       return apiSuccess(result.data, "Units fetched successfully", 200, result.meta);

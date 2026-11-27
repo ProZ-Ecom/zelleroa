@@ -23,6 +23,7 @@ import {
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
 import { formatDateTime, formatPrice } from "@/lib/utils";
+import { formatPhone } from "@/lib/utils/format-phone";
 import {
   useStaffDelivery,
   useAcceptDelivery,
@@ -223,7 +224,7 @@ export function StaffDeliveryDetailModal({
                     <span className="text-xs text-neutral-400">Phone Number</span>
                     <div className="flex items-center gap-2">
                       <p className="font-mono font-medium text-neutral-900">
-                        {customer?.phone || "—"}
+                        {formatPhone(customer?.phone)}
                       </p>
                       {customer?.phone && (
                         <button

@@ -383,7 +383,7 @@ export function PosSalesView({ showHeader = false }: PosSalesViewProps) {
           </div>
         ) : (
           <div className="overflow-x-auto scrollbar-table">
-            <table className="w-full min-w-[1100px] table-auto caption-bottom text-sm border-separate border-spacing-0">
+            <table className="w-full min-w-full table-auto caption-bottom text-sm border-separate border-spacing-0">
               <thead className="sticky top-0 z-10 bg-stone-900 text-[#D4AF37] border-b border-stone-800 shadow-[0_1px_3px_rgba(28,25,23,0.2)]">
                 <tr>
                   <th className="h-12 px-4 sm:px-5 text-left align-middle text-[11px] font-bold uppercase tracking-[0.08em] whitespace-nowrap text-[#D4AF37] bg-stone-900 border-b border-stone-800 shadow-[0_1px_3px_rgba(28,25,23,0.2)]">

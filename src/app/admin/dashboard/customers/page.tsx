@@ -453,7 +453,7 @@ export default function AdminCustomersPage() {
       />
 
       {/* KPI Summary Cards from Count API */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 flex-shrink-0">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 flex-shrink-0">
         <StatsCard
           title="Total Customers"
           value={isLoadingCounts ? "—" : (customerCounts?.all ?? 0)}
@@ -577,7 +577,7 @@ export default function AdminCustomersPage() {
                   [
                     { header: "Name", accessor: (c) => c.name },
                     { header: "Email", accessor: (c) => c.email || "-" },
-                    { header: "Phone", accessor: (c) => c.phone || "-" },
+                    { header: "Phone", accessor: (c) => formatPhone(c.phone, "-") },
                     { header: "Status", accessor: (c) => (c.isActive ? "Active" : "Inactive") },
                     { header: "Email Verified", accessor: (c) => (c.emailVerified ? "Yes" : "No") },
                     { header: "Phone Verified", accessor: (c) => (c.phoneVerified ? "Yes" : "No") },

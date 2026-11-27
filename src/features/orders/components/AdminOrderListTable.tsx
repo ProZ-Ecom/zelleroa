@@ -28,6 +28,7 @@ import { FormModal } from "@/components/common/FormModal";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { SearchInput } from "@/components/ui/search-input";
 import { Select } from "@/components/ui/select";
+import { formatPhone } from "@/lib/utils/format-phone";
 import { ClearFiltersButton } from "@/components/common/clear-filters-button";
 import { ExportButton } from "@/components/common/export-button";
 import { exportDataToCsv } from "@/lib/export-csv";
@@ -220,7 +221,7 @@ export function AdminOrderListTable({
               {customer?.name || "Customer"}
             </div>
             <div className="text-[11px] text-neutral-400 font-mono truncate">
-              {customer?.phone ||
+              {formatPhone(customer?.phone, "") ||
                 customer?.email ||
                 (customer?.customerId ? `ID: ${customer.customerId}` : "—")}
             </div>
@@ -310,7 +311,7 @@ export function AdminOrderListTable({
                   {staff.name}
                 </div>
                 <div className="text-[10.5px] text-neutral-500 font-mono truncate">
-                  {staff.phone || staff.email || "Staff"}
+                  {formatPhone(staff.phone, "") || staff.email || "Staff"}
                 </div>
               </div>
             </div>
@@ -740,7 +741,7 @@ export function AdminOrderListTable({
                 [
                   { header: "Order Number", accessor: (o) => o.orderNumber },
                   { header: "Customer", accessor: (o) => o.customer?.name || "-" },
-                  { header: "Phone", accessor: (o) => o.customer?.phone || "-" },
+                  { header: "Phone", accessor: (o) => formatPhone(o.customer?.phone, "-") },
                   { header: "Email", accessor: (o) => o.customer?.email || "-" },
                   { header: "Items Count", accessor: (o) => o.totalItems },
                   { header: "Total (₹)", accessor: (o) => Number(o.totalAmount || 0).toFixed(2) },
@@ -1059,7 +1060,7 @@ export function AdminOrderListTable({
         open={!!courierOrder}
         onClose={() => setCourierOrder(null)}
         title={`Ship via Courier${courierOrder ? ` - ${courierOrder.orderNumber}` : ""}`}
-        description="Pick the courier and enter the tracking number from the booking receipt."
+        description="Enter the ST Courier tracking number and invoice number from the booking receipt."
         size="sm"
         bodyClassName="overflow-visible"
         footer={
@@ -1083,7 +1084,7 @@ export function AdminOrderListTable({
                 shipViaCourier.mutate(
                   {
                     orderId: courierOrder.id,
-                    courier: courierCode,
+                    courier: "ST_COURIER",
                     trackingNumber: consignmentNumber.trim().toUpperCase(),
                     invoiceNumber: courierInvoiceNumber.trim(),
                   },
@@ -1091,7 +1092,7 @@ export function AdminOrderListTable({
                     onSuccess: () => {
                       toast.success(
                         "Order Shipped",
-                        `Order ${courierOrder.orderNumber} has been marked as shipped.`
+                        `Order ${courierOrder.orderNumber} has been marked as shipped via ST Courier.`
                       );
                       setCourierOrder(null);
                       setConsignmentNumber("");
@@ -1120,20 +1121,17 @@ export function AdminOrderListTable({
             <label className="block text-xs font-semibold text-neutral-700">
               Courier Partner
             </label>
-            <Select
-              portal={true}
-              value={courierCode}
-              onValueChange={(val) => setCourierCode(val)}
-              onChange={(e) => setCourierCode(e.target.value)}
-              options={COURIERS.map((c) => ({ value: c.code, label: c.name }))}
-            />
+            <div className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-sm font-semibold text-slate-800">
+              <span className="w-2 h-2 rounded-full bg-blue-600 shrink-0" />
+              <span>ST Courier</span>
+            </div>
           </div>
           <div className="space-y-1.5">
             <label className="block text-xs font-semibold text-neutral-700">
-              Tracking / Consignment Number
+              Tracking / Consignment Number <span className="text-red-500">*</span>
             </label>
             <Input
-              placeholder={getCourier(courierCode)?.placeholder}
+              placeholder="Docket / consignment number"
               value={consignmentNumber}
               onChange={(e) => setConsignmentNumber(e.target.value)}
               maxLength={50}

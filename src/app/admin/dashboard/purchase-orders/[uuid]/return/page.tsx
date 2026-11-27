@@ -121,9 +121,9 @@ export default function NewPurchaseReturnPage() {
             </div>
           </div>
 
-          <div className="overflow-x-auto rounded-2xl bg-white">
-            <table className="w-full text-sm">
-              <thead className="bg-neutral-50 text-left text-xs uppercase text-neutral-500">
+          <div className="overflow-x-auto rounded-2xl bg-white scrollbar-thin">
+            <table className="w-full min-w-full table-auto text-sm">
+              <thead className="bg-neutral-50 text-left text-xs uppercase text-neutral-500 whitespace-nowrap">
                 <tr>
                   <th className="px-4 py-3">Product</th>
                   <th className="px-4 py-3">Received</th>

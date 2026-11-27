@@ -19,7 +19,14 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { WHATSAPP_TEMPLATES } from "@/lib/whatsapp/whatsapp-utils";
+import { toast } from "@/components/ui/Toast";
+import {
+  MOBILE_REGEX,
+  STORED_MOBILE_REGEX,
+  MOBILE_INVALID_MESSAGE,
+} from "@/lib/validations/mobile";
 
 interface WhatsAppStatusData {
   status: "DISCONNECTED" | "PAIRING" | "CONNECTED";
@@ -42,13 +49,29 @@ export default function AdminWhatsAppPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isConnecting, setIsConnecting] = useState(false);
   const [isDisconnecting, setIsDisconnecting] = useState(false);
+  const [showDisconnectConfirm, setShowDisconnectConfirm] = useState(false);
 
   // Message Sender State
   const [recipientPhone, setRecipientPhone] = useState("");
+  const [phoneError, setPhoneError] = useState<string | null>(null);
   const [messageText, setMessageText] = useState("");
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
   const [isSending, setIsSending] = useState(false);
   const [sendResult, setSendResult] = useState<{ success: boolean; message: string } | null>(null);
+
+  const validateRecipientPhone = (raw: string): string | null => {
+    const val = raw.trim();
+    if (!val) return "Recipient phone number is required";
+    const clean = val.replace(/[\s-]/g, "");
+    if (STORED_MOBILE_REGEX.test(clean) || MOBILE_REGEX.test(clean)) {
+      return null;
+    }
+    const digits = clean.replace(/\D/g, "");
+    if (!clean.startsWith("+91") && digits.length !== 10) {
+      return "Phone number must be a 10-digit mobile number";
+    }
+    return MOBILE_INVALID_MESSAGE;
+  };
 
   // Fetch status
   const loadStatus = React.useCallback(async (showSpinner = false) => {
@@ -110,10 +133,6 @@ export default function AdminWhatsAppPage() {
 
   // Disconnect
   const handleDisconnect = async () => {
-    if (!confirm("Are you sure you want to log out and disconnect your WhatsApp session?")) {
-      return;
-    }
-
     setIsDisconnecting(true);
     setSendResult(null);
     try {
@@ -128,6 +147,7 @@ export default function AdminWhatsAppPage() {
           user: null,
           errorMessage: null,
         });
+        setShowDisconnectConfirm(false);
       }
     } catch (err) {
       console.error("Failed to disconnect WhatsApp:", err);
@@ -145,11 +165,16 @@ export default function AdminWhatsAppPage() {
   // Send Message
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!recipientPhone.trim()) {
-      setSendResult({ success: false, message: "Please enter a valid recipient phone number." });
+    const phoneErr = validateRecipientPhone(recipientPhone);
+    if (phoneErr) {
+      setPhoneError(phoneErr);
+      toast.error("Validation error", phoneErr);
       return;
     }
+    setPhoneError(null);
+
     if (!messageText.trim()) {
+      toast.error("Validation error", "Message content is required");
       setSendResult({ success: false, message: "Please type a message to send." });
       return;
     }
@@ -169,6 +194,7 @@ export default function AdminWhatsAppPage() {
 
       const json = await res.json();
       if (json.success) {
+        toast.success("WhatsApp message sent", `Message sent successfully to ${recipientPhone}!`);
         setSendResult({
           success: true,
           message: `Message sent successfully to ${recipientPhone}!`,
@@ -176,12 +202,14 @@ export default function AdminWhatsAppPage() {
         setMessageText("");
         setSelectedTemplateId(null);
       } else {
+        toast.error("Failed to send message", json.message || "Failed to deliver message via WhatsApp.");
         setSendResult({
           success: false,
           message: json.message || "Failed to deliver message via WhatsApp.",
         });
       }
     } catch (err: unknown) {
+      toast.error("Error", (err as Error)?.message || "An unexpected error occurred while sending.");
       setSendResult({
         success: false,
         message: (err as Error)?.message || "An unexpected error occurred while sending.",
@@ -294,7 +322,7 @@ export default function AdminWhatsAppPage() {
                 <Button
                   variant="destructive"
                   size="md"
-                  onClick={handleDisconnect}
+                  onClick={() => setShowDisconnectConfirm(true)}
                   disabled={isDisconnecting}
                   className="w-full gap-2 text-xs font-semibold"
                 >
@@ -369,7 +397,7 @@ export default function AdminWhatsAppPage() {
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={handleDisconnect}
+                    onClick={() => setShowDisconnectConfirm(true)}
                     disabled={isDisconnecting}
                     className="text-xs text-red-600 hover:text-red-700"
                   >
@@ -485,17 +513,22 @@ export default function AdminWhatsAppPage() {
               {/* Phone Input */}
               <div className="space-y-1.5">
                 <label className="text-xs font-semibold text-neutral-700">
-                  Recipient Phone Number:
+                  Recipient Phone Number: <span className="text-red-500 font-bold">*</span>
                 </label>
-                <div className="relative">
-                  <Input
-                    type="tel"
-                    placeholder="e.g. 9876543210 or +919876543210"
-                    value={recipientPhone}
-                    onChange={(e) => setRecipientPhone(e.target.value)}
-                    className="font-mono text-sm h-11"
-                  />
-                </div>
+                <Input
+                  type="tel"
+                  inputMode="numeric"
+                  placeholder="e.g. 9876543210 or +919876543210"
+                  maxLength={15}
+                  value={recipientPhone}
+                  onChange={(e) => {
+                    const val = e.target.value.replace(/[^\d+\s-]/g, "").slice(0, 15);
+                    setRecipientPhone(val);
+                    if (phoneError) setPhoneError(null);
+                  }}
+                  error={phoneError ?? undefined}
+                  className="font-mono text-sm h-11"
+                />
                 <p className="text-[11px] text-neutral-500">
                   Indian 10-digit mobile numbers are automatically formatted with +91 country code.
                 </p>
@@ -551,6 +584,7 @@ export default function AdminWhatsAppPage() {
                     setMessageText("");
                     setSelectedTemplateId(null);
                     setSendResult(null);
+                    setPhoneError(null);
                   }}
                   className="text-xs text-neutral-500"
                 >
@@ -576,6 +610,17 @@ export default function AdminWhatsAppPage() {
           </div>
         </div>
       </div>
+
+      <ConfirmDialog
+        open={showDisconnectConfirm}
+        onClose={() => setShowDisconnectConfirm(false)}
+        onConfirm={handleDisconnect}
+        title="Disconnect WhatsApp"
+        description="Are you sure you want to log out and disconnect your WhatsApp session?"
+        confirmText="Disconnect"
+        variant="destructive"
+        isLoading={isDisconnecting}
+      />
     </div>
   );
 }

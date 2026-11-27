@@ -6,6 +6,7 @@ import { useUpdateCustomerProfile } from "../../hooks/use-customer-profile";
 
 import { updateCustomerProfileSchema } from "../../validations/customer-profile.schema";
 import { CustomDropdown } from "./CustomDropdown";
+import { formatPhone } from "@/lib/utils/format-phone";
 
 interface ProfileDetailsTabProps {
   profile?: CustomerProfileResponse | null;
@@ -188,9 +189,9 @@ export function ProfileDetailsTab({
             </span>
             <input
               type="tel"
-              value={phone}
+              value={formatPhone(phone, "")}
               readOnly
-              placeholder="Registered mobile number"
+              placeholder="+91 9897567488"
               className="border border-theme-border-input rounded-lg px-3.5 py-3 text-xs sm:text-sm text-theme-text-primary bg-theme-surface-alt cursor-not-allowed min-h-[44px]"
             />
           </label>
@@ -265,7 +266,7 @@ export function ProfileDetailsTab({
                   type="tel"
                   value={whatsappNo}
                   onChange={(e) => handleFieldChange(setWhatsappNo, "whatsappNo", e.target.value)}
-                  placeholder="+91 WhatsApp Number"
+                  placeholder="+91 9897567488"
                   className={`border rounded-lg px-3.5 py-2.5 text-xs text-theme-text-primary bg-theme-surface-warm focus:border-theme-primary transition-colors ${
                     fieldErrors.whatsappNo ? "border-red-500 bg-red-50/20" : "border-theme-border-input"
                   }`}
